@@ -61,13 +61,24 @@ None currently reported. Please submit issues on our GitHub repository.
 
 ## Release Notes
 
-### 1.0.0
+### 0.1.0
 
 Initial release:
 
 - Automatic import detection and addition
 - Support for all Verse modules
 - Configurable auto-import setting
+
+### 0.2.1
+
+Accepting contributions:
+
+- Now open source.
+- Feel free to contribute to this extension.
+
+## Contributing
+
+Feel free to submit issues and pull requests on our GitHub repository.
 
 ## License
 

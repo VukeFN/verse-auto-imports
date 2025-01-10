@@ -1,0 +1,48 @@
+{
+  "name": "verse-auto-imports",
+  "displayName": "Verse Auto Imports",
+  "description": "Automatically adds missing using statements in Verse files",
+  "version": "0.1.2",
+  "private": true,
+  "extensionKind": [
+    "workspace"
+  ],
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:verse"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Verse Auto Imports",
+      "properties": {
+        "verseAutoImports.autoImport": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically add missing imports when errors are detected"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^16.18.34",
+    "typescript": "^5.1.3"
+  },
+  "publisher": "vukefn",
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#C80000",
+    "theme": "dark"
+  }
+}

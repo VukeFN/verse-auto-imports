@@ -14,6 +14,12 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "verseAutoImports.optimizeImports",
+        "title": "Verse: Optimize Imports"
+      }
+    ],
     "configuration": {
       "title": "Verse Auto Imports",
       "properties": {

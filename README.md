@@ -1,17 +1,22 @@
 # Verse Auto Imports
 
-Automatically adds missing imports in Verse files for Verse code. When the compiler indicates a missing import error, this extension will automatically add the required `using` statement to your file.
+Automatically adds missing imports and handles module visibility in Verse files. This extension helps manage both import statements and module access issues automatically.
 
 ## Features
 
 - **Automatic Import Detection**: Detects missing import errors in real-time
+- **Module Visibility Management**: Automatically adds `<public>` attribute to internal modules when needed
 - **Zero Configuration**: Works out of the box with default settings
 - **Dynamic Updates**: Supports any new Verse modules without requiring extension updates
-- **Non-Intrusive**: Only adds imports that are actually needed by your code
+- **Non-Intrusive**: Only adds imports and module attributes that are actually needed
+- **Import Optimization**: Automatically sorts and organizes import statements
+- **Command Support**: Includes commands for manual import optimization
 
 ![Demo of auto-importing](https://i.postimg.cc/wjgcS0cF/demo.gif)
 
 ## How It Works
+
+### Import Management
 
 When you write code that requires an import, such as:
 
@@ -35,11 +40,57 @@ using { /Fortnite.com/Characters }
 if(MyCharacter := Player.GetFortCharacter[]){}
 ```
 
+### Module Visibility
+
+When you try to access an internal module, for example:
+
+```verse
+# This will show an error if SubModule is internal
+MyGame.SubModule.DoSomething()
+```
+
+The compiler will show an error like:
+
+```
+Invalid access of internal module `(/Game/MyGame)SubModule`
+```
+
+The extension will automatically:
+
+1. Locate the module definition file
+2. Add the `<public>` attribute to the module
+3. Make the module accessible
+
+From:
+
+```verse
+MyGame := module:
+    SubModule := module:
+        # Module content
+```
+
+To:
+
+```verse
+MyGame := module:
+    SubModule<public> := module:
+        # Module content
+```
+
+## Commands
+
+The extension provides the following commands:
+
+- **Verse: Optimize Imports**: Sorts all import statements in the current file alphabetically
+  - Can be triggered from the command palette (Ctrl+Shift+P or Cmd+Shift+P)
+  - Only works with .verse files
+  - Maintains existing import format while ensuring alphabetical order
+
 ## Settings
 
 This extension contributes the following settings:
 
-- `verseAutoImports.autoImport`: Enable/disable automatic importing (default: `true`)
+- `verseAutoImports.autoImport`: Enable/disable automatic importing and module visibility management (default: `true`)
 
 ## Requirements
 
@@ -73,8 +124,18 @@ Initial release:
 
 Accepting contributions:
 
-- Now open source.
-- Feel free to contribute to this extension.
+- Now open source
+- Feel free to contribute to this extension
+
+### 0.3.0
+
+New features:
+
+- Added "Optimize Imports" command for manual import organization
+- Imports are now automatically sorted alphabetically
+- Improved logging and error handling
+- Better code organization and maintainability
+- Added automatic `<public>` attribute handling for internal modules
 
 ## Contributing
 

@@ -2,7 +2,7 @@
   "name": "verse-auto-imports",
   "displayName": "Verse Auto Imports",
   "description": "Automatically adds missing using statements in Verse files",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "engines": {
     "vscode": "^1.85.0"
   },

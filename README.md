@@ -137,6 +137,12 @@ New features:
 - Better code organization and maintainability
 - Added automatic `<public>` attribute handling for internal modules
 
+### 0.3.1
+
+New features:
+
+- Support custom missing usings (namespaces)
+
 ## Contributing
 
 Feel free to submit issues and pull requests on our GitHub repository.

@@ -23,16 +23,27 @@ export class ImportHandler {
     
     extractImportStatement(errorMessage: string): string | null {
         log(this.outputChannel, `Extracting import statement from error: ${errorMessage}`);
-        const match = errorMessage.match(/Did you forget to specify (using \{ \/[^}]+ \})\?/);
         
+        // Pattern 1: Existing pattern
+        let match = errorMessage.match(/Did you forget to specify (using \{ \/[^}]+ \})\?/);
         if (match) {
             log(this.outputChannel, `Found import statement: ${match[1]}`);
             return match[1];
         }
         
+        // Pattern 2: New pattern for custom using, e.g. "Did you mean `Utils.Format`?"
+        match = errorMessage.match(/Did you mean `([^`]+)\.[^`]+`\?/);
+        if (match) {
+            const namespace = match[1];
+            const importStatement = `using { ${namespace} }`;
+            log(this.outputChannel, `Inferred import statement: ${importStatement}`);
+            return importStatement;
+        }
+        
         log(this.outputChannel, 'No import statement found in error message');
         return null;
     }
+    
 
     async addImportsToDocument(editor: vscode.TextEditor, importStatements: string[]) {
         log(this.outputChannel, `Adding ${importStatements.length} import statements to document`);

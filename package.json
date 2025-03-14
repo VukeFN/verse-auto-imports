@@ -1,54 +1,81 @@
 {
-  "name": "verse-auto-imports",
-  "displayName": "Verse Auto Imports",
-  "description": "Automatically adds missing using statements in Verse files",
-  "version": "0.3.1",
-  "engines": {
-    "vscode": "^1.85.0"
-  },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [
-    "onLanguage:verse"
-  ],
-  "main": "./out/extension.js",
-  "contributes": {
-    "commands": [
-      {
-        "command": "verseAutoImports.optimizeImports",
-        "title": "Verse: Optimize Imports"
-      }
+    "name": "verse-auto-imports",
+    "displayName": "Verse Auto Imports",
+    "description": "Automatically adds missing using statements in Verse files",
+    "version": "0.4.1",
+    "engines": {
+        "vscode": "^1.85.0"
+    },
+    "categories": [
+        "Other"
     ],
-    "configuration": {
-      "title": "Verse Auto Imports",
-      "properties": {
-        "verseAutoImports.autoImport": {
-          "type": "boolean",
-          "default": true,
-          "description": "Automatically add missing imports when errors are detected"
+    "activationEvents": [
+        "onLanguage:verse"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "verseAutoImports.optimizeImports",
+                "title": "Verse: Optimize Imports"
+            },
+            {
+                "command": "verseAutoImports.addSingleImport",
+                "title": "Verse: Add Import"
+            }
+        ],
+        "configuration": {
+            "title": "Verse Auto Imports",
+            "properties": {
+                "verseAutoImports.autoImport": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Automatically add missing imports when errors are detected"
+                },
+                "verseAutoImports.diagnosticDelay": {
+                    "type": "number",
+                    "default": 1000,
+                    "description": "Delay in milliseconds before processing diagnostics to reduce frequency of updates"
+                },
+                "verseAutoImports.importSyntax": {
+                    "type": "string",
+                    "enum": [
+                        "curly",
+                        "dot"
+                    ],
+                    "default": "curly",
+                    "description": "Preferred import syntax: 'curly' for 'using { /Path }' or 'dot' for 'using. /Path'"
+                },
+                "verseAutoImports.ambiguousImports": {
+                    "type": "object",
+                    "default": {
+                        "vector3": "/UnrealEngine.com/Temporary/SpatialMath",
+                        "vector2": "/UnrealEngine.com/Temporary/SpatialMath",
+                        "rotation": "/UnrealEngine.com/Temporary/SpatialMath"
+                    },
+                    "description": "Mappings for class names that appear in multiple modules. Format: {\"className\": \"preferredModulePath\"}"
+                }
+            }
         }
-      }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./"
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.85.0",
+        "@types/node": "^16.18.34",
+        "typescript": "^5.1.3"
+    },
+    "publisher": "vukefn",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/VukeFN/verse-auto-imports.git"
+    },
+    "icon": "icon.png",
+    "galleryBanner": {
+        "color": "#C80000",
+        "theme": "dark"
     }
-  },
-  "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
-  },
-  "devDependencies": {
-    "@types/vscode": "^1.85.0",
-    "@types/node": "^16.18.34",
-    "typescript": "^5.1.3"
-  },
-  "publisher": "vukefn",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/VukeFN/verse-auto-imports.git"
-  },
-  "icon": "icon.png",
-  "galleryBanner": {
-    "color": "#C80000",
-    "theme": "dark"
-  }
 }

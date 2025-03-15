@@ -12,6 +12,7 @@ Automatically adds missing imports and handles module visibility in Verse files.
 -   **Import Optimization**: Automatically sorts and organizes import statements
 -   **Command Support**: Includes commands for manual import optimization
 -   **Import Syntax Preferences**: Choose between `using { /Path }` and `using. /Path` syntax styles
+-   **Import Location Control**: Choose whether to consolidate imports or preserve their locations
 -   **Performance Optimized**: Includes configurable delay to prevent excessive processing
 -   **Ambiguous Import Handling**: Smart resolution of class names that exist in multiple modules
 -   **Quick Fix Support**: Adds "Add import" option to the quick fix menu for manual importing
@@ -44,9 +45,49 @@ using { /Fortnite.com/Characters }
 if(MyCharacter := Player.GetFortCharacter[]){}
 ```
 
+#### Import Location Options
+
+Verse Auto Imports provides two different strategies for managing imports in your code:
+
+##### Consolidated Imports (Default)
+
+By default, the extension will consolidate all imports at the top of your file:
+
+-   All imports (existing and new) are moved to the top of the file
+-   Imports are sorted alphabetically
+-   Duplicate imports are removed
+-   The format is standardized based on your settings
+
+This creates clean, organized code with a single import section at the top, which is considered a best practice for code organization.
+
+##### Preserved Import Locations
+
+If you prefer to keep your existing imports exactly where they are in your code, you can enable the "Preserve Import Locations" setting:
+
+```json
+"verseAutoImports.preserveImportLocations": true
+```
+
+With this setting enabled:
+
+-   Existing imports remain untouched in their original locations
+-   New imports are added only at the top of the file
+-   No reorganization or reformatting of existing imports occurs
+
+This can be useful when:
+
+-   You organize imports into logical sections throughout your code
+-   You have specific import ordering requirements
+
 ### Quick Fix Support
 
 If you prefer to add imports manually, you can hover over any import-related error, click the light bulb icon, and select "Add import" from the quick fix menu. This gives you control over which imports to add and when.
+
+You'll need to disable auto imports from the settings for this:
+
+```json
+"verseAutoImports.autoImport": false
+```
 
 ### Module Visibility
 
@@ -118,6 +159,7 @@ This extension contributes the following settings:
 -   `verseAutoImports.importSyntax`: Choose preferred import syntax format:
     -   `curly`: Use `using { /Path }` syntax (default)
     -   `dot`: Use `using. /Path` syntax
+-   `verseAutoImports.preserveImportLocations`: When true, keeps existing imports where they are and only adds new imports at the top (default: `false`)
 -   `verseAutoImports.ambiguousImports`: Mappings for class names that appear in multiple modules (default includes common vector types)
 
 ## Requirements
@@ -186,6 +228,14 @@ New features and fixes:
 -   Added support for namespaced imports (e.g. `OuterModule.Components`)
 -   Improved diagnostic logging with simpler file references
 -   Fixed issue with imports not converting to preferred syntax format
+
+### 0.4.2
+
+Bug fixes and improvements:
+
+-   Fixed issue where code between scattered import statements was being deleted
+-   Added new `preserveImportLocations` setting to control import consolidation behavior
+-   Improved handling of import blocks throughout code
 
 ## Contributing
 

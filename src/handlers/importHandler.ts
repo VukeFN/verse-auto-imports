@@ -23,55 +23,32 @@ export class ImportHandler {
     }
 
     extractImportStatement(errorMessage: string): string | null {
-        log(
-            this.outputChannel,
-            `Extracting import statement from error: ${errorMessage}`
-        );
+        log(this.outputChannel, `Extracting import statement from error: ${errorMessage}`);
 
         const config = vscode.workspace.getConfiguration("verseAutoImports");
-        const preferDotSyntax =
-            config.get<string>("importSyntax", "curly") === "dot";
-        const ambiguousImportMappings = config.get<Record<string, string>>(
-            "ambiguousImports",
-            {}
-        );
+        const preferDotSyntax = config.get<string>("importSyntax", "curly") === "dot";
+        const ambiguousImportMappings = config.get<Record<string, string>>("ambiguousImports", {});
 
-        const classNameMatch = errorMessage.match(
-            /Unknown identifier `([^`]+)`/
-        );
+        const classNameMatch = errorMessage.match(/Unknown identifier `([^`]+)`/);
         if (classNameMatch) {
             const className = classNameMatch[1];
 
             if (ambiguousImportMappings[className]) {
                 const preferredPath = ambiguousImportMappings[className];
-                const importStatement = this.formatImportStatement(
-                    preferredPath,
-                    preferDotSyntax
-                );
+                const importStatement = this.formatImportStatement(preferredPath, preferDotSyntax);
 
-                log(
-                    this.outputChannel,
-                    `Using configured path for ambiguous class ${className}: ${importStatement}`
-                );
+                log(this.outputChannel, `Using configured path for ambiguous class ${className}: ${importStatement}`);
                 return importStatement;
             }
         }
 
         // Pattern 1: "Did you forget to specify using { /Path }?"
-        let match = errorMessage.match(
-            /Did you forget to specify (using \{ \/[^}]+ \})\?/
-        );
+        let match = errorMessage.match(/Did you forget to specify (using \{ \/[^}]+ \})\?/);
         if (match) {
             const path = match[1].match(/using \{ (\/[^}]+) \}/)?.[1];
             if (path) {
-                const importStatement = this.formatImportStatement(
-                    path,
-                    preferDotSyntax
-                );
-                log(
-                    this.outputChannel,
-                    `Found import statement: ${importStatement}`
-                );
+                const importStatement = this.formatImportStatement(path, preferDotSyntax);
+                log(this.outputChannel, `Found import statement: ${importStatement}`);
                 return importStatement;
             }
         }
@@ -83,14 +60,8 @@ export class ImportHandler {
             const lastDotIndex = fullName.lastIndexOf(".");
             if (lastDotIndex > 0) {
                 const namespace = fullName.substring(0, lastDotIndex);
-                const importStatement = this.formatImportStatement(
-                    namespace,
-                    preferDotSyntax
-                );
-                log(
-                    this.outputChannel,
-                    `Inferred import statement: ${importStatement}`
-                );
+                const importStatement = this.formatImportStatement(namespace, preferDotSyntax);
+                log(this.outputChannel, `Inferred import statement: ${importStatement}`);
                 return importStatement;
             }
         }
@@ -99,16 +70,17 @@ export class ImportHandler {
         return null;
     }
 
-    async addImportsToDocument(
-        document: vscode.TextDocument,
-        importStatements: string[]
-    ): Promise<boolean> {
+    async addImportsToDocument(document: vscode.TextDocument, importStatements: string[]): Promise<boolean> {
+        log(this.outputChannel, `Adding ${importStatements.length} import statements to document`);
+
+        const config = vscode.workspace.getConfiguration("verseAutoImports");
+        const preferDotSyntax = config.get<string>("importSyntax", "curly") === "dot";
+        const preserveImportLocations = config.get<boolean>("preserveImportLocations", false);
+
         log(
             this.outputChannel,
-            `Adding ${importStatements.length} import statements to document`
+            `Import statements received:${preserveImportLocations ? " (locations will be preserved)" : ""}`
         );
-
-        log(this.outputChannel, `Import statements received:`);
         importStatements.forEach((statement) => {
             log(this.outputChannel, `- ${statement}`);
         });
@@ -116,114 +88,97 @@ export class ImportHandler {
         const text = document.getText();
         const lines = text.split("\n");
         const existingImports = new Set<string>();
-        const importLines: number[] = [];
 
-        const config = vscode.workspace.getConfiguration("verseAutoImports");
-        const preferDotSyntax =
-            config.get<string>("importSyntax", "curly") === "dot";
+        const importBlocks: { start: number; end: number; imports: string[] }[] = [];
+        let currentBlock: { start: number; end: number; imports: string[] } | null = null;
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
             if (line.startsWith("using")) {
-                log(
-                    this.outputChannel,
-                    `Found existing import at line ${i}: ${line}`
-                );
+                log(this.outputChannel, `Found existing import at line ${i}: ${line}`);
+
                 existingImports.add(line);
-                importLines.push(i);
+
+                if (!currentBlock) {
+                    currentBlock = { start: i, end: i, imports: [line] };
+                } else if (i === currentBlock.end + 1 || (i === currentBlock.end + 2 && lines[i - 1].trim() === "")) {
+                    currentBlock.end = i;
+                    currentBlock.imports.push(line);
+                } else {
+                    importBlocks.push(currentBlock);
+                    currentBlock = { start: i, end: i, imports: [line] };
+                }
             }
         }
 
-        log(
-            this.outputChannel,
-            `Found ${existingImports.size} existing imports`
-        );
+        if (currentBlock) {
+            importBlocks.push(currentBlock);
+        }
 
-        const allImportPaths = new Set<string>();
-        let formatUpdateNeeded = false;
+        log(this.outputChannel, `Found ${existingImports.size} existing imports in ${importBlocks.length} blocks`);
 
+        const existingPaths = new Set<string>();
         existingImports.forEach((imp) => {
             const path = this.extractPathFromImport(imp);
             if (path) {
-                const isDotFormat = imp.startsWith("using.");
-                if (preferDotSyntax !== isDotFormat) {
-                    formatUpdateNeeded = true;
-                    log(this.outputChannel, `Format update needed for: ${imp}`);
-                }
-                allImportPaths.add(path);
+                existingPaths.add(path);
             }
         });
 
-        let newImportsAdded = false;
+        const newImportPaths = new Set<string>();
         importStatements.forEach((imp) => {
             const path = this.extractPathFromImport(imp);
-            if (path) {
-                const alreadyExists = Array.from(existingImports).some(
-                    (existingImp) =>
-                        this.extractPathFromImport(existingImp) === path
-                );
-
-                if (!alreadyExists) {
-                    log(this.outputChannel, `Adding new import path: ${path}`);
-                    allImportPaths.add(path);
-                    newImportsAdded = true;
-                } else {
-                    log(
-                        this.outputChannel,
-                        `Skipping duplicate import path: ${path}`
-                    );
-                }
+            if (path && !existingPaths.has(path)) {
+                log(this.outputChannel, `New import needed: ${path}`);
+                newImportPaths.add(path);
             }
         });
 
-        if (
-            !newImportsAdded &&
-            !formatUpdateNeeded &&
-            existingImports.size > 0
-        ) {
-            log(
-                this.outputChannel,
-                `No changes needed, skipping document update`
-            );
+        if (newImportPaths.size === 0) {
+            log(this.outputChannel, "No new imports needed, skipping update");
             return true;
         }
 
-        const sortedPaths = Array.from(allImportPaths).sort((a, b) =>
-            a.localeCompare(b)
-        );
-
-        const sortedImports = sortedPaths.map((path) => {
-            return this.formatImportStatement(path, preferDotSyntax);
-        });
-
         const edit = new vscode.WorkspaceEdit();
 
-        if (importLines.length > 0) {
-            const startLine = Math.min(...importLines);
-            const endLine = Math.max(...importLines);
-            const start = new vscode.Position(startLine, 0);
-            const end = new vscode.Position(endLine + 1, 0);
+        if (preserveImportLocations) {
+            const newImports = Array.from(newImportPaths).map((path) =>
+                this.formatImportStatement(path, preferDotSyntax)
+            );
 
-            edit.replace(
-                document.uri,
-                new vscode.Range(start, end),
-                sortedImports.join("\n") + "\n"
-            );
+            newImports.sort();
+
+            if (importBlocks.length > 0 && importBlocks[0].start === 0) {
+                edit.insert(
+                    document.uri,
+                    new vscode.Position(importBlocks[0].end + 1, 0),
+                    newImports.join("\n") + "\n"
+                );
+            } else {
+                edit.insert(document.uri, new vscode.Position(0, 0), newImports.join("\n") + "\n\n");
+            }
         } else {
-            edit.insert(
-                document.uri,
-                new vscode.Position(0, 0),
-                sortedImports.join("\n") + "\n"
-            );
+            const allPaths = new Set<string>([...existingPaths, ...newImportPaths]);
+            const sortedImports = Array.from(allPaths)
+                .sort((a, b) => a.localeCompare(b))
+                .map((path) => this.formatImportStatement(path, preferDotSyntax));
+
+            edit.insert(document.uri, new vscode.Position(0, 0), sortedImports.join("\n") + "\n\n");
+
+            for (let i = importBlocks.length - 1; i >= 0; i--) {
+                const block = importBlocks[i];
+                edit.delete(
+                    document.uri,
+                    new vscode.Range(new vscode.Position(block.start, 0), new vscode.Position(block.end + 1, 0))
+                );
+            }
         }
 
         try {
             const success = await vscode.workspace.applyEdit(edit);
             log(
                 this.outputChannel,
-                success
-                    ? "Successfully updated imports in document"
-                    : "Failed to update imports in document"
+                success ? "Successfully updated imports in document" : "Failed to update imports in document"
             );
             return success;
         } catch (error) {
@@ -233,9 +188,7 @@ export class ImportHandler {
     }
 
     private formatImportStatement(path: string, useDotSyntax: boolean): string {
-        return useDotSyntax
-            ? `using. ${path.trim()}`
-            : `using { ${path.trim()} }`;
+        return useDotSyntax ? `using. ${path.trim()}` : `using { ${path.trim()} }`;
     }
 
     private extractPathFromImport(importStatement: string): string | null {

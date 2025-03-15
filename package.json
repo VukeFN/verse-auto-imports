@@ -2,7 +2,7 @@
     "name": "verse-auto-imports",
     "displayName": "Verse Auto Imports",
     "description": "Automatically adds missing using statements in Verse files",
-    "version": "0.4.1",
+    "version": "0.4.2",
     "engines": {
         "vscode": "^1.85.0"
     },
@@ -45,6 +45,11 @@
                     ],
                     "default": "curly",
                     "description": "Preferred import syntax: 'curly' for 'using { /Path }' or 'dot' for 'using. /Path'"
+                },
+                "verseAutoImports.preserveImportLocations": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "When true, keeps existing imports where they are and only adds new imports at the top. When false, consolidates all imports at the top of the file."
                 },
                 "verseAutoImports.ambiguousImports": {
                     "type": "object",

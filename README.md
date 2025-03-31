@@ -243,4 +243,4 @@ Feel free to submit issues and pull requests on our GitHub repository.
 
 ## License
 
-This extension is licensed under the MIT License. See the LICENSE file for details.
+For permissions to use code in your own projects, please contact @vukefn on Discord/X.

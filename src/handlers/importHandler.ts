@@ -42,8 +42,8 @@ export class ImportHandler {
             }
         }
 
-        // Pattern 1: "Did you forget to specify using { /Path }?"
-        let match = errorMessage.match(/Did you forget to specify (using \{ \/[^}]+ \})\?/);
+        // Pattern 1: "Did you forget to specify using { /Path }"
+        let match = errorMessage.match(/Did you forget to specify (using \{ \/[^}]+ \})/);
         if (match) {
             const path = match[1].match(/using \{ (\/[^}]+) \}/)?.[1];
             if (path) {

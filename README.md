@@ -237,6 +237,12 @@ Bug fixes and improvements:
 -   Added new `preserveImportLocations` setting to control import consolidation behavior
 -   Improved handling of import blocks throughout code
 
+### 0.4.3
+
+Bug fixes:
+
+-   Fixed an issue where the extension was looking for an outdated error message pattern.
+
 ## Contributing
 
 Feel free to submit issues and pull requests on our GitHub repository.

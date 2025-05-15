@@ -243,6 +243,14 @@ Bug fixes:
 
 -   Fixed an issue where the extension was looking for an outdated error message pattern.
 
+### 0.4.4
+
+New features and fixes:
+
+-   Fixed detection of custom namespace patterns
+-   Disabled module visibility management features
+-   Improved error handling and diagnostics
+
 ## Contributing
 
 Feel free to submit issues and pull requests on our GitHub repository.

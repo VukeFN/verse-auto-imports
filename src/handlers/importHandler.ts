@@ -53,11 +53,12 @@ export class ImportHandler {
             }
         }
 
-        // Pattern 2: "Did you mean `Namespace.Component`?"
-        match = errorMessage.match(/Did you mean `([^`]+)`\?/);
+        // Pattern 2: "Did you mean Namespace.Component"
+        match = errorMessage.match(/Did you mean ([^`]+)/);
         if (match) {
             const fullName = match[1];
             const lastDotIndex = fullName.lastIndexOf(".");
+            log(this.outputChannel, `Last dot index: ${lastDotIndex}`);
             if (lastDotIndex > 0) {
                 const namespace = fullName.substring(0, lastDotIndex);
                 const importStatement = this.formatImportStatement(namespace, preferDotSyntax);

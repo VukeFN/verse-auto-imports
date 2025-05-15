@@ -1,18 +1,18 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { ImportHandler } from "./importHandler";
-import { ModuleHandler } from "./moduleHandler";
+// import { ModuleHandler } from "./moduleHandler";
 import { log } from "../utils/logging";
 
 export class DiagnosticsHandler {
     private importHandler: ImportHandler;
-    private moduleHandler: ModuleHandler;
+    // private moduleHandler: ModuleHandler;
     private processingDocuments: Set<string> = new Set();
     private delayMs: number = 1000;
 
     constructor(private outputChannel: vscode.OutputChannel) {
         this.importHandler = new ImportHandler(outputChannel);
-        this.moduleHandler = new ModuleHandler(outputChannel);
+        // this.moduleHandler = new ModuleHandler(outputChannel);
         log(
             this.outputChannel,
             `DiagnosticsHandler initialized with ${this.delayMs}ms delay`
@@ -65,10 +65,10 @@ export class DiagnosticsHandler {
                         continue;
                     }
 
-                    await this.moduleHandler.handleModuleError(
-                        diagnostic,
-                        document
-                    );
+                    // await this.moduleHandler.handleModuleError(
+                    //     diagnostic,
+                    //     document
+                    // );
                 }
 
                 if (importStatements.size > 0) {

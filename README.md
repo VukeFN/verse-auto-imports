@@ -248,7 +248,7 @@ Bug fixes:
 Feel free to submit issues and pull requests on our GitHub repository.
 
 ## License & Terms of Use
-Copyright © 2024 VukeFN. All rights reserved.
+Copyright © 2025 VukeFN. All rights reserved.
     
 This software and associated code files (the "Software") are
 copyrighted by VukeFN and are protected by copyright law and international

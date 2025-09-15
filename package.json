@@ -2,7 +2,7 @@
     "name": "verse-auto-imports",
     "displayName": "Verse Auto Imports",
     "description": "Automatically adds missing using statements in Verse files",
-    "version": "0.4.4",
+    "version": "0.5.0",
     "engines": {
         "vscode": "^1.85.0"
     },
@@ -59,6 +59,47 @@
                         "rotation": "/UnrealEngine.com/Temporary/SpatialMath"
                     },
                     "description": "Mappings for class names that appear in multiple modules. Format: {\"className\": \"preferredModulePath\"}"
+                },
+                "verseAutoImports.multiOptionStrategy": {
+                    "type": "string",
+                    "enum": [
+                        "quickfix",
+                        "auto_shortest",
+                        "auto_first",
+                        "disabled"
+                    ],
+                    "default": "quickfix",
+                    "description": "How to handle multiple import options: 'quickfix' shows options in quick fix menu, 'auto_shortest' automatically selects shortest path, 'auto_first' selects first option, 'disabled' ignores multi-option scenarios"
+                },
+                "verseAutoImports.useDigestFiles": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable lookup of unknown identifiers in Verse digest files for intelligent import suggestions (experimental)"
+                },
+                "verseAutoImports.unknownIdentifierResolution": {
+                    "type": "string",
+                    "enum": [
+                        "digest_only",
+                        "digest_and_inference",
+                        "disabled"
+                    ],
+                    "default": "disabled",
+                    "description": "Strategy for resolving unknown identifiers: 'digest_only' uses only digest files, 'digest_and_inference' adds pattern-based guessing, 'disabled' turns off unknown identifier resolution"
+                },
+                "verseAutoImports.quickFixOrdering": {
+                    "type": "string",
+                    "enum": [
+                        "confidence",
+                        "alphabetical",
+                        "module_priority"
+                    ],
+                    "default": "confidence",
+                    "description": "How to order multiple quick fix options: 'confidence' by suggestion confidence, 'alphabetical' by import statement, 'module_priority' by configured module priorities"
+                },
+                "verseAutoImports.showQuickFixDescriptions": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Show descriptive text in quick fix menu items (e.g., 'class from /Fortnite.com/Devices')"
                 }
             }
         }

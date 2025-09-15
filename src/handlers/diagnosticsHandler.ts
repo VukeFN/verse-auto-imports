@@ -3,6 +3,7 @@ import * as path from "path";
 import { ImportHandler } from "./importHandler";
 // import { ModuleHandler } from "./moduleHandler";
 import { log } from "../utils/logging";
+import { ImportSuggestion } from "../types/moduleInfo";
 
 export class DiagnosticsHandler {
     private importHandler: ImportHandler;
@@ -49,46 +50,86 @@ export class DiagnosticsHandler {
                     this.outputChannel,
                     `Processing diagnostics for ${documentKey} after delay`
                 );
-                const importStatements = new Set<string>();
+
+                const config = vscode.workspace.getConfiguration("verseAutoImports");
+                const autoImportEnabled = config.get<boolean>("autoImport", true);
+                const multiOptionStrategy = config.get<string>("multiOptionStrategy", "quickfix");
+
+                const autoImportSuggestions = new Set<string>();
+                let hasMultiOptionSuggestions = false;
 
                 for (const diagnostic of currentDiagnostics) {
-                    const importStatement =
-                        this.importHandler.extractImportStatement(
-                            diagnostic.message
-                        );
-                    if (importStatement) {
-                        log(
-                            this.outputChannel,
-                            `Adding import statement to collection: ${importStatement}`
-                        );
-                        importStatements.add(importStatement);
+                    const suggestions = await this.importHandler.extractImportSuggestions(diagnostic.message);
+
+                    if (suggestions.length === 0) {
+                        // No suggestions found, skip this diagnostic
                         continue;
                     }
 
-                    // await this.moduleHandler.handleModuleError(
-                    //     diagnostic,
-                    //     document
-                    // );
+                    if (suggestions.length > 1) {
+                        // Multi-option scenario detected
+                        hasMultiOptionSuggestions = true;
+                        log(
+                            this.outputChannel,
+                            `Multi-option diagnostic found with ${suggestions.length} suggestions - will use quick fixes`
+                        );
+
+                        if (multiOptionStrategy.startsWith("auto_")) {
+                            // Auto-select one option for import
+                            const selectedSuggestion = this.selectBestSuggestion(suggestions, multiOptionStrategy);
+                            if (selectedSuggestion && autoImportEnabled) {
+                                autoImportSuggestions.add(selectedSuggestion.importStatement);
+                                log(this.outputChannel, `Auto-selected: ${selectedSuggestion.importStatement}`);
+                            }
+                        }
+                        // For quickfix strategy, let ImportCodeActionProvider handle it
+                        continue;
+                    }
+
+                    // Single suggestion - can auto-import if enabled
+                    const suggestion = suggestions[0];
+                    if (autoImportEnabled && suggestion.confidence === 'high') {
+                        log(
+                            this.outputChannel,
+                            `Adding high-confidence import: ${suggestion.importStatement}`
+                        );
+                        autoImportSuggestions.add(suggestion.importStatement);
+                    } else {
+                        log(
+                            this.outputChannel,
+                            `Low confidence or auto-import disabled - will use quick fix for: ${suggestion.importStatement}`
+                        );
+                    }
+
+                    // Note: ModuleHandler logic would go here
+                    // await this.moduleHandler.handleModuleError(diagnostic, document);
                 }
 
-                if (importStatements.size > 0) {
+                // Apply auto-imports if any were collected
+                if (autoImportSuggestions.size > 0) {
                     log(
                         this.outputChannel,
-                        `Total unique imports to add: ${importStatements.size}`
+                        `Auto-importing ${autoImportSuggestions.size} statements`
                     );
-                    importStatements.forEach((imp) => {
-                        log(this.outputChannel, `Will add: ${imp}`);
+                    autoImportSuggestions.forEach((imp) => {
+                        log(this.outputChannel, `Will auto-import: ${imp}`);
                     });
 
                     await this.importHandler.addImportsToDocument(
                         document,
-                        Array.from(importStatements)
+                        Array.from(autoImportSuggestions)
                     );
                     vscode.window.setStatusBarMessage(
-                        `Added ${
-                            importStatements.size
-                        } imports to ${path.basename(document.uri.fsPath)}`,
+                        `Auto-imported ${autoImportSuggestions.size} statements to ${path.basename(document.uri.fsPath)}`,
                         3000
+                    );
+                }
+
+                // Show status for multi-option diagnostics
+                if (hasMultiOptionSuggestions && multiOptionStrategy === "quickfix") {
+                    vscode.window.setStatusBarMessage(
+                        `Multiple import options available - use quick fixes (Ctrl+.)`,
+                        5000
                     );
                 }
             } catch (error) {
@@ -104,6 +145,24 @@ export class DiagnosticsHandler {
                 );
             }
         }, this.delayMs);
+    }
+
+    private selectBestSuggestion(suggestions: ImportSuggestion[], strategy: string): ImportSuggestion | null {
+        if (suggestions.length === 0) {
+            return null;
+        }
+
+        switch (strategy) {
+            case "auto_shortest":
+                // Return the suggestion with the shortest import statement
+                return suggestions.reduce((shortest, current) =>
+                    current.importStatement.length < shortest.importStatement.length ? current : shortest
+                );
+            case "auto_first":
+                return suggestions[0];
+            default:
+                return suggestions[0]; // fallback
+        }
     }
 
     setDelay(delayMs: number) {

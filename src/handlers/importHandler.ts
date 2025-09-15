@@ -1,8 +1,107 @@
 import * as vscode from "vscode";
 import { log } from "../utils/logging";
+import { ImportSuggestion, ImportSuggestionSource, ImportConfidence } from "../types/moduleInfo";
+import { DigestParser, DigestEntry } from "../utils/digestParser";
 
 export class ImportHandler {
-    constructor(private outputChannel: vscode.OutputChannel) {}
+    private digestParser: DigestParser;
+
+    constructor(private outputChannel: vscode.OutputChannel) {
+        this.digestParser = new DigestParser(outputChannel);
+    }
+
+    private parseMultiOptionSuggestions(errorMessage: string): string[] {
+        const multiOptionPattern = /Did you mean any of:\s*\n(.+)/s;
+        const match = errorMessage.match(multiOptionPattern);
+
+        if (!match) {
+            return [];
+        }
+
+        const optionsText = match[1];
+        // Split by newlines and filter out empty lines
+        const options = optionsText
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0);
+
+        log(this.outputChannel, `Found ${options.length} multi-options: ${options.join(', ')}`);
+        return options;
+    }
+
+    private selectBestOption(options: string[]): string {
+        const config = vscode.workspace.getConfiguration("verseAutoImports");
+        const strategy = config.get<string>("multiOptionStrategy", "auto_shortest");
+
+        switch (strategy) {
+            case "auto_shortest":
+                // Return the option with the shortest path
+                return options.reduce((shortest, current) =>
+                    current.length < shortest.length ? current : shortest
+                );
+            case "auto_first":
+                return options[0];
+            default:
+                return options[0]; // fallback
+        }
+    }
+
+    private createImportSuggestion(
+        importStatement: string,
+        source: ImportSuggestionSource,
+        confidence: ImportConfidence,
+        description?: string
+    ): ImportSuggestion {
+        const modulePath = this.extractPathFromImport(importStatement);
+        return {
+            importStatement,
+            source,
+            confidence,
+            description,
+            modulePath: modulePath || undefined
+        };
+    }
+
+    private async lookupIdentifierInDigest(identifier: string): Promise<ImportSuggestion[]> {
+        const config = vscode.workspace.getConfiguration("verseAutoImports");
+        const useDigestFiles = config.get<boolean>("useDigestFiles", false);
+        const preferDotSyntax = config.get<string>("importSyntax", "curly") === "dot";
+
+        if (!useDigestFiles) {
+            return [];
+        }
+
+        try {
+            const digestEntries = await this.digestParser.lookupIdentifier(identifier);
+            const suggestions: ImportSuggestion[] = [];
+
+            for (const entry of digestEntries) {
+                if (!entry.modulePath) {
+                    continue;
+                }
+
+                const importStatement = this.formatImportStatement(entry.modulePath, preferDotSyntax);
+                const confidence: ImportConfidence = entry.identifier === identifier ? 'high' : 'medium';
+                const description = `${entry.type} from ${entry.modulePath}`;
+
+                suggestions.push(this.createImportSuggestion(
+                    importStatement,
+                    'digest_lookup',
+                    confidence,
+                    description
+                ));
+            }
+
+            if (suggestions.length > 0) {
+                log(this.outputChannel, `Found ${suggestions.length} digest-based suggestions for: ${identifier}`);
+            }
+
+            return suggestions;
+        } catch (error) {
+            log(this.outputChannel, `Error looking up identifier in digest: ${error}`);
+            return [];
+        }
+    }
 
     extractExistingImports(document: vscode.TextDocument): string[] {
         log(this.outputChannel, "Extracting existing imports from document");
@@ -22,23 +121,75 @@ export class ImportHandler {
         return Array.from(imports);
     }
 
-    extractImportStatement(errorMessage: string): string | null {
-        log(this.outputChannel, `Extracting import statement from error: ${errorMessage}`);
+    async extractImportSuggestions(errorMessage: string): Promise<ImportSuggestion[]> {
+        log(this.outputChannel, `Extracting import suggestions from error: ${errorMessage}`);
 
         const config = vscode.workspace.getConfiguration("verseAutoImports");
         const preferDotSyntax = config.get<string>("importSyntax", "curly") === "dot";
         const ambiguousImportMappings = config.get<Record<string, string>>("ambiguousImports", {});
 
+        // Check for multi-option "Did you mean any of" pattern first
+        const multiOptions = this.parseMultiOptionSuggestions(errorMessage);
+        if (multiOptions.length > 0) {
+            log(this.outputChannel, `Found multi-option pattern with ${multiOptions.length} options`);
+            const suggestions: ImportSuggestion[] = [];
+
+            for (const option of multiOptions) {
+                const lastDotIndex = option.lastIndexOf(".");
+                if (lastDotIndex > 0) {
+                    const namespace = option.substring(0, lastDotIndex);
+                    const className = option.substring(lastDotIndex + 1);
+                    const importStatement = this.formatImportStatement(namespace, preferDotSyntax);
+
+                    log(this.outputChannel, `Multi-option: ${option} -> namespace: ${namespace}, class: ${className}`);
+
+                    suggestions.push(this.createImportSuggestion(
+                        importStatement,
+                        'error_message',
+                        'high',
+                        `${className} from ${namespace}`
+                    ));
+                } else {
+                    // If no namespace, the option might be a direct module reference
+                    const importStatement = this.formatImportStatement(option, preferDotSyntax);
+                    log(this.outputChannel, `Multi-option (no namespace): ${option}`);
+
+                    suggestions.push(this.createImportSuggestion(
+                        importStatement,
+                        'error_message',
+                        'medium',
+                        `Import ${option}`
+                    ));
+                }
+            }
+
+            return suggestions;
+        }
+
+        // Check for unknown identifier with ambiguous mapping or digest lookup
         const classNameMatch = errorMessage.match(/Unknown identifier `([^`]+)`/);
         if (classNameMatch) {
             const className = classNameMatch[1];
 
+            // First check configured ambiguous mappings
             if (ambiguousImportMappings[className]) {
                 const preferredPath = ambiguousImportMappings[className];
                 const importStatement = this.formatImportStatement(preferredPath, preferDotSyntax);
 
                 log(this.outputChannel, `Using configured path for ambiguous class ${className}: ${importStatement}`);
-                return importStatement;
+                return [this.createImportSuggestion(
+                    importStatement,
+                    'error_message',
+                    'high',
+                    `Configured import for ${className}`
+                )];
+            }
+
+            // Try digest-based lookup for unknown identifier
+            const digestSuggestions = await this.lookupIdentifierInDigest(className);
+            if (digestSuggestions.length > 0) {
+                log(this.outputChannel, `Found digest-based suggestions for unknown identifier: ${className}`);
+                return digestSuggestions;
             }
         }
 
@@ -49,25 +200,45 @@ export class ImportHandler {
             if (path) {
                 const importStatement = this.formatImportStatement(path, preferDotSyntax);
                 log(this.outputChannel, `Found import statement: ${importStatement}`);
-                return importStatement;
+                return [this.createImportSuggestion(
+                    importStatement,
+                    'error_message',
+                    'high',
+                    `Standard import for ${path}`
+                )];
             }
         }
 
-        // Pattern 2: "Did you mean Namespace.Component"
-        match = errorMessage.match(/Did you mean ([^`]+)/);
+        // Pattern 2: "Did you mean Namespace.Component" (single option)
+        match = errorMessage.match(/Did you mean ([^`\n]+)/);
         if (match) {
-            const fullName = match[1];
+            const fullName = match[1].trim();
             const lastDotIndex = fullName.lastIndexOf(".");
-            log(this.outputChannel, `Last dot index: ${lastDotIndex}`);
+            log(this.outputChannel, `Last dot index: ${lastDotIndex} for ${fullName}`);
             if (lastDotIndex > 0) {
                 const namespace = fullName.substring(0, lastDotIndex);
                 const importStatement = this.formatImportStatement(namespace, preferDotSyntax);
                 log(this.outputChannel, `Inferred import statement: ${importStatement}`);
-                return importStatement;
+                return [this.createImportSuggestion(
+                    importStatement,
+                    'error_message',
+                    'high',
+                    `Inferred import for ${fullName}`
+                )];
             }
         }
 
-        log(this.outputChannel, "No import statement found in error message");
+        log(this.outputChannel, "No import suggestions found in error message");
+        return [];
+    }
+
+    // Keep the old method for backward compatibility temporarily
+    async extractImportStatement(errorMessage: string): Promise<string | null> {
+        const suggestions = await this.extractImportSuggestions(errorMessage);
+        if (suggestions.length > 0) {
+            // For backward compatibility, return the first suggestion's import statement
+            return suggestions[0].importStatement;
+        }
         return null;
     }
 
@@ -159,13 +330,36 @@ export class ImportHandler {
                 edit.insert(document.uri, new vscode.Position(0, 0), newImports.join("\n") + "\n\n");
             }
         } else {
+            // Consolidate all imports at the top
             const allPaths = new Set<string>([...existingPaths, ...newImportPaths]);
             const sortedImports = Array.from(allPaths)
                 .sort((a, b) => a.localeCompare(b))
                 .map((path) => this.formatImportStatement(path, preferDotSyntax));
 
-            edit.insert(document.uri, new vscode.Position(0, 0), sortedImports.join("\n") + "\n\n");
+            // Determine the line after all existing import blocks to check for spacing
+            let lineAfterImports = 0;
+            if (importBlocks.length > 0) {
+                lineAfterImports = Math.max(...importBlocks.map(block => block.end)) + 1;
+            }
 
+            // Check if there's already an empty line after imports
+            let needsEmptyLine = true;
+            if (lineAfterImports < lines.length) {
+                const lineAfter = lines[lineAfterImports];
+                // If the line after imports is empty, we don't need to add another empty line
+                if (lineAfter && lineAfter.trim() === "") {
+                    needsEmptyLine = false;
+                } else if (lineAfterImports === lines.length - 1 || !lineAfter) {
+                    // If we're at the end of file or no content after, we still want the empty line
+                    needsEmptyLine = true;
+                }
+            }
+
+            // Insert sorted imports at top with appropriate spacing
+            const importsText = sortedImports.join("\n") + "\n" + (needsEmptyLine ? "\n" : "");
+            edit.insert(document.uri, new vscode.Position(0, 0), importsText);
+
+            // Remove existing import blocks (in reverse order to maintain line numbers)
             for (let i = importBlocks.length - 1; i >= 0; i--) {
                 const block = importBlocks[i];
                 edit.delete(

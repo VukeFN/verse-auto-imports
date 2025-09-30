@@ -193,7 +193,13 @@ Found a bug or want to contribute? We welcome issues and pull requests!
 
 ## Release Notes
 
-### 0.5.0 (LATEST)
+### 0.5.1 (LATEST)
+
+**Bug Fixes:**
+
+- Added support for new "Did you forget to specify one of" error pattern format
+
+### 0.5.0
 
 **Major New Features:**
 

@@ -11,22 +11,41 @@ export class ImportHandler {
     }
 
     private parseMultiOptionSuggestions(errorMessage: string): string[] {
-        const multiOptionPattern = /Did you mean any of:\s*\n(.+)/s;
-        const match = errorMessage.match(multiOptionPattern);
+        // Pattern 1: "Did you mean any of:\n<options>"
+        const multiOptionPattern1 = /Did you mean any of:\s*\n(.+)/s;
+        const match1 = errorMessage.match(multiOptionPattern1);
 
-        if (!match) {
-            return [];
+        if (match1) {
+            const optionsText = match1[1];
+            const options = optionsText
+                .split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0);
+
+            log(this.outputChannel, `Found ${options.length} multi-options (pattern 1): ${options.join(', ')}`);
+            return options;
         }
 
-        const optionsText = match[1];
-        // Split by newlines and filter out empty lines
-        const options = optionsText
-            .split('\n')
-            .map(line => line.trim())
-            .filter(line => line.length > 0);
+        // Pattern 2: "Did you forget to specify one of:\nusing { /Path }\nusing { /Path }"
+        const multiOptionPattern2 = /Did you forget to specify one of:\s*\n((?:using \{[^}]+\}\s*\n?)+)/s;
+        const match2 = errorMessage.match(multiOptionPattern2);
 
-        log(this.outputChannel, `Found ${options.length} multi-options: ${options.join(', ')}`);
-        return options;
+        if (match2) {
+            const optionsText = match2[1];
+            const options: string[] = [];
+
+            // Extract all "using { /Path }" patterns
+            const usingPattern = /using \{ (\/[^}]+) \}/g;
+            let usingMatch;
+            while ((usingMatch = usingPattern.exec(optionsText)) !== null) {
+                options.push(usingMatch[1]);
+            }
+
+            log(this.outputChannel, `Found ${options.length} multi-options (pattern 2): ${options.join(', ')}`);
+            return options;
+        }
+
+        return [];
     }
 
     private selectBestOption(options: string[]): string {
@@ -135,31 +154,48 @@ export class ImportHandler {
             const suggestions: ImportSuggestion[] = [];
 
             for (const option of multiOptions) {
-                const lastDotIndex = option.lastIndexOf(".");
-                if (lastDotIndex > 0) {
-                    const namespace = option.substring(0, lastDotIndex);
-                    const className = option.substring(lastDotIndex + 1);
-                    const importStatement = this.formatImportStatement(namespace, preferDotSyntax);
+                // Check if option is a module path (starts with /)
+                if (option.startsWith('/')) {
+                    // Direct module path from "using { /Path }" format
+                    const importStatement = this.formatImportStatement(option, preferDotSyntax);
+                    const moduleName = option.split('/').pop() || option;
 
-                    log(this.outputChannel, `Multi-option: ${option} -> namespace: ${namespace}, class: ${className}`);
+                    log(this.outputChannel, `Multi-option (module path): ${option}`);
 
                     suggestions.push(this.createImportSuggestion(
                         importStatement,
                         'error_message',
                         'high',
-                        `${className} from ${namespace}`
+                        `Import from ${option}`
                     ));
                 } else {
-                    // If no namespace, the option might be a direct module reference
-                    const importStatement = this.formatImportStatement(option, preferDotSyntax);
-                    log(this.outputChannel, `Multi-option (no namespace): ${option}`);
+                    // Fully qualified class name (e.g., "Module.ClassName")
+                    const lastDotIndex = option.lastIndexOf(".");
+                    if (lastDotIndex > 0) {
+                        const namespace = option.substring(0, lastDotIndex);
+                        const className = option.substring(lastDotIndex + 1);
+                        const importStatement = this.formatImportStatement(namespace, preferDotSyntax);
 
-                    suggestions.push(this.createImportSuggestion(
-                        importStatement,
-                        'error_message',
-                        'medium',
-                        `Import ${option}`
-                    ));
+                        log(this.outputChannel, `Multi-option: ${option} -> namespace: ${namespace}, class: ${className}`);
+
+                        suggestions.push(this.createImportSuggestion(
+                            importStatement,
+                            'error_message',
+                            'high',
+                            `${className} from ${namespace}`
+                        ));
+                    } else {
+                        // No namespace detected, treat as simple reference
+                        const importStatement = this.formatImportStatement(option, preferDotSyntax);
+                        log(this.outputChannel, `Multi-option (no namespace): ${option}`);
+
+                        suggestions.push(this.createImportSuggestion(
+                            importStatement,
+                            'error_message',
+                            'medium',
+                            `Import ${option}`
+                        ));
+                    }
                 }
             }
 

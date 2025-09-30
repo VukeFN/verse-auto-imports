@@ -4,3 +4,5 @@ npm-debug.log*
 .vscode/
 out/
 *.vsix
+.claude
+CLAUDE.md

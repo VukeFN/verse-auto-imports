@@ -1,8 +1,23 @@
+<div align="center">
+
+**This is project is built and maintained in my free time for the Verse community.**
+**If you find it helpful, consider supporting its development!**
+
+<a href="https://www.paypal.com/donate/?hosted_button_id=SANPYNE27HHYA">
+  <img src="https://raw.githubusercontent.com/aha999/DonateButtons/master/Paypal.png" alt="Donate" width="180"/>
+</a>
+
+</div>
+
+---
+
 # Verse Auto Imports
 
 **Intelligent import management for Verse development in UEFN**
 
 Stop manually managing imports in your Verse code. This extension automatically detects missing imports, provides smart suggestions, and keeps your code organized with zero configuration.
+
+
 
 ![Demo of auto-importing](https://i.postimg.cc/wjgcS0cF/demo.gif)
 

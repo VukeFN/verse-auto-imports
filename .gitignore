@@ -6,3 +6,4 @@ out/
 *.vsix
 .claude
 CLAUDE.md
+tests/

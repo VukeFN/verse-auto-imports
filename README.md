@@ -193,11 +193,17 @@ Found a bug or want to contribute? We welcome issues and pull requests!
 
 ## Release Notes
 
-### 0.5.1 (LATEST)
+### 0.5.2 (LATEST)
 
 **Bug Fixes:**
 
-- Added support for new "Did you forget to specify one of" error pattern format
+- Added support for "Identifier X could be one of many types" error pattern format
+
+### 0.5.1
+
+**Bug Fixes:**
+
+- Added support for "Did you forget to specify one of" error pattern format
 
 ### 0.5.0
 

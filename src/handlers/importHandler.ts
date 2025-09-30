@@ -45,6 +45,25 @@ export class ImportHandler {
             return options;
         }
 
+        // Pattern 3: "Identifier X could be one of many types: (/Path1:)X or (/Path2:)X"
+        const multiOptionPattern3 = /Identifier \w+ could be one of many types:\s*(.+)/;
+        const match3 = errorMessage.match(multiOptionPattern3);
+
+        if (match3) {
+            const optionsText = match3[1];
+            const options: string[] = [];
+
+            // Extract all "(/Path:)" patterns
+            const pathPattern = /\((\/[^:)]+):\)/g;
+            let pathMatch;
+            while ((pathMatch = pathPattern.exec(optionsText)) !== null) {
+                options.push(pathMatch[1]);
+            }
+
+            log(this.outputChannel, `Found ${options.length} multi-options (pattern 3): ${options.join(', ')}`);
+            return options;
+        }
+
         return [];
     }
 

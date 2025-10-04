@@ -162,6 +162,12 @@ export class ImportHandler {
     async extractImportSuggestions(errorMessage: string): Promise<ImportSuggestion[]> {
         log(this.outputChannel, `Extracting import suggestions from error: ${errorMessage}`);
 
+        // Ignore errors that suggest using 'set' instead of import issues
+        if (errorMessage.includes("Did you mean to write 'set")) {
+            log(this.outputChannel, `Ignoring 'set' suggestion error`);
+            return [];
+        }
+
         const config = vscode.workspace.getConfiguration("verseAutoImports");
         const preferDotSyntax = config.get<string>("importSyntax", "curly") === "dot";
         const ambiguousImportMappings = config.get<Record<string, string>>("ambiguousImports", {});

@@ -208,7 +208,13 @@ Found a bug or want to contribute? We welcome issues and pull requests!
 
 ## Release Notes
 
-### 0.5.2 (LATEST)
+### 0.5.3 (LATEST)
+
+**Bug Fixes:**
+
+- Ignore ambiguous data errors suggesting 'set' syntax
+
+### 0.5.2
 
 **Bug Fixes:**
 

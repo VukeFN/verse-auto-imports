@@ -10,23 +10,17 @@
 
 import * as fs from "fs";
 import * as path from "path";
-
-// Types matching DigestParser
-interface DigestEntry {
-    identifier: string;
-    modulePath: string;
-    type: "class" | "function" | "variable" | "module" | "unknown";
-    description?: string;
-    isPublic: boolean;
-}
+// Import the shared parser directly (not via the services barrel, which pulls in
+// `vscode` and would break ts-node).
+import { parseDigestContent, rootDomainForDigestFile } from "../services/digestParsing";
 
 interface PrecompiledDigest {
     version: string;
     generatedAt: string;
     sourceFile: string;
     sourceBuild: string;
-    entries: Record<string, DigestEntry>;
-    moduleIndex: Record<string, string[]>;
+    entries: ReturnType<typeof parseDigestContent>["entries"];
+    moduleIndex: ReturnType<typeof parseDigestContent>["moduleIndex"];
 }
 
 const DIGEST_FILES = ["Fortnite.digest.verse", "UnrealEngine.digest.verse", "Verse.digest.verse"];
@@ -43,125 +37,14 @@ function extractBuildReference(content: string): string {
 }
 
 /**
- * Parse a single digest file and return structured data.
- * Logic extracted from DigestParser.parseDigestFile()
+ * Parse a single digest file into structured data.
+ * The parsing logic is shared with the runtime path via `parseDigestContent`.
  */
 function parseDigestFile(filePath: string): PrecompiledDigest {
     const content = fs.readFileSync(filePath, "utf8");
-    const lines = content.split("\n");
     const fileName = path.basename(filePath);
 
-    const entries: Record<string, DigestEntry> = {};
-    const moduleIndex: Record<string, string[]> = {};
-
-    let currentModulePath = "";
-    const moduleStack: string[] = [];
-
-    // Helper to add entry
-    const addEntry = (identifier: string, modulePath: string, type: DigestEntry["type"], isPublic: boolean) => {
-        if (!isPublic || entries[identifier]) {
-            return; // Skip non-public or duplicates
-        }
-
-        entries[identifier] = {
-            identifier,
-            modulePath,
-            type,
-            isPublic,
-        };
-
-        // Update module index
-        if (!moduleIndex[modulePath]) {
-            moduleIndex[modulePath] = [];
-        }
-        moduleIndex[modulePath].push(identifier);
-    };
-
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-
-        // Skip empty lines
-        if (line === "") {
-            continue;
-        }
-
-        // Check for module import path comments
-        if (line.startsWith("#")) {
-            const modulePathMatch = line.match(/# Module import path: (.+)/);
-            if (modulePathMatch) {
-                currentModulePath = modulePathMatch[1];
-            }
-            continue;
-        }
-
-        // Skip using statements
-        if (line.startsWith("using {")) {
-            continue;
-        }
-
-        // Parse module declarations
-        const moduleMatch = line.match(/^(\w+)<public>\s*:=\s*module:/);
-        if (moduleMatch) {
-            const moduleName = moduleMatch[1];
-            if (currentModulePath) {
-                moduleStack.push(currentModulePath);
-            } else {
-                moduleStack.push(`/${moduleName}`);
-            }
-            addEntry(moduleName, moduleStack[moduleStack.length - 1], "module", true);
-            continue;
-        }
-
-        // Parse class declarations
-        const classMatch = line.match(/^(\w+)<public>\s*:=\s*class/);
-        if (classMatch) {
-            const className = classMatch[1];
-            const modulePath = moduleStack.length > 0 ? moduleStack[moduleStack.length - 1] : currentModulePath;
-            addEntry(className, modulePath, "class", true);
-            continue;
-        }
-
-        // Parse struct declarations
-        const structMatch = line.match(/^(\w+)<public>\s*:=\s*struct/);
-        if (structMatch) {
-            const structName = structMatch[1];
-            const modulePath = moduleStack.length > 0 ? moduleStack[moduleStack.length - 1] : currentModulePath;
-            addEntry(structName, modulePath, "class", true); // Treat structs as classes
-            continue;
-        }
-
-        // Parse function/variable declarations
-        const identifierMatch = line.match(/^(\w+)<public>\s*[:=]/);
-        if (identifierMatch) {
-            const identifier = identifierMatch[1];
-            const modulePath = moduleStack.length > 0 ? moduleStack[moduleStack.length - 1] : currentModulePath;
-
-            // Determine type based on line content
-            let type: "function" | "variable" = "variable";
-            if (line.includes("(") && line.includes(")")) {
-                type = "function";
-            }
-
-            addEntry(identifier, modulePath, type, true);
-            continue;
-        }
-
-        // Handle nested structures with native/public visibility
-        if (line && !line.includes("<public>") && !line.includes(":=")) {
-            const nestedMatch = line.match(/^(\w+)<(?:native\s*)?<public>/);
-            if (nestedMatch) {
-                const identifier = nestedMatch[1];
-                const modulePath = moduleStack.length > 0 ? moduleStack[moduleStack.length - 1] : currentModulePath;
-
-                let type: "function" | "variable" = "variable";
-                if (line.includes("(") && line.includes(")")) {
-                    type = "function";
-                }
-
-                addEntry(identifier, modulePath, type, true);
-            }
-        }
-    }
+    const { entries, moduleIndex } = parseDigestContent(content, rootDomainForDigestFile(fileName));
 
     return {
         version: VERSION,

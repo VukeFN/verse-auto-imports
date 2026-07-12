@@ -1,30 +1,474 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-02-06T00:12:07.861Z",
+  "generatedAt": "2026-07-12T23:09:31.029Z",
   "sourceFile": "UnrealEngine.digest.verse",
-  "sourceBuild": "++Fortnite+Release-39.40-CL-50341043",
+  "sourceBuild": "++Fortnite+Release-41.10-CL-55335788",
   "entries": {
-    "Itemization": {
-      "identifier": "Itemization",
-      "modulePath": "/Itemization",
+    "Conversations": {
+      "identifier": "Conversations",
+      "modulePath": "/UnrealEngine.com/Conversations",
       "type": "module",
       "isPublic": true
     },
-    "has_item_merge_rules": {
-      "identifier": "has_item_merge_rules",
-      "modulePath": "/Itemization",
-      "type": "variable",
+    "llm_prompt_error": {
+      "identifier": "llm_prompt_error",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "llm_prompt_timeout_error": {
+      "identifier": "llm_prompt_timeout_error",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "llm_prompt_throttled_error": {
+      "identifier": "llm_prompt_throttled_error",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "llm_prompt_moderated_error": {
+      "identifier": "llm_prompt_moderated_error",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "llm_prompt_character_limit_error": {
+      "identifier": "llm_prompt_character_limit_error",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "llm_session": {
+      "identifier": "llm_session",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "persona_interruption_rule": {
+      "identifier": "persona_interruption_rule",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "persona_component": {
+      "identifier": "persona_component",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "prompt": {
+      "identifier": "prompt",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "basic_prompt": {
+      "identifier": "basic_prompt",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "persona_prompt": {
+      "identifier": "persona_prompt",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "voice_model": {
+      "identifier": "voice_model",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "lily_voice": {
+      "identifier": "lily_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "julienne_voice": {
+      "identifier": "julienne_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "victoria_voice": {
+      "identifier": "victoria_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "wyatt_voice": {
+      "identifier": "wyatt_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "caleb_voice": {
+      "identifier": "caleb_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "ethan_voice": {
+      "identifier": "ethan_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "vera_voice": {
+      "identifier": "vera_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "grant_voice": {
+      "identifier": "grant_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "rex_voice": {
+      "identifier": "rex_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "luna_voice": {
+      "identifier": "luna_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "chloe_voice": {
+      "identifier": "chloe_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "roxy_voice": {
+      "identifier": "roxy_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "vivienne_voice": {
+      "identifier": "vivienne_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "milo_voice": {
+      "identifier": "milo_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "clara_voice": {
+      "identifier": "clara_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "dante_voice": {
+      "identifier": "dante_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "marcus_voice": {
+      "identifier": "marcus_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "aria_voice": {
+      "identifier": "aria_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "victor_voice": {
+      "identifier": "victor_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "alaina_voice": {
+      "identifier": "alaina_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "maisie_voice": {
+      "identifier": "maisie_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "arthur_voice": {
+      "identifier": "arthur_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "felix_voice": {
+      "identifier": "felix_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "walter_voice": {
+      "identifier": "walter_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "simon_voice": {
+      "identifier": "simon_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "troy_voice": {
+      "identifier": "troy_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "brenna_voice": {
+      "identifier": "brenna_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "marina_voice": {
+      "identifier": "marina_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "helen_voice": {
+      "identifier": "helen_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "graham_voice": {
+      "identifier": "graham_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "llm_description_attribute": {
+      "identifier": "llm_description_attribute",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "llm_description": {
+      "identifier": "llm_description",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "function",
+      "isPublic": true
+    },
+    "Progression": {
+      "identifier": "Progression",
+      "modulePath": "/UnrealEngine.com/Progression",
+      "type": "module",
+      "isPublic": true
+    },
+    "entitlement_quest_reward": {
+      "identifier": "entitlement_quest_reward",
+      "modulePath": "/UnrealEngine.com/Progression",
+      "type": "class",
+      "isPublic": true
+    },
+    "progress_quest_objective": {
+      "identifier": "progress_quest_objective",
+      "modulePath": "/UnrealEngine.com/Progression",
+      "type": "class",
+      "isPublic": true
+    },
+    "basic_quest": {
+      "identifier": "basic_quest",
+      "modulePath": "/UnrealEngine.com/Progression",
+      "type": "class",
+      "isPublic": true
+    },
+    "quest_objective": {
+      "identifier": "quest_objective",
+      "modulePath": "/UnrealEngine.com/Progression",
+      "type": "class",
+      "isPublic": true
+    },
+    "grant_quest_reward_error": {
+      "identifier": "grant_quest_reward_error",
+      "modulePath": "/UnrealEngine.com/Progression",
+      "type": "class",
+      "isPublic": true
+    },
+    "quest_reward": {
+      "identifier": "quest_reward",
+      "modulePath": "/UnrealEngine.com/Progression",
+      "type": "class",
+      "isPublic": true
+    },
+    "Itemization": {
+      "identifier": "Itemization",
+      "modulePath": "/UnrealEngine.com/Itemization",
+      "type": "module",
+      "isPublic": true
+    },
+    "add_item_result": {
+      "identifier": "add_item_result",
+      "modulePath": "/UnrealEngine.com/Itemization",
+      "type": "class",
+      "isPublic": true
+    },
+    "remove_item_result": {
+      "identifier": "remove_item_result",
+      "modulePath": "/UnrealEngine.com/Itemization",
+      "type": "class",
+      "isPublic": true
+    },
+    "equip_item_result": {
+      "identifier": "equip_item_result",
+      "modulePath": "/UnrealEngine.com/Itemization",
+      "type": "class",
+      "isPublic": true
+    },
+    "unequip_item_result": {
+      "identifier": "unequip_item_result",
+      "modulePath": "/UnrealEngine.com/Itemization",
+      "type": "class",
+      "isPublic": true
+    },
+    "find_inventory_event": {
+      "identifier": "find_inventory_event",
+      "modulePath": "/UnrealEngine.com/Itemization",
+      "type": "class",
+      "isPublic": true
+    },
+    "add_item_error": {
+      "identifier": "add_item_error",
+      "modulePath": "/UnrealEngine.com/Itemization",
+      "type": "class",
+      "isPublic": true
+    },
+    "add_item_query_event": {
+      "identifier": "add_item_query_event",
+      "modulePath": "/UnrealEngine.com/Itemization",
+      "type": "class",
+      "isPublic": true
+    },
+    "remove_item_error": {
+      "identifier": "remove_item_error",
+      "modulePath": "/UnrealEngine.com/Itemization",
+      "type": "class",
+      "isPublic": true
+    },
+    "remove_item_query_event": {
+      "identifier": "remove_item_query_event",
+      "modulePath": "/UnrealEngine.com/Itemization",
+      "type": "class",
+      "isPublic": true
+    },
+    "inventory_component": {
+      "identifier": "inventory_component",
+      "modulePath": "/UnrealEngine.com/Itemization",
+      "type": "class",
+      "isPublic": true
+    },
+    "item_category": {
+      "identifier": "item_category",
+      "modulePath": "/UnrealEngine.com/Itemization",
+      "type": "class",
+      "isPublic": true
+    },
+    "change_equipped_result": {
+      "identifier": "change_equipped_result",
+      "modulePath": "/UnrealEngine.com/Itemization",
+      "type": "class",
+      "isPublic": true
+    },
+    "change_inventory_result": {
+      "identifier": "change_inventory_result",
+      "modulePath": "/UnrealEngine.com/Itemization",
+      "type": "class",
+      "isPublic": true
+    },
+    "equip_item_error": {
+      "identifier": "equip_item_error",
+      "modulePath": "/UnrealEngine.com/Itemization",
+      "type": "class",
+      "isPublic": true
+    },
+    "equip_item_query_event": {
+      "identifier": "equip_item_query_event",
+      "modulePath": "/UnrealEngine.com/Itemization",
+      "type": "class",
+      "isPublic": true
+    },
+    "unequip_item_error": {
+      "identifier": "unequip_item_error",
+      "modulePath": "/UnrealEngine.com/Itemization",
+      "type": "class",
+      "isPublic": true
+    },
+    "unequip_item_query_event": {
+      "identifier": "unequip_item_query_event",
+      "modulePath": "/UnrealEngine.com/Itemization",
+      "type": "class",
+      "isPublic": true
+    },
+    "item_component": {
+      "identifier": "item_component",
+      "modulePath": "/UnrealEngine.com/Itemization",
+      "type": "class",
       "isPublic": true
     },
     "WebAPI": {
       "identifier": "WebAPI",
-      "modulePath": "/WebAPI",
+      "modulePath": "/UnrealEngine.com/WebAPI",
       "type": "module",
+      "isPublic": true
+    },
+    "client_id": {
+      "identifier": "client_id",
+      "modulePath": "/UnrealEngine.com/WebAPI",
+      "type": "class",
+      "isPublic": true
+    },
+    "client": {
+      "identifier": "client",
+      "modulePath": "/UnrealEngine.com/WebAPI",
+      "type": "class",
+      "isPublic": true
+    },
+    "response": {
+      "identifier": "response",
+      "modulePath": "/UnrealEngine.com/WebAPI",
+      "type": "class",
+      "isPublic": true
+    },
+    "body_response": {
+      "identifier": "body_response",
+      "modulePath": "/UnrealEngine.com/WebAPI",
+      "type": "class",
+      "isPublic": true
+    },
+    "MakeClient": {
+      "identifier": "MakeClient",
+      "modulePath": "/UnrealEngine.com/WebAPI",
+      "type": "function",
       "isPublic": true
     },
     "Temporary": {
       "identifier": "Temporary",
-      "modulePath": "/UnrealEngine.com/SceneGraph",
+      "modulePath": "/UnrealEngine.com/Temporary",
       "type": "module",
       "isPublic": true
     },
@@ -34,10 +478,190 @@
       "type": "module",
       "isPublic": true
     },
+    "GetPlayerUI": {
+      "identifier": "GetPlayerUI",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "function",
+      "isPublic": true
+    },
+    "player_ui": {
+      "identifier": "player_ui",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "widget": {
+      "identifier": "widget",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "player_ui_slot": {
+      "identifier": "player_ui_slot",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "ui_input_mode": {
+      "identifier": "ui_input_mode",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "widget_message": {
+      "identifier": "widget_message",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "widget_visibility": {
+      "identifier": "widget_visibility",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "orientation": {
+      "identifier": "orientation",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "horizontal_alignment": {
+      "identifier": "horizontal_alignment",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "vertical_alignment": {
+      "identifier": "vertical_alignment",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "anchors": {
+      "identifier": "anchors",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "margin": {
+      "identifier": "margin",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "button": {
+      "identifier": "button",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "button_slot": {
+      "identifier": "button_slot",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "canvas": {
+      "identifier": "canvas",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "canvas_slot": {
+      "identifier": "canvas_slot",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "MakeCanvasSlot": {
+      "identifier": "MakeCanvasSlot",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "function",
+      "isPublic": true
+    },
+    "color_block": {
+      "identifier": "color_block",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "image_tiling": {
+      "identifier": "image_tiling",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "texture_block": {
+      "identifier": "texture_block",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "material_block": {
+      "identifier": "material_block",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "overlay": {
+      "identifier": "overlay",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "overlay_slot": {
+      "identifier": "overlay_slot",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "stack_box": {
+      "identifier": "stack_box",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "stack_box_slot": {
+      "identifier": "stack_box_slot",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "text_justification": {
+      "identifier": "text_justification",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "text_overflow_policy": {
+      "identifier": "text_overflow_policy",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "text_wrapping_policy": {
+      "identifier": "text_wrapping_policy",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
+    "text_base": {
+      "identifier": "text_base",
+      "modulePath": "/UnrealEngine.com/Temporary/UI",
+      "type": "class",
+      "isPublic": true
+    },
     "Curves": {
       "identifier": "Curves",
       "modulePath": "/UnrealEngine.com/Temporary/Curves",
       "type": "module",
+      "isPublic": true
+    },
+    "editable_curve": {
+      "identifier": "editable_curve",
+      "modulePath": "/UnrealEngine.com/Temporary/Curves",
+      "type": "class",
       "isPublic": true
     },
     "Diagnostics": {
@@ -46,16 +670,292 @@
       "type": "module",
       "isPublic": true
     },
-    "JSON": {
-      "identifier": "JSON",
+    "debug_draw_duration_policy": {
+      "identifier": "debug_draw_duration_policy",
+      "modulePath": "/UnrealEngine.com/Temporary/Diagnostics",
+      "type": "class",
+      "isPublic": true
+    },
+    "debug_draw_channel": {
+      "identifier": "debug_draw_channel",
+      "modulePath": "/UnrealEngine.com/Temporary/Diagnostics",
+      "type": "class",
+      "isPublic": true
+    },
+    "debug_draw": {
+      "identifier": "debug_draw",
+      "modulePath": "/UnrealEngine.com/Temporary/Diagnostics",
+      "type": "class",
+      "isPublic": true
+    },
+    "log_level": {
+      "identifier": "log_level",
+      "modulePath": "/UnrealEngine.com/Temporary/Diagnostics",
+      "type": "class",
+      "isPublic": true
+    },
+    "log_channel": {
+      "identifier": "log_channel",
+      "modulePath": "/UnrealEngine.com/Temporary/Diagnostics",
+      "type": "class",
+      "isPublic": true
+    },
+    "log": {
+      "identifier": "log",
+      "modulePath": "/UnrealEngine.com/Temporary/Diagnostics",
+      "type": "class",
+      "isPublic": true
+    },
+    "SpatialMath": {
+      "identifier": "SpatialMath",
       "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
       "type": "module",
+      "isPublic": true
+    },
+    "rotation": {
+      "identifier": "rotation",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "class",
+      "isPublic": true
+    },
+    "MakeRotation": {
+      "identifier": "MakeRotation",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "MakeRotationFromYawPitchRollDegrees": {
+      "identifier": "MakeRotationFromYawPitchRollDegrees",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "IdentityRotation": {
+      "identifier": "IdentityRotation",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "Distance": {
+      "identifier": "Distance",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "AngularDistance": {
+      "identifier": "AngularDistance",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "MakeShortestRotationBetween": {
+      "identifier": "MakeShortestRotationBetween",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "MakeComponentWiseDeltaRotation": {
+      "identifier": "MakeComponentWiseDeltaRotation",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "Slerp": {
+      "identifier": "Slerp",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "ToString": {
+      "identifier": "ToString",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "DegreesToRadians": {
+      "identifier": "DegreesToRadians",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "RadiansToDegrees": {
+      "identifier": "RadiansToDegrees",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "FromVector3": {
+      "identifier": "FromVector3",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "FromScalarVector3": {
+      "identifier": "FromScalarVector3",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "FromRotation": {
+      "identifier": "FromRotation",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "FromTransform": {
+      "identifier": "FromTransform",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "transform": {
+      "identifier": "transform",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "class",
+      "isPublic": true
+    },
+    "TransformVector": {
+      "identifier": "TransformVector",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "TransformVectorNoScale": {
+      "identifier": "TransformVectorNoScale",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "vector2": {
+      "identifier": "vector2",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "class",
+      "isPublic": true
+    },
+    "ReflectVector": {
+      "identifier": "ReflectVector",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "DotProduct": {
+      "identifier": "DotProduct",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "DistanceSquared": {
+      "identifier": "DistanceSquared",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "Lerp": {
+      "identifier": "Lerp",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "ToVector2": {
+      "identifier": "ToVector2",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "IsAlmostEqual": {
+      "identifier": "IsAlmostEqual",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "vector2i": {
+      "identifier": "vector2i",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "class",
+      "isPublic": true
+    },
+    "Equals": {
+      "identifier": "Equals",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "ToVector2i": {
+      "identifier": "ToVector2i",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "vector3": {
+      "identifier": "vector3",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "class",
+      "isPublic": true
+    },
+    "CrossProduct": {
+      "identifier": "CrossProduct",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "DistanceXY": {
+      "identifier": "DistanceXY",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "DistanceSquaredXY": {
+      "identifier": "DistanceSquaredXY",
+      "modulePath": "/UnrealEngine.com/Temporary/SpatialMath",
+      "type": "function",
+      "isPublic": true
+    },
+    "SortBy": {
+      "identifier": "SortBy",
+      "modulePath": "/UnrealEngine.com/Temporary",
+      "type": "function",
+      "isPublic": true
+    },
+    "JSON": {
+      "identifier": "JSON",
+      "modulePath": "/UnrealEngine.com/JSON",
+      "type": "module",
+      "isPublic": true
+    },
+    "value": {
+      "identifier": "value",
+      "modulePath": "/UnrealEngine.com/JSON",
+      "type": "class",
+      "isPublic": true
+    },
+    "Parse": {
+      "identifier": "Parse",
+      "modulePath": "/UnrealEngine.com/JSON",
+      "type": "function",
       "isPublic": true
     },
     "ControlInput": {
       "identifier": "ControlInput",
       "modulePath": "/UnrealEngine.com/ControlInput",
       "type": "module",
+      "isPublic": true
+    },
+    "input_events": {
+      "identifier": "input_events",
+      "modulePath": "/UnrealEngine.com/ControlInput",
+      "type": "class",
+      "isPublic": true
+    },
+    "GetPlayerInput": {
+      "identifier": "GetPlayerInput",
+      "modulePath": "/UnrealEngine.com/ControlInput",
+      "type": "function",
+      "isPublic": true
+    },
+    "player_input": {
+      "identifier": "player_input",
+      "modulePath": "/UnrealEngine.com/ControlInput",
+      "type": "class",
       "isPublic": true
     },
     "BasicShapes": {
@@ -93,33 +993,201 @@
       "modulePath": "/UnrealEngine.com/BasicShapes",
       "type": "class",
       "isPublic": true
+    },
+    "Assets": {
+      "identifier": "Assets",
+      "modulePath": "/UnrealEngine.com/Assets",
+      "type": "module",
+      "isPublic": true
+    },
+    "SpawnParticleSystem": {
+      "identifier": "SpawnParticleSystem",
+      "modulePath": "/UnrealEngine.com/Assets",
+      "type": "function",
+      "isPublic": true
     }
   },
   "moduleIndex": {
-    "/Itemization": [
+    "/UnrealEngine.com/Conversations": [
+      "Conversations",
+      "llm_prompt_error",
+      "llm_prompt_timeout_error",
+      "llm_prompt_throttled_error",
+      "llm_prompt_moderated_error",
+      "llm_prompt_character_limit_error",
+      "llm_session",
+      "persona_interruption_rule",
+      "persona_component",
+      "prompt",
+      "basic_prompt",
+      "persona_prompt",
+      "voice_model",
+      "lily_voice",
+      "julienne_voice",
+      "victoria_voice",
+      "wyatt_voice",
+      "caleb_voice",
+      "ethan_voice",
+      "vera_voice",
+      "grant_voice",
+      "rex_voice",
+      "luna_voice",
+      "chloe_voice",
+      "roxy_voice",
+      "vivienne_voice",
+      "milo_voice",
+      "clara_voice",
+      "dante_voice",
+      "marcus_voice",
+      "aria_voice",
+      "victor_voice",
+      "alaina_voice",
+      "maisie_voice",
+      "arthur_voice",
+      "felix_voice",
+      "walter_voice",
+      "simon_voice",
+      "troy_voice",
+      "brenna_voice",
+      "marina_voice",
+      "helen_voice",
+      "graham_voice",
+      "llm_description_attribute",
+      "llm_description"
+    ],
+    "/UnrealEngine.com/Progression": [
+      "Progression",
+      "entitlement_quest_reward",
+      "progress_quest_objective",
+      "basic_quest",
+      "quest_objective",
+      "grant_quest_reward_error",
+      "quest_reward"
+    ],
+    "/UnrealEngine.com/Itemization": [
       "Itemization",
-      "has_item_merge_rules"
+      "add_item_result",
+      "remove_item_result",
+      "equip_item_result",
+      "unequip_item_result",
+      "find_inventory_event",
+      "add_item_error",
+      "add_item_query_event",
+      "remove_item_error",
+      "remove_item_query_event",
+      "inventory_component",
+      "item_category",
+      "change_equipped_result",
+      "change_inventory_result",
+      "equip_item_error",
+      "equip_item_query_event",
+      "unequip_item_error",
+      "unequip_item_query_event",
+      "item_component"
     ],
-    "/WebAPI": [
-      "WebAPI"
+    "/UnrealEngine.com/WebAPI": [
+      "WebAPI",
+      "client_id",
+      "client",
+      "response",
+      "body_response",
+      "MakeClient"
     ],
-    "/UnrealEngine.com/SceneGraph": [
-      "Temporary"
+    "/UnrealEngine.com/Temporary": [
+      "Temporary",
+      "SortBy"
     ],
     "/UnrealEngine.com/Temporary/UI": [
-      "UI"
+      "UI",
+      "GetPlayerUI",
+      "player_ui",
+      "widget",
+      "player_ui_slot",
+      "ui_input_mode",
+      "widget_message",
+      "widget_visibility",
+      "orientation",
+      "horizontal_alignment",
+      "vertical_alignment",
+      "anchors",
+      "margin",
+      "button",
+      "button_slot",
+      "canvas",
+      "canvas_slot",
+      "MakeCanvasSlot",
+      "color_block",
+      "image_tiling",
+      "texture_block",
+      "material_block",
+      "overlay",
+      "overlay_slot",
+      "stack_box",
+      "stack_box_slot",
+      "text_justification",
+      "text_overflow_policy",
+      "text_wrapping_policy",
+      "text_base"
     ],
     "/UnrealEngine.com/Temporary/Curves": [
-      "Curves"
+      "Curves",
+      "editable_curve"
     ],
     "/UnrealEngine.com/Temporary/Diagnostics": [
-      "Diagnostics"
+      "Diagnostics",
+      "debug_draw_duration_policy",
+      "debug_draw_channel",
+      "debug_draw",
+      "log_level",
+      "log_channel",
+      "log"
     ],
     "/UnrealEngine.com/Temporary/SpatialMath": [
-      "JSON"
+      "SpatialMath",
+      "rotation",
+      "MakeRotation",
+      "MakeRotationFromYawPitchRollDegrees",
+      "IdentityRotation",
+      "Distance",
+      "AngularDistance",
+      "MakeShortestRotationBetween",
+      "MakeComponentWiseDeltaRotation",
+      "Slerp",
+      "ToString",
+      "DegreesToRadians",
+      "RadiansToDegrees",
+      "FromVector3",
+      "FromScalarVector3",
+      "FromRotation",
+      "FromTransform",
+      "transform",
+      "TransformVector",
+      "TransformVectorNoScale",
+      "vector2",
+      "ReflectVector",
+      "DotProduct",
+      "DistanceSquared",
+      "Lerp",
+      "ToVector2",
+      "IsAlmostEqual",
+      "vector2i",
+      "Equals",
+      "ToVector2i",
+      "vector3",
+      "CrossProduct",
+      "DistanceXY",
+      "DistanceSquaredXY"
+    ],
+    "/UnrealEngine.com/JSON": [
+      "JSON",
+      "value",
+      "Parse"
     ],
     "/UnrealEngine.com/ControlInput": [
-      "ControlInput"
+      "ControlInput",
+      "input_events",
+      "GetPlayerInput",
+      "player_input"
     ],
     "/UnrealEngine.com/BasicShapes": [
       "BasicShapes",
@@ -128,6 +1196,10 @@
       "plane",
       "cone",
       "cylinder"
+    ],
+    "/UnrealEngine.com/Assets": [
+      "Assets",
+      "SpawnParticleSystem"
     ]
   }
 }

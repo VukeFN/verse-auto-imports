@@ -8,6 +8,10 @@ Where an entry resolves a tracked issue, it ends with a `[#N]` reference linked 
 
 ## [Unreleased]
 
+### Added
+
+- **Clear Project Path Cache**: new command **Verse: Clear Project Path Cache** wipes both the in-memory cache and its persisted copy in workspace storage without rebuilding it, so the next lookup starts cold. Useful for recovering from a corrupt cache or testing cold-start behavior; ordinary rebuilds remain available via **Verse: Rebuild Project Path Cache** ([#93])
+
 ### Fixed
 
 - **Digest Files No Longer Logged as Scanner Errors**: regenerating Epic's `Assets.digest.verse` no longer logs a `Failed to parse ... Content\Assets.digest.verse` error. The project path cache's file watcher reaches the out-of-workspace digest in the UEFN multi-root workspace; it now ignores every `*.digest.verse` change, create, and delete event, since digest files are generated API surface and never project declarations. The declaration cache was otherwise unaffected ([#95])
@@ -309,4 +313,8 @@ See [GitHub Releases](https://github.com/VukeFN/verse-auto-imports/releases) for
 [#77]: https://github.com/VukeFN/verse-auto-imports/issues/77
 [#90]: https://github.com/VukeFN/verse-auto-imports/issues/90
 [#91]: https://github.com/VukeFN/verse-auto-imports/issues/91
+<<<<<<< HEAD
 [#95]: https://github.com/VukeFN/verse-auto-imports/issues/95
+=======
+[#93]: https://github.com/VukeFN/verse-auto-imports/issues/93
+>>>>>>> 1781c84 (feat(cache): add Clear Project Path Cache command)

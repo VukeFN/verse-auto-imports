@@ -93,6 +93,10 @@
         "title": "Verse: Rebuild Project Path Cache"
       },
       {
+        "command": "verseAutoImports.clearPathCache",
+        "title": "Verse: Clear Project Path Cache"
+      },
+      {
         "command": "verseAutoImports.showCacheStatus",
         "title": "Verse: Show Cache Status"
       }

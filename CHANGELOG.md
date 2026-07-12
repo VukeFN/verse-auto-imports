@@ -8,6 +8,10 @@ Where an entry resolves a tracked issue, it ends with a `[#N]` reference linked 
 
 ## [Unreleased]
 
+### Fixed
+
+- **Digest Files No Longer Logged as Scanner Errors**: regenerating Epic's `Assets.digest.verse` no longer logs a `Failed to parse ... Content\Assets.digest.verse` error. The project path cache's file watcher reaches the out-of-workspace digest in the UEFN multi-root workspace; it now ignores every `*.digest.verse` change, create, and delete event, since digest files are generated API surface and never project declarations. The declaration cache was otherwise unaffected ([#95])
+
 ## [0.7.1] - 2026-08-02
 
 ### Fixed
@@ -305,3 +309,4 @@ See [GitHub Releases](https://github.com/VukeFN/verse-auto-imports/releases) for
 [#77]: https://github.com/VukeFN/verse-auto-imports/issues/77
 [#90]: https://github.com/VukeFN/verse-auto-imports/issues/90
 [#91]: https://github.com/VukeFN/verse-auto-imports/issues/91
+[#95]: https://github.com/VukeFN/verse-auto-imports/issues/95

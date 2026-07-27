@@ -17,7 +17,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Apply path-based labels
-        uses: actions/labeler@v5
+        uses: actions/labeler@v7
         with:
           # Never remove labels added manually or by other automation
           sync-labels: false

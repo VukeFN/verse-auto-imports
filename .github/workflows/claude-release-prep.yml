@@ -21,10 +21,10 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
-      - name: Checkout develop
+      - name: Checkout main
         uses: actions/checkout@v7
         with:
-          ref: develop
+          ref: main
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -39,11 +39,19 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             Prepare a release of this VS Code extension. Read CLAUDE.md first.
-            The checkout is the develop branch.
+            The checkout is the main branch, which is the only long-lived branch.
 
-            Requested version: "${{ inputs.version }}". If empty, determine the
-            correct semver bump yourself from the nature of the unreleased changes
-            (features -> minor, fixes only -> patch).
+            Requested version: "${{ inputs.version }}". If empty, derive the bump
+            by applying this rule to the [Unreleased] section of CHANGELOG.md -
+            do not use judgement, apply the rule:
+              - any entry under Removed, or any entry explicitly marked breaking
+                -> minor (the project is on 0.x; this becomes major after 1.0.0)
+              - otherwise any entry under Added or Deprecated -> minor
+                (SemVer rule 7 requires a minor for a deprecation on its own)
+              - otherwise, entries only under Fixed / Changed / Security -> patch
+              - no user-facing entries at all -> STOP. Do not cut a release that
+                contains only CI, test, or refactor commits.
+            State which rule branch fired and why in the PR body.
 
             Steps:
             1. Verify the tree is releasable: `npm ci && npm run compile && npm test`.
@@ -55,19 +63,18 @@ jobs:
                the new version dated today (UTC), grouped under Added / Changed /
                Fixed as appropriate, written for end users (what changed in the
                editor experience, not internal refactor details). Keep an empty
-               [Unreleased] section on top.
+               [Unreleased] section on top. Add the version compare-link to the
+               link-definition block at the bottom, and repoint [Unreleased] at
+               the new tag.
             4. Set the new version in package.json (version field only; do not
                touch other fields or package-lock.json by hand - run
                `npm install --package-lock-only` after the bump to sync it).
-            5. Create branch release/vX.Y.Z from develop, commit everything as
-               "chore: prepare release vX.Y.Z", and push it.
-            6. Open a PR from release/vX.Y.Z to main titled "release: vX.Y.Z".
-               Body: the new changelog section, plus a checklist reminding the
-               maintainer that merging will produce a draft GitHub Release which
-               they publish to ship to the Marketplace.
-            7. Also open a PR from release/vX.Y.Z to develop if main and develop
-               have diverged, or note in the first PR that develop should be
-               synced after the release merge.
+            5. Create branch chore/release-vX.Y.Z from main, commit everything as
+               "chore: release vX.Y.Z", and push it.
+            6. Open a PR from chore/release-vX.Y.Z to main titled "release: vX.Y.Z".
+               Body: the new changelog section, the bump rule that fired, plus a
+               checklist reminding the maintainer that merging will produce a draft
+               GitHub Release which they publish to ship to the Marketplace.
 
             Rules: no emojis, no AI attribution in commits, conventional commit
             prefixes only.

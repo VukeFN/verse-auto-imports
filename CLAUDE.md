@@ -34,15 +34,18 @@ Jest + ts-jest; `vscode` is mocked at `src/__mocks__/vscode.ts`. Tests live in `
 
 ## Git workflow
 
-- `main` = tagged releases; `develop` = integration. Feature and fix PRs target `develop`.
-- Branch prefixes: `feature/` `fix/` `refactor/`; `hotfix/` branches from `main`.
-- Release: a `release/vX.Y.Z` PR into `main` bumps the version and finalizes the changelog; publishing the GitHub Release ships to the Marketplace automatically.
+GitHub Flow: `main` is the only long-lived branch and the default branch. There is no `develop`.
+
+- Every change branches from `main` and returns by PR into `main`. Because PRs target the default branch, `Closes #N` in a PR body actually links and closes the issue — always use it.
+- Branch prefixes: `feature/` `fix/` `chore/` `docs/` `test/` `refactor/`. A hotfix is just a `fix/` branch; it needs no special path.
+- Release: a `chore/release-vX.Y.Z` PR into `main` bumps the version and finalizes the changelog. Merging it produces a draft GitHub Release; publishing that draft ships to the Marketplace.
+- `release/X.Y` branches are cut **retroactively**, and only to patch an older released line. Do not create one in advance.
 
 ## Rules for automated agents (GitHub Actions runs)
 
 YOU MUST:
 
-- Never push to `main` or `develop` — always branch and open a PR.
+- Never push to `main` — always branch and open a PR.
 - Never change the `package.json` `version` except during release prep.
 - Never close issues — label and comment; leave closing to the maintainer.
 - Run `npm run compile` and `npm test` before opening a PR, and report the results in it.

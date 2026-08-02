@@ -23,7 +23,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: develop
+          ref: main
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -39,17 +39,17 @@ jobs:
           prompt: |
             You are the weekly maintenance agent for ${{ github.repository }},
             a VS Code extension for the Verse language. Read CLAUDE.md first.
-            The checkout is the develop branch.
+            The checkout is the main branch, which is the only long-lived branch.
 
             Inspect the repository and produce a short maintenance report:
 
             1. Repo health: run `npm ci`, `npm run compile`, and `npm test` on
-               develop. Report any failure with the relevant output.
+               main. Report any failure with the relevant output.
             2. Open issues: list open issues; flag any with no activity for more
                than 30 days, any unanswered questions, and any missing triage labels.
             3. Open PRs: list open PRs and their CI state; flag stale ones and any
                Dependabot majors waiting on a decision.
-            4. Release readiness: compare develop against the latest release tag
+            4. Release readiness: compare main against the latest release tag
                (`git log $(git describe --tags --abbrev=0 origin/main)..HEAD --oneline`).
                If there are user-facing changes, summarize them and state whether a
                release is worth cutting, and whether CHANGELOG.md's [Unreleased]

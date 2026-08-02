@@ -2,11 +2,13 @@
 
 All notable changes to the "Verse Auto Imports" extension will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Where an entry resolves a tracked issue, it ends with a `[#N]` reference linked at the bottom of this file.
 
 ## [Unreleased]
+
+## [0.7.1] - 2026-08-02
 
 ### Fixed
 
@@ -274,6 +276,17 @@ Settings have been reorganized with new names (old settings will need to be upda
 ## Earlier Versions
 
 See [GitHub Releases](https://github.com/VukeFN/verse-auto-imports/releases) for complete changelog of earlier versions.
+
+<!-- Version comparisons. The chain starts at 0.6.0: no v0.4.x or v0.5.x tags exist. -->
+
+[Unreleased]: https://github.com/VukeFN/verse-auto-imports/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/VukeFN/verse-auto-imports/compare/v0.7.0...v0.7.1
+[0.7.0]: https://github.com/VukeFN/verse-auto-imports/compare/v0.6.4...v0.7.0
+[0.6.4]: https://github.com/VukeFN/verse-auto-imports/compare/v0.6.3...v0.6.4
+[0.6.3]: https://github.com/VukeFN/verse-auto-imports/compare/v0.6.2...v0.6.3
+[0.6.2]: https://github.com/VukeFN/verse-auto-imports/compare/v0.6.1...v0.6.2
+[0.6.1]: https://github.com/VukeFN/verse-auto-imports/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/VukeFN/verse-auto-imports/releases/tag/v0.6.0
 
 <!-- Issue references -->
 

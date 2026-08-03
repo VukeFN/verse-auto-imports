@@ -43,15 +43,25 @@ jobs:
 
             Requested version: "${{ inputs.version }}". If empty, derive the bump
             by applying this rule to the [Unreleased] section of CHANGELOG.md -
-            do not use judgement, apply the rule:
+            do not use judgement, apply the rule.
+
+            First read the current version from package.json. Let PRE_1_0 be true
+            when its major component is 0. Do not assume this - read it, because
+            the answer changes the first branch below and it changes for good the
+            day this project ships 1.0.0.
+
               - any entry under Removed, or any entry explicitly marked breaking
-                -> minor (the project is on 0.x; this becomes major after 1.0.0)
+                -> minor if PRE_1_0, otherwise major
+                (SemVer treats 0.y.z as an unstable public API, so a breaking
+                change is conventionally a minor below 1.0 and a major at or
+                above it)
               - otherwise any entry under Added or Deprecated -> minor
                 (SemVer rule 7 requires a minor for a deprecation on its own)
               - otherwise, entries only under Fixed / Changed / Security -> patch
               - no user-facing entries at all -> STOP. Do not cut a release that
                 contains only CI, test, or refactor commits.
-            State which rule branch fired and why in the PR body.
+            State the version you read, whether PRE_1_0 was true, which rule
+            branch fired, and why, in the PR body.
 
             Steps:
             1. Verify the tree is releasable: `npm ci && npm run compile && npm test`.

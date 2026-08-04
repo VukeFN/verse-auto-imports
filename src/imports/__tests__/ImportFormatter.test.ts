@@ -92,4 +92,24 @@ describe("ImportFormatter.groupAndFormatImports", () => {
         const result = formatter.groupAndFormatImports(["Zeta", "/Verse.org/Simulation", "Economy.Shop"], false, false, "digestFirst");
         expect(result).toEqual(["using { /Verse.org/Simulation }", "", "using { Zeta }", "using { Economy.Shop }"]);
     });
+
+    it("localFirst with sorting: local group precedes the digest group", () => {
+        const result = formatter.groupAndFormatImports(["/Verse.org/Simulation", "Economy.Shop", "Features"], false, true, "localFirst");
+        expect(result).toEqual(["using { Features }", "using { Economy.Shop }", "", "using { /Verse.org/Simulation }"]);
+    });
+
+    // An out-of-enum value reaches here from a hand-edited settings.json, a case
+    // mismatch, a workspace settings file carried from an older version, or a
+    // future rename of an enum member. Dropping every import would silently
+    // delete the user's source, so an unrecognised value degrades to "none".
+    it.each(["typo", "digestfirst", "", "None"])("an unrecognised grouping value %p falls back to ungrouped output instead of dropping imports", (grouping) => {
+        const paths = ["/Verse.org/Simulation", "Features", "Features.Economy"];
+        const result = formatter.groupAndFormatImports(paths, false, false, grouping);
+        expect(result).toEqual(["using { /Verse.org/Simulation }", "using { Features }", "using { Features.Economy }"]);
+    });
+
+    it("an unrecognised grouping value still honours sorting", () => {
+        const result = formatter.groupAndFormatImports(["Economy.Shop", "/Verse.org/Simulation", "Features"], false, true, "typo");
+        expect(result).toEqual(["using { /Verse.org/Simulation }", "using { Features }", "using { Economy.Shop }"]);
+    });
 });

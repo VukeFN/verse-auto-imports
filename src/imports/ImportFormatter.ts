@@ -209,11 +209,13 @@ export class ImportFormatter {
      * @param importPaths Array of import paths to group and format
      * @param preferDotSyntax Whether to use dot syntax for imports
      * @param sortAlphabetically Whether to sort imports alphabetically
-     * @param importGrouping The grouping strategy ('none', 'digestFirst', or 'localFirst')
+     * @param importGrouping The grouping strategy ('none', 'digestFirst', or 'localFirst').
+     *   Any other value falls back to 'none', so a setting typo or a renamed
+     *   enum member degrades to ungrouped output rather than dropping imports.
      * @returns Array of formatted import statements with potential empty lines for grouping
      */
     groupAndFormatImports(importPaths: string[], preferDotSyntax: boolean, sortAlphabetically: boolean, importGrouping: string): string[] {
-        if (importGrouping === "none") {
+        if (importGrouping !== "digestFirst" && importGrouping !== "localFirst") {
             // Rank-based sort if enabled (see sortImportsByRank for why plain
             // alphabetical order is unsafe for local imports)
             const sortedPaths = sortAlphabetically ? this.sortImportsByRank(importPaths) : importPaths;
@@ -244,23 +246,16 @@ export class ImportFormatter {
         const formattedDigestImports = digestImports.map((path) => this.formatImportStatement(path, preferDotSyntax));
         const formattedLocalImports = localImports.map((path) => this.formatImportStatement(path, preferDotSyntax));
 
-        // Combine based on configuration
-        let formattedImports: string[] = [];
-        if (importGrouping === "digestFirst") {
-            formattedImports = [...formattedDigestImports];
-            // Add spacing between groups if both have imports
-            if (formattedDigestImports.length > 0 && formattedLocalImports.length > 0) {
-                formattedImports.push(""); // Empty line between groups
-            }
-            formattedImports.push(...formattedLocalImports);
-        } else if (importGrouping === "localFirst") {
-            formattedImports = [...formattedLocalImports];
-            // Add spacing between groups if both have imports
-            if (formattedLocalImports.length > 0 && formattedDigestImports.length > 0) {
-                formattedImports.push(""); // Empty line between groups
-            }
-            formattedImports.push(...formattedDigestImports);
+        // Combine based on configuration. Only the two grouped strategies reach
+        // this point, so both branches of the pair are covered.
+        const [firstGroup, secondGroup] = importGrouping === "digestFirst" ? [formattedDigestImports, formattedLocalImports] : [formattedLocalImports, formattedDigestImports];
+
+        const formattedImports: string[] = [...firstGroup];
+        // Add spacing between groups if both have imports
+        if (firstGroup.length > 0 && secondGroup.length > 0) {
+            formattedImports.push(""); // Empty line between groups
         }
+        formattedImports.push(...secondGroup);
 
         return formattedImports;
     }

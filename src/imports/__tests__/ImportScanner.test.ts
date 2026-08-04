@@ -13,6 +13,16 @@ describe("scanModuleImports", () => {
         expect(scanModuleImports(["using:", "    /Verse.org/Simulation", "code()"])).toEqual([{ path: "/Verse.org/Simulation", startLine: 0, endLine: 1 }]);
     });
 
+    it("strips a trailing comment from a scanned import path, in all three styles", () => {
+        expect(scanModuleImports(["using { /Verse.org/Simulation } # keep me"])).toEqual([{ path: "/Verse.org/Simulation", startLine: 0, endLine: 0 }]);
+        expect(scanModuleImports(["using. /Verse.org/Simulation # keep me"])).toEqual([{ path: "/Verse.org/Simulation", startLine: 0, endLine: 0 }]);
+        expect(scanModuleImports(["using:", "    /Verse.org/Simulation # keep me", "code()"])).toEqual([{ path: "/Verse.org/Simulation", startLine: 0, endLine: 1 }]);
+    });
+
+    it("skips a using: line whose indented next line is nothing but a comment", () => {
+        expect(scanModuleImports(["using:", "    # just a note", "code()"])).toEqual([]);
+    });
+
     it("collects dot-notation module references", () => {
         expect(scanModuleImports(["using { Gadgets.Tools }"])).toEqual([{ path: "Gadgets.Tools", startLine: 0, endLine: 0 }]);
     });

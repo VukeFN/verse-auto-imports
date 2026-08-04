@@ -8,6 +8,8 @@ Where an entry resolves a tracked issue, it ends with a `[#N]` reference linked 
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-08-04
+
 ### Added
 
 - **Clear Project Path Cache**: new command **Verse: Clear Project Path Cache** wipes both the in-memory cache and its persisted copy in workspace storage without rebuilding it, so the next lookup starts cold. Useful for recovering from a corrupt cache or testing cold-start behavior; ordinary rebuilds remain available via **Verse: Rebuild Project Path Cache** ([#93])
@@ -294,7 +296,8 @@ See [GitHub Releases](https://github.com/VukeFN/verse-auto-imports/releases) for
 
 <!-- Version comparisons. The chain starts at 0.6.0: no v0.4.x or v0.5.x tags exist. -->
 
-[Unreleased]: https://github.com/VukeFN/verse-auto-imports/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/VukeFN/verse-auto-imports/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/VukeFN/verse-auto-imports/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/VukeFN/verse-auto-imports/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/VukeFN/verse-auto-imports/compare/v0.6.4...v0.7.0
 [0.6.4]: https://github.com/VukeFN/verse-auto-imports/compare/v0.6.3...v0.6.4

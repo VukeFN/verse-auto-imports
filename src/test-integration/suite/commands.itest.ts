@@ -43,6 +43,7 @@ describe("commands and snooze (playbook T7/T8)", () => {
             "verseAutoImports.exportDebugLogs",
             "verseAutoImports.captureDiagnosticsCorpus",
             "verseAutoImports.rebuildPathCache",
+            "verseAutoImports.clearPathCache",
             "verseAutoImports.showCacheStatus",
         ];
         for (const commandId of expected) {

@@ -71,6 +71,7 @@ export class CommandsHandler {
 
             // Cache
             ["verseAutoImports.rebuildPathCache", this.rebuildPathCache.bind(this)],
+            ["verseAutoImports.clearPathCache", this.clearPathCache.bind(this)],
             ["verseAutoImports.showCacheStatus", this.showCacheStatus.bind(this)],
 
             // Path conversion
@@ -302,6 +303,29 @@ export class CommandsHandler {
 
         const stats = this.deps.projectPathCache.getStats();
         vscode.window.showInformationMessage(`Project path cache rebuilt: ${stats.identifiers} identifiers from ${stats.files} files`);
+    }
+
+    /**
+     * Clears the project path cache without rebuilding it.
+     * Wipes both the in-memory state and the persisted workspace-storage copy;
+     * useful for testing cold-start behavior or recovering from a corrupt cache.
+     */
+    async clearPathCache(): Promise<void> {
+        if (!this.deps.projectPathCache) {
+            vscode.window.showWarningMessage("Project path cache is not enabled");
+            return;
+        }
+
+        try {
+            logger.info("CommandsHandler", "Clearing project path cache");
+
+            await this.deps.projectPathCache.clearAll();
+
+            vscode.window.showInformationMessage("Project path cache cleared");
+        } catch (error) {
+            logger.error("CommandsHandler", "Failed to clear project path cache", error);
+            vscode.window.showErrorMessage(`Failed to clear project path cache: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 
     /**

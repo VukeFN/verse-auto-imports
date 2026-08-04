@@ -226,6 +226,22 @@ export class ProjectPathCache {
     }
 
     /**
+     * Clear the in-memory cache and remove the persisted copy from workspace
+     * storage. Unlike {@link clear}, which only wipes in-memory state and is
+     * reused as the watcher-teardown hook, this also drops the stored payload
+     * so the next session starts cold. Use it to recover from a corrupt cache
+     * or to test cold-start behavior; it does not trigger a rebuild.
+     */
+    async clearAll(): Promise<void> {
+        this.clear();
+
+        await this.context.workspaceState.update(ProjectPathCache.CACHE_KEY, undefined);
+        await this.context.workspaceState.update(ProjectPathCache.LEGACY_METADATA_KEY, undefined);
+
+        logger.info("ProjectPathCache", "Persisted cache cleared from workspace storage");
+    }
+
+    /**
      * Save cache to VS Code workspace storage.
      */
     private async saveToStorage(): Promise<void> {

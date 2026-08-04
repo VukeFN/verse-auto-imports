@@ -20,6 +20,7 @@ Where an entry resolves a tracked issue, it ends with a `[#N]` reference linked 
 
 - **Digest Files No Longer Logged as Scanner Errors**: regenerating Epic's `Assets.digest.verse` no longer logs a `Failed to parse ... Content\Assets.digest.verse` error. The project path cache's file watcher reaches the out-of-workspace digest in the UEFN multi-root workspace; it now ignores every `*.digest.verse` change, create, and delete event, since digest files are generated API surface and never project declarations. The declaration cache was otherwise unaffected ([#95])
 - **Digest Module Paths Resolved Correctly**: the bundled API digest parser now attributes each declaration to the correct module. It previously tracked `# Module import path:` comments as ambient state with no indentation model, so a comment leaked onto later comment-less modules — `button_device` and `trigger_device` resolved to `/Fortnite.com/AI/movement_types` instead of `/Fortnite.com/Devices`. It also required `<public>` to appear immediately after the identifier, so `<native><public>` declarations were dropped entirely, leaving `creative_device`, `agent`, `player`, and `vector3` unimportable and producing no `/Fortnite.com/Devices` entry in the module index. Module scope is now derived from indentation (like the assets digest parser): a pending import-path comment applies to the next module only, then resolution falls back to a `(/path:)` scope qualifier, the enclosing module, or the file's root domain, and specifier order no longer affects which declarations are recognized ([#97])
+- **Unrecognized Import Grouping No Longer Drops Imports**: an out-of-enum `behavior.importGrouping` value now falls back to ungrouped output instead of removing every import from the file. Only `digestFirst` and `localFirst` were handled when combining the grouped output, so any other value returned an empty list and the rewrite deleted the imports it was meant to reorder. The settings UI constrains the value to the declared enum, so this was reachable only through a hand-edited `settings.json`, a case mismatch such as `digestfirst`, or a workspace settings file carried from an older version — but the failure was silent and total ([#121])
 
 ## [0.7.1] - 2026-08-02
 
@@ -318,12 +319,7 @@ See [GitHub Releases](https://github.com/VukeFN/verse-auto-imports/releases) for
 [#77]: https://github.com/VukeFN/verse-auto-imports/issues/77
 [#90]: https://github.com/VukeFN/verse-auto-imports/issues/90
 [#91]: https://github.com/VukeFN/verse-auto-imports/issues/91
-<<<<<<< HEAD
-<<<<<<< HEAD
-[#95]: https://github.com/VukeFN/verse-auto-imports/issues/95
-=======
 [#93]: https://github.com/VukeFN/verse-auto-imports/issues/93
->>>>>>> 1781c84 (feat(cache): add Clear Project Path Cache command)
-=======
+[#95]: https://github.com/VukeFN/verse-auto-imports/issues/95
 [#97]: https://github.com/VukeFN/verse-auto-imports/issues/97
->>>>>>> c160e71 (chore(digest): refresh bundled digests to 41.10 and regenerate data)
+[#121]: https://github.com/VukeFN/verse-auto-imports/issues/121

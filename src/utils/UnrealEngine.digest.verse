@@ -2,16 +2,434 @@
 #################################################
 # Generated Digest of Verse API
 # DO NOT modify this manually!
-# Generated from build: ++Fortnite+Release-39.40-CL-50341043
+# Generated from build: ++Fortnite+Release-41.10-CL-55335788
 #################################################
 
-Itemization<public> := module:
-    using {/Verse.org/Assets}
+Conversations<public> := module:
+    using {/Verse.org/Chat}
+    using {/Verse.org/Simulation}
+    using {/Verse.org/SceneGraph}
+    using {/Verse.org/Native}
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    llm_prompt_error<native><public> := class:
+        Message<native><public>:message
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    llm_prompt_timeout_error<native><public> := class(llm_prompt_error):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    llm_prompt_throttled_error<native><public> := class(llm_prompt_error):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    llm_prompt_moderated_error<native><public> := class(llm_prompt_error):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    llm_prompt_character_limit_error<native><public> := class(llm_prompt_error):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # An abstraction around a recorded history of events and sending prompts with that history context included.
+    llm_session<native><public> := class<unique>:
+        # Removes all the history events from the session. Including conversation history.
+        ClearHistory<native><public>()<transacts>:void
+
+        @available {MinUploadedAtFNVersion := 4100}
+        # The result will conform to the result type. The result type must be a struct which can contain.
+        #  - numeric types, message, bools and enums, as well as structs or arrays which only contain those types, anything else results in an error.
+        #  Use the names of the fields and name of the type of the struct to direct the prompt or facts on how to fill out the data structure.
+        Prompt<native><public>((local:)Prompt:prompt, response_type:type)<suspends>:result(response_type, llm_prompt_error)
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Defines the way the persona will handle attempts to prompt it while it is processing.
+    persona_interruption_rule<native><public> := enum<open>:
+        # Cannot be interrupted, will ignore any input until the finished.
+        IgnoreUntilFinished
+        # Will be interrupted immediately when spoken to.
+        InterruptOnPromptStart
+        # Will interrupt when the response for the interrupting prompt is ready.
+        InterruptOnResponseStart
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # NPC Persona component
+    persona_component<native><public> := class<final_super>(component):
+        # The personality of the persona
+        var Personality<public>:message = external {}
+
+        # What the persona knows
+        var Knowledge<public>:message = external {}
+
+        # The session which will process all this persona's prompts
+        # When the persona is in a voice channel, every session in that channel will automatically
+        # propagate conversation history entries to all sessions found in the channel.
+        # All and only conversation directly to or from a persona will be automatically recorded.
+        var Session<public>:llm_session = external {}
+
+        # The voice assigned to this persona.
+        var Voice<public>:voice_model = external {}
+
+        # How the persona will handle overlapping prompts.
+        var InterruptionRule<public>:persona_interruption_rule = external {}
+
+        # Listenable which is signaled when the player starts prompting the persona.
+        StartHearEvent<native><public>:listenable(agent) = external {}
+
+        # Listenable which is signaled when the player finishes prompting the persona.
+        StopHearEvent<native><public>:listenable(agent) = external {}
+
+        # Listenable which is signaled when the persona begins speaking (before moderation resolves).
+        #  1/ The agent (if involved) that prompted the response.
+        #  2/ Cancelable to stop the persona from talking.
+        StartSayEvent<native><public>:listenable(tuple(?agent, cancelable)) = external {}
+
+        # Listenable which is signaled when the spoken message is finalized (after moderation).
+        #  Contains the actual message delivered — either the original or the canned replacement.
+        #  1/ The agent (if involved) that prompted the response.
+        #  2/ The final message that was said.
+        CommitSayEvent<native><public>:listenable(tuple(?agent, message)) = external {}
+
+        # Listenable which is signaled when the target stops talking.
+        #  1/ logic that is true when interrupted
+        StopSayEvent<native><public>:listenable(logic) = external {}
+
+        # Requests the Persona to talk on the topic provided, requires the persona to be on a channel
+        RequestToTalk<native><public>(Instructions:message)<transacts><decides>:void
+
+        # Registers a callback for when the persona receives structured data in the format of response_type.
+        #  Required forces this be filled out every time the persona is prompted.
+        #  The returned cancelable unregisters this callback and stops the llm from attempting to send this kind of structured data.
+        #  The result type must be a struct which can contain.
+        #  - numeric types, message, bools and enums, as well as structs or arrays which only contain those types, anything else results in an error.
+        #  Use the names of the fields and name of the type of the struct to direct the prompt or facts on how to fill out the data structure.
+        SubscribeToResponseType<native><public>(response_type:type, Required:logic, Callback:type {_(:?agent, :response_type):void})<transacts>:cancelable
+
+        @available {MinUploadedAtFNVersion := 4000}
+        OnReceive<override>(SceneEvent:scene_event):logic = external {}
+
+        # Listenable which is signaled when the persona was requested to talk, either by a player or prompt and failed.
+        #  Callback receives:
+        #    1) The persona which had the failure
+        #    2) The error
+        PromptFailureEvent<native><public>:listenable(llm_prompt_error) = external {}
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Sets the persona the player will attempt to prompt when they use the relevant hotkey.
+    #  The persona must be in the voice channel with the player in order for the player to be able to successfully prompt.
+    (Player:player where member_info:subtype(has_voice_member_info)).SetConversationTarget<native><public>((local:)Persona:persona_component, Channel:voice_channel(member_info))<transacts>:void
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Retrieve the persona and channel the player is currently bound to prompt.
+    (Player:player).GetConversationTarget<native><public>()<reads><decides>:tuple(persona_component, voice_channel(has_voice_member_info))
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Unbind player from prompting personas
+    (Player:player).ClearConversationTarget<native><public>()<transacts>:void
+
+    @available {MinUploadedAtFNVersion := 4100}
+    @experimental
+    # Base class for all prompts sent to an llm session
+    prompt<native><public> := class<abstract><castable><epic_internal>:
+
+    @available {MinUploadedAtFNVersion := 4100}
+    @experimental
+    # A basic prompt for carrying out instructions
+    basic_prompt<native><public> := class<final>(prompt):
+        # What the llm should do
+        var Instructions<native><public>:message
+
+    @available {MinUploadedAtFNVersion := 4100}
+    @experimental
+    # A prompt which defines a persona and tells it to do something
+    persona_prompt<native><public> := class<final>(prompt):
+        # The personality of the persona
+        var Personality<native><public>:message
+
+        # What the persona knows
+        var Knowledge<native><public>:message
+
+        # What the persona should do
+        var Instructions<native><public>:message
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # The persona voice used when converting text-to-voice
+    voice_model<native><public> := class<abstract><epic_internal>:
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Comic, High, Warm
+    lily_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Refined, Med, Warm
+    julienne_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Glamorous, Animated, warm
+    victoria_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Tough, Low, Gravelly
+    wyatt_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Comic, Med, Natural
+    caleb_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Whimsical, High, Warm
+    ethan_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Tough, Med, Natural
+    vera_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Refined, Med, Natural
+    grant_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Narrator, Low, Warm
+    rex_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Whimsical, High, Warm
+    luna_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Whimsical, Med, Warm
+    chloe_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Tough, Med, Natural
+    roxy_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Tough, Low, Natural
+    vivienne_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Narrator, Med, Natural
+    milo_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Cinematic, Med, Natural
+    clara_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Comic, Med, Natural
+    dante_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Cinematic, High, Natural
+    marcus_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Whimsical, Med, Natural
+    aria_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Comic, High, Natural
+    victor_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Narrator, Med, Warm
+    alaina_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Narrator, Low, Warm
+    maisie_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Cinematic, Med, Warm
+    arthur_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Comic, High, Natural
+    felix_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Cinematic, Med, Natural
+    walter_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Refined, Med, Warm
+    simon_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Whimsical, High, Warm
+    troy_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Tough, High, Warm
+    brenna_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Tough, High, Natural
+    marina_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Glamorous, Low, Natural
+    helen_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    @experimental
+    # Glamorous, Med, Natural
+    graham_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4100}
+    @experimental
+    @attribscope_data
+    @customattribhandler
+    llm_description_attribute<public> := class<computes><internal>(attribute):
+        Description<public>:string
+
+    @available {MinUploadedAtFNVersion := 4100}
+    @experimental
+    llm_description<constructor><public>(Description:string)<computes>:llm_description_attribute = external {}
+
+Progression<public> := module:
+    using {/Verse.org/Progression}
+    using {/Verse.org/Native}
+    using {/Fortnite.com/Marketplace}
+    @experimental
+    # Grants an entitlement to each eligible participant.
+    entitlement_quest_reward<native><public> := class(quest_reward):
+        @available {MinUploadedAtFNVersion := 4000}
+        # The entitlement type to grant.
+        var Entitlement<native><public>:concrete_subtype(entitlement)
+
+        # Quantity per participant.
+        var Quantity<native><public>:int = external {}
+
+        @available {MinUploadedAtFNVersion := 4000}
+        # Iterates EligibleParticipants, resolves each participant's agent as a player,
+        # and grants the entitlement via the platform entitlement service.
+        GrantReward<override><native><final>(EligibleParticipants:[]quest_participant)<transacts>:result(void, []grant_quest_reward_error)
+
+    @experimental
+    # Tracks numeric progress toward a required count.
+    # Complete when Progress >= RequiredCount.
+    progress_quest_objective<native><public> := class(quest_objective):
+        # Returns progress in "X / Y" format.
+        GetProgress<override><native><final>()<reads>:message
+
+        # Succeeds if Progress >= RequiredCount.
+        IsComplete<override><native><final>()<reads><decides>:void
+
+        # Sets current progress. Clamped to [0, RequiredCount].
+        SetProgress<native><final><public>(Amount:float)<transacts>:void
+
+        # Sets the target count. Clamped to [1, MaxFloat].
+        SetRequiredCount<native><final><public>(Amount:float)<transacts>:void
+
+        # Current progress toward RequiredCount.
+        var<private> Progress<native><public>:float = external {}
+
+        # Target count for completion.
+        var<private> RequiredCount<native><public>:float
+
     using {/Verse.org/Presentation}
+    using {/Verse.org/Assets}
+    @experimental
+    # Standard quest that follows the "do x, get y" paradigm.
+    # Auto-completion: when Objective.IsComplete() succeeds, calls Complete() automatically.
+    # Auto-rewarding: on completion, rewards are granted to eligible participants
+    # via GetRecipients() then GrantReward().
+    basic_quest<native><public> := class<abstract>(quest, has_icon, has_description):
+        # Replaces the progression model on a live quest. Auto-completes if the new objective is
+        # already completed.
+        SetObjective<native><final><public>(InObjective:quest_objective)<transacts>:void
+
+        # Progression model for the quest.
+        var<private> Objective<native><public>:quest_objective
+
+        # Rewards granted to eligible participants on completion.
+        var Rewards<native><public>:[]quest_reward = external {}
+
+    @experimental
+    # Abstract base class for all quest objectives.
+    quest_objective<native><public> := class<abstract>(has_icon, has_description):
+        # Returns a progress message (e.g. "3 / 10").
+        GetProgress<native><native_callable><public>()<reads>:message
+
+        # Determines which participants can contribute to this objective.
+        # Override to customize contributor selection.
+        # Default: all participants where Info.Contributes = true.
+        GetContributors<native><native_callable><public>(Memberships:[]quest_membership)<reads>:[]quest_participant
+
+        # Succeeds if this objective is currently complete.
+        IsComplete<native><native_callable><public>()<reads><decides>:void
+
+        # Signals ProgressEvent. Call from a subclass to notify progress subscribers.
+        SignalProgressEvent<native><final><protected>()<transacts>:void
+
+        # Signaled when this objective is considered complete.
+        CompleteEvent<native><final><public>:listenable(quest_objective) = external {}
+
+        # Signaled when this objective's progress changes. Payload: this objective.
+        ProgressEvent<native><final><public>:listenable(quest_objective) = external {}
+
+    @experimental
+    # Returned when a reward cannot be granted.
+    grant_quest_reward_error<native><public> := class:
+
+    @experimental
+    # Abstract base class for all quest rewards.
+    quest_reward<native><public> := class<abstract>(has_icon, has_description):
+        # Determines which participants should receive this reward.
+        # Override to customize recipient selection.
+        # Default: all participants where Info.Receives = true.
+        GetRecipients<native><native_callable><public>(Memberships:[]quest_membership)<reads>:[]quest_participant
+
+        @available {MinUploadedAtFNVersion := 4000}
+        # Grants this reward to the eligible participants.
+        GrantReward<native><native_callable><public>(EligibleParticipants:[]quest_participant)<transacts>:result(void, []grant_quest_reward_error)
+
+        # Signaled after this reward has been granted to recipients.
+        GrantEvent<native><final><public>:listenable(tuple(quest_reward, []quest_participant)) = external {}
+
+Itemization<public> := module:
     using {/Verse.org/Simulation}
     using {/Verse.org/Native}
     using {/Verse.org/SceneGraph}
-    @experimental
     add_item_result<native><public> := class<epic_internal>:
         # Items that were newly added to this inventory as a result of the transaction.
         AddedItems<native><public>:[]entity
@@ -19,7 +437,6 @@ Itemization<public> := module:
         # Items whose stack size changed as a result of the transaction, and the previous stack size value.
         ModifiedItems<native><public>:[]tuple(entity, int)
 
-    @experimental
     remove_item_result<native><public> := class<epic_internal>:
         # The inventory which the item was removed from.
         Inventory<native><public>:inventory_component
@@ -33,15 +450,12 @@ Itemization<public> := module:
         # Item whose stack size changed as a result of the transaction.
         ModifiedItem<native><public>:?tuple(entity, int)
 
-    @experimental
     equip_item_result<native><public> := class<epic_internal>:
         Item<native><public>:entity
 
-    @experimental
     unequip_item_result<native><public> := class<epic_internal>:
         Item<native><public>:entity
 
-    @experimental
     # When adding an item, 'find_inventory_event' is used as a first pass to find the best inventory for an item. It is sent downwards.
     # 'add_item_query_event' can be used to veto inventory choices. It is sent upwards.
     find_inventory_event<native><public> := class<epic_internal>(scene_event):
@@ -51,10 +465,8 @@ Itemization<public> := module:
 
         var ChosenInventoryPriority<native><public>:float = external {}
 
-    @experimental
     add_item_error<native><public> := class<computes>:
 
-    @experimental
     # When adding an item, 'find_inventory_event' is used as a first pass to find the best inventory for an item. It is sent downwards.
     # 'add_item_query_event' can be used to veto inventory choices. It is sent upwards.
     add_item_query_event<native><public> := class<epic_internal>(scene_event):
@@ -66,10 +478,8 @@ Itemization<public> := module:
 
         AddError<public>(Error:add_item_error):void = external {}
 
-    @experimental
     remove_item_error<native><public> := class<computes>:
 
-    @experimental
     remove_item_query_event<native><public> := class<epic_internal>(scene_event):
         Item<native><public>:item_component
 
@@ -79,11 +489,13 @@ Itemization<public> := module:
 
         AddError<public>(Error:remove_item_error):void = external {}
 
-    @experimental
     # Inventory components hold items. An entity with an inventory component can be considered to have an inventory.
     # The inventory component controls which items can enter or exit.
     # They also determine whether an item can be equipped.
     inventory_component<native><public> := class<final_super>(component):
+        @available {MinUploadedAtFNVersion := 4000}
+        OnReceive<override><native>(SceneEvent:scene_event):logic
+
         @available {MinUploadedAtFNVersion := 3800}
         # Adds the item to this inventory only, ignoring sub-inventories. Fails if no items could be added.
         AddItem<native><final><public>(Item:entity, ?AllowMergeItems:logic = external {})<transacts>:result(add_item_result, []add_item_error)
@@ -129,31 +541,25 @@ Itemization<public> := module:
         UnequipItemEvent<native><final><public>:listenable(unequip_item_result) = external {}
 
     @available {MinUploadedAtFNVersion := 3800}
-    @experimental
     # Returns a failure reason (such as being full) if the provided item entity cannot be added. Does not consider sub-inventories.
     (Inventory:inventory_component).CanAddItem<native><public>(Item:entity, ?AllowMergeItems:logic = external {})<transacts>:result(false, []add_item_error)
 
     @available {MinUploadedAtFNVersion := 3800}
-    @experimental
     # Returns a failure reason (such as being full) if the provided item entity cannot be added. AddItemDistribute allows the item to enter sub-inventories.
     (Inventory:inventory_component).CanAddItemDistribute<native><public>(Item:entity, ?AllowMergeItems:logic = external {})<transacts>:result(false, []add_item_error)
 
     @available {MinUploadedAtFNVersion := 3800}
-    @experimental
     # Returns a failure reason if the provided item is not present or cannot be removed.
     (Inventory:inventory_component).CanRemoveItem<native><public>(Item:entity)<transacts>:result(false, []remove_item_error)
 
-    @experimental
     # item_category is used to classify items.
-    item_category<native><public> := class<castable><concrete><unique><final>:
+    item_category<native><public> := class<castable><concrete><unique><allocates>:
 
-    @experimental
     change_equipped_result<native><public> := class<epic_internal>:
         ItemComponent<native><public>:item_component
 
         IsItemEquipped<native><public>:logic
 
-    @experimental
     change_inventory_result<native><public> := class<epic_internal>:
         ItemComponent<native><public>:item_component
 
@@ -161,26 +567,8 @@ Itemization<public> := module:
 
         CurrentInventory<native><public>:?inventory_component
 
-    @experimental
-    change_stack_size_result<native><public> := class<epic_internal>:
-        ItemComponent<native><public>:item_component
-
-        PreviousStackSize<native><public>:int
-
-        CurrentStackSize<native><public>:int
-
-    @experimental
-    change_max_stack_size_result<native><public> := class<epic_internal>:
-        ItemComponent<native><public>:item_component
-
-        PreviousMaxStackSize<native><public>:?int
-
-        CurrentMaxStackSize<native><public>:?int
-
-    @experimental
     equip_item_error<native><public> := class<computes>:
 
-    @experimental
     equip_item_query_event<native><public> := class(scene_event):
         Item<native><public>:item_component
 
@@ -188,10 +576,8 @@ Itemization<public> := module:
 
         AddError<public>(Error:equip_item_error):void = external {}
 
-    @experimental
     unequip_item_error<native><public> := class<computes>:
 
-    @experimental
     unequip_item_query_event<native><public> := class(scene_event):
         Item<native><public>:item_component
 
@@ -199,7 +585,6 @@ Itemization<public> := module:
 
         AddError<public>(Error:unequip_item_error):void = external {}
 
-    @experimental
     # Anything using this component should be considered an item. Required to interact with inventories.
     item_component<native><public> := class<final_super>(component):
         OnBeginSimulation<override>():void = external {}
@@ -228,89 +613,22 @@ Itemization<public> := module:
         # Fails if not in an inventory, not currently equipped or if unequip_item_query_event contains any errors after querying.
         Unequip<final><native><public>()<transacts>:result(false, []unequip_item_error)
 
-        @experimental
-        # Takes the specified amount of this item's stack, reducing this item's stack size in the process.
-        #  If taking the exact (full) amount, the item itself should be returned instead.
-        #  There is no default implementation of Take i.e. by default, it will fail.
-        #  If you want to allow this, you must override Take and return an entity containing
-        #  a new item_component. This new entity should not be in any inventory.
-        #  See the online documentation for more details.
-        Take<native><public>(Amount:int)<transacts><decides>:entity
-
-        @available {MinUploadedAtFNVersion := 3200}
-        # List of item_component classes we can be merged with.
-        MergeableItemComponentClasses<native><public>:[]castable_subtype(item_component) = external {}
-
         @editable
-        # Categories which this item can belong to. Note that some projects may only use the first entry.
+        # Add one or more category instances to help define and organize this item.
         Categories<native><public>:[]item_category = external {}
-
-        # Succeeds if this item can be merged into the target item. Merging an entity with itself will always fail.
-        CanMergeInto<final><native_callable><public>(TargetItem:entity)<reads><decides>:void = external {}
-
-        # Attempts to merge this item into the specified item. Fails if items cannot be merged or no items are moved.
-        #  If TargetAmount is specified, only that amount will try to be merged into this item.
-        MergeInto<final><native_callable><public>(TargetItem:entity, ?TargetAmount:?int = external {})<transacts><decides>:void = external {}
-
-        @editable_number(int) {MinValue := option {1}}
-        # Current stack size of this item.
-        var<private> StackSize<native><public>:int = external {}
-
-        # Sets the stack size of this item.
-        SetStackSize<final><native><public>(NewStackSize:int)<transacts>:void
-
-        @editable
-        # Maximum stack size for this item.
-        var<private> MaxStackSize<native><public>:?int = external {}
-
-        # Sets the maximum stack size for this item. If ClampStackSize is true, StackSize will be clamped to NewMaxStackSize.
-        SetMaxStackSize<final><native><public>(NewMaxStackSize:int, ?ClampStackSize:logic = external {})<transacts>:void
-
-        ChangeStackSizeEvent<native><final><public>:listenable(change_stack_size_result) = external {}
-
-        ChangeMaxStackSizeEvent<native><final><public>:listenable(change_max_stack_size_result) = external {}
 
         # Removes the item from its inventory and places it in the simulation world. Works on orphaned items i.e. outside the world or any inventory.
         #  Fails if the item is already a pickup. The transform of the item will not be altered except to unparent it from any inventory.
-        Drop<native><public>()<transacts><decides>:void
+        (/UnrealEngine.com/Itemization/item_component:)Drop<native><public>()<transacts><decides>:void
 
         # Fails if this item is already in an inventory, or the inventory cannot accept the item.
         PickUp<native><public>(Inventory:inventory_component)<transacts><decides>:void
 
     @available {MinUploadedAtFNVersion := 3800}
-    @experimental
     (Item:item_component).CanEquip<native><public>()<transacts>:result(false, []equip_item_error)
 
     @available {MinUploadedAtFNVersion := 3800}
-    @experimental
     (Item:item_component).CanUnequip<native><public>()<transacts>:result(false, []unequip_item_error)
-
-    @experimental
-    # Item Merge Rules Interface. Implemented by components that want to participate in item mergeability checks.
-    has_item_merge_rules<public> := interface<unique>:
-        CanMergeInto<public>(TargetItem:entity)<reads><decides>:void = external {}
-
-        OnMergeInto<public>(TargetItem:entity, MergeAmount:int)<transacts>:void = external {}
-
-    @experimental
-    # Component that holds the details of an item.
-    item_details_component<native><public> := class<final_super>(component, has_description):
-        var Name<override>:message = external {}
-
-        var Description<override>:message = external {}
-
-        var ShortDescription<override>:message = external {}
-
-        OnBeginSimulation<override>():void = external {}
-
-        OnEndSimulation<override>():void = external {}
-
-    @experimental
-    # Component that holds the icon for an item.
-    item_icon_component<native><public> := class<final_super>(component, has_icon):
-        OnBeginSimulation<override>():void = external {}
-
-        OnEndSimulation<override>():void = external {}
 
 WebAPI<public> := module:
     # Usage:
@@ -336,14 +654,11 @@ WebAPI<public> := module:
 
     MakeClient<native><public>(ClientId:client_id)<converges>:client
 
-# Module import path: /UnrealEngine.com/SceneGraph
-(/UnrealEngine.com:)SceneGraph<public> := module:
-    using {/Verse.org/Native}
 Temporary<public> := module:
     # Module import path: /UnrealEngine.com/Temporary/UI
-    UI<public> := module:
-        using {/Verse.org/Assets}
+    (/UnrealEngine.com/Temporary:)UI<public> := module:
         using {/Verse.org/Colors}
+        using {/Verse.org/Assets}
         using {/UnrealEngine.com/Temporary/SpatialMath}
         using {/Verse.org/Simulation}
         # Returns the `player_ui` associated with `Player`.
@@ -488,6 +803,9 @@ Temporary<public> := module:
             HighlightEvent<public>():listenable(widget_message) = external {}
 
             UnhighlightEvent<public>():listenable(widget_message) = external {}
+
+            # The UI input action that will trigger the Click event of this button.
+            var TriggeringInputAction<public>:?input_action(logic) = external {}
 
         # Slot for button widget.
         button_slot<native><public> := struct:
@@ -731,6 +1049,13 @@ Temporary<public> := module:
             Clip
             Ellipsis
 
+        # Text wrapping policy values:
+        #   LineBreak: Allows breaking a line only at line-break iterator for wrapping.
+        #   PerCharacter: Allows breaking a line after any character for wrapping.
+        text_wrapping_policy<native><public> := enum:
+            LineBreak
+            PerCharacter
+
         # Base widget for text widget.
         text_base<native><public> := class<abstract>(widget):
             # The text to display to the user. Used only during initialization of the widget and not modified by SetText.
@@ -751,6 +1076,15 @@ Temporary<public> := module:
             # The policy that determine what happens when the text is longer than its allowed length.
             # Used only during initialization of the widget and not modified by SetOverflowPolicy.
             DefaultOverflowPolicy<native><public>:text_overflow_policy = external {}
+
+            # Whether the text should be automatically wrapped.
+            var AutoWrap<public>:logic = external {}
+
+            # Whether text wraps onto a new line when it's length exceeds this width; if this value is zero or negative, no wrapping occurs.
+            var WrapWidth<public>:float = external {}
+
+            # The wrapping policy to determine where the line can be broken.
+            var WrappingPolicy<public>:text_wrapping_policy = external {}
 
             # Sets the text displayed in the widget.
             SetText<native><public>(InText:message):void
@@ -898,13 +1232,13 @@ Temporary<public> := module:
             # Sets the default log level of the displayed message. See log_level enum for more info on log levels. Defaults to log_level.Normal.
             DefaultLevel<native><public>:log_level = external {}
 
-            # Print message using the given log level
+            # Print `Message` using the given log level.
             (/UnrealEngine.com/Temporary/Diagnostics/log:)Print<public>(Message:string, ?Level:log_level = external {})<computes>:void = external {}
 
-            # Print diagnostic using the given log level
+            # Print `Message` diagnostic using the given log level.
             (/UnrealEngine.com/Temporary/Diagnostics/log:)Print<public>(Message:diagnostic, ?Level:log_level = external {})<computes>:void = external {}
 
-            # Prints the current script call stack using the given log level
+            # Prints the current script call stack using the given log level.
             PrintCallStack<native><public>(?Level:log_level = external {})<computes>:void
 
     # Module import path: /UnrealEngine.com/Temporary/SpatialMath
@@ -914,6 +1248,7 @@ Temporary<public> := module:
         using {/Verse.org/Simulation}
         @editable
         @import_as("/Script/EpicGamesTemporary.FVerseRotation_Deprecated")
+        # An abstract representation of an orientation change in 3d-space.
         (/UnrealEngine.com/Temporary/SpatialMath:)rotation<native><public> := struct<concrete>:
 
         @vm_no_effect_token
@@ -1334,9 +1669,7 @@ ControlInput<public> := module:
     #  DetectionBeginEvent -> DetectionOngoingEvent -> ActivationTriggeredEvent -> DetectionEndEvent 
     #            /\                         /\                                            / 
     #              \---------------------> ActivationCanceledEvent ----------------------/
-    input_events<native><public>(t:type) := class<epic_internal>:
-        (/UnrealEngine.com/ControlInput/input_events:)ControlInput_input_events_Variance<private>:?type {_():tuple(t)} = external {}
-
+    (/UnrealEngine.com/ControlInput:)input_events<native><public>(t:type) := class:
         # This input has met all required conditions and has successfully fired. Most of the time, you should bind to this event.
         #  Tuple payload: 0: the player generating this event
         #                 1: the value generated by the physical input
@@ -1368,16 +1701,17 @@ ControlInput<public> := module:
 
     @available {MinUploadedAtFNVersion := 3630}
     # Access input-related data and settings for a player.
-    GetPlayerInput<native><public>(Player:player)<transacts><decides>:player_input
+    (/UnrealEngine.com/ControlInput:)GetPlayerInput<native><public>(Player:player)<transacts><decides>:(/UnrealEngine.com/ControlInput:)player_input
 
     @available {MinUploadedAtFNVersion := 3630}
     # This is the main manager class for input-related settings and functions for a player.
-    player_input<native><public> := class:
+    (/UnrealEngine.com/ControlInput:)player_input<native><public> := class:
         AddInputMapping<native><public>(InputMapping:input_mapping):void
 
         RemoveInputMapping<native><public>(InputMapping:input_mapping):void
 
-        GetInputEvents<native><public>(ActionToBind:input_action(t) where t:type):input_events(t)
+        GetInputEvents<native><public>(ActionToBind:input_action(t) where t:type):(/UnrealEngine.com/ControlInput:)input_events(t)
+
 
 # Module import path: /UnrealEngine.com/BasicShapes
 BasicShapes<public> := module:
@@ -1397,7 +1731,6 @@ BasicShapes<public> := module:
     using {/Verse.org/SpatialMath}
     using {/UnrealEngine.com/Temporary/SpatialMath}
     using {/Verse.org/Assets}
-
     SpawnParticleSystem<native><public>(Asset:particle_system, Position:(/UnrealEngine.com/Temporary/SpatialMath:)vector3, ?Rotation:(/UnrealEngine.com/Temporary/SpatialMath:)rotation = external {}, ?StartDelay:float = external {})<transacts>:cancelable
 
     SpawnParticleSystem<native><public>(Asset:particle_system, Position:(/Verse.org/SpatialMath:)vector3, ?Rotation:(/Verse.org/SpatialMath:)rotation = external {}, ?StartDelay:float = external {})<transacts>:cancelable

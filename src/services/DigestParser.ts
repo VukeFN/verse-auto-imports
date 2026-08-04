@@ -3,14 +3,9 @@ import * as path from "path";
 import * as fs from "fs";
 import { logger } from "../utils";
 import { PrecompiledDigestLoader } from "./PrecompiledDigestLoader";
+import { DigestEntry, parseDigestContent, rootDomainForDigestFile } from "./digestParsing";
 
-export interface DigestEntry {
-    identifier: string;
-    modulePath: string;
-    type: "class" | "function" | "variable" | "module" | "unknown";
-    description?: string;
-    isPublic: boolean;
-}
+export { DigestEntry } from "./digestParsing";
 
 export class DigestParser {
     private digestCache: Map<string, DigestEntry> = new Map();
@@ -97,7 +92,7 @@ export class DigestParser {
                 const filePath = path.join(utilsPath, fileName);
                 if (fs.existsSync(filePath)) {
                     logger.trace("DigestParser", `Parsing digest file: ${fileName}`);
-                    await this.parseDigestFile(filePath);
+                    this.parseDigestFile(filePath);
                 } else {
                     logger.trace("DigestParser", `Digest file not found: ${filePath}`);
                 }
@@ -109,111 +104,26 @@ export class DigestParser {
         }
     }
 
-    private async parseDigestFile(filePath: string): Promise<void> {
+    /**
+     * Parses one digest file via the shared {@link parseDigestContent} module and
+     * merges its entries into the runtime cache. Entries already present are kept
+     * (first occurrence wins across the Fortnite, UnrealEngine, and Verse files, in
+     * that iteration order), matching the precompiled loader's merge semantics.
+     */
+    private parseDigestFile(filePath: string): void {
         try {
             const content = fs.readFileSync(filePath, "utf8");
-            const lines = content.split("\n");
+            const rootDomain = rootDomainForDigestFile(path.basename(filePath));
+            const { entries } = parseDigestContent(content, rootDomain);
 
-            let currentModulePath = "";
-            let moduleStack: string[] = [];
-
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i].trim();
-
-                // Skip comments and empty lines
-                if (line.startsWith("#") || line === "") {
-                    // Check for module import path comments
-                    const modulePathMatch = line.match(/# Module import path: (.+)/);
-                    if (modulePathMatch) {
-                        currentModulePath = modulePathMatch[1];
-                    }
-                    continue;
-                }
-
-                // Skip using statements
-                if (line.startsWith("using {")) {
-                    continue;
-                }
-
-                // Parse module declarations
-                const moduleMatch = line.match(/^(\w+)<public>\s*:=\s*module:/);
-                if (moduleMatch) {
-                    const moduleName = moduleMatch[1];
-                    if (currentModulePath) {
-                        moduleStack.push(currentModulePath);
-                    } else {
-                        moduleStack.push(`/${moduleName}`);
-                    }
-                    this.addToCache(moduleName, moduleStack[moduleStack.length - 1], "module", true);
-                    continue;
-                }
-
-                // Parse class declarations
-                const classMatch = line.match(/^(\w+)<public>\s*:=\s*class/);
-                if (classMatch) {
-                    const className = classMatch[1];
-                    const modulePath = moduleStack.length > 0 ? moduleStack[moduleStack.length - 1] : currentModulePath;
-                    this.addToCache(className, modulePath, "class", true);
-                    continue;
-                }
-
-                // Parse function/variable declarations
-                const identifierMatch = line.match(/^(\w+)<public>\s*[:=]/);
-                if (identifierMatch) {
-                    const identifier = identifierMatch[1];
-                    const modulePath = moduleStack.length > 0 ? moduleStack[moduleStack.length - 1] : currentModulePath;
-
-                    // Determine type based on line content
-                    let type: "function" | "variable" = "variable";
-                    if (line.includes("(") && line.includes(")")) {
-                        type = "function";
-                    }
-
-                    this.addToCache(identifier, modulePath, type, true);
-                    continue;
-                }
-
-                // Handle nested structures and indentation
-                if (line && !line.includes("<public>") && !line.includes(":=")) {
-                    // This might be a function or property within a class/module
-                    const nestedMatch = line.match(/^(\w+)<(?:native\s*)?<public>/);
-                    if (nestedMatch) {
-                        const identifier = nestedMatch[1];
-                        const modulePath = moduleStack.length > 0 ? moduleStack[moduleStack.length - 1] : currentModulePath;
-
-                        let type: "function" | "variable" = "variable";
-                        if (line.includes("(") && line.includes(")")) {
-                            type = "function";
-                        }
-
-                        this.addToCache(identifier, modulePath, type, true);
-                    }
+            for (const entry of Object.values(entries)) {
+                if (!this.digestCache.has(entry.identifier)) {
+                    this.digestCache.set(entry.identifier, entry);
                 }
             }
         } catch (error) {
             logger.error("DigestParser", `Error reading digest file ${filePath}`, error);
         }
-    }
-
-    private addToCache(identifier: string, modulePath: string, type: "class" | "function" | "variable" | "module" | "unknown", isPublic: boolean): void {
-        // Only add public identifiers
-        if (!isPublic) {
-            return;
-        }
-
-        // Avoid duplicates - prefer the first occurrence
-        if (this.digestCache.has(identifier)) {
-            return;
-        }
-
-        const entry: DigestEntry = {
-            identifier,
-            modulePath,
-            type,
-            isPublic,
-        };
-
-        this.digestCache.set(identifier, entry);
     }
 
     clearCache(): void {

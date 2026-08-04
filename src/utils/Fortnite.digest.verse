@@ -2,7 +2,7 @@
 #################################################
 # Generated Digest of Verse API
 # DO NOT modify this manually!
-# Generated from build: ++Fortnite+Release-39.40-CL-50341043
+# Generated from build: ++Fortnite+Release-41.10-CL-55335788
 #################################################
 
 # Module import path: /Fortnite.com/UI
@@ -11,11 +11,12 @@
     using {/UnrealEngine.com/Temporary/SpatialMath}
     using {/Fortnite.com/Playspaces}
     using {/Verse.org/Simulation}
+    using {/Verse.org/Assets}
     using {/UnrealEngine.com/Temporary/UI}
     # Button with text message common base class. Displays a button with a custom message string.
     text_button_base<native><public> := class<abstract><epic_internal>(widget):
         # The text to display to the user. Used only during initialization of the widget and not modified by SetText.
-        (/Fortnite.com/UI/text_button_base:)DefaultText<localizes><native><public>:message = external {}
+        DefaultText<localizes><native><public>:message = external {}
 
         # Subscribable event that fires when the button is clicked.
         OnClick<public>():listenable(widget_message) = external {}
@@ -25,6 +26,9 @@
 
         # Gets the text currently in the widget.
         GetText<native><public>():string
+
+        # The UI input action that will trigger the Click event of this button.
+        var TriggeringInputAction<public>:?input_action(logic) = external {}
 
     # Text button with big and loud styling applied.
     button_loud<native><public> := class<final>(text_button_base):
@@ -227,7 +231,7 @@
 using {/Verse.org/Native}
 @available {MinUploadedAtFNVersion := 3720}
 # Module import path: /Fortnite.com/Input
-Input<public> := module:
+(/Fortnite.com:)Input<public> := module:
     using {/Verse.org/Native}
     @available {MinUploadedAtFNVersion := 3720}
     # Module import path: /Fortnite.com/Input/Character
@@ -235,3998 +239,28 @@ Input<public> := module:
         using {/Verse.org/Native}
         using {/Verse.org/Assets}
         @available {MinUploadedAtFNVersion := 3720}
-        @experimental
         RangedWeaponMapping<public>:input_mapping = external {}
 
         @available {MinUploadedAtFNVersion := 3720}
-        @experimental
         Reload<public>:input_action(logic) = external {}
 
         @available {MinUploadedAtFNVersion := 3720}
-        @experimental
         WeaponPrimary<public>:input_action(logic) = external {}
 
         @available {MinUploadedAtFNVersion := 3720}
-        @experimental
         WeaponSecondary<public>:input_action(logic) = external {}
 
         @available {MinUploadedAtFNVersion := 3720}
-        @experimental
         TraversalMapping<public>:input_mapping = external {}
 
         @available {MinUploadedAtFNVersion := 3720}
-        @experimental
         Crouch<public>:input_action(logic) = external {}
 
         @available {MinUploadedAtFNVersion := 3720}
-        @experimental
         Sprint<public>:input_action(logic) = external {}
 
         @available {MinUploadedAtFNVersion := 3720}
-        @experimental
         Jump<public>:input_action(logic) = external {}
-Itemization<public> := module:
-    using {/UnrealEngine.com/Itemization}
-    @experimental
-    # `fort_inventory_component` is a shared class for all Fortnite inventories, with appropriate default UI and behavior.
-    fort_inventory_component<native><public> := class<epic_internal>(inventory_component):
-        # Returns the item in the specified slot, if there is one.
-        GetItemInSlot<native><public>(Slot:int)<reads><decides>:item_component
-
-        # Returns the total number of slots in this inventory.
-        GetMaxSlots<native><public>()<reads><decides>:int
-
-    @experimental
-    # `fort_inventory_weapon_hotbar_component` is the UEFN inventory for Fortnite weapons and gadgets.
-    fort_inventory_weapon_hotbar_component<native><public> := class<final>(fort_inventory_component):
-        # Sets the total number of slots.
-        SetMaxSlots<native><public>(InNumSlots:int):void
-
-    @experimental
-    # `fort_inventory_build_hotbar_component` is the UEFN inventory for Fortnite build tools.
-    fort_inventory_build_hotbar_component<native><public> := class<final>(fort_inventory_component):
-
-    @experimental
-    # `fort_inventory_harvest_tool_component` is the UEFN inventory for the Fortnite harvest tool.
-    fort_inventory_harvest_tool_component<native><public> := class<final>(fort_inventory_component):
-
-    @experimental
-    # `fort_inventory_trap_component` is the UEFN inventory for the Fortnite trap slot.
-    fort_inventory_trap_component<native><public> := class<final>(fort_inventory_component):
-
-    @experimental
-    # `fort_inventory_collectible_component` is the inventory for Fortnite collectibles.
-    fort_inventory_collectibles_component<native><public> := class<final>(fort_inventory_component):
-
-    @experimental
-    # `fort_inventory_resources_component` is the inventory for Fortnite resources.
-    fort_inventory_resources_component<native><public> := class<final>(fort_inventory_component):
-
-    @experimental
-    # `fort_inventory_ammo_component` is the inventory for Fortnite ammo.
-    fort_inventory_ammo_component<native><public> := class<final>(fort_inventory_component):
-
-    @experimental
-    # `fort_inventory_currencies_component` is the inventory for Fortnite currencies.
-    fort_inventory_currencies_component<native><public> := class<final>(fort_inventory_component):
-
-    # Module import path: /Fortnite.com/Itemization/FortniteItemCategories
-    FortniteItemCategories<public> := module:
-        using {/UnrealEngine.com/Itemization}
-        @experimental
-        WorldItem<public>:item_category = external {}
-
-        @experimental
-        Currency<public>:item_category = external {}
-
-        @experimental
-        Collectible<public>:item_category = external {}
-
-        @experimental
-        Trap<public>:item_category = external {}
-
-        @experimental
-        Ammo<public>:item_category = external {}
-
-    # Module import path: /Fortnite.com/Itemization/AbsoluteDoomItems
-    AbsoluteDoomItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_chainsaw<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/AbsoluteDoomItems:)item_dual_micro_smgs_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/AbsoluteDoomItems:)item_dual_micro_smgs_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/AbsoluteDoomItems:)item_dual_micro_smgs_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/AbsoluteDoomItems:)item_dual_micro_smgs_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/AbsoluteDoomItems:)item_dual_micro_smgs_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_monarch_pistol_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_monarch_pistol_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_monarch_pistol_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_monarch_pistol_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_monarch_pistol_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_sovereign_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_sovereign_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_sovereign_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_sovereign_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_sovereign_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_striker_burst_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_striker_burst_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_striker_burst_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_striker_burst_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_striker_burst_rifle_uncommon<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/BallisticItems
-    BallisticItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_bubble_shield<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_burst_ar_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_drum_gun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/BallisticItems:)item_enforcer_ar_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_fire_grenade<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_flashbang<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_frag_grenade<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_frenzy_auto_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hammer_pump_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hand_cannon_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hyper_smg_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/BallisticItems:)item_impulse_grenade<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_machine_pistol_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_nemesis_ar_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_overdrive<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/BallisticItems:)item_proximity_mine<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ranger_pistol_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_reaper_sniper_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_recon_grenade<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rift_point_device<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/BallisticItems:)item_smoke_grenade<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sovereign_sniper_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_striker_ar_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_thunder_burst_smg_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/BallisticItems:)item_veiled_precision_smg_common<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/CH1S1Items
-    CH1S1Items<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_bush<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH1S1Items:)item_pumpkin_launcher_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH1S1Items:)item_pumpkin_launcher_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH1S1Items:)item_pumpkin_launcher_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH1S1Items:)item_slurp_juice<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH1S1Items:)item_smoke_grenade<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/CH1S2Items
-    CH1S2Items<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_boogie_bomb<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_cozy_campfire<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_crossbow_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_crossbow_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH1S2Items:)item_impulse_grenade<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_legacy_chug_jug<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_legacy_small_shield_potion<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_minigun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_minigun_legendary<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/CH1S3Items
-    CH1S3Items<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_clinger<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_egg_launcher_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_egg_launcher_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_egg_launcher_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hand_cannon_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hand_cannon_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH1S3Items:)item_hunting_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH1S3Items:)item_hunting_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_light_machine_gun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_light_machine_gun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_port_a_fort<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_remote_explosives<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/CH1S4Items
-    CH1S4Items<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_apple<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH1S4Items:)item_burst_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH1S4Items:)item_burst_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_drum_gun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_drum_gun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dual_pistols_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dual_pistols_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_jetpack<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_shield_mushroom<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_stink_bomb<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_thermal_scoped_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_thermal_scoped_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/CH1S5Items
-    CH1S5Items<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_compact_smg_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_compact_smg_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_double_barrel_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_double_barrel_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_grappler<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_heavy_sniper_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_heavy_sniper_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_port_a_fortress<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rift_to_go<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_shockwave_grenade<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH1S5Items:)item_submachine_gun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH1S5Items:)item_submachine_gun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH1S5Items:)item_submachine_gun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_suppressed_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_suppressed_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/CH1S6Items
-    CH1S6Items<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_balloons<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dynamite<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_fiend_hunter_crossbow_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_heavy_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_heavy_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_heavy_assault_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH1S6Items:)item_pump_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH1S6Items:)item_pump_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_quad_launcher_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_quad_launcher_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_six_shooter_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_six_shooter_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_six_shooter_uncommon<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/CH1S7Items
-    CH1S7Items<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_boom_box<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_bottle_rockets<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_chiller_grenade<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_cupids_crossbow_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_gliders<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_infantry_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_infantry_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_infantry_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_infinity_blade<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_presents<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_scoped_revolver_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_scoped_revolver_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sneaky_snowman<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_suppressed_sniper_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_suppressed_sniper_rifle_legendary<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/CH1S8Items
-    CH1S8Items<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_banana<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_boom_bow_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_coconut<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_flint_knock_pistol_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_flint_knock_pistol_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_heavy_assault_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_heavy_assault_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH1S8Items:)item_infantry_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH1S8Items:)item_infantry_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_jewel<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pepper<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_poison_dart_trap<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_shadow_bomb<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/CH1S9Items
-    CH1S9Items<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_air_strike<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_burst_smg_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_burst_smg_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_burst_smg_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_chug_splash<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_combat_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_combat_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_combat_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_drum_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_drum_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_drum_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_flag<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_proximity_grenade_launcher_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_proximity_grenade_launcher_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH1S9Items:)item_revolver_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH1S9Items:)item_revolver_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_storm_flip<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_storm_scout_sniper_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_storm_scout_sniper_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_tactical_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_tactical_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_tactical_assault_rifle_rare<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/CH1SXItems
-    CH1SXItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_automatic_sniper_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_automatic_sniper_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_automatic_sniper_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_automatic_sniper_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_flashlight<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_flashlight_pistol_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_junk_rift<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH1SXItems:)item_pump_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_semi_auto_pistol_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_semi_auto_pistol_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_shield_bubble<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_torch<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/CH2S1Items
-    CH2S1Items<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_bandage_bazooka<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_flopper<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_gold<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_harpoon_gun<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lump_of_coal<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mythic_goldfish<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pumpkin_launcher_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rusty_can<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_slurp_mushroom<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_slurpfish<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_small_fry<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/CH2S2Items
-    CH2S2Items<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_authority_keycard<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_brutus_minigun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_crash_pad<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_creepin_cardboard<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_decoy<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_grotto_keycard<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hand_cannon_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_meowscles_peow_peow_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_midas_drum_gun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_orange_paint_grenade<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_orange_paint_launcher_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH2S2Items:)item_proximity_mine<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_purple_paint_grenade<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_purple_paint_launcher_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rapid_fire_smg_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rapid_fire_smg_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rapid_fire_smg_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rapid_fire_smg_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rapid_fire_smg_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rig_keycard<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_shark_keycard<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_skyes_assault_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_skyes_grappler<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_suppressed_assault_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_suppressed_sniper_rifle_rare<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/CH2S3Items
-    CH2S3Items<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_cabbage<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_catty_corner_keycard<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_charge_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_charge_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_charge_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_charge_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_charge_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_corn<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_firefly_jar<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_flare_gun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_fortilla_keycard<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_gas_can<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hunting_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hunting_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_jules_drum_gun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_jules_glider_gun<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_kits_charge_shotgun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_kits_shockwave_launcher_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_oceans_bottomless_chug_jug<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_oceans_burst_assault_rifle_mythic<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/CH2S4Items
-    CH2S4Items<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_candy_corn<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_fire_trap<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hop_drop<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hop_flopper<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_jelly_bean<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_jellyfish<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_midas_flopper<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pepper_mint<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_shadow_midas_drum_gun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_shield_fish<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_spicy_fish<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_thermal_fish<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_thermal_taffy<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_vendetta_flopper<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/CH2S5Items
-    CH2S5Items<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_boom_sniper_rifle_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_burst_quad_launcher_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_chug_cannon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dragons_breath_sniper_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_holiday_presents<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hop_rock_dualies_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_legacy_dragons_breath_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_legacy_dragons_breath_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lever_action_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lever_action_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lever_action_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lever_action_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lever_action_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lever_action_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lever_action_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lever_action_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lever_action_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_night_hawk_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rift_fish<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_shadow_tracker_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_snowy_flopper<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_storm_scout_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_the_big_chill_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_the_dub_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_zero_point_fish<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/CH4S1Items
-    CH4S1Items<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_big_bush_bomb<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ex_caliber_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ex_caliber_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ex_caliber_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ex_caliber_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ex_caliber_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_falcon_scout<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_guardian_shield<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_heisted_accelerant_shotgun_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_heisted_blink_mag_smg_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_heisted_breacher_shotgun_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_heisted_explosive_assault_rifle_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_heisted_run_n_gun_smg_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_maven_auto_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_maven_auto_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_maven_auto_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_maven_auto_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_maven_auto_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_red_eye_assault_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_red_eye_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_red_eye_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_red_eye_assault_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_red_eye_assault_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_shockwave_hammer_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_slap_berry<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_slap_juice<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_tactical_assault_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_tactical_assault_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH4S1Items:)item_tactical_pistol_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH4S1Items:)item_tactical_pistol_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH4S1Items:)item_tactical_pistol_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH4S1Items:)item_tactical_pistol_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH4S1Items:)item_tactical_pistol_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH4S1Items:)item_tactical_pistol_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_the_ageless_champions_ex_caliber_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_the_ageless_champions_shockwave_hammer_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_thunder_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_thunder_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_thunder_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_thunder_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_thunder_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_twin_mag_smg_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_twin_mag_smg_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_twin_mag_smg_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_twin_mag_smg_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_twin_mag_smg_uncommon<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/CH6MS2Items
-    CH6MS2Items<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_compact_smg_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_compact_smg_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enhanced_compact_smg_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH6MS2Items:)item_infantry_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH6MS2Items:)item_infantry_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_suppressed_assault_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_suppressed_assault_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH6MS2Items:)item_tactical_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH6MS2Items:)item_tactical_shotgun_legendary<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/CH7S1Items
-    CH7S1Items<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_arc_lightning_gun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_arc_lightning_gun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_brutus_twin_hammer_shotguns_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_deadeye_assault_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_deadeye_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_deadeye_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_deadeye_assault_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_deadeye_assault_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH7S1Items:)item_dual_micro_smgs_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH7S1Items:)item_dual_micro_smgs_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH7S1Items:)item_dual_micro_smgs_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH7S1Items:)item_dual_micro_smgs_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH7S1Items:)item_dual_micro_smgs_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH7S1Items:)item_enforcer_ar_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enforcer_ar_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enforcer_ar_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enforcer_ar_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enforcer_ar_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH7S1Items:)item_grenade<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_holo_rush_smg_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_holo_rush_smg_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_holo_rush_smg_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_holo_rush_smg_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_holo_rush_smg_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_human_bills_arc_lightning_gun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hushs_deadeye_assault_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_iron_pump_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_iron_pump_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_iron_pump_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_iron_pump_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_iron_pump_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH7S1Items:)item_tactical_pistol_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pinpoint_iron_pump_shotgun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_six_shooter_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH7S1Items:)item_tactical_pistol_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH7S1Items:)item_tactical_pistol_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH7S1Items:)item_tactical_pistol_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH7S1Items:)item_tactical_pistol_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/CH7S1Items:)item_tactical_pistol_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_twin_hammer_shotguns_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_twin_hammer_shotguns_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_twin_hammer_shotguns_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_twin_hammer_shotguns_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_twin_hammer_shotguns_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_vengeful_sniper_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_vengeful_sniper_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_vengeful_sniper_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_vengeful_sniper_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_wingsuit<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_yule_troopers_holo_rush_smg_mythic<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/CreativeItems
-    CreativeItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_acorn<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_active_powercell<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_adhesive_resin<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_bacon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_basic_hammer_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_basic_sword_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_batteries<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_blast_powder<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_blue_flecked_dino_egg<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_blue_mushroom<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_blue_shimmering_dino_egg<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_blue_speckled_dino_egg<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_boar_hair<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_bouncer<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_brightcore_ore<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_brown_dino_egg<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_brown_speckled_dino_egg<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_butter<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_carved_twine<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_char_black_mineral_powder<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_chiller<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_coal<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_copper_ore<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_creative_fishing_rod<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_creative_pro_fishing_rod<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_damage_trap<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_diamond<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_duct_tape<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_efficient_mechanical_parts<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_fibrous_herbs<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_fine_grain_mineral_powder<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_flower_petals<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_gray_eruption_dino_egg<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_green_dino_egg<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_green_flecked_dino_egg<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_green_marbled_dino_egg<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_grub<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_herb<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_honey<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lemon_lime<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_malachite_ore<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_maple_syrup<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_milk<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_obsidian_ore<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_oxidized_mineral_powder<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_patchwork_tool<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_peaky_twine<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pink_marbled_dino_egg<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pink_mushroom<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_planks<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_prop_o_matic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pumpkin<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_quartz_crystal<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rainbow_crystal<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_raptor_eye<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_red_eruption_dino_egg<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_red_flecked_dino_egg<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_red_mushroom<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_red_shimmering_dino_egg<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_roasted_chicken<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rotating_gizmo<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rough_mineral_powder<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rough_ore<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rusty_mechanical_parts<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_shadowshard_crystal<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_shark_tooth<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_shove<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_signal_remote<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_signal_remote_a<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_signal_remote_b<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_signal_remote_c<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_signal_remote_d<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_silver_ore<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_simple_mechanical_parts<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_simple_mineral_powder<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_simple_twine<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sleek_mechanical_parts<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_spectral_twine<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_spectrolite_ore<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_speed_boost<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_speed_boost_high<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_speed_boost_low<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_stringy_twine<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sturdy_mechanical_parts<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sturdy_twine<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sunbeam_crystal<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_vindertech_mechanical_parts<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_wheat<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_white_dino_egg<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_white_marbled_dino_egg<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_white_mushroom<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_white_shimmering_dino_egg<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_white_speckled_dino_egg<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_wolf_tooth<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_yellow_eruption_dino_egg<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_yellow_mushroom<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/CubedItems
-    CubedItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_armored_wall<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_chili_chug_splash<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_combat_assault_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_combat_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_combat_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_combat_assault_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_combat_assault_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_combat_pistol_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_combat_pistol_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_combat_pistol_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_combat_pistol_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_combat_pistol_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_combat_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dual_fiend_hunters_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dual_fiend_hunters_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dual_fiend_hunters_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dual_fiend_hunters_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dual_fiend_hunters_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_icy_grappler<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_monster_parts<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_shadow_flopper<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_shockwave_launcher_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sideways_minigun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sideways_minigun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sideways_minigun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sideways_minigun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sideways_minigun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sideways_minigun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sideways_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sideways_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sideways_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sideways_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sideways_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sideways_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sideways_scythe_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sideways_scythe_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sideways_scythe_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sideways_scythe_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sideways_scythe_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sideways_scythe_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_slones_burst_assault_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_zero_point_pretzel<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/FlippedItems
-    FlippedItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_auto_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_auto_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_auto_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_auto_shotgun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_auto_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_auto_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dual_suppressed_pistols_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dual_suppressed_pistols_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dual_suppressed_pistols_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dual_suppressed_pistols_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_gunnars_stinger_smg_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_guzzle_juice<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_heavy_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_heavy_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_heavy_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_heavy_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_heavy_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hunter_bolt_action_sniper_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hunter_bolt_action_sniper_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hunter_bolt_action_sniper_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hunter_bolt_action_sniper_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hunter_bolt_action_sniper_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_machine_smg_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_machine_smg_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_machine_smg_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_machine_smg_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_machine_smg_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_med_mist<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mk_seven_assault_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mk_seven_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mk_seven_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mk_seven_assault_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mk_seven_assault_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pizza_party<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pizza_slice<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ranger_assault_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ranger_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ranger_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ranger_assault_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ranger_assault_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ranger_assault_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_semi_auto_pistol_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_semi_auto_pistol_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_semi_auto_pistol_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_semi_auto_suppressed_pistol_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_semi_auto_suppressed_pistol_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_semi_auto_suppressed_pistol_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_semi_auto_suppressed_pistol_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_shield_keg<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sidearm_pistol_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sidearm_pistol_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sidearm_pistol_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sidearm_pistol_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sidearm_pistol_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_stinger_smg_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_stinger_smg_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_stinger_smg_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_stinger_smg_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_stinger_smg_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_striker_pump_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_striker_pump_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_striker_pump_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_striker_pump_shotgun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_striker_pump_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_striker_pump_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_the_foundations_mk_seven_assault_rifle_mythic<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/FortniteOGItems
-    FortniteOGItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_assault_rifle_common_1<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_assault_rifle_common_2<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_assault_rifle_epic_1<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_assault_rifle_epic_2<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_assault_rifle_legendary_1<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_assault_rifle_legendary_2<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_assault_rifle_rare_1<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_assault_rifle_rare_2<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_assault_rifle_uncommon_1<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_assault_rifle_uncommon_2<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_bolt_action_sniper_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_bolt_action_sniper_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_bolt_action_sniper_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_bolt_action_sniper_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_bolt_action_sniper_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_burst_assault_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_burst_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_burst_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_burst_assault_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_burst_assault_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ceiling_zapper<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_grenade<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_grenade_launcher_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_grenade_launcher_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_grenade_launcher_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_guided_missile_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_guided_missile_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pistol_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pistol_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pistol_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_pump_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_pump_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_pump_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_pump_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_pump_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_revolver_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_revolver_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_revolver_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_revolver_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_revolver_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rocket_launcher_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rocket_launcher_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rocket_launcher_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rocket_launcher_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rocket_launcher_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_scoped_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_scoped_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_scoped_assault_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_scoped_assault_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_semi_auto_sniper_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_semi_auto_sniper_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_semi_auto_sniper_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_semi_auto_sniper_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_snowball_launcher_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_snowball_launcher_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_snowball_launcher_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_snowball_launcher_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_submachine_gun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_submachine_gun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_submachine_gun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_submachine_gun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_submachine_gun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_suppressed_submachine_gun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_suppressed_submachine_gun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_suppressed_submachine_gun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_suppressed_submachine_gun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_suppressed_submachine_gun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_tactical_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_tactical_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/FortniteOGItems:)item_tactical_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_tactical_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_tactical_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_tactical_submachine_gun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_tactical_submachine_gun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_tactical_submachine_gun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_tactical_submachine_gun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_wall_dynamo<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_zapotron_legendary<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/HuntersItems
-    HuntersItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_blizzard_grenade<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enhanced_fury_assault_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enhanced_holo_twister_assault_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enhanced_oni_shotgun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enhanced_sentinel_pump_shotgun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enhanced_surgefire_smg_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enhanced_twinfire_auto_shotgun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_fire_oni_mask_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_fury_assault_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_fury_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_fury_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_fury_assault_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_fury_assault_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_holo_twister_assault_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_holo_twister_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_holo_twister_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_holo_twister_assault_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_holo_twister_assault_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hunting_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/HuntersItems:)item_hunting_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/HuntersItems:)item_hunting_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_night_rose_veiled_precision_smg_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_night_roses_void_oni_mask<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_oni_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_oni_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_oni_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_oni_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_oni_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sentinel_pump_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sentinel_pump_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sentinel_pump_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sentinel_pump_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sentinel_pump_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_shogun_xs_fire_oni_mask_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_surgefire_smg_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_surgefire_smg_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_surgefire_smg_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_surgefire_smg_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_surgefire_smg_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_twinfire_auto_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_twinfire_auto_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_twinfire_auto_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_twinfire_auto_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_twinfire_auto_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_typhoon_blade_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_typhoon_blade_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/HuntersItems:)item_veiled_precision_smg_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_veiled_precision_smg_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_veiled_precision_smg_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_veiled_precision_smg_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_veiled_precision_smg_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_void_oni_mask<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/InvasionItems
-    InvasionItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_alien_nanites<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_burst_pulse_rifle_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_inflate_a_bull<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_kymera_ray_gun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_kymera_ray_gun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_kymera_ray_gun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_plasma_cannon_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pulse_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pulse_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pulse_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rail_gun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rail_gun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rail_gun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_recon_scanner_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_slones_pulse_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_zyg_and_choppys_ray_gun_mythic<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/LastResortItems
-    LastResortItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_business_turret<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_crash_pad_jr<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_diamonds_thermal_dmr_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enhanced_infiltrator_pump_shotgun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_estate_vault_keycard<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hearts_havoc_suppressed_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_high_stakes_shotgun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_infiltrator_pump_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_infiltrator_pump_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_infiltrator_pump_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_infiltrator_pump_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_infiltrator_pump_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rocket_ram_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_scoped_burst_smg_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_scoped_burst_smg_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_scoped_burst_smg_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_scoped_burst_smg_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_scoped_burst_smg_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_shield_breaker_emp<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sticky_grenade_launcher_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sticky_grenade_launcher_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_suppressed_pistol_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_suppressed_pistol_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_suppressed_pistol_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_suppressed_pistol_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_suppressed_pistol_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_tactical_dmr_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_tactical_dmr_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_tactical_dmr_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_tactical_dmr_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_tactical_dmr_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_thornes_scoped_burst_smg_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_thornes_vampiric_blade_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_twin_mag_assault_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_twin_mag_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_twin_mag_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_twin_mag_assault_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_twin_mag_assault_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_witch_broom<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_wood_stake_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_wood_stake_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_wood_stake_shotgun_rare<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/LawlessItems
-    LawlessItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_barons_double_down_pistol_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_chug_jug<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_collateral_damage_assault_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_collateral_damage_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_collateral_damage_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_collateral_damage_assault_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_collateral_damage_assault_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dragons_breath_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dragons_breath_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enhanced_collateral_damage_ar_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enhanced_falcon_eye_sniper_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enhanced_outlaw_shotgun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_falcon_eye_sniper_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_falcon_eye_sniper_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_falcon_eye_sniper_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_falcon_eye_sniper_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_falcon_eye_sniper_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_gold_splash<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lawless_accelerant_holo_twister_ar_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lawless_blink_pump__dump_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lawless_explosive_mammoth_pistol_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lawless_final_mark_rifle_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lawless_heavy_impact_tracking_rifle_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lawless_rift_launcher<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lawless_shockwave_rocket_launcher_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lawless_slap_cannon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lawless_slap_jug<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lawless_stink_rifle_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lawless_trinity_assault_rifle_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lawless_twinfire_slap_shotgun_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_med_mist_smoke_grenade<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_midas_gilded_eye_drum_gun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_outlaw_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_outlaw_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_outlaw_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_outlaw_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_outlaw_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_plasma_burst_laser_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_port_a_cover<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pulse_scanner<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pump__dump_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pump__dump_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pump__dump_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pump__dump_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pump__dump_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_pump__dump_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rocket_drill<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_suppressed_pistol_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_the_kneecapper_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_thermite<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/MEGAItems
-    MEGAItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_combat_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enhanced_havoc_shotgun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_havoc_pump_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_havoc_pump_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_havoc_pump_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_havoc_pump_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_havoc_pump_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_havoc_suppressed_assault_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_havoc_suppressed_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_havoc_suppressed_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_havoc_suppressed_assault_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_havoc_suppressed_assault_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_havoc_suppressed_assault_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_heal_egg<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_highcards_havoc_suppressed_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hop_egg<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_kinetic_blade_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_kinetic_blade_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lock_on_pistol_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mk_alpha_assault_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mk_alpha_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mk_alpha_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mk_alpha_assault_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mk_alpha_assault_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_overclocked_pulse_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_reliks_mk_alpha_assault_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/MEGAItems:)item_submachine_gun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/MEGAItems:)item_submachine_gun_legendary<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/MythsAndMortalsItems
-    MythsAndMortalsItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_ares_modular_warforged_assault_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_banana_of_the_gods<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_cerberus_modular_gatekeeper_shotgun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_chains_of_hades_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hades_modular_harbinger_smg_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_midas_modular_drum_gun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_drum_gun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_drum_gun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_drum_gun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_gatekeeper_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_gatekeeper_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_gatekeeper_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_gatekeeper_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_gatekeeper_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_hand_cannon_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_hand_cannon_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_hand_cannon_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_harbinger_smg_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_harbinger_smg_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_harbinger_smg_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_harbinger_smg_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_harbinger_smg_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_huntress_dmr_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_huntress_dmr_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_huntress_dmr_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_huntress_dmr_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_tactical_assault_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_tactical_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_tactical_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_tactical_assault_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_tactical_assault_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_warforged_assault_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_warforged_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_warforged_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_warforged_assault_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_warforged_assault_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_zeus_huntress_dmr_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_shield_bubble_jr<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_thunderbolt_of_zeus<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_wings_of_icarus<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/ParadiseItems
-    ParadiseItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_birthday_presents<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_cobra_dmr_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_cobra_dmr_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_cobra_dmr_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_cobra_dmr_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_cobra_dmr_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_cobra_dmr_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dial_a_drop<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_evochrome_burst_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_evochrome_burst_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_evochrome_burst_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_evochrome_burst_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_evochrome_burst_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_evochrome_burst_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_evochrome_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_evochrome_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_evochrome_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_evochrome_shotgun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_evochrome_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_evochrome_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_explosive_goo_gun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_grapple_glider<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_inkquisitors_suppressed_smg_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_key<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_legacy_launch_pad<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_port_a_bunker<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_rapid_fire_smg_mythic<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/PreSeasonItems
-    PreSeasonItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_ammo_heavy_bullets<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ammo_light_bullets<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ammo_medium_bullets<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ammo_rockets<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ammo_shells<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/PreSeasonItems:)item_burst_assault_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/PreSeasonItems:)item_burst_assault_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/PreSeasonItems:)item_burst_assault_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/PreSeasonItems:)item_grenade<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_legacy_bandage<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_legacy_med_kit<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_legacy_shield_potion<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_metal<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/PreSeasonItems:)item_pump_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/PreSeasonItems:)item_pump_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/PreSeasonItems:)item_revolver_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/PreSeasonItems:)item_revolver_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/PreSeasonItems:)item_revolver_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_stone<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_wood<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/PrimalItems
-    PrimalItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_ammo_arrows<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_animal_bones<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_cuddle_fish<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dual_pistols_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dual_pistols_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_egg_launcher_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_grappler_bow_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_makeshift_bow_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_makeshift_revolver_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_makeshift_revolver_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_makeshift_revolver_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_makeshift_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_makeshift_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_makeshift_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_makeshift_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_makeshift_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_makeshift_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_makeshift_submachine_gun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_makeshift_submachine_gun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_makeshift_submachine_gun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_marksman_six_shooter_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_meat<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mechanical_bow_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mechanical_explosive_bow_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mechanical_explosive_bow_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mechanical_explosive_bow_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mechanical_parts<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mechanical_shockwave_bow_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mechanical_shockwave_bow_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mechanical_shockwave_bow_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_bow_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_flame_bow_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_flame_bow_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_flame_bow_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_pistol_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_pistol_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_pistol_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_pistol_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_smg_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_smg_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_smg_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_smg_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_stink_bow_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_stink_bow_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_primal_stink_bow_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_razs_explosive_bow_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_recycler_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_recycler_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_recycler_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_spire_assassins_primal_shotgun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_spire_assassins_recycler_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_spire_guardians_primal_assault_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_spire_jumpboots<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_stink_fish<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_stink_sac<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_tntinas_ka_boom_bow<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_unstable_bow<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_vehicle_mod_off_road_tires<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/RebellionItems
-    RebellionItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_anvil_rocket_launcher_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_anvil_rocket_launcher_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_anvil_rocket_launcher_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_combat_smg_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_combat_smg_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_combat_smg_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_combat_smg_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_combat_smg_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_combat_smg_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_command_cavern_keycard<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_drum_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_drum_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_huntmaster_sabers_thermal_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_light_machine_gun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_light_machine_gun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_light_machine_gun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ranger_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ranger_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ranger_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ranger_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ranger_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_repair_torch<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_striker_burst_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_striker_burst_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_striker_burst_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_striker_burst_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_striker_burst_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_striker_burst_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_vehicle_mod_cow_catcher<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/ShockNAwesomeItems
-    ShockNAwesomeItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_bug_blaster_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_bug_blaster_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_bug_blaster_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_double_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enhanced_assault_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enhanced_wrecker_revolver_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_eradicator_hop_rock_fury_assault_rifle_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_eradicator_marksman_wrecker_revolver_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_eradicator_oxr_rifle_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_eradicator_shadow_precision_smg_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_eradicator_shock_n_slow_shockwave_launcher_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_exotic_slapberry_fizz<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_launch_pad<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_leadspitter_3000_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_leadspitter_3000_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_leadspitter_3000_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_oxr_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_oxr_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_oxr_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_oxr_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_oxr_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_oxr_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_precision_air_strike<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/ShockNAwesomeItems:)item_pumpkin_launcher_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/ShockNAwesomeItems:)item_pumpkin_launcher_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/ShockNAwesomeItems:)item_pumpkin_launcher_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_shockwave_launcher_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        (/Fortnite.com/Itemization/ShockNAwesomeItems:)item_slurp_juice<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_swarmstrike_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_swarmstrike_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sweeper_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sweeper_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sweeper_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sweeper_shotgun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sweeper_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sweeper_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_trouble_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_wrecker_revolver_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_wrecker_revolver_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_wrecker_revolver_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_wrecker_revolver_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_wrecker_revolver_uncommon<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/SuperItems
-    SuperItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_ascended_myst_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_bass_boost_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_bass_boost_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_bass_boost_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_deadeye_dmr_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_deadeye_dmr_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_deadeye_dmr_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_deadeye_dmr_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_deadeye_dmr_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enhanced_hyperburst_pistol_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enhanced_spire_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hyperburst_pistol_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hyperburst_pistol_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hyperburst_pistol_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hyperburst_pistol_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hyperburst_pistol_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_killswitch_revolvers_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_killswitch_revolvers_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_killswitch_revolvers_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_killswitchs_revolvers_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_kors_deadeye_dmr_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lightriders_surf_cube<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_myst_form<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_myst_gauntlets_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_spire_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_spire_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_spire_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_spire_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_spire_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_surf_cube<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_tracking_visor<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_unstable_bounce_grenade<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_unstable_frostfire_shotgun_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_unstable_thunderclap_dmr_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_unstable_voltage_burst_pistol_exotic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_unstable_yoink_shotgun_exotic<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/UndergroundItems
-    UndergroundItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_ballistic_shield_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_bandage<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_cluster_clinger<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_flowberry<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_flowberry_fizz<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_grapple_blade_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_med_kit<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_enforcer_ar_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_enforcer_ar_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_enforcer_ar_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_enforcer_ar_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_enforcer_ar_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_frenzy_auto_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_frenzy_auto_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_frenzy_auto_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_frenzy_auto_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_frenzy_auto_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_hammer_pump_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_hammer_pump_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_hammer_pump_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_hammer_pump_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_hammer_pump_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_hyper_smg_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_hyper_smg_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_hyper_smg_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_hyper_smg_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_hyper_smg_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_nemesis_ar_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_nemesis_ar_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_nemesis_ar_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_nemesis_ar_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_nemesis_ar_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_ranger_pistol_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_ranger_pistol_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_ranger_pistol_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_ranger_pistol_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_ranger_pistol_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_striker_ar_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_striker_ar_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_striker_ar_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_striker_ar_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_striker_ar_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_thunder_burst_smg_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_thunder_burst_smg_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_thunder_burst_smg_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_thunder_burst_smg_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_thunder_burst_smg_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_montagues_modular_nemesis_ar_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_nishas_modular_striker_ar_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_oscars_modular_frenzy_auto_shotgun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_reaper_modular_sniper_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_reaper_modular_sniper_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_reaper_modular_sniper_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_reaper_modular_sniper_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_shield_potion<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_small_shield_potion<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_valerias_modular_hyper_smg_mythic<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/VibinItems
-    VibinItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_charge_smg_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_charge_smg_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_charge_smg_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_charge_smg_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_charge_smg_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_charge_smg_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dmr_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dmr_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dmr_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dmr_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dmr_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_dmr_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_firework_flare_gun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_frozen_icecream_cone<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_grapple_glove<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_guzzling_icecream_cone<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hammer_assault_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hammer_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hammer_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hammer_assault_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hammer_assault_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_hammer_assault_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_heavy_sniper_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_icecream_cone<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_lilwhips_special_serve<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_prime_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_prime_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_prime_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_prime_shotgun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_prime_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_prime_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ripsaw_launcher_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_spicy_icecream_cone<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_two_shot_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_two_shot_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_two_shot_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_two_shot_shotgun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_two_shot_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_two_shot_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/WildsItems
-    WildsItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_cloak_gauntlets<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enhanced_drum_shotgun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_enhanced_flapjack_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_explosive_repeater_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_explosive_repeater_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_explosive_repeater_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_explosive_repeater_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_explosive_repeater_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_explosive_repeater_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_flapjack_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_flapjack_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_flapjack_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_flapjack_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_flapjack_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_kinetic_boomerang_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mammoth_pistol_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mammoth_pistol_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mammoth_pistol_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mammoth_pistol_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_mammoth_pistol_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sharp_tooth_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sharp_tooth_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sharp_tooth_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_sharp_tooth_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_slap_splash<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_super_slap_splash<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_thermal_dmr_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_thermal_dmr_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_thermal_dmr_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_thermal_dmr_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_thermal_dmr_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_thermal_dmr_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_wildguard_reliks_cloak_gauntlets<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_wildwasp_jar<public> := class<final><concrete>(entity):
-
-    # Module import path: /Fortnite.com/Itemization/WreckedItems
-    WreckedItems<public> := module:
-        using {/Verse.org/SceneGraph}
-        @experimental
-        item_heavy_impact_sniper_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_heavy_impact_sniper_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_heavy_impact_sniper_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_megalo_dons_modular_combat_shotgun_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_megalo_dons_nitro_fists_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_minigun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_boom_bolt_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_boom_bolt_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_boom_bolt_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_combat_assault_rifle_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_combat_assault_rifle_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_combat_assault_rifle_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_combat_assault_rifle_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_combat_assault_rifle_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_combat_shotgun_common<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_combat_shotgun_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_combat_shotgun_legendary<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_combat_shotgun_rare<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_combat_shotgun_uncommon<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_modular_conductor_hand_cannon_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_nitro_fists_epic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_nitro_splash<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_ringmasters_modular_boom_bolt_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_the_machinists_modular_combat_assault_rifle_mythic<public> := class<final><concrete>(entity):
-
-        @experimental
-        item_tow_hook_cannon_rare<public> := class<final><concrete>(entity):
 
 # Module import path: /Fortnite.com/AI
 AI<public> := module:
@@ -4326,7 +360,7 @@ AI<public> := module:
 
     @available {MinUploadedAtFNVersion := 3900}
     # Fortnite Guards AI actions management
-    guard_actions_component<native><public> := class<epic_internal>(npc_actions_component):
+    guard_actions_component<native><public> := class<final_super><epic_internal>(npc_actions_component):
         # Roam around the current position. Use 'Tether' to specify the radius; otherwise, the Fortnite guard will roam anywhere.
         RoamAround<native><public>(?MovementType:movement_type = external {})<suspends>:result(void, ai_action_error_type)
 
@@ -4341,6 +375,9 @@ AI<public> := module:
 
         # Trigger a jump.
         Jump<native><public>()<suspends>:result(void, ai_action_error_type)
+
+        # Trigger a slide.
+        Slide<native><public>()<suspends>:result(void, ai_action_error_type)
 
         # Play a random emote from the character emotes bank.
         PlayRandomEmote<native><public>()<suspends>:result(void, ai_action_error_type)
@@ -4364,7 +401,7 @@ AI<public> := module:
 
     @available {MinUploadedAtFNVersion := 3900}
     # Fortnite Guard perception management
-    guard_awareness_component<native><public> := class<epic_internal>(npc_awareness_component):
+    guard_awareness_component<native><public> := class<final_super><epic_internal>(npc_awareness_component):
         # Potentially detected obstacle.
         var<private> DetectedObstacle<native><public>:?entity = external {}
 
@@ -4570,6 +607,10 @@ AI<public> := module:
         Emote
         Angry
         Worried
+        Attack
+        HitReact
+        Sleeping
+        Eat
 
     @available {MinUploadedAtFNVersion := 3800}
     # Component to manage functionality shared by all Sidekick types.
@@ -4582,7 +623,7 @@ AI<public> := module:
         GetMood<public>()<reads>:sidekick_mood
 
         # Signaled whenever the Sidekick's mood changes, either via the underlying mood system, or an override is applied. Returns the previous and new mood.
-        ChangeMoodEvent<public>:listenable(tuple(sidekick_mood, sidekick_mood))
+        ChangeMoodEvent<native><public>:listenable(tuple(sidekick_mood, sidekick_mood))
 
         # Request to play a given reaction on the Sidekick.
         # This reaction is not guaranteed to play immediately; instead, the StartPlayReactionEvent should be used to monitor this.
@@ -4590,10 +631,13 @@ AI<public> := module:
         PlayReaction<public>(Reaction:sidekick_reaction)<transacts><decides>:void
 
         # Signaled when the Sidekick starts to play a reaction, returns the reaction that started playing.
-        StartPlayReactionEvent<public>:listenable(sidekick_reaction)
+        StartPlayReactionEvent<native><public>:listenable(sidekick_reaction)
 
         # Signaled when the Sidekick ends playing a reaction, returns the reaction that played.
-        StopPlayReactionEvent<public>:listenable(sidekick_reaction)
+        StopPlayReactionEvent<native><public>:listenable(sidekick_reaction)
+
+        # Enable or disable antics (idle personality animations) on the Sidekick. Enabled by default.
+        var IdleAnticsEnabled<public>:logic = external {}
 
     @available {MinUploadedAtFNVersion := 3800}
     # Component to manage functionality specifically for an NPC Sidekick.
@@ -4619,6 +663,10 @@ AI<public> := module:
         # Signaled when the Sidekick ends playing a reaction, returns the reaction that played.
         StopPlayReactionEvent<override><native>:listenable(sidekick_reaction) = external {}
 
+        # Apply the look and customizations of agent's currently equipped Sidekick to this Sidekick NPC.
+        # This will fail if the NPC does not use the FortniteSidekick cosmetic look or if the given agent does not have a Sidekick equipped in their locker.
+        ApplyEquippedSidekickCosmetic<native><public>(Agent:agent)<transacts><decides>:void
+
 Devices<public> := module:
     # Used to place visual effects around your island. You can use these effects to enhance the overall theme and experience of your game.
     vfx_spawner_device<native><public> := class<concrete><final>(creative_device_base):
@@ -4636,6 +684,55 @@ Devices<public> := module:
 
         # Restarts the VFX. Triggers the VFX if it's Burst VFX.
         Restart<native><public>():void
+
+    # The state of a progress_based_mesh_device.
+    progress_device_state<public> := enum<open>:
+        # This device is currently progressing, and will increase its 'CurrentProgress' by its 'ProgressRate'.
+        Progress
+        # This device is currently regressing, and will decrease its 'CurrentProgress' by its 'RegressRate'.
+        Regress
+        # This device is currently paused. It will not progress or regress automatically.
+        Pause
+
+    # This device is used to associate changes in progression with a mesh transition. As the device's progression changes, it will transition between a set of defined meshes.
+    #  The ThresholdMesh field can be found under the 'Visuals' category on an instance of a progress_based_mesh_device in Unreal Editor Fortnite.
+    progress_based_mesh_device<public> := class<concrete><final>(creative_device_base):
+        # This value maps to the 'ProgressTarget' user option.
+        #  The target Progress goal of this value.
+        #  Setting this value will clamp it between 0 and 100.
+        #  If 'ProgressTarget' is set to a value lower than 'CurrentProgress', 'CurrentProgress' will be clamped to 'ProgressTarget', and fire any threshold related events.
+        var ProgressTarget<public>:float = external {}
+
+        # The current progress this device has made towards its ProgressTarget.
+        #  This value will be clamped between 0 and Progress Target.
+        #  Modifying this value will cause changes Mesh Changes corresponding to your defined ThresholdMeshes.
+        var CurrentProgress<public>:float = external {}
+
+        # The current state of this device.
+        var ProgressState<public>:progress_device_state = external {}
+
+        # This value maps to the 'ProgressRate' user option.
+        #  When this device is in the Progress state, 'CurrentProgress' will be increased by this value per second until it reaches the 'ProgressTarget'.
+        #  Utilizing this value is not required, as 'CurrentProgress' can also be modified directly.
+        var ProgressRate<public>:float = external {}
+
+        # This value maps to the 'RegressRate' user option.
+        #  When this device is in the Regress state, 'CurrentProgress' will be decreased by this value per second until it reaches the 0.
+        #  Utilizing this value is not required, as 'CurrentProgress' can also be modified directly.
+        var RegressRate<public>:float = external {}
+
+        # This event is fired whenever 'CurrentProgress' reaches the 'ProgressTarget'.
+        FillEvent<public>:listenable(tuple()) = external {}
+
+        # This event is fired whenever 'CurrentProgress' reaches 0.
+        EmptyEvent<public>:listenable(tuple()) = external {}
+
+        # This event is fired whenever 'CurrentProgress' value gets changed, whether through direct modification, or as a result of the Progress or Regress state.
+        ProgressChangeEvent<public>:listenable(float) = external {}
+
+        # # This event fires whenever this device changes meshes as a result of 'CurrentProgress' value causing a new Threshold to be met.
+        #  The ThresholdMeshe field can be found under the 'Visuals' category on an instance of a progress_based_mesh_device in Unreal Editor Fortnite.
+        ProgressThresholdCrossEvent<public>:listenable(float) = external {}
 
     using {/Verse.org/Simulation}
     #  Represents a poll.
@@ -4717,55 +814,6 @@ Devices<public> := module:
 
         GetOptionDescription<override>():message = external {}
 
-    # The state of a progress_based_mesh_device.
-    progress_device_state<public> := enum<open>:
-        # This device is currently progressing, and will increase its 'CurrentProgress' by its 'ProgressRate'.
-        Progress
-        # This device is currently regressing, and will decrease its 'CurrentProgress' by its 'RegressRate'.
-        Regress
-        # This device is currently paused. It will not progress or regress automatically.
-        Pause
-
-    # This device is used to associate changes in progression with a mesh transition. As the device's progression changes, it will transition between a set of defined meshes.
-    #  The ThresholdMesh field can be found under the 'Visuals' category on an instance of a progress_based_mesh_device in Unreal Editor Fortnite.
-    progress_based_mesh_device<public> := class<concrete><final>(creative_device_base):
-        # This value maps to the 'ProgressTarget' user option.
-        #  The target Progress goal of this value.
-        #  Setting this value will clamp it between 0 and 100.
-        #  If 'ProgressTarget' is set to a value lower than 'CurrentProgress', 'CurrentProgress' will be clamped to 'ProgressTarget', and fire any threshold related events.
-        var ProgressTarget<public>:float = external {}
-
-        # The current progress this device has made towards its ProgressTarget.
-        #  This value will be clamped between 0 and Progress Target.
-        #  Modifying this value will cause changes Mesh Changes corresponding to your defined ThresholdMeshes.
-        var CurrentProgress<public>:float = external {}
-
-        # The current state of this device.
-        var ProgressState<public>:progress_device_state = external {}
-
-        # This value maps to the 'ProgressRate' user option.
-        #  When this device is in the Progress state, 'CurrentProgress' will be increased by this value per second until it reaches the 'ProgressTarget'.
-        #  Utilizing this value is not required, as 'CurrentProgress' can also be modified directly.
-        var ProgressRate<public>:float = external {}
-
-        # This value maps to the 'RegressRate' user option.
-        #  When this device is in the Regress state, 'CurrentProgress' will be decreased by this value per second until it reaches the 0.
-        #  Utilizing this value is not required, as 'CurrentProgress' can also be modified directly.
-        var RegressRate<public>:float = external {}
-
-        # This event is fired whenever 'CurrentProgress' reaches the 'ProgressTarget'.
-        FillEvent<public>:listenable(tuple()) = external {}
-
-        # This event is fired whenever 'CurrentProgress' reaches 0.
-        EmptyEvent<public>:listenable(tuple()) = external {}
-
-        # This event is fired whenever 'CurrentProgress' value gets changed, whether through direct modification, or as a result of the Progress or Regress state.
-        ProgressChangeEvent<public>:listenable(float) = external {}
-
-        # # This event fires whenever this device changes meshes as a result of 'CurrentProgress' value causing a new Threshold to be met.
-        #  The ThresholdMeshe field can be found under the 'Visuals' category on an instance of a progress_based_mesh_device in Unreal Editor Fortnite.
-        ProgressThresholdCrossEvent<public>:listenable(float) = external {}
-
     bank_vault_interface<public> := interface<epic_internal>(enableable):
         # Triggers when the vault sequence is started by a player or event.
         #  * Sends the `agent` that triggered this event, if applicable.
@@ -4797,7 +845,7 @@ Devices<public> := module:
         PauseSequence<public>():void
 
         # Restores vault to default state, deactivates the device, and heals all weakpoints to max health. Requires the device to be enabled.
-        Reset<public>():void
+        (/Fortnite.com/Devices/bank_vault_interface:)Reset<public>():void
 
         # Whether the vault sequence is currently active and not paused.
         IsSequenceActive<public>()<transacts><decides>:void
@@ -5042,44 +1090,6 @@ Devices<public> := module:
         # Succeeds if the object is enabled, fails if it is disabled.
         IsEnabled<override>()<transacts><decides>:void = external {}
 
-    # Used to apply Post Process Effects to players through the creative device rather than a Post Process Volume.
-    post_process_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when a blend in event has finished. Sends the `agent` that used this device.
-        BlendingInCompleteEvent<public>:listenable(?agent) = external {}
-
-        # Signaled when a blend out event has finished. Sends the `agent` that used this device.
-        BlendingOutCompleteEvent<public>:listenable(?agent) = external {}
-
-        # Enables this device only for the instigating `Agent`. 
-        Enable<public>(Agent:agent):void = external {}
-
-        # Enables this device for all players.
-        Enable<public>():void = external {}
-
-        # Disables this device only for the instigating `Agent`. 
-        Disable<public>(Agent:agent):void = external {}
-
-        # Disables this device for all players.
-        Disable<public>():void = external {}
-
-        # Starts blending in the post process effect to the set strength only for the instigating `Agent`. 
-        BlendIn<public>(Agent:agent):void = external {}
-
-        # Starts blending in the post process effect to the set strength for all players.
-        BlendInForAll<public>():void = external {}
-
-        # Starts blending out the post process effect to 0 strength only for the instigating `Agent`. 
-        BlendOut<public>(Agent:agent):void = external {}
-
-        # Starts blending out the post process effect to 0 strength for all players.
-        BlendOutForAll<public>():void = external {}
-
-        # Resets to the starting strength, ending any ongoing blending only for the instigating `Agent`.
-        Reset<public>(Agent:agent):void = external {}
-
-        # Resets to the starting strength, ending any ongoing blending for all players.
-        ResetForAll<public>():void = external {}
-
     # Allow players to bring eliminated teammates back into the game.
     reboot_van_device<public> := class<concrete><final>(creative_device_base, reboot_van_interface):
         # Enable the device.
@@ -5124,8 +1134,6 @@ Devices<public> := module:
         # Purchase reboot card options.
         #  * Only used if `CanPurchaseRebootCard` is `true`.
         var PurchaseRebootCardOptions<override>:?reboot_card_purchase_options = external {}
-
-        var InternalPurchaseRebootCardOptions<override>:reboot_card_purchase_options = external {}
 
     reboot_progress_decay_behavior<public> := enum<open>:
         # Set a custom multiplier on the decay rate.
@@ -5189,66 +1197,43 @@ Devices<public> := module:
         #  * Only used if `CanPurchaseRebootCard` is `true`.
         var PurchaseRebootCardOptions<public>:?reboot_card_purchase_options
 
-        var InternalPurchaseRebootCardOptions<protected>:reboot_card_purchase_options
+    # Used to apply Post Process Effects to players through the creative device rather than a Post Process Volume.
+    post_process_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when a blend in event has finished. Sends the `agent` that used this device.
+        BlendingInCompleteEvent<public>:listenable(?agent) = external {}
 
-    using {/Fortnite.com/Vehicles}
-    # A one stop automated refueling and repairing station for your vehicles.
-    service_station_device<public> := class<concrete><final>(creative_device_base, healthful, damageable, enableable):
-        # Returns the health state of the object. This value will between 0.0 and `GetMaxHealth`
-        GetHealth<override>()<transacts>:float = external {}
+        # Signaled when a blend out event has finished. Sends the `agent` that used this device.
+        BlendingOutCompleteEvent<public>:listenable(?agent) = external {}
 
-        # Sets the health state of the object to `Health`.
-        #  * Health state will be clamped between 1.0 and `GetMaxHealth`.
-        #  * Health state cannot be directly set to 0.0. To eliminate `healthful` objects use the `damageable.Damage` functions instead.
-        SetHealth<override>(Health:float)<transacts>:void = external {}
+        # Enables this device only for the instigating `Agent`. 
+        Enable<public>(Agent:agent):void = external {}
 
-        # Returns the maximum health of the object. This value will be between 1.0 and Inf.
-        GetMaxHealth<override>()<transacts>:float = external {}
+        # Enables this device for all players.
+        Enable<public>():void = external {}
 
-        # Sets the maximum health state of the object.
-        #  * MaxHealth will be clamped between 1.0 and Inf.
-        #  * Current health state will be scaled up or down based on the scale difference between the old and new MaxHealth state.
-        SetMaxHealth<override>(MaxHealth:float)<transacts>:void = external {}
+        # Disables this device only for the instigating `Agent`. 
+        Disable<public>(Agent:agent):void = external {}
 
-        # Damage the `damageable` object anonymously by `Amount`. Setting `Amount` to less than 0 will cause no damage.
-        # Use `Damage(:damage_args):void` when damage is being applied from a known instigator and source.
-        Damage<override>(Amount:float):void = external {}
+        # Disables this device for all players.
+        Disable<public>():void = external {}
 
-        # Damage the `damageable` object by `Args.Amount`. Setting `Amount` to less than 0 will cause no damage.
-        Damage<override>(Args:damage_args):void = external {}
+        # Starts blending in the post process effect to the set strength only for the instigating `Agent`. 
+        BlendIn<public>(Agent:agent):void = external {}
 
-        # Signaled when damage is applied to the `damageable` object.
-        DamagedEvent<override>():listenable(damage_result) = external {}
+        # Starts blending in the post process effect to the set strength for all players.
+        BlendInForAll<public>():void = external {}
 
-        # Enable this object.
-        Enable<override>():void = external {}
+        # Starts blending out the post process effect to 0 strength only for the instigating `Agent`. 
+        BlendOut<public>(Agent:agent):void = external {}
 
-        # Disable this object.
-        Disable<override>():void = external {}
+        # Starts blending out the post process effect to 0 strength for all players.
+        BlendOutForAll<public>():void = external {}
 
-        # Succeeds if the object is enabled, fails if it's disabled.
-        IsEnabled<override>()<transacts><decides>:void = external {}
+        # Resets to the starting strength, ending any ongoing blending only for the instigating `Agent`.
+        (/Fortnite.com/Devices/post_process_device:)Reset<public>(Agent:agent):void = external {}
 
-        # Fires when a vehicle enters the service station, returns the vehicle that entered.
-        VehicleEnteredEvent<public>:listenable(fort_vehicle) = external {}
-
-        # Fires when a vehicle leaves the service station, returns the vehicle that exited.
-        VehicleExitedEvent<public>:listenable(fort_vehicle) = external {}
-
-        # Fires on the first tick of a vehicle refueling, returns the refueled vehicle.
-        VehicleFuelingBeginEvent<public>:listenable(fort_vehicle) = external {}
-
-        # Fires when a vehicle is at full fuel, returns the refueled vehicle.
-        VehicleFuelingEndEvent<public>:listenable(fort_vehicle) = external {}
-
-        # Fires when a vehicle starts repairing, returns the repaired vehicle.
-        VehicleRepairBeginEvent<public>:listenable(fort_vehicle) = external {}
-
-        # Fires when a vehicle is at full health, returns the repaired vehicle.
-        VehicleRepairEndEvent<public>:listenable(fort_vehicle) = external {}
-
-        # Check if any vehicle is inside the service station.
-        IsAnyVehicleInside<public>()<transacts><decides>:void = external {}
+        # Resets to the starting strength, ending any ongoing blending for all players.
+        ResetForAll<public>():void = external {}
 
     # An interface for shared functionality between different spire devices
     has_spire_functionality<public> := interface<epic_internal>(enableable):
@@ -5284,7 +1269,7 @@ Devices<public> := module:
         DestroyEvent<public>:listenable(?agent)
 
         # Resets the Spire to its initial state.
-        Reset<public>():void
+        (/Fortnite.com/Devices/has_spire_functionality:)Reset<public>():void
 
         # The maximum health of this Spire.
         var<private> MaxHealth<public>:float
@@ -5295,6 +1280,17 @@ Devices<public> := module:
 
         # Determines if a Spire-specific icon should be displayed on the map while the Spire is spawned
         var ShowMapIcon<public>:logic
+
+    # Used to track `agent` events used to generate analytics.
+    analytics_device<public> := class<concrete><final>(creative_device_base):
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+        # Submits an event for `Agent`.
+        Submit<public>(Agent:agent):void = external {}
 
     # Used to set up islands so players will earn Battle Pass XP when they interact with your island. Accolades are achievements or accomplishments that players can complete to earn XP.
     accolades_device<public> := class<concrete><final>(creative_device_base):
@@ -5311,204 +1307,6 @@ Devices<public> := module:
         # Awards the XP to `agent`.
         Award<public>(Agent:agent):void = external {}
 
-    # Used to track `agent` events used to generate analytics.
-    analytics_device<public> := class<concrete><final>(creative_device_base):
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-        # Submits an event for `Agent`.
-        Submit<public>(Agent:agent):void = external {}
-
-    # Used to configure and play audio from the device location or from registered `agent`s.
-    audio_player_device<public> := class<concrete><final>(creative_device_base):
-        # Enables this device. Allows this device to be triggered from other linked devices (i.e. triggers) and allow calls to `Play` to succeed.
-        Enable<public>():void = external {}
-
-        # Disables this device. No longer allows this device to be triggered from other linked devices (i.e. triggers) and will stop any currently playing audio.
-        Disable<public>():void = external {}
-
-        # Starts playing audio from this device for `Agent`. This can only be used when the device is set to be *Heard by Instigator*.
-        Play<public>(Agent:agent):void = external {}
-
-        # Starts playing audio from this device.
-        Play<public>():void = external {}
-
-        # Stops any audio playing from this device for `Agent`. This can only be used when the device is set to be *Heard by Instigator*.
-        Stop<public>(Agent:agent):void = external {}
-
-        # Stops any audio playing from this device.
-        Stop<public>():void = external {}
-
-        # Adds `Agent` as a target to play audio from when activated.
-        Register<public>(Agent:agent):void = external {}
-
-        # Removes `Agent` as a target to play audio from when activated.
-        Unregister<public>(Agent:agent):void = external {}
-
-        # Removes all previously registered `agent`s as valid targets to play audio from when activated.
-        UnregisterAll<public>():void = external {}
-
-        # Shows this device in the world.
-        Show<public>()<transacts>:void = external {}
-
-        # Hides this device from the world.
-        Hide<public>()<transacts>:void = external {}
-
-    # Used to manage sound buses via control bus mixes set on the Audio Mixer Device.
-    audio_mixer_device<public> := class<concrete><final>(creative_device_base):
-        # Activates the mix set on the audio mixer.
-        ActivateMix<public>():void = external {}
-
-        # Deactivates the mix set on the audio mixer.
-        DeactivateMix<public>():void = external {}
-
-        # Adds `Agent` as a target when using the *CanBeHeardBy* Registered Players or NonRegisteredPlayers options.
-        Register<public>(Agent:agent):void = external {}
-
-        # Removes `Agent` as a target when using the *CanBeHeardBy* Registered Players or NonRegisteredPlayers options.
-        Unregister<public>(Agent:agent):void = external {}
-
-        # Removes all previously registered `agent`s when using the *CanBeHeardBy* Registered Players or NonRegisteredPlayers options.
-        UnregisterAll<public>():void = external {}
-
-    # Used to place a campfire in the world that an `agent` can use to heal themselves.
-    campfire_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when an `agent` enters the area of effect for this device.
-        # Sends the entering `agent`.
-        AgentEntersEffectAreaEvent<public>:listenable(agent) = external {}
-
-        # Signaled when an `agent` exits the area of effect for this device.
-        # Sends the exiting `agent`.
-        AgentExitsEffectAreaEvent<public>:listenable(agent) = external {}
-
-        # Signaled when this device generates a pulse.
-        CampfirePulseEvent<public>:listenable(tuple()) = external {}
-
-        # Signaled when an `agent` is affected by a pulse generated by this device.
-        # Sends the affected `agent`.
-        AgentPulsedEvent<public>:listenable(agent) = external {}
-
-        # Signaled when this device is lit by an `agent`.
-        # Sends the lighting `agent`.
-        LitEvent<public>:listenable(agent) = external {}
-
-        # Signaled when this device is extinguished by an `agent`.
-        # Sends the extinguishing `agent`.
-        ExtinguishedEvent<public>:listenable(agent) = external {}
-
-        # Signaled when this device is enabled.
-        EnabledEvent<public>:listenable(tuple()) = external {}
-
-        # Signaled when this device is disabled.
-        DisabledEvent<public>:listenable(tuple()) = external {}
-
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-        # Adds wood to this device.
-        AddWood<public>():void = external {}
-
-        # Lights this device.
-        Light<public>(Agent:agent):void = external {}
-
-        # Extinguishes this device.
-        Extinguish<public>(Agent:agent):void = external {}
-
-    # Used to send custom messages to the elimination feed.
-    elimination_feed_device<public> := class<concrete><final>(creative_device_base):
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-        # Activates this device. `Agent` is used as the instigator of the action.
-        Activate<public>(Agent:agent):void = external {}
-
-        # Activates this device.
-        # Requires *Activated by Team / Class* be set to `All`.
-        Activate<public>():void = external {}
-
-    # Used to spawn fireflies that can be collected by `agent`s.
-    firefly_spawner_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when a firefly is collected.
-        # Sends the `agent` collected the firefly.
-        OnFirefliesCollected<public>:listenable(agent) = external {}
-
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-        # Spawns new fireflies. The previous fireflies will be destroyed before a new fireflies spawn.
-        (/Fortnite.com/Devices/firefly_spawner_device:)Respawn<public>():void = external {}
-
-        # Resets respawn count.
-        ResetRespawnCount<public>():void = external {}
-
-    # Used to configure rules that can end the current round or game.
-    end_game_device<public> := class<concrete><final>(creative_device_base):
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-        # Ends the round/game. Uses `Agent`'s team to determine if the round/game ends when *Activating Team* is enabled.
-        Activate<public>(Agent:agent):void = external {}
-
-    # Used to listen for the player activating or releasing certain inputs.
-    # The input is defined by the *Input* option.
-    # Players can configure the key for the input in the Creative Input Actions section of the Keyboard Settings.
-    input_trigger_device<public> := class<concrete><final>(creative_device_base):
-        # Enables this device.
-        # An Input Trigger will listen for inputs from players that meet the device requirements.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        # A disabled Input Trigger will not listen for inputs 
-        # and will never show on the HUD.
-        Disable<public>():void = external {}
-
-        # Signaled when the tracked input is pressed by an `agent`.
-        # Sends the `agent` that pressed the input.
-        PressedEvent<public>:listenable(agent) = external {}
-
-        # Signaled when the tracked input is released by an `agent`.
-        # Sends the `agent` that released the input.
-        # Sends the `float` duration that the input was held.
-        ReleasedEvent<public>:listenable(tuple(agent, float)) = external {}
-
-        # Adds `Agent` to the registered player list.
-        # *Registered Player Behavior* determines whether registered players meet the device requirements.
-        Register<public>(Agent:agent):void = external {}
-
-        # Removes `Agent` from the registered player list.
-        # *Registered Player Behavior* determines whether registered players meet the device requirements.
-        Unregister<public>(Agent:agent):void = external {}
-
-        # Clears the list of registered players.
-        # *Registered Player Behavior* determines whether registered players meet the device requirements.
-        UnregisterAll<public>():void = external {}
-
-        # Succeeds if `Agent` is currently holding the input.
-        IsHeld<public>(Agent:agent)<transacts><decides>:void = external {}
-
-    # Allows pickup items to be placed in the world..
-    item_placer_device<public> := class<concrete><final>(creative_device_base):
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
     # Used to cause `agent`s to drop or lose items from their inventory. For example, if an `agent` is *Down But Not Out*, they could drop items from their inventory, and other `agent`s could then pick up those items.
     item_remover_device<public> := class<concrete><final>(creative_device_base):
         # Enables this device.
@@ -5519,161 +1317,6 @@ Devices<public> := module:
 
         # Remove items from `Agent`s inventory. The items that are removed can be configured using *Affected Items*.
         Remove<public>(Agent:agent):void = external {}
-
-    # Allows players to change their outfit in game!
-    changing_booth_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when a `player` enters the changing booth device.
-        PlayerEnterEvent<public>:listenable(player) = external {}
-
-        # Signaled when a `player` exits the changing booth device.
-        PlayerExitEvent<public>:listenable(player) = external {}
-
-    # Used to track and react to how many players are in a particular area, and optionally display that information in game.
-    player_counter_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when the player count matches *Target Player Count*. The frequency of evaluation against *Target Player Count* can be controlled through the device settings.
-        CountSucceedsEvent<public>:listenable(tuple()) = external {}
-
-        # Signaled when the player count does not match *Target Player Count*. The frequency of evaluation against *Target Player Count* can be controlled through the device settings.
-        CountFailsEvent<public>:listenable(tuple()) = external {}
-
-        # Signaled when a valid player enters the zone and is counted. The frequency of evaluation against the *Target Player Count* can be controlled through the device settings.
-        # Sends the `agent` that is now being counted.
-        CountedEvent<public>:listenable(agent) = external {}
-
-        # Signaled when a player is no longer counted by this device, such as when they leave the zone, leave the game, or are assigned to a different `team` or class.
-        # Sends the `agent` that is no longer being counted.
-        RemovedEvent<public>:listenable(agent) = external {}
-
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-        # Resets *Target Player Count* to the default value defined in the device settings. If *Target Player Count* was previously incremented or decremented, this reset immediately triggers a new comparison.
-        Reset<public>():void = external {}
-
-        # Increments *Target Player Count* by `1`. Immediately triggers a new comparison.
-        IncrementTargetCount<public>():void = external {}
-
-        # Decrements *Target Player Count* by `1`. Immediately triggers a new comparison.
-        DecrementTargetCount<public>():void = external {}
-
-        # Triggers an evaluation of the current count vs *Target Player Count*, signaling `CountSucceedsEvent` or `CountFailsEvent` based on the evaluation result.
-        CompareToTarget<public>():void = external {}
-
-        # Triggers `CountedEvent` for all `agent`s currently being counted.
-        TransmitForAllCounted<public>():void = external {}
-
-        # Adds the player to the registered player list.
-        # *Track Registered Players* determines how registered players are counted.
-        Register<public>(Agent:agent):void = external {}
-
-        # Removes the player from the registered player list.
-        # *Track Registered Players* determines how registered players are counted.
-        Unregister<public>(Agent:agent):void = external {}
-
-        # Clears all players from the list of registered players.
-        # *Track Registered Players* determines how registered players are counted.
-        UnregisterAll<public>():void = external {}
-
-        # Show this device in the world as an info panel showing Current + Required player counts.
-        ShowInfoPanel<public>():void = external {}
-
-        # Hide this device info panel from the world.
-        HideInfoPanel<public>():void = external {}
-
-        # Returns whether this device is represented in the world as an info panel showing Current + Required player counts.
-        IsShowingInfoPanel<public>()<transacts><decides>:void = external {}
-
-        # Sets the number of players required for this counter to succeed. Immediately triggers a new comparison.
-        SetTargetCount<public>(Count:int):void = external {}
-
-        # Returns the number of players required for this counter to succeed.
-        GetTargetCount<public>()<transacts>:int = external {}
-
-        # Returns the number of players currently counted by this device
-        GetCount<public>()<transacts>:int = external {}
-
-        # Is true if the device is currently succeeding in its comparison.
-        IsPassingTest<public>()<transacts><decides>:void = external {}
-
-        # Is true if `Agent` is currently counted by this device.
-        IsCounted<public>(Agent:agent)<transacts><decides>:void = external {}
-
-        # Returns an array of agents that are currently counted by the device.
-        GetCountedAgents<public>()<reads>:[]agent = external {}
-
-    # Used to manipulate the properties of one or more props in a specified area (e.g. Visibility/Destructibility).
-    prop_manipulator_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when props affected by this device are damaged.
-        # Sends the `agent` that damaged the prop.
-        DamagedEvent<public>:listenable(agent) = external {}
-
-        # Signaled when props affected by this device are destroyed.
-        # Sends the `agent` that destroyed the prop.
-        DestroyedEvent<public>:listenable(agent) = external {}
-
-        # Signaled when prop resource nodes affected by this device are harvested.
-        # Sends the `agent` that harvested resources from the prop.
-        HarvestingEvent<public>:listenable(agent) = external {}
-
-        # Signaled when prop resource nodes affected by this device are completely depleted of energy.
-        # Sends the `agent` that depleted the prop's energy.
-        ResourceDepletionEvent<public>:listenable(agent) = external {}
-
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-        # Shows all props affected by this device.
-        ShowProps<public>():void = external {}
-
-        # Hides all props affected by this device.
-        HideProps<public>():void = external {}
-
-        # Empties the resources of all props affected by this device.
-        ExhaustResources<public>():void = external {}
-
-        # Restocks the resources of all props affected by this device.
-        RestockResources<public>():void = external {}
-
-        # Restores health of all props affected by this device.
-        RestoreHealth<public>():void = external {}
-
-        # Sets the *Override Resource* option to *Yes*.
-        SetResourceOverridesActive<public>():void = external {}
-
-        # Sets the *Override Resource* option to *No*.
-        DisableResourceNodeOverrides<public>():void = external {}
-
-    # Used to create a light which can have its color and brightness manipulated in response to in-game events.
-    customizable_light_device<public> := class<concrete><final>(creative_device_base):
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-        # Resets the light to its initial state.
-        Reset<public>():void = external {}
-
-        # Turns on the light.
-        TurnOn<public>():void = external {}
-
-        # Turns off the light.
-        TurnOff<public>():void = external {}
-
-        # Toggles between `TurnOn` and `TurnOff`.
-        Toggle<public>():void = external {}
-
-        # Dims the light by *Dimming Amount*.
-        DimLight<public>():void = external {}
-
-        # Brightens the light by *Dimming Amount*.
-        UndimLight<public>():void = external {}
 
     # Used to mark an `agent`'s position on the minimap and configure the information shown for marked `agent`s.
     # 
@@ -5716,6 +1359,26 @@ Devices<public> := module:
         # Detaches markers from all marked `agent`s.
         DetachFromAll<public>():void = external {}
 
+    # Used to trigger in game events based on real world time.
+    real_time_clock_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when the optional second *Duration* time has been reached.
+        DurationElapsedEvent<public>:listenable(tuple()) = external {}
+
+        # Signaled when the target time is reached.
+        TimeReachedEvent<public>:listenable(tuple()) = external {}
+
+        # Signaled when this device is enabled after the target time has been reached.
+        EnablingAfterTimeReachedEvent<public>:listenable(tuple()) = external {}
+
+        # Signaled when this device is enabled before the target time has been reached.
+        EnablingBeforeTimeReachedEvent<public>:listenable(tuple()) = external {}
+
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
     # Used to move around a building or prop, and customize responses to various collision event types.
     prop_mover_device<public> := class<concrete><final>(creative_device_base):
         # Signaled when this device is enabled.
@@ -5753,7 +1416,7 @@ Devices<public> := module:
         Disable<public>():void = external {}
 
         # Moves the prop to its original position.
-        Reset<public>():void = external {}
+        (/Fortnite.com/Devices/prop_mover_device:)Reset<public>():void = external {}
 
         # Begins the prop moving.
         Begin<public>():void = external {}
@@ -5778,145 +1441,6 @@ Devices<public> := module:
 
         # Returns the speed (in meters per second) at which the prop mover will move the prop to its destination.
         GetTargetSpeed<public>()<transacts>:float = external {}
-
-    # Used in tandem with `race_manager_device` to define the route players must traverse.
-    race_checkpoint_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when this checkpoint becomes the next checkpoint that `agent`s need to pass for the first time.
-        # Sends the first `agent` who is now targeting this checkpoint.
-        CheckpointBecomesCurrentForTheFirstTimeEvent<public>:listenable(agent) = external {}
-
-        # Signaled when this checkpoint becomes the current checkpoint for `agent`.
-        # Sends the `agent` who is now targeting this checkpoint.
-        CheckpointBecomesCurrentEvent<public>:listenable(agent) = external {}
-
-        # Signaled when an `agent` passes this checkpoint.
-        # Sends the `agent` that passed this checkpoint.
-        CheckpointCompletedEvent<public>:listenable(agent) = external {}
-
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-        # Sets this checkpoint as the current checkpoint for `Agent`. This only functions if `Agent` has not already passed this checkpoint.
-        SetAsCurrentCheckpoint<public>(Agent:agent):void = external {}
-
-    # Used with the `race_checkpoint_device` to create more advanced racing modes.
-    race_manager_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when the race begins.
-        # Sends the `agent` that started the race.
-        RaceBeganEvent<public>:listenable(agent) = external {}
-
-        # Signaled when an `agent` finishes the race.
-        # Sends the `agent` that finished the race.
-        RaceCompletedEvent<public>:listenable(agent) = external {}
-
-        # Signaled when an `agent` completes their first lap.
-        # Sends the `agent` that finished the lap.
-        FirstLapCompletedEvent<public>:listenable(agent) = external {}
-
-        # Signaled when an `agent` completes a lap.
-        # Sends the `agent` that finished the lap.
-        LapCompletedEvent<public>:listenable(agent) = external {}
-
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-        # Begins the race.
-        Begin<public>():void = external {}
-
-        # Ends the race.
-        End<public>():void = external {}
-
-    # Generates an AI bot that spawns in a location and usually attacks players when they come in range.
-    sentry_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when the sentry is alerted to an `agent`.
-        # Sends the `agent` who alerted the sentry.
-        AlertedEvent<public>:listenable(agent) = external {}
-
-        # Signaled when the sentry exists the alert state.
-        ExitsAlertEvent<public>:listenable(tuple()) = external {}
-
-        # Signaled when the sentry enters the alert state.
-        EntersAlertCooldownEvent<public>:listenable(tuple()) = external {}
-
-        # Signaled when a sentry attacks an `agent`.
-        # Sends the `agent` who is being attacked.
-        AttackingEvent<public>:listenable(agent) = external {}
-
-        # Signaled when a sentry is eliminated.
-        # Sends the `agent` that eliminated the sentry. If the sentry was eliminated by a non-agent then `false` is returned.
-        EliminatedEvent<public>:listenable(?agent) = external {}
-
-        # Signaled when the sentry eliminates a creature.
-        EliminatingACreatureEvent<public>:listenable(tuple()) = external {}
-
-        # Signaled when a sentry eliminates an `agent`.
-        # Sends the `agent` who was eliminated by the sentry.
-        EliminatingAgentEvent<public>:listenable(agent) = external {}
-
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-        # Spawns the sentry.
-        Spawn<public>():void = external {}
-
-        # Destroys the current sentry.
-        DestroySentry<public>():void = external {}
-
-        # Sets the sentry to the same team `Agent` is on.
-        JoinTeam<public>(Agent:agent):void = external {}
-
-        # Resets the sentry to the original team designated in the device options.
-        ResetTeam<public>():void = external {}
-
-        # Puts the sentry into the pacify state, preventing from entering the alert (attacking) state.
-        Pacify<public>():void = external {}
-
-        # Puts the sentry into the alert state.
-        EnableAlert<public>():void = external {}
-
-        # Sets the sentry to target `Agent`. The sentry will not target agents on the same team as the sentry.
-        Target<public>(Agent:agent):void = external {}
-
-        # Resets the alert state.
-        ResetAlertCooldown<public>():void = external {}
-
-    # Used to trigger in game events based on real world time.
-    real_time_clock_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when the optional second *Duration* time has been reached.
-        DurationElapsedEvent<public>:listenable(tuple()) = external {}
-
-        # Signaled when the target time is reached.
-        TimeReachedEvent<public>:listenable(tuple()) = external {}
-
-        # Signaled when this device is enabled after the target time has been reached.
-        EnablingAfterTimeReachedEvent<public>:listenable(tuple()) = external {}
-
-        # Signaled when this device is enabled before the target time has been reached.
-        EnablingBeforeTimeReachedEvent<public>:listenable(tuple()) = external {}
-
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-    @deprecated
-    # Controls how the sky looks, as well as giving you options for changing the sun, clouds, stars or other objects in the sky above your island. You can control the sun and moon, and add other atmospheric elements like stars, fog and clouds. You can change the color of your light source, and blend different colors for your island's sky to create the perfect atmosphere for your game.
-    skydome_device<public> := class<concrete><final>(creative_device_base):
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
 
     # Used to allow agents to turn other linked devices on/off or other custom state changes.
     switch_device<public> := class<concrete><final>(creative_device_base):
@@ -6037,6 +1561,364 @@ Devices<public> := module:
         #  Returns -1.0 if there is no active reset timer.
         GetCurrentResetTime<public>(Agent:agent):float = external {}
 
+    # Used to manage sound buses via control bus mixes set on the Audio Mixer Device.
+    audio_mixer_device<public> := class<concrete><final>(creative_device_base):
+        # Activates the mix set on the audio mixer.
+        ActivateMix<public>():void = external {}
+
+        # Deactivates the mix set on the audio mixer.
+        DeactivateMix<public>():void = external {}
+
+        # Adds `Agent` as a target when using the *CanBeHeardBy* Registered Players or NonRegisteredPlayers options.
+        Register<public>(Agent:agent):void = external {}
+
+        # Removes `Agent` as a target when using the *CanBeHeardBy* Registered Players or NonRegisteredPlayers options.
+        Unregister<public>(Agent:agent):void = external {}
+
+        # Removes all previously registered `agent`s when using the *CanBeHeardBy* Registered Players or NonRegisteredPlayers options.
+        UnregisterAll<public>():void = external {}
+
+    # Used to configure and play audio from the device location or from registered `agent`s.
+    audio_player_device<public> := class<concrete><final>(creative_device_base):
+        # Enables this device. Allows this device to be triggered from other linked devices (i.e. triggers) and allow calls to `Play` to succeed.
+        Enable<public>():void = external {}
+
+        # Disables this device. No longer allows this device to be triggered from other linked devices (i.e. triggers) and will stop any currently playing audio.
+        Disable<public>():void = external {}
+
+        # Starts playing audio from this device for `Agent`. This can only be used when the device is set to be *Heard by Instigator*.
+        Play<public>(Agent:agent):void = external {}
+
+        # Starts playing audio from this device.
+        Play<public>():void = external {}
+
+        # Stops any audio playing from this device for `Agent`. This can only be used when the device is set to be *Heard by Instigator*.
+        Stop<public>(Agent:agent):void = external {}
+
+        # Stops any audio playing from this device.
+        Stop<public>():void = external {}
+
+        # Adds `Agent` as a target to play audio from when activated.
+        Register<public>(Agent:agent):void = external {}
+
+        # Removes `Agent` as a target to play audio from when activated.
+        Unregister<public>(Agent:agent):void = external {}
+
+        # Removes all previously registered `agent`s as valid targets to play audio from when activated.
+        UnregisterAll<public>():void = external {}
+
+        # Shows this device in the world.
+        Show<public>()<transacts>:void = external {}
+
+        # Hides this device from the world.
+        Hide<public>()<transacts>:void = external {}
+
+    # Used to send custom messages to the elimination feed.
+    elimination_feed_device<public> := class<concrete><final>(creative_device_base):
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+        # Activates this device. `Agent` is used as the instigator of the action.
+        Activate<public>(Agent:agent):void = external {}
+
+        # Activates this device.
+        # Requires *Activated by Team / Class* be set to `All`.
+        Activate<public>():void = external {}
+
+    # Used to spawn fireflies that can be collected by `agent`s.
+    firefly_spawner_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when a firefly is collected.
+        # Sends the `agent` collected the firefly.
+        OnFirefliesCollected<public>:listenable(agent) = external {}
+
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+        # Spawns new fireflies. The previous fireflies will be destroyed before a new fireflies spawn.
+        (/Fortnite.com/Devices/firefly_spawner_device:)Respawn<public>():void = external {}
+
+        # Resets respawn count.
+        ResetRespawnCount<public>():void = external {}
+
+    # Used to configure rules that can end the current round or game.
+    end_game_device<public> := class<concrete><final>(creative_device_base):
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+        # Ends the round/game. Uses `Agent`'s team to determine if the round/game ends when *Activating Team* is enabled.
+        Activate<public>(Agent:agent):void = external {}
+
+    # Used to listen for the player activating or releasing certain inputs.
+    # The input is defined by the *Input* option.
+    # Players can configure the key for the input in the Creative Input Actions section of the Keyboard Settings.
+    input_trigger_device<public> := class<concrete><final>(creative_device_base):
+        # Enables this device.
+        # An Input Trigger will listen for inputs from players that meet the device requirements.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        # A disabled Input Trigger will not listen for inputs 
+        # and will never show on the HUD.
+        Disable<public>():void = external {}
+
+        # Signaled when the tracked input is pressed by an `agent`.
+        # Sends the `agent` that pressed the input.
+        PressedEvent<public>:listenable(agent) = external {}
+
+        # Signaled when the tracked input is released by an `agent`.
+        # Sends the `agent` that released the input.
+        # Sends the `float` duration that the input was held.
+        ReleasedEvent<public>:listenable(tuple(agent, float)) = external {}
+
+        # Adds `Agent` to the registered player list.
+        # *Registered Player Behavior* determines whether registered players meet the device requirements.
+        Register<public>(Agent:agent):void = external {}
+
+        # Removes `Agent` from the registered player list.
+        # *Registered Player Behavior* determines whether registered players meet the device requirements.
+        Unregister<public>(Agent:agent):void = external {}
+
+        # Clears the list of registered players.
+        # *Registered Player Behavior* determines whether registered players meet the device requirements.
+        UnregisterAll<public>():void = external {}
+
+        # Succeeds if `Agent` is currently holding the input.
+        IsHeld<public>(Agent:agent)<transacts><decides>:void = external {}
+
+    # Allows pickup items to be placed in the world..
+    item_placer_device<public> := class<concrete><final>(creative_device_base):
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+    # Allows players to change their outfit in game!
+    changing_booth_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when a `player` enters the changing booth device.
+        PlayerEnterEvent<public>:listenable(player) = external {}
+
+        # Signaled when a `player` exits the changing booth device.
+        PlayerExitEvent<public>:listenable(player) = external {}
+
+    # Used to create a light which can have its color and brightness manipulated in response to in-game events.
+    customizable_light_device<public> := class<concrete><final>(creative_device_base):
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+        # Resets the light to its initial state.
+        (/Fortnite.com/Devices/customizable_light_device:)Reset<public>():void = external {}
+
+        # Turns on the light.
+        TurnOn<public>():void = external {}
+
+        # Turns off the light.
+        TurnOff<public>():void = external {}
+
+        # Toggles between `TurnOn` and `TurnOff`.
+        Toggle<public>():void = external {}
+
+        # Dims the light by *Dimming Amount*.
+        DimLight<public>():void = external {}
+
+        # Brightens the light by *Dimming Amount*.
+        UndimLight<public>():void = external {}
+
+    # Used to track and react to how many players are in a particular area, and optionally display that information in game.
+    player_counter_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when the player count matches *Target Player Count*. The frequency of evaluation against *Target Player Count* can be controlled through the device settings.
+        CountSucceedsEvent<public>:listenable(tuple()) = external {}
+
+        # Signaled when the player count does not match *Target Player Count*. The frequency of evaluation against *Target Player Count* can be controlled through the device settings.
+        CountFailsEvent<public>:listenable(tuple()) = external {}
+
+        # Signaled when a valid player enters the zone and is counted. The frequency of evaluation against the *Target Player Count* can be controlled through the device settings.
+        # Sends the `agent` that is now being counted.
+        CountedEvent<public>:listenable(agent) = external {}
+
+        # Signaled when a player is no longer counted by this device, such as when they leave the zone, leave the game, or are assigned to a different `team` or class.
+        # Sends the `agent` that is no longer being counted.
+        RemovedEvent<public>:listenable(agent) = external {}
+
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+        # Resets *Target Player Count* to the default value defined in the device settings. If *Target Player Count* was previously incremented or decremented, this reset immediately triggers a new comparison.
+        (/Fortnite.com/Devices/player_counter_device:)Reset<public>():void = external {}
+
+        # Increments *Target Player Count* by `1`. Immediately triggers a new comparison.
+        IncrementTargetCount<public>():void = external {}
+
+        # Decrements *Target Player Count* by `1`. Immediately triggers a new comparison.
+        DecrementTargetCount<public>():void = external {}
+
+        # Triggers an evaluation of the current count vs *Target Player Count*, signaling `CountSucceedsEvent` or `CountFailsEvent` based on the evaluation result.
+        CompareToTarget<public>():void = external {}
+
+        # Triggers `CountedEvent` for all `agent`s currently being counted.
+        TransmitForAllCounted<public>():void = external {}
+
+        # Adds the player to the registered player list.
+        # *Track Registered Players* determines how registered players are counted.
+        Register<public>(Agent:agent):void = external {}
+
+        # Removes the player from the registered player list.
+        # *Track Registered Players* determines how registered players are counted.
+        Unregister<public>(Agent:agent):void = external {}
+
+        # Clears all players from the list of registered players.
+        # *Track Registered Players* determines how registered players are counted.
+        UnregisterAll<public>():void = external {}
+
+        # Show this device in the world as an info panel showing Current + Required player counts.
+        ShowInfoPanel<public>():void = external {}
+
+        # Hide this device info panel from the world.
+        HideInfoPanel<public>():void = external {}
+
+        # Returns whether this device is represented in the world as an info panel showing Current + Required player counts.
+        IsShowingInfoPanel<public>()<transacts><decides>:void = external {}
+
+        # Sets the number of players required for this counter to succeed. Immediately triggers a new comparison.
+        SetTargetCount<public>(Count:int):void = external {}
+
+        # Returns the number of players required for this counter to succeed.
+        GetTargetCount<public>()<transacts>:int = external {}
+
+        # Returns the number of players currently counted by this device
+        GetCount<public>()<transacts>:int = external {}
+
+        # Is true if the device is currently succeeding in its comparison.
+        IsPassingTest<public>()<transacts><decides>:void = external {}
+
+        # Is true if `Agent` is currently counted by this device.
+        IsCounted<public>(Agent:agent)<transacts><decides>:void = external {}
+
+        # Returns an array of agents that are currently counted by the device.
+        GetCountedAgents<public>()<reads>:[]agent = external {}
+
+    # Used to manipulate the properties of one or more props in a specified area (e.g. Visibility/Destructibility).
+    prop_manipulator_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when props affected by this device are damaged.
+        # Sends the `agent` that damaged the prop.
+        DamagedEvent<public>:listenable(agent) = external {}
+
+        # Signaled when props affected by this device are destroyed.
+        # Sends the `agent` that destroyed the prop.
+        DestroyedEvent<public>:listenable(agent) = external {}
+
+        # Signaled when prop resource nodes affected by this device are harvested.
+        # Sends the `agent` that harvested resources from the prop.
+        HarvestingEvent<public>:listenable(agent) = external {}
+
+        # Signaled when prop resource nodes affected by this device are completely depleted of energy.
+        # Sends the `agent` that depleted the prop's energy.
+        ResourceDepletionEvent<public>:listenable(agent) = external {}
+
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+        # Shows all props affected by this device.
+        ShowProps<public>():void = external {}
+
+        # Hides all props affected by this device.
+        HideProps<public>():void = external {}
+
+        # Empties the resources of all props affected by this device.
+        ExhaustResources<public>():void = external {}
+
+        # Restocks the resources of all props affected by this device.
+        RestockResources<public>():void = external {}
+
+        # Restores health of all props affected by this device.
+        RestoreHealth<public>():void = external {}
+
+        # Sets the *Override Resource* option to *Yes*.
+        SetResourceOverridesActive<public>():void = external {}
+
+        # Sets the *Override Resource* option to *No*.
+        DisableResourceNodeOverrides<public>():void = external {}
+
+    # Used in tandem with `race_manager_device` to define the route players must traverse.
+    race_checkpoint_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when this checkpoint becomes the next checkpoint that `agent`s need to pass for the first time.
+        # Sends the first `agent` who is now targeting this checkpoint.
+        CheckpointBecomesCurrentForTheFirstTimeEvent<public>:listenable(agent) = external {}
+
+        # Signaled when this checkpoint becomes the current checkpoint for `agent`.
+        # Sends the `agent` who is now targeting this checkpoint.
+        CheckpointBecomesCurrentEvent<public>:listenable(agent) = external {}
+
+        # Signaled when an `agent` passes this checkpoint.
+        # Sends the `agent` that passed this checkpoint.
+        CheckpointCompletedEvent<public>:listenable(agent) = external {}
+
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+        # Sets this checkpoint as the current checkpoint for `Agent`. This only functions if `Agent` has not already passed this checkpoint.
+        SetAsCurrentCheckpoint<public>(Agent:agent):void = external {}
+
+    # Used with the `race_checkpoint_device` to create more advanced racing modes.
+    race_manager_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when the race begins.
+        # Sends the `agent` that started the race.
+        RaceBeganEvent<public>:listenable(agent) = external {}
+
+        # Signaled when an `agent` finishes the race.
+        # Sends the `agent` that finished the race.
+        RaceCompletedEvent<public>:listenable(agent) = external {}
+
+        # Signaled when an `agent` completes their first lap.
+        # Sends the `agent` that finished the lap.
+        FirstLapCompletedEvent<public>:listenable(agent) = external {}
+
+        # Signaled when an `agent` completes a lap.
+        # Sends the `agent` that finished the lap.
+        LapCompletedEvent<public>:listenable(agent) = external {}
+
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+        # Begins the race.
+        Begin<public>():void = external {}
+
+        # Ends the race.
+        End<public>():void = external {}
+
+    @deprecated
+    # Controls how the sky looks, as well as giving you options for changing the sun, clouds, stars or other objects in the sky above your island. You can control the sun and moon, and add other atmospheric elements like stars, fog and clouds. You can change the color of your light source, and blend different colors for your island's sky to create the perfect atmosphere for your game.
+    skydome_device<public> := class<concrete><final>(creative_device_base):
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
     # Used to create and customize your own visual effects. This is more flexible than the `vfx_spawner_device`, which gives you a selection of pre-made visual effects to choose from but limits how much you can customize or change those effects.
     vfx_creator_device<public> := class<concrete><final>(creative_device_base):
         # Enables this device.
@@ -6131,47 +2013,36 @@ Devices<public> := module:
         # Returns the *Capture Box Size* (in meters).
         GetCaptureBoxSize<public>()<transacts>:float = external {}
 
-    # Used to show or hide parts of the HUD for players or teams. Use this with other devices such as the `hud_message_device`, `map_indicator_device`, and `billboard_device` to control exactly how much information players can see during a game, as well as how and when they see that information.
-    hud_controller_device<public> := class<concrete><final>(creative_device_base):
-        # Enables this device.
-        Enable<public>():void = external {}
+    # Used to place a campfire in the world that an `agent` can use to heal themselves.
+    campfire_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when an `agent` enters the area of effect for this device.
+        # Sends the entering `agent`.
+        AgentEntersEffectAreaEvent<public>:listenable(agent) = external {}
 
-        # Disables this device.
-        Disable<public>():void = external {}
+        # Signaled when an `agent` exits the area of effect for this device.
+        # Sends the exiting `agent`.
+        AgentExitsEffectAreaEvent<public>:listenable(agent) = external {}
 
-        # Sets the *Affected Class* option to `Agent`'s class.
-        UpdateAffectedClass<public>(Agent:agent):void = external {}
+        # Signaled when this device generates a pulse.
+        CampfirePulseEvent<public>:listenable(tuple()) = external {}
 
-        # Sets the *Affected Team* option to `Agent`'s team.
-        UpdateAffectedTeam<public>(Agent:agent):void = external {}
+        # Signaled when an `agent` is affected by a pulse generated by this device.
+        # Sends the affected `agent`.
+        AgentPulsedEvent<public>:listenable(agent) = external {}
 
-        # Resets the *Affected Class* option to its starting value.
-        ResetAffectedClass<public>():void = external {}
+        # Signaled when this device is lit by an `agent`.
+        # Sends the lighting `agent`.
+        LitEvent<public>:listenable(agent) = external {}
 
-        # Resets the *Affected Team* option to its starting value.
-        ResetAffectedTeam<public>():void = external {}
+        # Signaled when this device is extinguished by an `agent`.
+        # Sends the extinguishing `agent`.
+        ExtinguishedEvent<public>:listenable(agent) = external {}
 
-    # Used to spawn an `agent` on an island. Use multiple `player_spawner_device`s to spawn multiple `agent`s.
-    player_spawner_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when an `agent` is spawned from this device.
-        # Sends the `agent` that spawned.
-        SpawnedEvent<public>:listenable(agent) = external {}
+        # Signaled when this device is enabled.
+        EnabledEvent<public>:listenable(tuple()) = external {}
 
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-    # Used to set an `agent`'s spawn point when activated. This can also clear the `agent`'s inventory.
-    player_checkpoint_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when this device is first activated by any `agent`.
-        # Sends the `agent` that activated this device.
-        FirstActivationEvent<public>:listenable(agent) = external {}
-
-        # Signaled each time a new `agent` activates this device.
-        # Sends the `agent` that activated this device.
-        FirstActivationPerAgentEvent<public>:listenable(agent) = external {}
+        # Signaled when this device is disabled.
+        DisabledEvent<public>:listenable(tuple()) = external {}
 
         # Enables this device.
         Enable<public>():void = external {}
@@ -6179,62 +2050,41 @@ Devices<public> := module:
         # Disables this device.
         Disable<public>():void = external {}
 
-        # Registers this checkpoint for `Agent`. This sets the respawn point and can clear `Agent`'s inventory depending on this device's settings. Multiple `agent`s can be registered to this device at one time.
-        Register<public>(Agent:agent):void = external {}
+        # Adds wood to this device.
+        AddWood<public>():void = external {}
 
-        # Returns an array of agents that are currently registered to this checkpoint.
-        GetRegisteredAgents<public>()<reads>:[]agent = external {}
+        # Lights this device.
+        Light<public>(Agent:agent):void = external {}
 
-        # Succeeds when `Agent` is registered to this checkpoint.
-        IsRegistered<public>(Agent:agent)<transacts><decides>:void = external {}
+        # Extinguishes this device.
+        Extinguish<public>(Agent:agent):void = external {}
 
-    # Used to update the gameplay controls scheme based on current control mode.
-    gameplay_controls_device<public> := class<abstract><epic_internal>(creative_device_base):
-        # Enables this device.
-        Enable<public>():void = external {}
+    # Generates an AI bot that spawns in a location and usually attacks players when they come in range.
+    sentry_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when the sentry is alerted to an `agent`.
+        # Sends the `agent` who alerted the sentry.
+        AlertedEvent<public>:listenable(agent) = external {}
 
-        # Disables this device.
-        Disable<public>():void = external {}
+        # Signaled when the sentry exists the alert state.
+        ExitsAlertEvent<public>:listenable(tuple()) = external {}
 
-        # Adds the gameplay control to the `Player`’s gameplay controls stack and pushes it to be the active control.
-        AddTo<public>(Agent:agent):void = external {}
+        # Signaled when the sentry enters the alert state.
+        EntersAlertCooldownEvent<public>:listenable(tuple()) = external {}
 
-        # Adds the gameplay control to all `Agent`s gameplay controls stack and pushes it to be the active control.
-        AddToAll<public>():void = external {}
+        # Signaled when a sentry attacks an `agent`.
+        # Sends the `agent` who is being attacked.
+        AttackingEvent<public>:listenable(agent) = external {}
 
-        # Removes the gameplay control from the `Agent`’s gameplay controls stack and pops from being the active control replacing it with the next one in the stack.
-        RemoveFrom<public>(Agent:agent):void = external {}
+        # Signaled when a sentry is eliminated.
+        # Sends the `agent` that eliminated the sentry. If the sentry was eliminated by a non-agent then `false` is returned.
+        EliminatedEvent<public>:listenable(?agent) = external {}
 
-        # Removes the gameplay control from all `Agent`s gameplay controls stack and pops from being the active control replacing it with the next one in the stack.
-        RemoveFromAll<public>():void = external {}
+        # Signaled when the sentry eliminates a creature.
+        EliminatingACreatureEvent<public>:listenable(tuple()) = external {}
 
-    # Used to adapt the controls to side scroller functionality
-    gameplay_controls_side_scroller_device<public> := class<concrete><final>(gameplay_controls_device):
-
-    # Used to adapt the controls to the camera perspective
-    gameplay_controls_third_person_device<public> := class<concrete><final>(gameplay_controls_device):
-
-    # Used to relay `agent` statistics to other devices and `agent`s. Can transmit statistics such as elimination count, eliminated count, or scores when certain conditions are met. Can also project a hologram of the `agent` and display text that can be altered in various positions and curvatures.
-    player_reference_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when this device is activated.
-        # Sends the `agent` stored in the device.
-        ActivatedEvent<public>:listenable(agent) = external {}
-
-        # Signaled when a stat tracked by this device is updated.
-        # Sends the `agent` stored in the device.
-        TrackedStatChangedEvent<public>:listenable(agent) = external {}
-
-        # Signaled when the `agent` tracked by this device is updated.
-        # Sends the new `agent` stored in the device.
-        AgentUpdatedEvent<public>:listenable(agent) = external {}
-
-        # Signaled when the `agent` tracked by this fails to be updated.
-        # Sends the `agent` that attempted to be stored in this device.
-        AgentUpdateFailsEvent<public>:listenable(agent) = external {}
-
-        # Signaled when the `agent` tracked by this device is replaced.
-        # Sends the new `agent` stored in the device.
-        AgentReplacedEvent<public>:listenable(agent) = external {}
+        # Signaled when a sentry eliminates an `agent`.
+        # Sends the `agent` who was eliminated by the sentry.
+        EliminatingAgentEvent<public>:listenable(agent) = external {}
 
         # Enables this device.
         Enable<public>():void = external {}
@@ -6242,265 +2092,29 @@ Devices<public> := module:
         # Disables this device.
         Disable<public>():void = external {}
 
-        # Ends the round/game.
-        Activate<public>():void = external {}
+        # Spawns the sentry.
+        Spawn<public>():void = external {}
 
-        # Registers `Agent` as the `agent` being tracked by this device.
-        Register<public>(Agent:agent):void = external {}
+        # Destroys the current sentry.
+        DestroySentry<public>():void = external {}
 
-        # Clears the state of this device.
-        Clear<public>():void = external {}
+        # Sets the sentry to the same team `Agent` is on.
+        JoinTeam<public>(Agent:agent):void = external {}
 
-        # Is true when `Agent` is the player being referenced by the device.
-        IsReferenced<public>(Agent:agent)<transacts><decides>:void = external {}
+        # Resets the sentry to the original team designated in the device options.
+        ResetTeam<public>():void = external {}
 
-        # Returns the `agent` currently referenced by the device.
-        GetAgent<public>():?agent = external {}
+        # Puts the sentry into the pacify state, preventing from entering the alert (attacking) state.
+        Pacify<public>():void = external {}
 
-        # Returns the stat value that this device is currently tracking
-        GetStatValue<public>():int = external {}
+        # Puts the sentry into the alert state.
+        EnableAlert<public>():void = external {}
 
-    # Used to create a bouncer that can launch players, vehicles, and more into the air with optional effects.
-    bouncer_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when the condition in the *On Bounced Trigger* option is met and someone or something is launched.
-        #  * Sends the `agent` that bounced. If a vehicle bounced, sends the driver. If a projectile bounced, sends its instigator.
-        #  * Sends `false` if something else bounced, including a vehicle with no driver
-        BouncedEvent<public>:listenable(?agent) = external {}
+        # Sets the sentry to target `Agent`. The sentry will not target agents on the same team as the sentry.
+        Target<public>(Agent:agent):void = external {}
 
-        # Signaled when the heal effect starts for an `agent`.
-        HealStartEvent<public>:listenable(agent) = external {}
-
-        # Signaled when the heal effect stops for an `agent`.
-        HealStopEvent<public>:listenable(agent) = external {}
-
-        # Enables bouncing on this device, as well as any visual and audio effects.
-        Enable<public>():void = external {}
-
-        # Disables bouncing on this device, as well as any visual and audio effects.
-        Disable<public>():void = external {}
-
-    # Used to trigger a custom response to a *Primary* or *Secondary* signal, sent by a *Signal Remote* item.
-    signal_remote_manager_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when a player has triggered the *Primary* signal using a *Signal Remote* item.
-        # Sends the `agent` that triggered the signal.
-        PrimarySignalEvent<public>:listenable(agent) = external {}
-
-        # Signaled when a player has triggered the *Secondary* signal using a *Signal Remote* item.
-        # Sends the `agent` that triggered the signal.
-        SecondarySignalEvent<public>:listenable(agent) = external {}
-
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-    # Used to place a crash pad that can bounce players and protect them from fall damage.
-    crash_pad_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when an `agent` is launched by this device.
-        # Sends the launched `agent`.
-        LaunchedEvent<public>:listenable(agent) = external {}
-
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-    # Spawns a crowd to cheer you on.
-    crowd_volume_device<public> := class<concrete><final>(creative_device_base):
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-    # Used to apply a cosmetic disguise to the player.
-    # The disguise to apply is defined on the device, as are the conditions for when the disguise breaks.
-    disguise_device<public> := class<concrete><final>(creative_device_base, enableable):
-        # Applies the disguise to the provided `player`.
-        # If the provided `player` does not pass the device's filter settings, or if another disguise is already present and the device's *Stomp Existing Disguise* option is set to false, the disguise will not be applied.
-        ApplyDisguise<public>(Player:player):void = external {}
-
-        # Removes the disguise applied by this device, if it exists, from the provided `player`.
-        RemoveDisguise<public>(Player:player):void = external {}
-
-        # Removes any applied disguise from `player`.
-        # Includes disguises applied by any disguise device, or by a disguise kit.
-        RemoveAnyDisguise<public>(Player:player):void = external {}
-
-        # Signaled when a disguise from this device is successfully applied to `player`.
-        ApplyDisguiseEvent<public>:listenable(player) = external {}
-
-        # Signaled when any disguise is successfully applied to `player`.
-        # Includes disguises applied by any disguise device, or by a disguise kit.
-        ApplyAnyDisguiseEvent<public>:listenable(player) = external {}
-
-        # Signaled when a disguise applied by this device on `player` is broken.
-        # The second optional `agent` describes who broke the disguise (the damage source if broken by damage or elimination).
-        # The conditions triggering a disguise to break are set in the device's user options.
-        BreakDisguiseEvent<public>:listenable(tuple(player, ?agent)) = external {}
-
-        # Signaled when any applied disguise on `player` is broken.
-        # Includes disguises applied by any disguise device, or by a disguise kit.
-        # The second optional `agent` describes who broke the disguise (the damage source if broken by damage or elimination).
-        # The conditions triggering a disguise to break are set in the device's user options.
-        BreakAnyDisguiseEvent<public>:listenable(tuple(player, ?agent)) = external {}
-
-        # Signaled when a disguise applied by this device on `player` is removed.
-        # Removal can occur from calling the *Remove Disguise* function, or from getting replaced by another disguise.
-        # This event will not trigger if the disguise is broken.
-        RemoveDisguiseEvent<public>:listenable(player) = external {}
-
-        # Signaled when any applied disguise on `player` is removed.
-        # Includes disguises applied by any disguise device, or by a disguise kit.
-        # Removal can occur from calling the *Remove Disguise* function, or from getting replaced by another disguise.
-        # This event will not trigger if the disguise is broken.
-        RemoveAnyDisguiseEvent<public>:listenable(player) = external {}
-
-        # Succeeds if the provided `player` has a disguise applied from this device.
-        IsDisguiseApplied<public>(Player:player)<transacts><decides>:void = external {}
-
-        # Succeeds if the provided `player` has any disguise applied.
-        # Includes disguises applied by any disguise device, or by a disguise kit.
-        IsAnyDisguiseApplied<public>(Player:player)<transacts><decides>:void = external {}
-
-        # Maps to the user option for *Should Apply Disguise on Spawn*.
-        # If this is true, the device will apply a disguise to the player as soon as they spawn, so long as they pass the device's filter options.
-        var ShouldApplyDisguiseOnPlayerSpawn<public>:logic = external {}
-
-        # Enables this device, allowing it to listen for inputs.
-        Enable<override>():void = external {}
-
-        # Disables this device, preventing it from listening to inputs.
-        # Disguises applied by this device are not removed when the device is disabled.
-        Disable<override>():void = external {}
-
-        # Succeeds if the object is enabled, fails if it is disabled.
-        IsEnabled<override>()<transacts><decides>:void = external {}
-
-    # Used to add fishing mechanics to experiences, such as:
-    #  * Fishing competitions between players.
-    #  * Collecting fish as a resource.
-    #  * Fishing minigames with their own rewards.
-    fishing_zone_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when an `agent` catches a fish.
-        # Sends the `agent` that caught the fish.
-        CaughtEvent<public>:listenable(agent) = external {}
-
-        # Signaled when all items have been caught and removed.
-        # Sends the `agent` that caught the last fish.
-        EmptyEvent<public>:listenable(agent) = external {}
-
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-        # Resets the number of available uses for this device back to *Uses Allowed*.
-        Reset<public>():void = external {}
-
-        # Returns all caught and removed items to the inventory. This only works when *Pool Type* is set to *Device Inventory*.
-        Restock<public>():void = external {}
-
-    # The hiding prop device can be used to give players a place to hide, or to allow players a special way to commence a Hidden Travel to another Hiding prop.
-    hiding_prop_device<public> := class<concrete><final>(creative_device_base, enableable):
-        # Enable this device.
-        #  When this device is enabled, it can be interacted with.
-        Enable<override>():void = external {}
-
-        # Disable this device.
-        #  When this device is disabled, it cannot be interacted with.
-        Disable<override>():void = external {}
-
-        # Succeeds if the object is enabled, fails if it's disabled.
-        IsEnabled<override>()<transacts><decides>:void = external {}
-
-        # Eject a specific player from this hiding prop.
-        EjectHiddenPlayer<public>(Player:player)<transacts><decides>:void = external {}
-
-        # Eject all players hiding in this hiding prop.
-        #  Returns an array of all players that were ejected.
-        EjectAllHiddenPlayers<public>():[]player = external {}
-
-        # Hides all players within the provided meters of a hiding prop.
-        #  Returns an array of all players that were hidden.
-        #  This event will not allow more players than is specified in 'MaxNumberOfOccupants' to be hidden in this device.
-        HideNearbyPlayers<public>(DistanceInMeters:float):[]player = external {}
-
-        # Signaled when a player hides in this Hiding prop.
-        BeginPlayerHideEvent<public>:listenable(player) = external {}
-
-        # Signaled when a player stops hiding in this hiding prop.
-        EndPlayerHideEvent<public>:listenable(player) = external {}
-
-        # Signaled when a hidden travel completes to another hiding prop.
-        PlayerHiddenTravelEvent<public>:listenable(tuple(player, hiding_prop_device)) = external {}
-
-        # This value maps to the 'Max Number Of Occupants' user option.
-        #  Determines how many players can hide in this prop at one time.
-        #  Modifying this value will not eject any players who are currently hiding, but will otherwise take effect immediately.
-        var MaxNumberOfOccupants<public>:int = external {}
-
-        # This value maps to the 'Should Wobble While Hiding' user option.
-        #  Modifying this value will take effect the next time a player hides inside of this device.
-        #  By default, the prop alerts other players with sound and animation that a player is hiding in the prop. Set this to Off to disable these effects.
-        var ShouldWobbleWhileHiding<public>:logic = external {}
-
-        # This value maps to the 'Max Hiding Time' user option.
-        #  Sets a maximum amount of time a player can hide in the prop before being ejected.
-        #  Setting this value to False will disable any limit to how long a player can hide.
-        #  Modifying this value will instantly take effect, if any players hiding are now exceeding the Max Hiding time, they will be immediately ejected.
-        var MaxHideTime<public>:?float = external {}
-
-        # This value maps to the 'Block Hide Time' user option.
-        #  When a player leaves the prop, this determines the amount of time another player must wait before they can hide in the prop.
-        #  Modifying this value will not affect any player who is currently blocked from hiding, but will affect all players who eject from the hiding prop after it has been modified.
-        var BlockHideTime<public>:float = external {}
-
-        # This value maps to the 'Hidden Travel Group' user option.
-        #  To make use of the hidden travel feature, you must assign this hiding prop to a Hidden Travel Group.
-        #  Modifying this value will take effect the next time a player attempts a hidden travel.
-        #  Leaving this value unset will make it so other hiding_prop_device are ineligible to travel to this one.
-        var HiddenTravelGroup<public>:?int = external {}
-
-        # This value maps to the 'Hidden Travel Target Group' user option.
-        #  Determines which group of hiding props can be targeted as a hidden travel destination.
-        #  You can set this to the same value as the Hidden Travel Group option, or if you have multiple groups of hiding props you can target a different group.
-        #  Modifying this value will take effect the next time a player attempts a hidden travel.
-        #  Leaving this value unset means that this hiding_prop_device will not be able to cause a Hidden Travel when players hide inside of it.
-        var HiddenTravelTargetGroup<public>:?int = external {}
-
-        # This value maps to the 'Attempt No Repeat Destinations' user option.
-        #  If this is set to On, the prop will avoid sending a player to the previous hiding prop twice in a row, unless there is no other hiding prop available.
-        #  Modifying this value will take effect the next time a player attempts a hidden travel.
-        #  Leaving this value unset means that this hiding_prop_device will not be able to initiate hidden travel.
-        var AttemptNoRepeatDestinations<public>:logic = external {}
-
-        # This value controls whether or not Hidden Travel is enabled or disabled
-        #  Modifying this value will take effect the next time a player attempts a hidden travel.
-        var EnableHiddenTravel<public>:logic = external {}
-
-    # Used to track when agents enter and exit a volume.
-    volume_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when an `agent` enters the device volume.
-        AgentEntersEvent<public>:listenable(agent) = external {}
-
-        # Signaled when an `agent` exits the device volume.
-        AgentExitsEvent<public>:listenable(agent) = external {}
-
-        # Signaled when an `creative_prop` entered the device volume.
-        PropEnterEvent<public>:listenable(creative_prop) = external {}
-
-        # Signaled when an `creative_prop` exited the device volume.
-        PropExitEvent<public>:listenable(creative_prop) = external {}
-
-        # Returns an array of agents that are currently occupying the volume.
-        GetAgentsInVolume<public>()<reads>:[]agent = external {}
-
-        # Succeeds when `Agent` is in the volume.
-        IsInVolume<public>(Agent:agent)<transacts><decides>:void = external {}
+        # Resets the alert state.
+        ResetAlertCooldown<public>():void = external {}
 
     # Used to display curated videos onto in-game screens or player HUDs.
     video_player_device<public> := class<concrete><final>(creative_device_base):
@@ -6549,28 +2163,51 @@ Devices<public> := module:
         # If any streaming device has forced control of the stream, this will release it and play the highest priority stream in line.
         ReleaseControl<public>():void = external {}
 
-    # Used to project a hologram of a character performing dance emotes.
-    dance_mannequin_device<public> := class<concrete><final>(creative_device_base):
+    # Used to track when agents enter and exit a volume.
+    volume_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when an `agent` enters the device volume.
+        AgentEntersEvent<public>:listenable(agent) = external {}
+
+        # Signaled when an `agent` exits the device volume.
+        AgentExitsEvent<public>:listenable(agent) = external {}
+
+        # Signaled when an `creative_prop` entered the device volume.
+        PropEnterEvent<public>:listenable(creative_prop) = external {}
+
+        # Signaled when an `creative_prop` exited the device volume.
+        PropExitEvent<public>:listenable(creative_prop) = external {}
+
+        # Returns an array of agents that are currently occupying the volume.
+        GetAgentsInVolume<public>()<reads>:[]agent = external {}
+
+        # Succeeds when `Agent` is in the volume.
+        IsInVolume<public>(Agent:agent)<transacts><decides>:void = external {}
+
+    # Used to update the gameplay controls scheme based on current control mode.
+    gameplay_controls_device<public> := class<abstract><epic_internal>(creative_device_base):
         # Enables this device.
         Enable<public>():void = external {}
 
         # Disables this device.
         Disable<public>():void = external {}
 
-        # Activates the hologram using *Default Preset* options.
-        ActivateDefaultPreset<public>():void = external {}
+        # Adds the gameplay control to the `Player`'s gameplay controls stack and pushes it to be the active control.
+        AddTo<public>(Agent:agent):void = external {}
 
-        # Activates the hologram using *Preset 2* options.
-        ActivatePreset2<public>():void = external {}
+        # Adds the gameplay control to all `Agent`s gameplay controls stack and pushes it to be the active control.
+        AddToAll<public>():void = external {}
 
-        # Activates the hologram using *Preset 3* options.
-        ActivatePreset3<public>():void = external {}
+        # Removes the gameplay control from the `Agent`'s gameplay controls stack and pops from being the active control replacing it with the next one in the stack.
+        RemoveFrom<public>(Agent:agent):void = external {}
 
-        # Activates the hologram using `Agent`'s skin and emotes.
-        ActivateSkinAndEmoteCapture<public>(Agent:agent):void = external {}
+        # Removes the gameplay control from all `Agent`s gameplay controls stack and pops from being the active control replacing it with the next one in the stack.
+        RemoveFromAll<public>():void = external {}
 
-        # Deactivates the hologram.
-        DeactivateSkinAndEmoteCapture<public>():void = external {}
+    # Used to adapt the controls to side scroller functionality
+    gameplay_controls_side_scroller_device<public> := class<concrete><final>(gameplay_controls_device):
+
+    # Used to adapt the controls to the camera perspective
+    gameplay_controls_third_person_device<public> := class<concrete><final>(gameplay_controls_device):
 
     # Creates an impenetrable zone that can block `agent` movement and weapon fire.
     barrier_device<public> := class<concrete><final>(creative_device_base):
@@ -6699,6 +2336,370 @@ Devices<public> := module:
         # Returns an array of agents that are currently occupying the volume.
         GetAgentsInVolume<public>()<reads>:[]agent = external {}
 
+    # Used to spawn an `agent` on an island. Use multiple `player_spawner_device`s to spawn multiple `agent`s.
+    player_spawner_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when an `agent` is spawned from this device.
+        # Sends the `agent` that spawned.
+        SpawnedEvent<public>:listenable(agent) = external {}
+
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+        # Spawn `Player` from this device.
+        # Uses the device's `ShouldRespawnAlivePlayers` setting to control behavior when called on an alive player.
+        # If the device is not a valid spawn for that player, they will respawn from a valid spawn device, or from skydive if none are found.
+        SpawnPlayer<public>(Player:player):void = external {}
+
+    # Used to relay `agent` statistics to other devices and `agent`s. Can transmit statistics such as elimination count, eliminated count, or scores when certain conditions are met. Can also project a hologram of the `agent` and display text that can be altered in various positions and curvatures.
+    player_reference_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when this device is activated.
+        # Sends the `agent` stored in the device.
+        ActivatedEvent<public>:listenable(agent) = external {}
+
+        # Signaled when a stat tracked by this device is updated.
+        # Sends the `agent` stored in the device.
+        TrackedStatChangedEvent<public>:listenable(agent) = external {}
+
+        # Signaled when the `agent` tracked by this device is updated.
+        # Sends the new `agent` stored in the device.
+        AgentUpdatedEvent<public>:listenable(agent) = external {}
+
+        # Signaled when the `agent` tracked by this fails to be updated.
+        # Sends the `agent` that attempted to be stored in this device.
+        AgentUpdateFailsEvent<public>:listenable(agent) = external {}
+
+        # Signaled when the `agent` tracked by this device is replaced.
+        # Sends the new `agent` stored in the device.
+        AgentReplacedEvent<public>:listenable(agent) = external {}
+
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+        # Ends the round/game.
+        Activate<public>():void = external {}
+
+        # Registers `Agent` as the `agent` being tracked by this device.
+        Register<public>(Agent:agent):void = external {}
+
+        # Clears the state of this device.
+        Clear<public>():void = external {}
+
+        # Is true when `Agent` is the player being referenced by the device.
+        IsReferenced<public>(Agent:agent)<transacts><decides>:void = external {}
+
+        # Returns the `agent` currently referenced by the device.
+        GetAgent<public>():?agent = external {}
+
+        # Returns the stat value that this device is currently tracking
+        GetStatValue<public>():int = external {}
+
+    # Spawns a crowd to cheer you on.
+    crowd_volume_device<public> := class<concrete><final>(creative_device_base):
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+    # Used to apply a cosmetic disguise to the player.
+    # The disguise to apply is defined on the device, as are the conditions for when the disguise breaks.
+    disguise_device<public> := class<concrete><final>(creative_device_base, enableable):
+        # Applies the disguise to the provided `player`.
+        # If the provided `player` does not pass the device's filter settings, or if another disguise is already present and the device's *Stomp Existing Disguise* option is set to false, the disguise will not be applied.
+        ApplyDisguise<public>(Player:player):void = external {}
+
+        # Removes the disguise applied by this device, if it exists, from the provided `player`.
+        RemoveDisguise<public>(Player:player):void = external {}
+
+        # Removes any applied disguise from `player`.
+        # Includes disguises applied by any disguise device, or by a disguise kit.
+        RemoveAnyDisguise<public>(Player:player):void = external {}
+
+        # Signaled when a disguise from this device is successfully applied to `player`.
+        ApplyDisguiseEvent<public>:listenable(player) = external {}
+
+        # Signaled when any disguise is successfully applied to `player`.
+        # Includes disguises applied by any disguise device, or by a disguise kit.
+        ApplyAnyDisguiseEvent<public>:listenable(player) = external {}
+
+        # Signaled when a disguise applied by this device on `player` is broken.
+        # The second optional `agent` describes who broke the disguise (the damage source if broken by damage or elimination).
+        # The conditions triggering a disguise to break are set in the device's user options.
+        BreakDisguiseEvent<public>:listenable(tuple(player, ?agent)) = external {}
+
+        # Signaled when any applied disguise on `player` is broken.
+        # Includes disguises applied by any disguise device, or by a disguise kit.
+        # The second optional `agent` describes who broke the disguise (the damage source if broken by damage or elimination).
+        # The conditions triggering a disguise to break are set in the device's user options.
+        BreakAnyDisguiseEvent<public>:listenable(tuple(player, ?agent)) = external {}
+
+        # Signaled when a disguise applied by this device on `player` is removed.
+        # Removal can occur from calling the *Remove Disguise* function, or from getting replaced by another disguise.
+        # This event will not trigger if the disguise is broken.
+        RemoveDisguiseEvent<public>:listenable(player) = external {}
+
+        # Signaled when any applied disguise on `player` is removed.
+        # Includes disguises applied by any disguise device, or by a disguise kit.
+        # Removal can occur from calling the *Remove Disguise* function, or from getting replaced by another disguise.
+        # This event will not trigger if the disguise is broken.
+        RemoveAnyDisguiseEvent<public>:listenable(player) = external {}
+
+        # Succeeds if the provided `player` has a disguise applied from this device.
+        IsDisguiseApplied<public>(Player:player)<transacts><decides>:void = external {}
+
+        # Succeeds if the provided `player` has any disguise applied.
+        # Includes disguises applied by any disguise device, or by a disguise kit.
+        IsAnyDisguiseApplied<public>(Player:player)<transacts><decides>:void = external {}
+
+        # Maps to the user option for *Should Apply Disguise on Spawn*.
+        # If this is true, the device will apply a disguise to the player as soon as they spawn, so long as they pass the device's filter options.
+        var ShouldApplyDisguiseOnPlayerSpawn<public>:logic = external {}
+
+        # Enables this device, allowing it to listen for inputs.
+        Enable<override>():void = external {}
+
+        # Disables this device, preventing it from listening to inputs.
+        # Disguises applied by this device are not removed when the device is disabled.
+        Disable<override>():void = external {}
+
+        # Succeeds if the object is enabled, fails if it is disabled.
+        IsEnabled<override>()<transacts><decides>:void = external {}
+
+    # Used to set an `agent`'s spawn point when activated. This can also clear the `agent`'s inventory.
+    player_checkpoint_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when this device is first activated by any `agent`.
+        # Sends the `agent` that activated this device.
+        FirstActivationEvent<public>:listenable(agent) = external {}
+
+        # Signaled each time a new `agent` activates this device.
+        # Sends the `agent` that activated this device.
+        FirstActivationPerAgentEvent<public>:listenable(agent) = external {}
+
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+        # Registers this checkpoint for `Agent`. This sets the respawn point and can clear `Agent`'s inventory depending on this device's settings. Multiple `agent`s can be registered to this device at one time.
+        Register<public>(Agent:agent):void = external {}
+
+        # Returns an array of agents that are currently registered to this checkpoint.
+        GetRegisteredAgents<public>()<reads>:[]agent = external {}
+
+        # Succeeds when `Agent` is registered to this checkpoint.
+        IsRegistered<public>(Agent:agent)<transacts><decides>:void = external {}
+
+    # The hiding prop device can be used to give players a place to hide, or to allow players a special way to commence a Hidden Travel to another Hiding prop.
+    hiding_prop_device<public> := class<concrete><final>(creative_device_base, enableable):
+        # Enable this device.
+        #  When this device is enabled, it can be interacted with.
+        Enable<override>():void = external {}
+
+        # Disable this device.
+        #  When this device is disabled, it cannot be interacted with.
+        Disable<override>():void = external {}
+
+        # Succeeds if the object is enabled, fails if it's disabled.
+        IsEnabled<override>()<transacts><decides>:void = external {}
+
+        # Eject a specific player from this hiding prop.
+        EjectHiddenPlayer<public>(Player:player)<transacts><decides>:void = external {}
+
+        # Eject all players hiding in this hiding prop.
+        #  Returns an array of all players that were ejected.
+        EjectAllHiddenPlayers<public>():[]player = external {}
+
+        # Hides all players within the provided meters of a hiding prop.
+        #  Returns an array of all players that were hidden.
+        #  This event will not allow more players than is specified in 'MaxNumberOfOccupants' to be hidden in this device.
+        HideNearbyPlayers<public>(DistanceInMeters:float):[]player = external {}
+
+        # Signaled when a player hides in this Hiding prop.
+        BeginPlayerHideEvent<public>:listenable(player) = external {}
+
+        # Signaled when a player stops hiding in this hiding prop.
+        EndPlayerHideEvent<public>:listenable(player) = external {}
+
+        # Signaled when a hidden travel completes to another hiding prop.
+        PlayerHiddenTravelEvent<public>:listenable(tuple(player, hiding_prop_device)) = external {}
+
+        # This value maps to the 'Max Number Of Occupants' user option.
+        #  Determines how many players can hide in this prop at one time.
+        #  Modifying this value will not eject any players who are currently hiding, but will otherwise take effect immediately.
+        var MaxNumberOfOccupants<public>:int = external {}
+
+        # This value maps to the 'Should Wobble While Hiding' user option.
+        #  Modifying this value will take effect the next time a player hides inside of this device.
+        #  By default, the prop alerts other players with sound and animation that a player is hiding in the prop. Set this to Off to disable these effects.
+        var ShouldWobbleWhileHiding<public>:logic = external {}
+
+        # This value maps to the 'Max Hiding Time' user option.
+        #  Sets a maximum amount of time a player can hide in the prop before being ejected.
+        #  Setting this value to False will disable any limit to how long a player can hide.
+        #  Modifying this value will instantly take effect, if any players hiding are now exceeding the Max Hiding time, they will be immediately ejected.
+        var MaxHideTime<public>:?float = external {}
+
+        # This value maps to the 'Block Hide Time' user option.
+        #  When a player leaves the prop, this determines the amount of time another player must wait before they can hide in the prop.
+        #  Modifying this value will not affect any player who is currently blocked from hiding, but will affect all players who eject from the hiding prop after it has been modified.
+        var BlockHideTime<public>:float = external {}
+
+        # This value maps to the 'Hidden Travel Group' user option.
+        #  To make use of the hidden travel feature, you must assign this hiding prop to a Hidden Travel Group.
+        #  Modifying this value will take effect the next time a player attempts a hidden travel.
+        #  Leaving this value unset will make it so other hiding_prop_device are ineligible to travel to this one.
+        var HiddenTravelGroup<public>:?int = external {}
+
+        # This value maps to the 'Hidden Travel Target Group' user option.
+        #  Determines which group of hiding props can be targeted as a hidden travel destination.
+        #  You can set this to the same value as the Hidden Travel Group option, or if you have multiple groups of hiding props you can target a different group.
+        #  Modifying this value will take effect the next time a player attempts a hidden travel.
+        #  Leaving this value unset means that this hiding_prop_device will not be able to cause a Hidden Travel when players hide inside of it.
+        var HiddenTravelTargetGroup<public>:?int = external {}
+
+        # This value maps to the 'Attempt No Repeat Destinations' user option.
+        #  If this is set to On, the prop will avoid sending a player to the previous hiding prop twice in a row, unless there is no other hiding prop available.
+        #  Modifying this value will take effect the next time a player attempts a hidden travel.
+        #  Leaving this value unset means that this hiding_prop_device will not be able to initiate hidden travel.
+        var AttemptNoRepeatDestinations<public>:logic = external {}
+
+        # This value controls whether or not Hidden Travel is enabled or disabled
+        #  Modifying this value will take effect the next time a player attempts a hidden travel.
+        var EnableHiddenTravel<public>:logic = external {}
+
+    # Used to trigger a custom response to a *Primary* or *Secondary* signal, sent by a *Signal Remote* item.
+    signal_remote_manager_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when a player has triggered the *Primary* signal using a *Signal Remote* item.
+        # Sends the `agent` that triggered the signal.
+        PrimarySignalEvent<public>:listenable(agent) = external {}
+
+        # Signaled when a player has triggered the *Secondary* signal using a *Signal Remote* item.
+        # Sends the `agent` that triggered the signal.
+        SecondarySignalEvent<public>:listenable(agent) = external {}
+
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+    # Used to place a crash pad that can bounce players and protect them from fall damage.
+    crash_pad_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when an `agent` is launched by this device.
+        # Sends the launched `agent`.
+        LaunchedEvent<public>:listenable(agent) = external {}
+
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+    # Used to add fishing mechanics to experiences, such as:
+    #  * Fishing competitions between players.
+    #  * Collecting fish as a resource.
+    #  * Fishing minigames with their own rewards.
+    fishing_zone_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when an `agent` catches a fish.
+        # Sends the `agent` that caught the fish.
+        CaughtEvent<public>:listenable(agent) = external {}
+
+        # Signaled when all items have been caught and removed.
+        # Sends the `agent` that caught the last fish.
+        EmptyEvent<public>:listenable(agent) = external {}
+
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+        # Resets the number of available uses for this device back to *Uses Allowed*.
+        (/Fortnite.com/Devices/fishing_zone_device:)Reset<public>():void = external {}
+
+        # Returns all caught and removed items to the inventory. This only works when *Pool Type* is set to *Device Inventory*.
+        Restock<public>():void = external {}
+
+    # Used to create a bouncer that can launch players, vehicles, and more into the air with optional effects.
+    bouncer_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when the condition in the *On Bounced Trigger* option is met and someone or something is launched.
+        #  * Sends the `agent` that bounced. If a vehicle bounced, sends the driver. If a projectile bounced, sends its instigator.
+        #  * Sends `false` if something else bounced, including a vehicle with no driver
+        BouncedEvent<public>:listenable(?agent) = external {}
+
+        # Signaled when the heal effect starts for an `agent`.
+        HealStartEvent<public>:listenable(agent) = external {}
+
+        # Signaled when the heal effect stops for an `agent`.
+        HealStopEvent<public>:listenable(agent) = external {}
+
+        # Enables bouncing on this device, as well as any visual and audio effects.
+        Enable<public>():void = external {}
+
+        # Disables bouncing on this device, as well as any visual and audio effects.
+        Disable<public>():void = external {}
+    Patchwork<public> := module:
+        # Base class for all Patchwork devices.
+        patchwork_device<public> := class<concrete>(creative_device_base):
+            # Enables this device.
+            Enable<public>():void = external {}
+
+            # Disables this device.
+            Disable<public>():void = external {}
+
+        # Create drum note patterns for Patchwork devices.
+        drum_sequencer_device<public> := class<concrete><final>(patchwork_device):
+
+        # Modify a setting on another Patchwork device in a regularly repeating pattern.
+        lfo_modulator_device<public> := class<concrete><final>(patchwork_device):
+
+        cable_splitter_device<public> := class<concrete><final>(patchwork_device):
+
+        # Output Patchwork audio for players to hear.
+        speaker_device<public> := class<concrete><final>(patchwork_device):
+
+        # Provides a shared tempo, key, and timeline for Patchwork devices to follow.
+        music_manager_device<public> := class<concrete><final>(patchwork_device):
+
+        # Apply a distortion effect to Patchwork audio inputs.
+        distortion_effect_device<public> := class<concrete><final>(patchwork_device):
+
+        # Send events to devices based on Patchwork note inputs.
+        note_trigger_device<public> := class<concrete><final>(patchwork_device):
+
+        # Turn Patchwork note inputs into audio using instrument samples.
+        instrument_player_device<public> := class<concrete><final>(patchwork_device):
+
+        song_sync_device<public> := class<concrete><final>(patchwork_device):
+
+        # Modify a setting on another Patchwork device in steps over time.
+        step_modulator_device<public> := class<concrete><final>(patchwork_device):
+
+        # Modify a setting on another Patchwork device when triggered.
+        value_setter_device<public> := class<concrete><final>(patchwork_device):
+
+        # Turn Patchwork note inputs into audio using drum samples.
+        drum_player_device<public> := class<concrete><final>(patchwork_device):
+
+        # Turn Patchwork note inputs into audio using customizable sound synthesis.
+        omega_synthesizer_device<public> := class<concrete><final>(patchwork_device):
+
+        # Apply an echo effect to Patchwork audio inputs.
+        echo_effect_device<public> := class<concrete><final>(patchwork_device):
+
+        # Transpose Patchwork note inputs to follow a chord progression.
+        note_progressor_device<public> := class<concrete><final>(patchwork_device):
+
+        # Create melodic note patterns for Patchwork devices.
+        note_sequencer_device<public> := class<concrete><final>(patchwork_device):
+
     # A Destroyable environment prop that when destroyed, drops loot. When players approach the Spire Spike, they start a countdown to a knockback ability. When players are knocked back, they do not receive damage from the knockback ability or take fall damage. They can destroy structures near the knockback location. Damaging the spike can also start the countdown to the knockback or restart the countdown if it is already started.
     spire_spike_device<public> := class<concrete><final>(creative_device_base):
         # Triggers when the Spire Spike does its knockback ability.
@@ -6766,6 +2767,212 @@ Devices<public> := module:
 
         # Force begins the knockback charge timer. Will restart the charge timer if already active.
         ChargeKnockback<public>():void = external {}
+
+    # Used to project a hologram of a character performing dance emotes.
+    dance_mannequin_device<public> := class<concrete><final>(creative_device_base):
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+        # Activates the hologram using *Default Preset* options.
+        ActivateDefaultPreset<public>():void = external {}
+
+        # Activates the hologram using *Preset 2* options.
+        ActivatePreset2<public>():void = external {}
+
+        # Activates the hologram using *Preset 3* options.
+        ActivatePreset3<public>():void = external {}
+
+        # Activates the hologram using `Agent`'s skin and emotes.
+        ActivateSkinAndEmoteCapture<public>(Agent:agent):void = external {}
+
+        # Deactivates the hologram.
+        DeactivateSkinAndEmoteCapture<public>():void = external {}
+
+    using {/Verse.org/SpatialMath}
+    # Used to customize one creature type at a time. Place multiple `creature_manager_device`s for each type of creature on your island.
+    # Changing properties will respect the `Affected Creatures` property of the
+    # device. If `Affected Creatures` is set to `New Pawns Only`, only new spawns will
+    # get the changed property values. If set to `New and Existing Pawns`, all creatures
+    # spawned from this device and new ones will have the new properties.
+    creature_manager_device<public> := class<concrete><final>(creative_device_base):
+        # If set, the health value of the creature is overridden.
+        # If an override is not specified, the default Health of the creature is used.
+        # This value is clamped between 1 and 10000.
+        var MaxHealth<public>:?int = external {}
+
+        # If a value is given, the `Score` value of the creature is overridden.
+        # If an override is not specified, the default `Score` of the creature is used.
+        # This value is clamped between 0 and 100.
+        var Score<public>:?int = external {}
+
+        # If a value is given, the `DamageToPlayer` value of the creature is overridden.
+        # If an override is not specified, the default `DamageToPlayer` of the creature is used.
+        # This value is clamped between 0 and 500.
+        var DamageToPlayer<public>:?float = external {}
+
+        # If a value is given, the `DamageToEnvironment` value of the creature is overridden.
+        # If an override is not specified, the default `DamageToEnvironment` of the creature is used.
+        # This value is clamped between 0 and 500.
+        var DamageToEnvironment<public>:?float = external {}
+
+        # If a value is given, the `SpeedMultiplier` value is applied to the default speed of the creature.
+        # If an override is not specified, the creature moves at its default speed.
+        # This value is clamped between 0.0 and 2.0.
+        var MovementSpeed<public>:?float = external {}
+
+        # Determines if the selected Creature type can be knocked back by weapon impacts.
+        var AllowWeaponKnockback<public>:logic = external {}
+
+        # Signaled when a creature of the selected *Creature Type* is eliminated.
+        # Sends the `agent` that eliminated the creature.
+        MatchingCreatureTypeEliminatedEvent<public>:listenable(agent) = external {}
+
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+    # Used to spawn a creature at a specified location.
+    creature_placer_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when a creature is spawned.
+        # Sends the `agent` creature who was spawned.
+        SpawnedEvent<public>:listenable(agent) = external {}
+
+        # Signaled when the creature is eliminated.
+        #  * Sends the `agent` that eliminated the creature.
+        #  * Sends `false` if the creature was eliminated by something other than an `agent` (e.g. a vehicle).
+        EliminatedEvent<public>:listenable(?agent) = external {}
+
+        # Spawns the creature.
+        Spawn<public>():void = external {}
+
+        # Despawns the creature.
+        Despawn<public>():void = external {}
+
+        # Spawn a creature at the given position. When Rotation is not provided, it will default to the Device's rotation. 
+        # Returns the agent spawned or false if the device has reached its maximum spawn count. 
+        # This function is '<suspends>' because it takes time to load the creature before it can be returned.
+        SpawnAt<public>(Position:(/Verse.org/SpatialMath:)vector3, ?Rotation:?(/Verse.org/SpatialMath:)rotation = external {})<suspends>:?agent = external {}
+
+    # Used to spawn one or more waves of creatures of customizable types at selected time intervals.
+    creature_spawner_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when a creature is spawned.
+        # Sends the `agent` creature who was spawned.
+        SpawnedEvent<public>:listenable(agent) = external {}
+
+        # Spawn a creature at the given position. When Rotation is not provided, it will default to the Device's rotation. 
+        # Returns the agent spawned or false if the device has reached its maximum spawn count. 
+        # This function is `<suspends>` because it takes time to load the creature before it can be returned.
+        SpawnAt<public>(Position:(/Verse.org/SpatialMath:)vector3, ?Rotation:?(/Verse.org/SpatialMath:)rotation = external {})<suspends>:?agent = external {}
+
+        # Signaled when a creature is eliminated.
+        #  `Source` is the `agent` that has eliminated the creature. If the creature was eliminated by a non-agent then `Source` is 'false'.
+        #  `Target` is the creature that was eliminated.
+        EliminatedEvent<public>:listenable(device_ai_interaction_result) = external {}
+
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+        # Destroys this device.
+        DestroySpawner<public>():void = external {}
+
+        # Eliminates all creatures spawned by this device.
+        EliminateCreatures<public>():void = external {}
+
+        # Returns the spawn limit of the device.
+        GetSpawnLimit<public>()<transacts>:int = external {}
+
+    # Used to create patrolling behavior for guards spawned with the `guard_spawner_device`.
+    ai_patrol_path_device<public> := class<concrete><final>(creative_device_base):
+        # Assign an AI to this patrol path.
+        Assign<public>(Patroller:agent):void = external {}
+
+        # Signaled when a guard reaches this device.
+        NodeReachedEvent<public>:listenable(agent) = external {}
+
+        # Signaled when a guard cannot reach the next `ai_patrol_path_device`.
+        NextNodeUnreachableEvent<public>:listenable(agent) = external {}
+
+        # Signaled when a guard starts moving on the patrol path.
+        PatrolPathStartedEvent<public>:listenable(agent) = external {}
+
+        # Signaled when a guard stops moving on the patrol path.
+        PatrolPathStoppedEvent<public>:listenable(agent) = external {}
+
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+        # Commands patroller to follow the *Next Patrol Path Group* instead of the default *Patrol Path Group*.
+        GoToNextPatrolGroup<public>(Patroller:agent):void = external {}
+
+    using {/Fortnite.com/Vehicles}
+    # A one stop automated refueling and repairing station for your vehicles.
+    service_station_device<public> := class<concrete><final>(creative_device_base, healthful, damageable, enableable):
+        # Returns the health state of the object. This value will between 0.0 and `GetMaxHealth`
+        GetHealth<override>()<transacts>:float = external {}
+
+        # Sets the health state of the object to `Health`.
+        #  * Health state will be clamped between 1.0 and `GetMaxHealth`.
+        #  * Health state cannot be directly set to 0.0. To eliminate `healthful` objects use the `damageable.Damage` functions instead.
+        SetHealth<override>(Health:float)<transacts>:void = external {}
+
+        # Returns the maximum health of the object. This value will be between 1.0 and Inf.
+        GetMaxHealth<override>()<transacts>:float = external {}
+
+        # Sets the maximum health state of the object.
+        #  * MaxHealth will be clamped between 1.0 and Inf.
+        #  * Current health state will be scaled up or down based on the scale difference between the old and new MaxHealth state.
+        SetMaxHealth<override>(MaxHealth:float)<transacts>:void = external {}
+
+        # Damage the `damageable` object anonymously by `Amount`. Setting `Amount` to less than 0 will cause no damage.
+        # Use `Damage(:damage_args):void` when damage is being applied from a known instigator and source.
+        Damage<override>(Amount:float):void = external {}
+
+        # Damage the `damageable` object by `Args.Amount`. Setting `Amount` to less than 0 will cause no damage.
+        Damage<override>(Args:damage_args):void = external {}
+
+        # Signaled when damage is applied to the `damageable` object.
+        DamagedEvent<override>():listenable(damage_result) = external {}
+
+        # Enable this object.
+        Enable<override>():void = external {}
+
+        # Disable this object.
+        Disable<override>():void = external {}
+
+        # Succeeds if the object is enabled, fails if it's disabled.
+        IsEnabled<override>()<transacts><decides>:void = external {}
+
+        # Fires when a vehicle enters the service station, returns the vehicle that entered.
+        VehicleEnteredEvent<public>:listenable(fort_vehicle) = external {}
+
+        # Fires when a vehicle leaves the service station, returns the vehicle that exited.
+        VehicleExitedEvent<public>:listenable(fort_vehicle) = external {}
+
+        # Fires on the first tick of a vehicle refueling, returns the refueled vehicle.
+        VehicleFuelingBeginEvent<public>:listenable(fort_vehicle) = external {}
+
+        # Fires when a vehicle is at full fuel, returns the refueled vehicle.
+        VehicleFuelingEndEvent<public>:listenable(fort_vehicle) = external {}
+
+        # Fires when a vehicle starts repairing, returns the repaired vehicle.
+        VehicleRepairBeginEvent<public>:listenable(fort_vehicle) = external {}
+
+        # Fires when a vehicle is at full health, returns the repaired vehicle.
+        VehicleRepairEndEvent<public>:listenable(fort_vehicle) = external {}
+
+        # Check if any vehicle is inside the service station.
+        IsAnyVehicleInside<public>()<transacts><decides>:void = external {}
 
     # Used to create a minigame which expects specific input timing from the player.
     # Visuals may vary, but always feature a scrubber that moves from 0.0 to 1.0.
@@ -6947,7 +3154,7 @@ Devices<public> := module:
         # Can only be set to values greater than or equal to 0
         var NextInQueueExecutionDelay<public>:float = external {}
 
-    # Used to update the camera’s current viewpoint and rotation based on current camera mode.
+    # Used to update the camera's current viewpoint and rotation based on current camera mode.
     gameplay_camera_device<public> := class<abstract><epic_internal>(creative_device_base):
         # Enables this device.
         Enable<public>():void = external {}
@@ -6955,13 +3162,13 @@ Devices<public> := module:
         # Disables this device.
         Disable<public>():void = external {}
 
-        # Adds the camera to the `Agent`’s camera stack and pushes it to be the active camera.
+        # Adds the camera to the `Agent`'s camera stack and pushes it to be the active camera.
         AddTo<public>(Agent:agent):void = external {}
 
         # Adds the camera to all `Agent`s camera stacks and pushes it to be the active camera.
         AddToAll<public>():void = external {}
 
-        # Removes the camera from the `Agent`’s camera stack and pops from being the active camera replacing it with the next one in the stack.
+        # Removes the camera from the `Agent`'s camera stack and pops from being the active camera replacing it with the next one in the stack.
         RemoveFrom<public>(Agent:agent):void = external {}
 
         # Removes the camera from all `Agent`s camera stacks and pops from being the active camera replacing it with the next one in the stack.
@@ -6979,70 +3186,21 @@ Devices<public> := module:
     # Used to update the camera's viewpoint to follow the target and be rotated manually.
     gameplay_camera_orbit_device<public> := class<concrete><final>(gameplay_camera_device):
 
-    # Used to create patrolling behavior for guards spawned with the `guard_spawner_device`.
-    ai_patrol_path_device<public> := class<concrete><final>(creative_device_base):
-        # Assign an AI to this patrol path.
-        Assign<public>(Patroller:agent):void = external {}
+    # Used to create and manipulate volumes of water where players can swim, fish, or drive boats.
+    water_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when an `agent` enters the water.
+        # Sends `agent` that entered the water.
+        AgentEntersWaterEvent<public>:listenable(agent) = external {}
 
-        # Signaled when a guard reaches this device.
-        NodeReachedEvent<public>:listenable(agent) = external {}
+        # Signaled when an `agent` exits the water.
+        # Sends `agent` that exited the water.
+        AgentExitsWaterEvent<public>:listenable(agent) = external {}
 
-        # Signaled when a guard cannot reach the next `ai_patrol_path_device`.
-        NextNodeUnreachableEvent<public>:listenable(agent) = external {}
+        # Signals when the volume is filled to the water level set in the *Default Vertical Water Percentage* option.
+        VerticalFillingCompletedEvent<public>:listenable(tuple()) = external {}
 
-        # Signaled when a guard starts moving on the patrol path.
-        PatrolPathStartedEvent<public>:listenable(agent) = external {}
-
-        # Signaled when a guard stops moving on the patrol path.
-        PatrolPathStoppedEvent<public>:listenable(agent) = external {}
-
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-        # Commands patroller to follow the *Next Patrol Path Group* instead of the default *Patrol Path Group*.
-        GoToNextPatrolGroup<public>(Patroller:agent):void = external {}
-
-    using {/Verse.org/SpatialMath}
-    # Used to customize one creature type at a time. Place multiple `creature_manager_device`s for each type of creature on your island.
-    # Changing properties will respect the `Affected Creatures` property of the
-    # device. If `Affected Creatures` is set to `New Pawns Only`, only new spawns will
-    # get the changed property values. If set to `New and Existing Pawns`, all creatures
-    # spawned from this device and new ones will have the new properties.
-    creature_manager_device<public> := class<concrete><final>(creative_device_base):
-        # If set, the health value of the creature is overridden.
-        # If an override is not specified, the default Health of the creature is used.
-        # This value is clamped between 1 and 10000.
-        var MaxHealth<public>:?int = external {}
-
-        # If a value is given, the `Score` value of the creature is overridden.
-        # If an override is not specified, the default `Score` of the creature is used.
-        # This value is clamped between 0 and 100.
-        var Score<public>:?int = external {}
-
-        # If a value is given, the `DamageToPlayer` value of the creature is overridden.
-        # If an override is not specified, the default `DamageToPlayer` of the creature is used.
-        # This value is clamped between 0 and 500.
-        var DamageToPlayer<public>:?float = external {}
-
-        # If a value is given, the `DamageToEnvironment` value of the creature is overridden.
-        # If an override is not specified, the default `DamageToEnvironment` of the creature is used.
-        # This value is clamped between 0 and 500.
-        var DamageToEnvironment<public>:?float = external {}
-
-        # If a value is given, the `SpeedMultiplier` value is applied to the default speed of the creature.
-        # If an override is not specified, the creature moves at its default speed.
-        # This value is clamped between 0.0 and 2.0.
-        var MovementSpeed<public>:?float = external {}
-
-        # Determines if the selected Creature type can be knocked back by weapon impacts.
-        var AllowWeaponKnockback<public>:logic = external {}
-
-        # Signaled when a creature of the selected *Creature Type* is eliminated.
-        # Sends the `agent` that eliminated the creature.
-        MatchingCreatureTypeEliminatedEvent<public>:listenable(agent) = external {}
+        # Signals when the water volume is completely empty.
+        VerticalEmptyingCompletedEvent<public>:listenable(tuple()) = external {}
 
         # Enables this device.
         Enable<public>():void = external {}
@@ -7050,43 +3208,26 @@ Devices<public> := module:
         # Disables this device.
         Disable<public>():void = external {}
 
-    # Used to spawn a creature at a specified location.
-    creature_placer_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when a creature is spawned.
-        # Sends the `agent` creature who was spawned.
-        SpawnedEvent<public>:listenable(agent) = external {}
+        # Resets the water level in the volume to the value set in the *Default Vertical Water Percentage* option.
+        (/Fortnite.com/Devices/water_device:)Reset<public>():void = external {}
 
-        # Signaled when the creature is eliminated.
-        #  * Sends the `agent` that eliminated the creature.
-        #  * Sends `false` if the creature was eliminated by something other than an `agent` (e.g. a vehicle).
-        EliminatedEvent<public>:listenable(?agent) = external {}
+        # Starts vertically emptying the water in the volume.
+        BeginVerticalEmptying<public>():void = external {}
 
-        # Spawns the creature.
-        Spawn<public>():void = external {}
+        # Starts vertically filling the water in the volume.
+        BeginVerticalFilling<public>():void = external {}
 
-        # Despawns the creature.
-        Despawn<public>():void = external {}
+        # Stops filling or emptying the volume.
+        StopVerticalMovement<public>():void = external {}
 
-        # Spawn a creature at the given position. When Rotation is not provided, it will default to the Device’s rotation. 
-        # Returns the agent spawned or false if the device has reached its maximum spawn count. 
-        # This function is ‘<suspends>’ because it takes time to load the creature before it can be returned.
-        SpawnAt<public>(Position:(/Verse.org/SpatialMath:)vector3, ?Rotation:?(/Verse.org/SpatialMath:)rotation = external {})<suspends>:?agent = external {}
+        # Resumes either filling or emptying the volume.
+        ResumeVerticalMovement<public>():void = external {}
 
-    # Used to spawn one or more waves of creatures of customizable types at selected time intervals.
-    creature_spawner_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when a creature is spawned.
-        # Sends the `agent` creature who was spawned.
-        SpawnedEvent<public>:listenable(agent) = external {}
-
-        # Spawn a creature at the given position. When Rotation is not provided, it will default to the Device’s rotation. 
-        # Returns the agent spawned or false if the device has reached its maximum spawn count. 
-        # This function is ‘<suspends>’ because it takes time to load the creature before it can be returned.
-        SpawnAt<public>(Position:(/Verse.org/SpatialMath:)vector3, ?Rotation:?(/Verse.org/SpatialMath:)rotation = external {})<suspends>:?agent = external {}
-
-        # Signaled when a creature is eliminated.
-        #  `Source` is the `agent` that has eliminated the creature. If the creature was eliminated by a non-agent then `Source` is 'false'.
-        #  `Target` is the creature that was eliminated.
-        EliminatedEvent<public>:listenable(device_ai_interaction_result) = external {}
+    # Used to configure a single interactive mannequin, that can visualize characters, clothing, and perform emotes.
+    character_device<public> := class<concrete>(creative_device_base):
+        # Signaled when an `agent` interacts with this device.
+        # Sends the `agent` that interacted with this device.
+        InteractedWithEvent<public>:listenable(agent) = external {}
 
         # Enables this device.
         Enable<public>():void = external {}
@@ -7094,68 +3235,22 @@ Devices<public> := module:
         # Disables this device.
         Disable<public>():void = external {}
 
-        # Destroys this device.
-        DestroySpawner<public>():void = external {}
+        # Shows this device.
+        Show<public>():void = external {}
 
-        # Eliminates all creatures spawned by this device.
-        EliminateCreatures<public>():void = external {}
+        # Hides this device.
+        Hide<public>():void = external {}
 
-        # Returns the spawn limit of the device.
-        GetSpawnLimit<public>()<transacts>:int = external {}
-    Patchwork<public> := module:
-        # Base class for all Patchwork devices.
-        patchwork_device<public> := class<concrete>(creative_device_base):
-            # Enables this device.
-            Enable<public>():void = external {}
+        # Plays an emote on the character created by this device.
+        PlayEmote<public>():void = external {}
 
-            # Disables this device.
-            Disable<public>():void = external {}
+    # Allows the item shop to be opened when activated
+    item_shop_device<public> := class<concrete><final>(creative_device_base):
+        # Enables this device.
+        Enable<public>():void = external {}
 
-        # Create drum note patterns for Patchwork devices.
-        drum_sequencer_device<public> := class<concrete><final>(patchwork_device):
-
-        cable_splitter_device<public> := class<concrete><final>(patchwork_device):
-
-        # Apply a distortion effect to Patchwork audio inputs.
-        distortion_effect_device<public> := class<concrete><final>(patchwork_device):
-
-        # Modify a setting on another Patchwork device in a regularly repeating pattern.
-        lfo_modulator_device<public> := class<concrete><final>(patchwork_device):
-
-        # Turn Patchwork note inputs into audio using instrument samples.
-        instrument_player_device<public> := class<concrete><final>(patchwork_device):
-
-        song_sync_device<public> := class<concrete><final>(patchwork_device):
-
-        # Send events to devices based on Patchwork note inputs.
-        note_trigger_device<public> := class<concrete><final>(patchwork_device):
-
-        # Modify a setting on another Patchwork device in steps over time.
-        step_modulator_device<public> := class<concrete><final>(patchwork_device):
-
-        # Turn Patchwork note inputs into audio using customizable sound synthesis.
-        omega_synthesizer_device<public> := class<concrete><final>(patchwork_device):
-
-        # Modify a setting on another Patchwork device when triggered.
-        value_setter_device<public> := class<concrete><final>(patchwork_device):
-
-        # Turn Patchwork note inputs into audio using drum samples.
-        drum_player_device<public> := class<concrete><final>(patchwork_device):
-
-        # Apply an echo effect to Patchwork audio inputs.
-        echo_effect_device<public> := class<concrete><final>(patchwork_device):
-
-        # Provides a shared tempo, key, and timeline for Patchwork devices to follow.
-        music_manager_device<public> := class<concrete><final>(patchwork_device):
-
-        # Output Patchwork audio for players to hear.
-        speaker_device<public> := class<concrete><final>(patchwork_device):
-
-        # Transpose Patchwork note inputs to follow a chord progression.
-        note_progressor_device<public> := class<concrete><final>(patchwork_device):
-
-        # Create melodic note patterns for Patchwork devices.
-        note_sequencer_device<public> := class<concrete><final>(patchwork_device):
+        # Disables this device.
+        Disable<public>():void = external {}
 
     using {/Verse.org/Native}
     # Used in conjunction with `advanced_storm_controller_device` to customize individual storm phases.
@@ -7294,12 +3389,12 @@ Devices<public> := module:
         GetInteractionTime<public>()<transacts>:float = external {}
 
         # Sets the maximum amount of times this button can be interacted with before it will be disabled.
-        #  * `MaxCount` must be between `0` and `10`.
+        #  * `MaxCount` must be between `0` and `10000`.
         #  * `0` indicates no limit on trigger count.
         SetMaxTriggerCount<public>(MaxCount:int):void = external {}
 
         # Returns the maximum amount of times this button can be interacted with before it will be disabled.
-        #  * `GetTriggerMaxCount` will be between `0` and `10`.
+        #  * `GetTriggerMaxCount` will be between `0` and `10000`.
         #  * `0` indicates no limit on trigger count.
         GetMaxTriggerCount<public>()<transacts>:int = external {}
 
@@ -7340,6 +3435,10 @@ Devices<public> := module:
         # Sends the `agent` that triggered this device control change.
         ControlChangeEvent<public>:listenable(agent) = external {}
 
+        # Signaled when this device enters the neutralized state.
+        # Sends the `agent` that was responsible for neutralizing the area (the player in the area at the time of neutralization, prioritized by the one who has been in the area the longest), if one exists.
+        NeutralizeEvent<public>:listenable(?agent) = external {}
+
         # Signaled when an item is consumed by this device.
         # Sends the `agent` that provided the item to this device.
         ItemIsConsumedEvent<public>:listenable(agent) = external {}
@@ -7367,7 +3466,7 @@ Devices<public> := module:
         ToggleCaptureAllowed<public>():void = external {}
 
         # Resets control of this device for all teams.
-        Reset<public>():void = external {}
+        (/Fortnite.com/Devices/capture_area_device:)Reset<public>():void = external {}
 
         # Gives control of this device to the capturing `agent`'s team.
         GiveControl<public>(Agent:agent):void = external {}
@@ -7513,7 +3612,7 @@ Devices<public> := module:
         Hide<public>():void = external {}
 
         # Resets this device to its initial settings.
-        Reset<public>():void = external {}
+        (/Fortnite.com/Devices/color_changing_tiles_device:)Reset<public>():void = external {}
 
         # Sets the color of the tile to `Agent`'s team color.
         (/Fortnite.com/Devices/color_changing_tiles_device:)SetTeam<public>(Agent:agent):void = external {}
@@ -7535,7 +3634,7 @@ Devices<public> := module:
         Disable<public>():void = external {}
 
         # Resets this device to its original settings.
-        Reset<public>():void = external {}
+        (/Fortnite.com/Devices/conditional_button_device:)Reset<public>():void = external {}
 
         # Activates this device. `Agent` is used as the instigator of the action.
         Activate<public>(Agent:agent):void = external {}
@@ -7617,7 +3716,7 @@ Devices<public> := module:
         Hide<public>():void = external {}
 
         # Resets this device.
-        Reset<public>():void = external {}
+        (/Fortnite.com/Devices/explosive_device:)Reset<public>():void = external {}
 
         # Triggers this device to explode. Passes `Agent` as the instigator of the resulting `ExplodedEvent`.
         Explode<public>(Agent:agent):void = external {}
@@ -7635,7 +3734,7 @@ Devices<public> := module:
         Disable<public>():void = external {}
 
         # Resets fuel stock to *Fuel Capacity* value.
-        Reset<public>():void = external {}
+        (/Fortnite.com/Devices/fuel_pump_device:)Reset<public>():void = external {}
 
         # Grants fuel to `Agent`.
         Empty<public>(Agent:agent):void = external {}
@@ -8193,10 +4292,10 @@ Devices<public> := module:
         Disable<public>():void = external {}
 
         # Resets this device to its original state.
-        Reset<public>(Agent:agent):void = external {}
+        (/Fortnite.com/Devices/score_manager_device:)Reset<public>(Agent:agent):void = external {}
 
         # Resets this device to its original state.
-        Reset<public>():void = external {}
+        (/Fortnite.com/Devices/score_manager_device:)Reset<public>():void = external {}
 
         # Grant points to `Agent`.
         Activate<public>(Agent:agent):void = external {}
@@ -8258,7 +4357,7 @@ Devices<public> := module:
         Disable<public>():void = external {}
 
         # Resets the target to its initial settings.
-        Reset<public>():void = external {}
+        (/Fortnite.com/Devices/shooting_range_target_device:)Reset<public>():void = external {}
 
         # Moves an active (standing upright) target up slightly, in an effort to make it harder to hit.
         HopUp<public>():void = external {}
@@ -8302,7 +4401,7 @@ Devices<public> := module:
         Disable<public>():void = external {}
 
         # Resets the target to its initial settings.
-        Reset<public>():void = external {}
+        (/Fortnite.com/Devices/shooting_range_target_track_device:)Reset<public>():void = external {}
 
         # Moves an active (standing upright) target attached to the track up slightly, in an effort to make it harder to hit
         HopUp<public>():void = external {}
@@ -8398,9 +4497,19 @@ Devices<public> := module:
         # This will return them to the team they were on before they joined a Temporary Team
         RemoveTemporaryMemberFromTeam<public>(Agent:agent):void = external {}
 
-        # Returns all temporary team members for this Device’s Team Setting Value back to their original Teams.
+        # Returns all temporary team members for this Device's Team Setting Value back to their original Teams.
         # If the device is configured to All, then this function will remove all Temporary Team members from any Temporary Team they are on, returning them to their original team.
         RemoveTemporaryMembersFromTeam<public>():void = external {}
+
+        # Spawn `Player` from the most appropriate `player_spawner_device` available (team match, highest priority, enemy proximity, etc).
+        # Uses the device's `Should Respawn Alive Players` setting to control behavior when called on an alive player.
+        # If no valid spawner is found, the player will respawn from skydive.
+        RespawnAtPlayerSpawner<public>(Player:player):void = external {}
+
+        # Spawn `Player` from the most appropriate `player_spawner_device`, selected from the provided `SpawnerGroup` array.
+        # Uses the device's `Should Respawn Alive Players` setting to control behavior when called on an alive player.
+        # If no valid spawner is found, the player will respawn from skydive.
+        RespawnAtPlayerSpawner<public>(Player:player, SpawnerGroup:[]player_spawner_device):void = external {}
 
         # This variable maps to the 'Dynamic Team Emotes' user option.
         # Modifying this value does not affect the state of any existing Temporary Team member.
@@ -8525,10 +4634,10 @@ Devices<public> := module:
         Disable<public>():void = external {}
 
         # Resets the timer back to its base time and stops it for `Agent`.
-        Reset<public>(Agent:agent):void = external {}
+        (/Fortnite.com/Devices/timer_device:)Reset<public>(Agent:agent):void = external {}
 
         # Resets the timer back to its base time and stops it.
-        Reset<public>():void = external {}
+        (/Fortnite.com/Devices/timer_device:)Reset<public>():void = external {}
 
         # Resets the timer back to its base time and stops it for all `agent`s.
         ResetForAll<public>(Agent:agent):void = external {}
@@ -8632,7 +4741,7 @@ Devices<public> := module:
     # Allows creation and HUD tracking of custom objectives for `agent`s to complete.
     tracker_device<public> := class<concrete><final>(creative_device_base):
         # Resets the progress for `Agent` (and any `agent`s sharing progress).
-        Reset<public>(Agent:agent):void = external {}
+        (/Fortnite.com/Devices/tracker_device:)Reset<public>(Agent:agent):void = external {}
 
         # Signaled when the tracked value reaches `GetTarget` for an `agent`.
         # Sends the `agent` that reached `GetTarget` for their tracked value.
@@ -8744,7 +4853,7 @@ Devices<public> := module:
         ToggleEnabled<public>():void = external {}
 
         # Restores the tile removed when this device was triggered.
-        Reset<public>():void = external {}
+        (/Fortnite.com/Devices/trick_tile_device:)Reset<public>():void = external {}
 
         # Enables this device to trigger when an `agent` makes contact with the device.
         EnableAgentContactTrigger<public>():void = external {}
@@ -8783,7 +4892,7 @@ Devices<public> := module:
         Disable<public>():void = external {}
 
         # Resets the number of times this device has been activated. This will set `GetTriggerCountRemaining` back to `0`
-        Reset<public>():void = external {}
+        (/Fortnite.com/Devices/trigger_base_device:)Reset<public>():void = external {}
 
         # Sets the maximum amount of times this device can trigger.
         #  * `0` can be used to indicate no limit on trigger count.
@@ -8843,424 +4952,6 @@ Devices<public> := module:
     # Used to trigger a visual effect (a glow or an outline) when `agent`s pick it up.
     visual_effect_powerup_device<public> := class<concrete><final>(powerup_device):
 
-    # Used to configure a single interactive mannequin, that can visualize characters, clothing, and perform emotes.
-    character_device<public> := class<concrete>(creative_device_base):
-        # Signaled when an `agent` interacts with this device.
-        # Sends the `agent` that interacted with this device.
-        InteractedWithEvent<public>:listenable(agent) = external {}
-
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-        # Shows this device.
-        Show<public>():void = external {}
-
-        # Hides this device.
-        Hide<public>():void = external {}
-
-        # Plays an emote on the character created by this device.
-        PlayEmote<public>():void = external {}
-
-    # Allows the item shop to be opened when activated
-    item_shop_device<public> := class<concrete><final>(creative_device_base):
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-    # Used to update the player character's movement settings on different movement mode.
-    player_movement_settings_device<public> := class<concrete><final>(creative_device_base, enableable):
-        # Enables this device, allowing its properties to affect the registered player characters' movement.
-        Enable<override>():void = external {}
-
-        # Disables this device, revoking its change to the registered player characters.  
-        # Disabling this does not clear the list of registered players.
-        Disable<override>():void = external {}
-
-        # Succeeds if the object is enabled, fails if it's disabled.
-        IsEnabled<override>()<transacts><decides>:void = external {}
-
-        # Adds the movement settings to the provided agent, activating if it is in the highest priority.
-        #  * The highest priority device is applied to players and test players. Ties are broken by which is applied most recently.
-        #  * Fails if the provided agent is unsupported including NPC agents like Guard, Wildlife or Custom NPCs.
-        AddTo<public>(Agent:agent):void = external {}
-
-        # Adds the movement settings to all the agents in the scene, activating if it is in the highest priority.
-        #  * The highest priority device is applied to players and test players. Ties are broken by which is applied most recently.
-        AddToAll<public>():void = external {}
-
-        # Removes the movement settings from the provided agent. 
-        # Fails if the provided agent doesn't have the movement settings applied.
-        RemoveFrom<public>(Agent:agent):void = external {}
-
-        # Removes the movement settings from all the active agents.
-        RemoveFromAll<public>():void = external {}
-
-        # Returns the priority of the device, the active device in the highest priority will be applied to the provided agents.
-        GetPriority<public>()<reads>:float = external {}
-
-        # Returns the player agents registered to this device.
-        GetRegisteredAgents<public>()<reads>:[]agent = external {}
-
-    # Used to allow players to select their *Class* from a *Class Selector UI*.
-    class_selector_ui_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when an `agent` selects a class.
-        # Sends the `agent` that selected a class.
-        ClassSelectedEvent<public>:listenable(agent) = external {}
-
-        # Signaled when an `agent` changes a class.
-        # Sends the `agent` that selected a class and the `int` class that the player has changed to.
-        ClassChangedEvent<public>:listenable(tuple(agent, int)) = external {}
-
-        # Signaled when an `agent` closes the UI.
-        # Sends the `agent` that closed the UI.
-        UIClosedEvent<public>:listenable(agent) = external {}
-
-        # Signaled when the UI is opened.
-        # Sends the `agent` that is responsible for opening the UI.
-        UIOpenedEvent<public>:listenable(agent) = external {}
-
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-        # Show the *Class Selector UI* to `Agent`.
-        Show<public>(Agent:agent):void = external {}
-
-    # Used to regenerate an `agent`'s health and/or shields.
-    health_powerup_device<public> := class<concrete><final>(powerup_device):
-        # Sets the *Magnitude* for this powerup, clamped to the Min and Max defined in the device.
-        # Will not apply to any currently applied effects.
-        # For the Health Powerup, this is the amount of health or shield that the powerup will add or remove,
-        SetMagnitude<public>(Magnitude:float):void = external {}
-
-        # Returns the current *Magnitude* for the powerup.
-        # For the Health Powerup, this is the amount of health or shield that the powerup will add or remove,
-        GetMagnitude<public>()<transacts>:float = external {}
-
-    # Used to create HUD text boxes that give players information, and allows responses to be customized to player choices.
-    popup_dialog_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when *Button <Index>* on this device is pushed by an `agent`.
-        # Sends the `agent` that pushed the button.
-        # Sends the `int` index of the button that was clicked.
-        RespondingButtonEvent<public>:listenable(tuple(agent, int)) = external {}
-
-        # Signaled when this device is shown to an `agent`.
-        # Sends the `agent` looking at the popup.
-        ShownEvent<public>:listenable(agent) = external {}
-
-        # Signaled when this device is dismissed by an `agent`.
-        # Sends the `agent` who dismissed the popup.
-        DismissedEvent<public>:listenable(agent) = external {}
-
-        # Signaled when this device times out while an `agent` is looking at it.
-        # Sends the `agent` who was looking at the popup.
-        TimeOutEvent<public>:listenable(agent) = external {}
-
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-        # Shows the popup to `Agent`.
-        Show<public>(Agent:agent):void = external {}
-
-        # Shows the popup to all `agent`s in the experience.
-        Show<public>():void = external {}
-
-        # Hides the popup from `Agent`.
-        Hide<public>(Agent:agent):void = external {}
-
-        # Hides the popup from all `agent`s in the experience.
-        Hide<public>():void = external {}
-
-        # Sets the number of buttons this popup has.
-        # Button Count is not updated on active Popups.
-        SetButtonCount<public>(Count:int):void = external {}
-
-        # Returns the *Button Text* for this popup at a specified index.
-        GetButtonText<public>(Index:int)<transacts>:string = external {}
-
-        # Sets the *Button Text* for a button at a specific index on this popup.
-        #  * `Text` should be no more than `24` characters.
-        #  * If `Text` is empty the button will show *OK* instead.
-        #  * Button 1 uses `Index` 0.
-        SetButtonText<public>(Text:message, Index:int):void = external {}
-
-        # Sets the *Description* text for this popup. `Text` should be no more than `350` characters.
-        SetDescriptionText<public>(Text:message):void = external {}
-
-        # Returns the *Description* text for this popup.
-        GetDescriptionText<public>()<transacts>:string = external {}
-
-        # Sets the *Title* text for this popup. `Text` should be no more than `32` characters.
-        SetTitleText<public>(Text:message):void = external {}
-
-        # Returns the *Title* text for this popup.
-        GetTitleText<public>()<transacts>:string = external {}
-
-    # Physics boulder that can be dislodged and damage `agent`s, vehicles, creatures, and structures.
-    physics_boulder_device<public> := class<concrete><final>(physics_object_base_device):
-        # Signaled when the balanced boulder is spawned on the base.
-        BalancedBoulderSpawnedEvent<public>:listenable(tuple()) = external {}
-
-        # Signaled when the balanced boulder is destroyed.
-        BalancedBoulderDestroyedEvent<public>:listenable(tuple()) = external {}
-
-        # Signaled when the base of the boulder is destroyed.
-        BaseDestroyedEvent<public>:listenable(tuple()) = external {}
-
-        # Signaled when the rolling boulder is destroyed.
-        RollingBoulderDestroyedEvent<public>:listenable(tuple()) = external {}
-
-        # Destroys the boulder's base.
-        DestroyBase<public>():void = external {}
-
-        # Releases the boulder sitting on the base, if there is one.
-        ReleaseRollingBoulder<public>():void = external {}
-
-        # Destroys the current rolling boulder.
-        DestroyRollingBoulder<public>():void = external {}
-
-    # Base class for various physics-based gameplay elements (e.g. boulders/trees).
-    physics_object_base_device<public> := class<abstract><epic_internal>(prop_spawner_base_device):
-
-    # Physics tree that can be chopped down, and damage players, vehicles, creatures, and structures.
-    physics_tree_device<public> := class<concrete><final>(physics_object_base_device):
-        # Signaled when a tree is spawned.
-        TreeSpawnedEvent<public>:listenable(tuple()) = external {}
-
-        # Signaled when the log created by a tree is destroyed.
-        LogDestroyedEvent<public>:listenable(tuple()) = external {}
-
-        # Signaled when the stump created by a tree is destroyed.
-        StumpDestroyedEvent<public>:listenable(tuple()) = external {}
-
-        # Signaled when a tree has taken enough damage to be knocked down.
-        TreeKnockedDownEvent<public>:listenable(tuple()) = external {}
-
-        # Releases the log from the tree, if there is one.
-        ReleaseLog<public>():void = external {}
-
-        # Destroys the current log.
-        DestroyLog<public>():void = external {}
-
-        # Destroys the current stump.
-        DestroyStump<public>():void = external {}
-
-    # A device that generates a scoreboard stat that can be used by the game to determine Game End and Round End conditions.
-    # The stat can apply to individual players, teams, or everyone in the match. It can also generate a Level that will increment by 1 each time Value reaches *Max Value*, resetting Value to 0 when Level increments.
-    stat_creator_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when the stat changes Value.
-        # Sends a tuple of the instigating `agent` (or `false` if none) and the new Value. Value increases to a maximum of *Max Value*. If the stat has not yet reached *Max Level* then Value will reset to 0 and Level will increment by 1.
-        ValueChangedEvent<public>:listenable(tuple(?agent, int)) = external {}
-
-        # Signaled when the stat changes Level.
-        # Sends a tuple of the instigating `agent` (or `false` if none) and the new Level.
-        LevelChangedEvent<public>:listenable(tuple(?agent, int)) = external {}
-
-        # Signaled when an `agent` reaches the maximum stat value. This occurs when the stat reaches *Max Value* if the device has no levels, or *Max Level* if that option is set.
-        # Sends the `agent` that caused the stat event that changed the level and the new level as an `int` .
-        MaximumReachedEvent<public>:listenable(tuple(?agent, int)) = external {}
-
-        # Returns stat Value for `Agent`.
-        # Succeeds if *Scope* is set to *Player* and `Agent` passes the requirement checks on the device.
-        GetValue<public>(Agent:agent)<transacts><decides>:int = external {}
-
-        # Returns stat Value for `Team`.
-        # Succeeds if *Scope* is set to *Team* and `Team` passes the requirement checks on the device.
-        GetValue<public>(Team:team)<transacts><decides>:int = external {}
-
-        # Returns stat Value for the match.
-        # Succeeds if *Scope* is set to *Match*.
-        GetValueForMatch<public>()<transacts><decides>:int = external {}
-
-        # Updates stat Value for `Agent`.
-        # Succeeds if *Scope* is set to *Agent* and `Agent` passes the requirement checks on the device.
-        # If the stat does not have levels, `Value` is clamped between 0 and *Max Value*.
-        # If the stat does have levels, the Value is not clamped and setting a value below 0 or above *Max Value* will
-        # decrement or increment the level appropriately. e.g. if *Number of Levels* is 10, *Max Value is 100* 
-        # and you are currently level 0, a `Value` of 550 will set you to Level 5 and Value 50.
-        SetValue<public>(Agent:agent, Value:int)<transacts><decides>:void = external {}
-
-        # Updates stat Value for `Team`.
-        # Succeeds if *Scope* is set to *Team* and `Team` passes the requirement checks on the device.
-        # If the stat does not have levels, `Value` is clamped between 0 and *Max Value*.
-        # If the stat does have levels, the Value is not clamped and setting a value below 0 or above *Max Value* will
-        # decrement or increment the level appropriately. e.g. if *Number of Levels* is 10, *Max Value is 100* 
-        # and you are currently level 0, a `Value` of 550 will set you to Level 5 and Value 50.
-        SetValue<public>(Team:team, Value:int)<transacts><decides>:void = external {}
-
-        # Updates stat Value for the match.
-        # Succeeds if *Scope* is set to *Match*.
-        # If the stat does not have levels, `Value` is clamped between 0 and *Max Value*.
-        # If the stat does have levels, the Value is not clamped and setting a value below 0 or above *Max Value* will
-        # decrement or increment the level appropriately. e.g. if *Number of Levels* is 10, *Max Value is 100* 
-        # and you are currently level 0, a `Value` of 550 will set you to Level 5 and Value 50.
-        SetValueForMatch<public>(Value:int)<transacts><decides>:void = external {}
-
-        # Returns stat Level for `Agent`.
-        # Succeeds if *Number of Levels* is set to greater than 0, *Scope* is set to *Player* 
-        # and `Agent` passes the requirement checks on the device.
-        GetLevel<public>(Agent:agent)<transacts><decides>:int = external {}
-
-        # Returns stat Level for `Team`.
-        # Succeeds if *Number of Levels* is set to greater than 0, *Scope* is set to *Team* 
-        # and the `Team` passes the requirement checks on the device.
-        GetLevel<public>(Team:team)<transacts><decides>:int = external {}
-
-        # Returns stat Level for the match.
-        # Succeeds if *Number of Levels* is set to greater than 0 and *Scope* is set to *Match*.
-        GetLevelForMatch<public>()<transacts><decides>:int = external {}
-
-        # Updates stat Level for `Agent`.
-        # Succeeds if *Number of Levels* is set to greater than 0 and *Scope* is set to *Agent*.
-        # Altering stat Level will set `Agent`'s stat Value to 0.
-        SetLevel<public>(Agent:agent, Level:int)<transacts><decides>:void = external {}
-
-        # Updates stat Level for `Team`.
-        # Succeeds if *Number of Levels* is set to greater than 0 and *Scope* is set to *Team*.
-        # Altering stat Level will set `Team`'s stat Value to 0.
-        SetLevel<public>(Team:team, Level:int)<transacts><decides>:void = external {}
-
-        # Updates stat Level for the match.
-        # Succeeds if *Number of Levels* is set to greater than 0 and *Scope* is set to *Match* .
-        # Altering stat Level will set the Match's stat Value to 0.
-        SetLevelForMatch<public>(Level:int)<transacts><decides>:void = external {}
-
-        # Returns the name for the stat that is generated by this Stat Creator.
-        GetName<public>():string = external {}
-
-    # Used to increase or decrease a stat for an `agent`.
-    stat_powerup_device<public> := class<concrete><final>(powerup_device):
-        # Sets the *Magnitude* for this powerup, clamped to the Min and Max defined in the device.
-        # Will not apply to any currently applied effects.
-        # For the Stat Powerup, this is the value of the stat that the powerup will add or remove to a player that picks up the powerup.
-        SetMagnitude<public>(Magnitude:float):void = external {}
-
-        # Returns the current *Magnitude* for the powerup.
-        # For the Stat Powerup, this is the value of the stat that the powerup will add or remove to a player that picks up the powerup.
-        GetMagnitude<public>()<transacts>:float = external {}
-
-    # Used to create and manipulate volumes of water where players can swim, fish, or drive boats.
-    water_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when an `agent` enters the water.
-        # Sends `agent` that entered the water.
-        AgentEntersWaterEvent<public>:listenable(agent) = external {}
-
-        # Signaled when an `agent` exits the water.
-        # Sends `agent` that exited the water.
-        AgentExitsWaterEvent<public>:listenable(agent) = external {}
-
-        # Signals when the volume is filled to the water level set in the *Default Vertical Water Percentage* option.
-        VerticalFillingCompletedEvent<public>:listenable(tuple()) = external {}
-
-        # Signals when the water volume is completely empty.
-        VerticalEmptyingCompletedEvent<public>:listenable(tuple()) = external {}
-
-        # Enables this device.
-        Enable<public>():void = external {}
-
-        # Disables this device.
-        Disable<public>():void = external {}
-
-        # Resets the water level in the volume to the value set in the *Default Vertical Water Percentage* option.
-        Reset<public>():void = external {}
-
-        # Starts vertically emptying the water in the volume.
-        BeginVerticalEmptying<public>():void = external {}
-
-        # Starts vertically filling the water in the volume.
-        BeginVerticalFilling<public>():void = external {}
-
-        # Stops filling or emptying the volume.
-        StopVerticalMovement<public>():void = external {}
-
-        # Resumes either filling or emptying the volume.
-        ResumeVerticalMovement<public>():void = external {}
-
-    # Used to set and trigger conversations made via the Conversation Graph. The conversation triggered is assigned to the device.
-    conversation_device<public> := class<concrete><final>(creative_device_base, enableable):
-        # Enables this device.
-        # An enabled conversation device will listen for inputs and trigger conversations.
-        Enable<override>():void = external {}
-
-        # Disables this device.
-        # A disabled conversation device will not listen for inputs and trigger conversations.
-        Disable<override>():void = external {}
-
-        # Check if the device is enabled.
-        IsEnabled<override>()<transacts><decides>:void = external {}
-
-        # Begins the assigned conversation with the `agent`.
-        # The conversation will not start if the device or the `agent` are otherwise incapable of having a conversation.
-        InitiateConversation<public>(Agent:agent):void = external {}
-
-        # Check if an `agent` is in an active conversation.
-        IsAgentInConversation<public>(Agent:agent)<transacts><decides>:void = external {}
-
-        # Check if an `agent` can initiate a conversation.
-        CanInitiateConversation<public>(Agent:agent)<transacts><decides>:void = external {}
-
-        # Ends the assigned conversation with the `agent`.
-        EndConversation<public>(Agent:agent):void = external {}
-
-        # Ends all active conversations with this device.
-        EndConversationForAll<public>():void = external {}
-
-        # Show the conversation UI for an 'agent'. This will work with Box and Custom UI.
-        ShowConversation<public>(Agent:agent):void = external {}
-
-        # Hide the conversation UI for an 'agent'. Responses cannot be selected while the UI is hidden. This will work with Box and Custom UI.
-        HideConversation<public>(Agent:agent):void = external {}
-
-        # Signaled when a choice node tied to this event is selected by an `agent`.
-        # Sends the `agent` that triggered the event, and `EventNumber` is the number specified in the Conversation Event node.
-        OnConversationEvent<public>:listenable(tuple(agent, int)) = external {}
-
-        # Signalled when a conversation has ended.
-        EndEvent<public>:listenable(agent) = external {}
-
-        # Signalled when a conversation has ended early by EndConversation or EndConversationForAll.
-        CancelEvent<public>:listenable(agent) = external {}
-
-        # Returns the count of currently-active conversations with this device.
-        GetActiveConversationsCount<public>()<transacts>:int = external {}
-
-        # The Speaker Name of the device. When the value is changed, active conversations are not updated.
-        # The value of SpeakerName is the default value used when initiating a conversation.
-        var SpeakerName<public>:message = external {}
-
-        # Whether the device will show the Speaker when nearby.
-        var ShowNameWhenNearby<public>:logic = external {}
-
-        # whether the device will show the Indicator Bubble when nearby.
-        var ShowIndicatorBubble<public>:logic = external {}
-
-        # The range that the Indicator Bubble will be seen at. Clamps to range[0, 25].
-        var IndicatorBubbleRange<public>:float = external {}
-
-        # Whether the device will show conversation text in worldspace when using the Radial UI type.
-        var ShowConversationTextInWorldSpace<public>:logic = external {}
-
-        # Sets the number of conversations allowed at once with the device.
-        # This will not make any conversations exit if there are more current conversations than allowed after this call.
-        var AllowedConversationCount<public>:int = external {}
-
-        # The constant rate that characters are revealed over the course of a second when a Speech node activates.
-        # The exact characters in the respective speech node are revealed and do not combine into glyphs.
-        # When the value is changed, active conversations are not updated. Works with the Box and Custom UI.
-        # The value of CharactersPerSecond is the default value used when initiating a conversation.
-        # CharactersPerSecond will be clamped between 0.25 and 100.0. If set to false all the characters will reveal instantly.
-        var CharactersPerSecond<public>:?float = external {}
-
     # Creates a chair where `Agent`s can sit.
     chair_device<public> := class<concrete><final>(creative_device_base):
         # Signaled when an `agent` sits on the Chair.
@@ -9305,6 +4996,26 @@ Devices<public> := module:
 
         # Returns the `agent` currently occupying the chair.
         GetSeatedAgent<public>():?agent = external {}
+
+    # Used to show or hide parts of the HUD for players or teams. Use this with other devices such as the `hud_message_device`, `map_indicator_device`, and `billboard_device` to control exactly how much information players can see during a game, as well as how and when they see that information.
+    hud_controller_device<public> := class<concrete><final>(creative_device_base):
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+        # Sets the *Affected Class* option to `Agent`'s class.
+        UpdateAffectedClass<public>(Agent:agent):void = external {}
+
+        # Sets the *Affected Team* option to `Agent`'s team.
+        UpdateAffectedTeam<public>(Agent:agent):void = external {}
+
+        # Resets the *Affected Class* option to its starting value.
+        ResetAffectedClass<public>():void = external {}
+
+        # Resets the *Affected Team* option to its starting value.
+        ResetAffectedTeam<public>():void = external {}
 
     using {/Verse.org/Colors}
     # Used to spawn customizable boxes containing vehicle mods. Hit a box with a vehicle to apply the mod.
@@ -9581,8 +5292,288 @@ Devices<public> := module:
         # Spawns a new vehicle. The previous vehicle will be destroyed before a new vehicle spawns.
         RespawnVehicle<public>():void = external {}
 
+        # The `fort_vehicle` currently associated with this spawner, if one exists.
+        var<private> Vehicle<public>:?fort_vehicle = external {}
+
     # Specialized `vehicle_spawner_device` that allows a Whiplash sports car to be configured and spawned.
     vehicle_spawner_sports_car_device<public> := class<concrete><final>(vehicle_spawner_device):
+
+    # Used to update the player character's movement settings on different movement mode.
+    player_movement_settings_device<public> := class<concrete><final>(creative_device_base, enableable):
+        # Enables this device, allowing its properties to affect the registered player characters' movement.
+        Enable<override>():void = external {}
+
+        # Disables this device, revoking its change to the registered player characters.  
+        # Disabling this does not clear the list of registered players.
+        Disable<override>():void = external {}
+
+        # Succeeds if the object is enabled, fails if it's disabled.
+        IsEnabled<override>()<transacts><decides>:void = external {}
+
+        # Adds the movement settings to the provided agent, activating if it is in the highest priority.
+        #  * The highest priority device is applied to players and test players. Ties are broken by which is applied most recently.
+        #  * Fails if the provided agent is unsupported including NPC agents like Guard, Wildlife or Custom NPCs.
+        AddTo<public>(Agent:agent):void = external {}
+
+        # Adds the movement settings to all the agents in the scene, activating if it is in the highest priority.
+        #  * The highest priority device is applied to players and test players. Ties are broken by which is applied most recently.
+        AddToAll<public>():void = external {}
+
+        # Removes the movement settings from the provided agent. 
+        # Fails if the provided agent doesn't have the movement settings applied.
+        RemoveFrom<public>(Agent:agent):void = external {}
+
+        # Removes the movement settings from all the active agents.
+        RemoveFromAll<public>():void = external {}
+
+        # Returns the priority of the device, the active device in the highest priority will be applied to the provided agents.
+        GetPriority<public>()<reads>:float = external {}
+
+        # Returns the player agents registered to this device.
+        GetRegisteredAgents<public>()<reads>:[]agent = external {}
+
+    # Used to allow players to select their *Class* from a *Class Selector UI*.
+    class_selector_ui_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when an `agent` selects a class.
+        # Sends the `agent` that selected a class.
+        ClassSelectedEvent<public>:listenable(agent) = external {}
+
+        # Signaled when an `agent` changes a class.
+        # Sends the `agent` that selected a class and the `int` class that the player has changed to.
+        ClassChangedEvent<public>:listenable(tuple(agent, int)) = external {}
+
+        # Signaled when an `agent` closes the UI.
+        # Sends the `agent` that closed the UI.
+        UIClosedEvent<public>:listenable(agent) = external {}
+
+        # Signaled when the UI is opened.
+        # Sends the `agent` that is responsible for opening the UI.
+        UIOpenedEvent<public>:listenable(agent) = external {}
+
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+        # Show the *Class Selector UI* to `Agent`.
+        Show<public>(Agent:agent):void = external {}
+
+    # Used to create HUD text boxes that give players information, and allows responses to be customized to player choices.
+    popup_dialog_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when *Button <Index>* on this device is pushed by an `agent`.
+        # Sends the `agent` that pushed the button.
+        # Sends the `int` index of the button that was clicked.
+        RespondingButtonEvent<public>:listenable(tuple(agent, int)) = external {}
+
+        # Signaled when this device is shown to an `agent`.
+        # Sends the `agent` looking at the popup.
+        ShownEvent<public>:listenable(agent) = external {}
+
+        # Signaled when this device is dismissed by an `agent`.
+        # Sends the `agent` who dismissed the popup.
+        DismissedEvent<public>:listenable(agent) = external {}
+
+        # Signaled when this device times out while an `agent` is looking at it.
+        # Sends the `agent` who was looking at the popup.
+        TimeOutEvent<public>:listenable(agent) = external {}
+
+        # Enables this device.
+        Enable<public>():void = external {}
+
+        # Disables this device.
+        Disable<public>():void = external {}
+
+        # Shows the popup to `Agent`.
+        Show<public>(Agent:agent):void = external {}
+
+        # Shows the popup to all `agent`s in the experience.
+        Show<public>():void = external {}
+
+        # Hides the popup from `Agent`.
+        Hide<public>(Agent:agent):void = external {}
+
+        # Hides the popup from all `agent`s in the experience.
+        Hide<public>():void = external {}
+
+        # Sets the number of buttons this popup has.
+        # Button Count is not updated on active Popups.
+        SetButtonCount<public>(Count:int):void = external {}
+
+        # Returns the *Button Text* for this popup at a specified index.
+        GetButtonText<public>(Index:int)<transacts>:string = external {}
+
+        # Sets the *Button Text* for a button at a specific index on this popup.
+        #  * `Text` should be no more than `24` characters.
+        #  * If `Text` is empty the button will show *OK* instead.
+        #  * Button 1 uses `Index` 0.
+        SetButtonText<public>(Text:message, Index:int):void = external {}
+
+        # Sets the *Description* text for this popup. `Text` should be no more than `350` characters.
+        SetDescriptionText<public>(Text:message):void = external {}
+
+        # Returns the *Description* text for this popup.
+        GetDescriptionText<public>()<transacts>:string = external {}
+
+        # Sets the *Title* text for this popup. `Text` should be no more than `32` characters.
+        SetTitleText<public>(Text:message):void = external {}
+
+        # Returns the *Title* text for this popup.
+        GetTitleText<public>()<transacts>:string = external {}
+
+    # Physics boulder that can be dislodged and damage `agent`s, vehicles, creatures, and structures.
+    physics_boulder_device<public> := class<concrete><final>(physics_object_base_device):
+        # Signaled when the balanced boulder is spawned on the base.
+        BalancedBoulderSpawnedEvent<public>:listenable(tuple()) = external {}
+
+        # Signaled when the balanced boulder is destroyed.
+        BalancedBoulderDestroyedEvent<public>:listenable(tuple()) = external {}
+
+        # Signaled when the base of the boulder is destroyed.
+        BaseDestroyedEvent<public>:listenable(tuple()) = external {}
+
+        # Signaled when the rolling boulder is destroyed.
+        RollingBoulderDestroyedEvent<public>:listenable(tuple()) = external {}
+
+        # Destroys the boulder's base.
+        DestroyBase<public>():void = external {}
+
+        # Releases the boulder sitting on the base, if there is one.
+        ReleaseRollingBoulder<public>():void = external {}
+
+        # Destroys the current rolling boulder.
+        DestroyRollingBoulder<public>():void = external {}
+
+    # Base class for various physics-based gameplay elements (e.g. boulders/trees).
+    physics_object_base_device<public> := class<abstract><epic_internal>(prop_spawner_base_device):
+
+    # Physics tree that can be chopped down, and damage players, vehicles, creatures, and structures.
+    physics_tree_device<public> := class<concrete><final>(physics_object_base_device):
+        # Signaled when a tree is spawned.
+        TreeSpawnedEvent<public>:listenable(tuple()) = external {}
+
+        # Signaled when the log created by a tree is destroyed.
+        LogDestroyedEvent<public>:listenable(tuple()) = external {}
+
+        # Signaled when the stump created by a tree is destroyed.
+        StumpDestroyedEvent<public>:listenable(tuple()) = external {}
+
+        # Signaled when a tree has taken enough damage to be knocked down.
+        TreeKnockedDownEvent<public>:listenable(tuple()) = external {}
+
+        # Releases the log from the tree, if there is one.
+        ReleaseLog<public>():void = external {}
+
+        # Destroys the current log.
+        DestroyLog<public>():void = external {}
+
+        # Destroys the current stump.
+        DestroyStump<public>():void = external {}
+
+    # A device that generates a scoreboard stat that can be used by the game to determine Game End and Round End conditions.
+    # The stat can apply to individual players, teams, or everyone in the match. It can also generate a Level that will increment by 1 each time Value reaches *Max Value*, resetting Value to 0 when Level increments.
+    stat_creator_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when the stat changes Value.
+        # Sends a tuple of the instigating `agent` (or `false` if none) and the new Value. Value increases to a maximum of *Max Value*. If the stat has not yet reached *Max Level* then Value will reset to 0 and Level will increment by 1.
+        ValueChangedEvent<public>:listenable(tuple(?agent, int)) = external {}
+
+        # Signaled when the stat changes Level.
+        # Sends a tuple of the instigating `agent` (or `false` if none) and the new Level.
+        LevelChangedEvent<public>:listenable(tuple(?agent, int)) = external {}
+
+        # Signaled when an `agent` reaches the maximum stat value. This occurs when the stat reaches *Max Value* if the device has no levels, or *Max Level* if that option is set.
+        # Sends the `agent` that caused the stat event that changed the level and the new level as an `int` .
+        MaximumReachedEvent<public>:listenable(tuple(?agent, int)) = external {}
+
+        # Returns stat Value for `Agent`.
+        # Succeeds if *Scope* is set to *Player* and `Agent` passes the requirement checks on the device.
+        GetValue<public>(Agent:agent)<transacts><decides>:int = external {}
+
+        # Returns stat Value for `Team`.
+        # Succeeds if *Scope* is set to *Team* and `Team` passes the requirement checks on the device.
+        GetValue<public>(Team:team)<transacts><decides>:int = external {}
+
+        # Returns stat Value for the match.
+        # Succeeds if *Scope* is set to *Match*.
+        GetValueForMatch<public>()<transacts><decides>:int = external {}
+
+        # Updates stat Value for `Agent`.
+        # Succeeds if *Scope* is set to *Agent* and `Agent` passes the requirement checks on the device.
+        # If the stat does not have levels, `Value` is clamped between 0 and *Max Value*.
+        # If the stat does have levels, the Value is not clamped and setting a value below 0 or above *Max Value* will
+        # decrement or increment the level appropriately. e.g. if *Number of Levels* is 10, *Max Value is 100* 
+        # and you are currently level 0, a `Value` of 550 will set you to Level 5 and Value 50.
+        SetValue<public>(Agent:agent, Value:int)<transacts><decides>:void = external {}
+
+        # Updates stat Value for `Team`.
+        # Succeeds if *Scope* is set to *Team* and `Team` passes the requirement checks on the device.
+        # If the stat does not have levels, `Value` is clamped between 0 and *Max Value*.
+        # If the stat does have levels, the Value is not clamped and setting a value below 0 or above *Max Value* will
+        # decrement or increment the level appropriately. e.g. if *Number of Levels* is 10, *Max Value is 100* 
+        # and you are currently level 0, a `Value` of 550 will set you to Level 5 and Value 50.
+        SetValue<public>(Team:team, Value:int)<transacts><decides>:void = external {}
+
+        # Updates stat Value for the match.
+        # Succeeds if *Scope* is set to *Match*.
+        # If the stat does not have levels, `Value` is clamped between 0 and *Max Value*.
+        # If the stat does have levels, the Value is not clamped and setting a value below 0 or above *Max Value* will
+        # decrement or increment the level appropriately. e.g. if *Number of Levels* is 10, *Max Value is 100* 
+        # and you are currently level 0, a `Value` of 550 will set you to Level 5 and Value 50.
+        SetValueForMatch<public>(Value:int)<transacts><decides>:void = external {}
+
+        # Returns stat Level for `Agent`.
+        # Succeeds if *Number of Levels* is set to greater than 0, *Scope* is set to *Player* 
+        # and `Agent` passes the requirement checks on the device.
+        GetLevel<public>(Agent:agent)<transacts><decides>:int = external {}
+
+        # Returns stat Level for `Team`.
+        # Succeeds if *Number of Levels* is set to greater than 0, *Scope* is set to *Team* 
+        # and the `Team` passes the requirement checks on the device.
+        GetLevel<public>(Team:team)<transacts><decides>:int = external {}
+
+        # Returns stat Level for the match.
+        # Succeeds if *Number of Levels* is set to greater than 0 and *Scope* is set to *Match*.
+        GetLevelForMatch<public>()<transacts><decides>:int = external {}
+
+        # Updates stat Level for `Agent`.
+        # Succeeds if *Number of Levels* is set to greater than 0 and *Scope* is set to *Agent*.
+        # Altering stat Level will set `Agent`'s stat Value to 0.
+        SetLevel<public>(Agent:agent, Level:int)<transacts><decides>:void = external {}
+
+        # Updates stat Level for `Team`.
+        # Succeeds if *Number of Levels* is set to greater than 0 and *Scope* is set to *Team*.
+        # Altering stat Level will set `Team`'s stat Value to 0.
+        SetLevel<public>(Team:team, Level:int)<transacts><decides>:void = external {}
+
+        # Updates stat Level for the match.
+        # Succeeds if *Number of Levels* is set to greater than 0 and *Scope* is set to *Match* .
+        # Altering stat Level will set the Match's stat Value to 0.
+        SetLevelForMatch<public>(Level:int)<transacts><decides>:void = external {}
+
+        # Returns the name for the stat that is generated by this Stat Creator.
+        GetName<public>():string = external {}
+
+    # Used to increase or decrease a stat for an `agent`.
+    stat_powerup_device<public> := class<concrete><final>(powerup_device):
+        # Sets the *Magnitude* for this powerup, clamped to the Min and Max defined in the device.
+        # Will not apply to any currently applied effects.
+        # For the Stat Powerup, this is the value of the stat that the powerup will add or remove to a player that picks up the powerup.
+        SetMagnitude<public>(Magnitude:float):void = external {}
+
+        # Returns the current *Magnitude* for the powerup.
+        # For the Stat Powerup, this is the value of the stat that the powerup will add or remove to a player that picks up the powerup.
+        GetMagnitude<public>()<transacts>:float = external {}
+
+    # Used to regenerate an `agent`'s health and/or shields.
+    health_powerup_device<public> := class<concrete><final>(powerup_device):
+        # Sets the *Magnitude* for this powerup, clamped to the Min and Max defined in the device.
+        # Will not apply to any currently applied effects.
+        # For the Health Powerup, this is the amount of health or shield that the powerup will add or remove,
+        SetMagnitude<public>(Magnitude:float):void = external {}
+
+        # Returns the current *Magnitude* for the powerup.
+        # For the Health Powerup, this is the amount of health or shield that the powerup will add or remove,
+        GetMagnitude<public>()<transacts>:float = external {}
 
     # Enum for determining if a spawner should spawn when it becomes enabled
     spawn_on_enable_behavior<public> := enum<open>:
@@ -9790,23 +5781,26 @@ Devices<public> := module:
     # Specialized `vehicle_spawner_device` that allows a Hammerhead Choppa to be configured and spawned.
     vehicle_spawner_hammerhead_choppa_device<public> := class<concrete><final>(vehicle_spawner_device):
 
-    # Specialized `vehicle_spawner_device` that allows an armored battle bus to be configured and spawned.
-    vehicle_spawner_armored_battle_bus_device<public> := class<concrete><final>(vehicle_spawner_device):
-
-    # Specialized `vehicle_spawner_device` that allows a dirtbike to be configured and spawned.
-    vehicle_spawner_dirtbike_device<public> := class<concrete><final>(vehicle_spawner_device):
-
     # Specialized `vehicle_spawner_device` that allows a helicopter to be configured and spawned.
     vehicle_spawner_helicopter_device<public> := class<concrete><final>(vehicle_spawner_device):
-
-    # Specialized `vehicle_spawner_device` that allows a UFO to be configured and spawned.
-    vehicle_spawner_ufo_device<public> := class<concrete><final>(vehicle_spawner_device):
 
     # Specialized `vehicle_spawner_device` that allows a siege cannon to be configured and spawned.
     vehicle_spawner_siege_cannon_device<public> := class<concrete><final>(vehicle_spawner_device):
 
     # Specialized `vehicle_spawner_device` that allows an anti-vehicle turret to be configured and spawned.
     vehicle_spawner_heavy_turret_device<public> := class<concrete><final>(vehicle_spawner_device):
+
+    # Specialized `vehicle_spawner_device` that allows a UFO to be configured and spawned.
+    vehicle_spawner_ufo_device<public> := class<concrete><final>(vehicle_spawner_device):
+
+    # Specialized `vehicle_spawner_device` that allows a tank to be configured and spawned.
+    vehicle_spawner_tank_device<public> := class<concrete><final>(vehicle_spawner_device):
+
+    # Specialized `vehicle_spawner_device` that allows an armored battle bus to be configured and spawned.
+    vehicle_spawner_armored_battle_bus_device<public> := class<concrete><final>(vehicle_spawner_device):
+
+    # Specialized `vehicle_spawner_device` that allows a dirtbike to be configured and spawned.
+    vehicle_spawner_dirtbike_device<public> := class<concrete><final>(vehicle_spawner_device):
 
     # Specialized `vehicle_spawner_device` that allows a Nitro Drifter sedan to be configured and spawned.
     vehicle_spawner_nitro_drifter_sedan_device<public> := class<concrete><final>(vehicle_spawner_device):
@@ -9817,8 +5811,80 @@ Devices<public> := module:
     # Specialized `vehicle_spawner_device` that allows a valet SUV to be configured and spawned.
     vehicle_spawner_valet_suv_device<public> := class<concrete><final>(vehicle_spawner_device):
 
-    # Specialized `vehicle_spawner_device` that allows a tank to be configured and spawned.
-    vehicle_spawner_tank_device<public> := class<concrete><final>(vehicle_spawner_device):
+    # Used to set and trigger conversations made via the Conversation Graph. The conversation triggered is assigned to the device.
+    conversation_device<public> := class<concrete><final>(creative_device_base, enableable):
+        # Enables this device.
+        # An enabled conversation device will listen for inputs and trigger conversations.
+        Enable<override>():void = external {}
+
+        # Disables this device.
+        # A disabled conversation device will not listen for inputs and trigger conversations.
+        Disable<override>():void = external {}
+
+        # Check if the device is enabled.
+        IsEnabled<override>()<transacts><decides>:void = external {}
+
+        # Begins the assigned conversation with the `agent`.
+        # The conversation will not start if the device or the `agent` are otherwise incapable of having a conversation.
+        InitiateConversation<public>(Agent:agent):void = external {}
+
+        # Check if an `agent` is in an active conversation.
+        IsAgentInConversation<public>(Agent:agent)<transacts><decides>:void = external {}
+
+        # Check if an `agent` can initiate a conversation.
+        CanInitiateConversation<public>(Agent:agent)<transacts><decides>:void = external {}
+
+        # Ends the assigned conversation with the `agent`.
+        EndConversation<public>(Agent:agent):void = external {}
+
+        # Ends all active conversations with this device.
+        EndConversationForAll<public>():void = external {}
+
+        # Show the conversation UI for an 'agent'. This will work with Box and Custom UI.
+        ShowConversation<public>(Agent:agent):void = external {}
+
+        # Hide the conversation UI for an 'agent'. Responses cannot be selected while the UI is hidden. This will work with Box and Custom UI.
+        HideConversation<public>(Agent:agent):void = external {}
+
+        # Signaled when a choice node tied to this event is selected by an `agent`.
+        # Sends the `agent` that triggered the event, and `EventNumber` is the number specified in the Conversation Event node.
+        OnConversationEvent<public>:listenable(tuple(agent, int)) = external {}
+
+        # Signalled when a conversation has ended.
+        EndEvent<public>:listenable(agent) = external {}
+
+        # Signalled when a conversation has ended early by EndConversation or EndConversationForAll.
+        CancelEvent<public>:listenable(agent) = external {}
+
+        # Returns the count of currently-active conversations with this device.
+        GetActiveConversationsCount<public>()<transacts>:int = external {}
+
+        # The Speaker Name of the device. When the value is changed, active conversations are not updated.
+        # The value of SpeakerName is the default value used when initiating a conversation.
+        var SpeakerName<public>:message = external {}
+
+        # Whether the device will show the Speaker when nearby.
+        var ShowNameWhenNearby<public>:logic = external {}
+
+        # whether the device will show the Indicator Bubble when nearby.
+        var ShowIndicatorBubble<public>:logic = external {}
+
+        # The range that the Indicator Bubble will be seen at. Clamps to range[0, 25].
+        var IndicatorBubbleRange<public>:float = external {}
+
+        # Whether the device will show conversation text in worldspace when using the Radial UI type.
+        var ShowConversationTextInWorldSpace<public>:logic = external {}
+
+        # Sets the number of conversations allowed at once with the device.
+        # This will not make any conversations exit if there are more current conversations than allowed after this call.
+        var AllowedConversationCount<public>:int = external {}
+
+        # The constant rate that characters are revealed over the course of a second when a Speech node activates.
+        # The exact characters in the respective speech node are revealed and do not combine into glyphs.
+        # When the value is changed, active conversations are not updated. Works with the Box and Custom UI.
+        # The value of CharactersPerSecond is the default value used when initiating a conversation.
+        # CharactersPerSecond will be clamped between 0.25 and 100.0. If set to false all the characters will reveal instantly.
+        var CharactersPerSecond<public>:?float = external {}
 
     # Use to create a sprite that players can trade in a weapon for a random legendary weapon or a custom item list.
     earth_sprite_device<public> := class<concrete><final>(creative_device_base, enableable):
@@ -9839,10 +5905,10 @@ Devices<public> := module:
         # Sends the triggering `agent`.
         GrantTimerCompletedEvent<public>:listenable(?agent) = external {}
 
-        # Enable the device’s ability to grant items.
+        # Enable the device's ability to grant items.
         EnableItemGranting<public>():void = external {}
 
-        # Disable the device’s ability to grant items. Can still interact and consume weapons.
+        # Disable the device's ability to grant items. Can still interact and consume weapons.
         DisableItemGranting<public>():void = external {}
 
         # Makes the Earth Sprite invisible.
@@ -9908,7 +5974,7 @@ Devices<public> := module:
         # Determines how the guard uses its `VisibilityRange` as defined by `guard_spawner_visibility_range_restriction`.
         var Accuracy<public>:guard_spawner_accuracy = external {}
 
-        # If true, displays the guard’s health to players.
+        # If true, displays the guard's health to players.
         var ShowHealthBar<public>:logic = external {}
 
         # Determines if the guard displays its alertness level over its head.
@@ -9983,7 +6049,7 @@ Devices<public> := module:
         Disable<public>():void = external {}
 
         # Resets the spawn count allowing spawning of a new batch of guards.
-        Reset<public>():void = external {}
+        (/Fortnite.com/Devices/guard_spawner_device:)Reset<public>():void = external {}
 
         # Tries to spawn a guard.
         Spawn<public>():void = external {}
@@ -10242,8 +6308,6 @@ Devices<public> := module:
         #  * Only used if `CanPurchaseRebootCard` is `true`.
         var PurchaseRebootCardOptions<override>:?reboot_card_purchase_options = external {}
 
-        var InternalPurchaseRebootCardOptions<override>:reboot_card_purchase_options = external {}
-
         # Triggers when Reboot Van has finished reviving a player from DBNO.
         #  * `agent` is the player that was just revived.
         ReviveCompleteEvent<public>:listenable(agent) = external {}
@@ -10301,6 +6365,62 @@ Devices<public> := module:
 
     # Specialized `vehicle_spawner_device` that allows a war bus to be configured and spawned.
     vehicle_spawner_war_bus_device<public> := class<concrete><final>(vehicle_spawner_device):
+
+    # Specialized `vehicle_spawner_device` that allows an X-wing to be configured and spawned.
+    vehicle_spawner_xwing_device<public> := class<concrete><final>(vehicle_spawner_device):
+
+    # Specialized `vehicle_spawner_device` that allows a TIE Fighter to be configured and spawned.
+    vehicle_spawner_tie_fighter_device<public> := class<concrete><final>(vehicle_spawner_device):
+
+    # Specialized `vehicle_spawner_device` that allows an N-1 Starfighter to be configured and spawned.
+    vehicle_spawner_n1_starfighter_device<public> := class<concrete><final>(vehicle_spawner_device):
+
+    # Specialized `vehicle_spawner_device` that allows an Armored Assault Tank to be configured and spawned.
+    vehicle_spawner_armored_assault_tank_device<public> := class<concrete><final>(vehicle_spawner_device):
+
+    # Specialized `vehicle_spawner_device` that allows a Turbolaser turret to be configured and spawned.
+    vehicle_spawner_turbolaser_device<public> := class<concrete><final>(vehicle_spawner_device):
+
+    # Specialized `vehicle_spawner_device` that allows a DF.9 turret to be configured and spawned.
+    vehicle_spawner_df9_device<public> := class<concrete><final>(vehicle_spawner_device):
+
+    using {/Fortnite.com/Assets}
+    # Used to spawn NPCs made with Character Definition asset.
+    npc_spawner_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when a character is spawned.
+        # Sends the `agent` character who was spawned.
+        SpawnedEvent<public>:listenable(agent) = external {}
+
+        # Signaled when a character is eliminated.
+        # `Source` is the `agent` that eliminated the character. If the character was eliminated by a non-agent then `Source` is 'false'.
+        # `Target` is the character that was eliminated.
+        EliminatedEvent<public>:listenable(device_ai_interaction_result) = external {}
+
+        # Enables this device. Characters will start to spawn.
+        Enable<public>():void = external {}
+
+        # Disables this device. Characters will despawn if *Despawn AIs When Disabled* is set.
+        Disable<public>():void = external {}
+
+        # Resets the spawn count allowing spawning of a new batch of characters.
+        (/Fortnite.com/Devices/npc_spawner_device:)Reset<public>():void = external {}
+
+        # Set the NPC character definition to use. Fails if the character type is different from one in the current definition.
+        SetNPCCharacterDefinition<public>(CharacterDefinition:npc_character_definition)<transacts><decides>:void = external {}
+
+        # Tries to spawn a character.
+        Spawn<public>():void = external {}
+
+        # Despawns all characters. If set, `Instigator` will be considered as the eliminator of those characters.
+        DespawnAll<public>(Instigator:?agent):void = external {}
+
+        # Spawn a NPC at the given position. When Rotation is not provided, it will default to the Device`s rotation.
+        # Returns the agent spawned or false if the device has reached its maximum spawn count.
+        # This function is `<suspends>` because it takes time to load the NPC before it can be returned.
+        SpawnAt<public>(Position:(/Verse.org/SpatialMath:)vector3, ?Rotation:?(/Verse.org/SpatialMath:)rotation = external {})<suspends>:?agent = external {}
+
+        # Get all agents created by this device.
+        GetAgents<public>()<transacts>:[]agent = external {}
 
     # Use to create a cactus with healing fruits that can be burst to heal nearby players.
     healing_cactus_device<public> := class<concrete><final>(creative_device_base):
@@ -10377,7 +6497,7 @@ Devices<public> := module:
         DestroyEvent<override>:listenable(?agent) = external {}
 
         # Resets the Spire to its initial state.
-        Reset<override>():void = external {}
+        (/Fortnite.com/Devices/has_spire_functionality:)Reset<override>():void = external {}
 
         # The maximum health of this Spire.
         var MaxHealth<override>:float = external {}
@@ -10455,39 +6575,64 @@ Devices<public> := module:
         # Triggers when the Spire shoots its laser attack. Triggers once, even if it shoots at multiple targets
         EndChargeAndFireLaserEvent<public>:listenable(tuple()) = external {}
 
-    # Used to spawn NPCs made with Character Definition asset.
-    npc_spawner_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when a character is spawned.
-        # Sends the `agent` character who was spawned.
-        SpawnedEvent<public>:listenable(agent) = external {}
+    # Used to trigger level sequences that allow coordination of cinematic animation, transformation, and audio tracks.
+    cinematic_sequence_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when the sequence is stopped.
+        StoppedEvent<public>:listenable(tuple()) = external {}
 
-        # Signaled when a character is eliminated.
-        # `Source` is the `agent` that eliminated the character. If the character was eliminated by a non-agent then `Source` is 'false'.
-        # `Target` is the character that was eliminated.
-        EliminatedEvent<public>:listenable(device_ai_interaction_result) = external {}
+        # Plays the sequence. This will only work when the device is set to *Everyone*
+        Play<public>():void = external {}
 
-        # Enables this device. Characters will start to spawn.
-        Enable<public>():void = external {}
+        # Plays the sequence. An instigating 'Agent' is required when the device is set to anything except *Everyone*.
+        Play<public>(Agent:agent):void = external {}
 
-        # Disables this device. Characters will despawn if *Despawn AIs When Disabled* is set.
-        Disable<public>():void = external {}
+        # Plays the sequence in reverse. This will only work when the device is set to *Everyone*
+        PlayReverse<public>():void = external {}
 
-        # Resets the spawn count allowing spawning of a new batch of characters.
-        Reset<public>():void = external {}
+        # Plays the sequence in reverse. An instigating 'Agent' is required when the device is set to anything except *Everyone*.
+        PlayReverse<public>(Agent:agent):void = external {}
 
-        # Tries to spawn a character.
-        Spawn<public>():void = external {}
+        # Stops the sequence.
+        Stop<public>():void = external {}
 
-        # Despawns all characters. If set, `Instigator` will be considered as the eliminator of those characters.
-        DespawnAll<public>(Instigator:?agent):void = external {}
+        # Stops the sequence. An instigating 'Agent' is required when the device is set to anything except *Everyone*.
+        Stop<public>(Agent:agent):void = external {}
 
-        # Spawn a NPC at the given position. When Rotation is not provided, it will default to the Device`s rotation.
-        # Returns the agent spawned or false if the device has reached its maximum spawn count.
-        # This function is `<suspends>` because it takes time to load the NPC before it can be returned.
-        SpawnAt<public>(Position:(/Verse.org/SpatialMath:)vector3, ?Rotation:?(/Verse.org/SpatialMath:)rotation = external {})<suspends>:?agent = external {}
+        # Go to the end and stop the sequence.
+        GoToEndAndStop<public>():void = external {}
 
-        # Get all agents created by this device.
-        GetAgents<public>()<transacts>:[]agent = external {}
+        # Go to the end and stop the sequence. An instigating 'Agent' is required when the device is set to anything except *Everyone*.
+        GoToEndAndStop<public>(Agent:agent):void = external {}
+
+        # Pauses the sequence.
+        Pause<public>():void = external {}
+
+        # Pauses the sequence. An instigating 'Agent' is required when the device is set to anything except *Everyone*.
+        Pause<public>(Agent:agent):void = external {}
+
+        # Toggles between `Play` and `Stop`.
+        TogglePause<public>():void = external {}
+
+        # Toggles between `Play` and `Stop`. An instigating 'Agent' is required when the device is set to anything except *Everyone*.
+        TogglePause<public>(Agent:agent):void = external {}
+
+        # Set the playback position (in frames) of the sequence.
+        SetPlaybackFrame<public>(PlaybackFrame:int):void = external {}
+
+        # Returns the playback position (in frames) of the sequence.
+        GetPlaybackFrame<public>()<transacts>:int = external {}
+
+        # Set the playback position (in time/seconds) of the sequence.
+        SetPlaybackTime<public>(PlaybackTime:float):void = external {}
+
+        # Returns the playback position (in time/seconds) of the sequence.
+        GetPlaybackTime<public>()<transacts>:float = external {}
+
+        # Set the playback rate of the sequence.
+        SetPlayRate<public>(PlayRate:float):void = external {}
+
+        # Returns the playback rate of the sequence.
+        GetPlayRate<public>()<transacts>:float = external {}
 
     # A vault door that requires a start of a sequence to damage a number of weakpoints to open.
     bank_vault_device<public> := class<concrete><final>(creative_device_base, bank_vault_interface):
@@ -10530,7 +6675,7 @@ Devices<public> := module:
         PauseSequence<override>():void = external {}
 
         # Restores vault to default state, deactivates the device, and heals all weakpoints to max health. Requires the device to be enabled.
-        Reset<override>():void = external {}
+        (/Fortnite.com/Devices/bank_vault_interface:)Reset<override>():void = external {}
 
         # Whether the vault sequence is currently active and not paused.
         IsSequenceActive<override>()<transacts><decides>:void = external {}
@@ -10564,6 +6709,9 @@ Devices<public> := module:
 
         # The max health of this device's weakpoints.
         var MaxWeakpointHealth<override>:float = external {}
+
+    # Specialized `vehicle_spawner_device` that allows a Rocket Racing Vehicle to be configured and spawned.
+    vehicle_spawner_rocketracing_device<public> := class<concrete><final>(vehicle_spawner_device):
 
     # A boss-like environmental encounter that will attack players with different abilities
     overlord_spire_device<public> := class<concrete><final>(creative_device_base, has_spire_functionality):
@@ -10612,7 +6760,7 @@ Devices<public> := module:
         DestroyEvent<override>:listenable(?agent) = external {}
 
         # Resets the Spire to its initial state.
-        Reset<override>():void = external {}
+        (/Fortnite.com/Devices/has_spire_functionality:)Reset<override>():void = external {}
 
         # The maximum health of this Spire.
         var MaxHealth<override>:float = external {}
@@ -10813,7 +6961,7 @@ Devices<public> := module:
         # Removes the target set from `SetTarget` and allows the Spire to return to its normal targeting pattern
         ClearTarget<public>():void = external {}
 
-        # Triggers when the Spire’s player target is changed to a different player
+        # Triggers when the Spire's player target is changed to a different player
         TargetChangeEvent<public>:listenable(agent) = external {}
 
         # Succeeds if the Spire must wait until all projectiles have spawned before moving on to the next attack 
@@ -10949,7 +7097,7 @@ Devices<public> := module:
         Disable<public>():void = external {}
 
         # Resets the count on the *Total Spawn Count* option.
-        Reset<public>():void = external {}
+        (/Fortnite.com/Devices/wildlife_spawner_device:)Reset<public>():void = external {}
 
         # Spawns wildlife from this device. If spawn count is exceeded the oldest wildlife will be eliminated.
         Spawn<public>():void = external {}
@@ -11006,68 +7154,6 @@ Devices<public> := module:
         var<private> Vault<public>:bank_vault_interface = external {}
 
 
-    # Used to trigger level sequences that allow coordination of cinematic animation, transformation, and audio tracks.
-    cinematic_sequence_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when the sequence is stopped.
-        StoppedEvent<public>:listenable(tuple()) = external {}
-
-        # Plays the sequence. This will only work when the device is set to *Everyone*
-        Play<public>():void = external {}
-
-        # Plays the sequence. An instigating 'Agent' is required when the device is set to anything except *Everyone*.
-        Play<public>(Agent:agent):void = external {}
-
-        # Plays the sequence in reverse. This will only work when the device is set to *Everyone*
-        PlayReverse<public>():void = external {}
-
-        # Plays the sequence in reverse. An instigating 'Agent' is required when the device is set to anything except *Everyone*.
-        PlayReverse<public>(Agent:agent):void = external {}
-
-        # Stops the sequence.
-        Stop<public>():void = external {}
-
-        # Stops the sequence. An instigating 'Agent' is required when the device is set to anything except *Everyone*.
-        Stop<public>(Agent:agent):void = external {}
-
-        # Go to the end and stop the sequence.
-        GoToEndAndStop<public>():void = external {}
-
-        # Go to the end and stop the sequence. An instigating 'Agent' is required when the device is set to anything except *Everyone*.
-        GoToEndAndStop<public>(Agent:agent):void = external {}
-
-        # Pauses the sequence.
-        Pause<public>():void = external {}
-
-        # Pauses the sequence. An instigating 'Agent' is required when the device is set to anything except *Everyone*.
-        Pause<public>(Agent:agent):void = external {}
-
-        # Toggles between `Play` and `Stop`.
-        TogglePause<public>():void = external {}
-
-        # Toggles between `Play` and `Stop`. An instigating 'Agent' is required when the device is set to anything except *Everyone*.
-        TogglePause<public>(Agent:agent):void = external {}
-
-        # Set the playback position (in frames) of the sequence.
-        SetPlaybackFrame<public>(PlaybackFrame:int):void = external {}
-
-        # Returns the playback position (in frames) of the sequence.
-        GetPlaybackFrame<public>()<transacts>:int = external {}
-
-        # Set the playback position (in time/seconds) of the sequence.
-        SetPlaybackTime<public>(PlaybackTime:float):void = external {}
-
-        # Returns the playback position (in time/seconds) of the sequence.
-        GetPlaybackTime<public>()<transacts>:float = external {}
-
-        # Set the playback rate of the sequence.
-        SetPlayRate<public>(PlayRate:float):void = external {}
-
-        # Returns the playback rate of the sequence.
-        GetPlayRate<public>()<transacts>:float = external {}
-
-    # Specialized `vehicle_spawner_device` that allows a Rocket Racing Vehicle to be configured and spawned.
-    vehicle_spawner_rocketracing_device<public> := class<concrete><final>(vehicle_spawner_device):
-
     hive_stash_style<public> := enum<open>:
         Empty
         Loot
@@ -11099,7 +7185,7 @@ Devices<public> := module:
         # Triggers whenever the hive stash is opened, returning the instigating `agent` if applicable.
         OpenEvent<public>:listenable(?agent) = external {}
 
-        # Triggers whenever an `agent` is rescued, either by the hive stash opening with a linked spawner, or by calling *RescueAgent* while the hive stash is closed.
+        # Triggers whenever an `agent` is rescued, either by the hive stash opening with a linked spawner, or by calling `RescueAgent` while the hive stash is closed.
         #  * Returns the rescued `agent`.
         RescueEvent<public>:listenable(agent) = external {}
 
@@ -11130,27 +7216,27 @@ Devices<public> := module:
         HasLinkedSpawner<public>()<transacts><decides>:void = external {}
 
         # Open the hive stash. If a spawner is linked, trigger it and rescue the resulting `agent` from the hive stash.
-        #  * When the `agent` is rescued, if *ShouldPlayRescuedAnimation* is `true`, they will play a short animation to get off the hive stash.
+        #  * When the `agent` is rescued, if `ShouldPlayRescuedAnimation` is `true`, they will play a short animation to get off the hive stash.
         Open<public>():void = external {}
 
         # Succeeds if the hive stash is currently open, fails otherwise.
         IsOpen<public>()<transacts><decides>:void = external {}
 
-        # Teleport `Agent` to the hive stash. If *ShouldPlayRescuedAnimation* is `true`, they will play a short animation to get off the hive stash.
+        # Teleport `Agent` to the hive stash. If `ShouldPlayRescuedAnimation` is `true`, they will play a short animation to get off the hive stash.
         #  * If the hive stash is closed, it will burst open first, ignoring a linked spawner. This will not clear a linked spawner.
         #  * Has no effect if `Agent` cannot be teleported for any reason, such as not being in the game anymore.
         RescueAgent<public>(Agent:agent):void = external {}
 
-        # Reset the hive stash. This closes it, sets it to full health, and sets *ShouldPlayRescuedAnimation*, *CanBeDamaged*, *CanDropItems*, *InteractTextOverride*, and *HiveStashStyle* to their initial values.
-        #  * This can also clear the link to a spawner depending on *ShouldKeepLinkOnReset*. 
+        # Reset the hive stash. This closes it, sets it to full health, and sets `ShouldPlayRescuedAnimation`, `CanBeDamaged`, `CanDropItems`, `InteractTextOverride`, and `HiveStashStyle` to their initial values.
+        #  * This can also clear the link to a spawner depending on `ShouldKeepLinkOnReset`. 
         #  * The hive stash will not reset if the rescue animation is currently playing.
-        Reset<public>():void = external {}
+        (/Fortnite.com/Devices/hive_stash_device:)Reset<public>():void = external {}
 
-        # Whether to keep or clear a spawner link when *Reset* is called. Links can always be cleared with *ClearSpawnerLink*.
+        # Whether to keep or clear a spawner link when `Reset` is called. Links can always be cleared with `ClearSpawnerLink`.
         #  * `true` by default.
         var ShouldKeepLinkOnReset<public>:logic = external {}
 
-        # Whether an `agent` spawned from registered data or teleported by *FreeAgent* plays a short animation to get them off the hive stash.
+        # Whether an `agent` spawned from registered data or teleported by `FreeAgent` plays a short animation to get them off the hive stash.
         #  * The animation may not work properly on skeletons other than the average player skeleton.
         #  * `true` by default.
         var ShouldPlayRescuedAnimation<public>:logic = external {}
@@ -11166,49 +7252,12 @@ Devices<public> := module:
         # If set, this overrides the text shown when interacting while the hive stash is closed.
         var InteractTextOverride<public>:message = external {}
 
-        # Determines what players can see inside the hive stash, as well as its interaction text. This does not affect what happens when it opens.
+        # Determines what players can see inside the hive stash, as well as its interaction text. This does not affect what comes out of the hive stash when it opens.
+        # See `SetLinkedSpawner` and `SetLinkedSpawnerFromAgent` for more information.
         #  * `Empty` shows nothing and says `Break Open`.
         #  * `Loot` shows a chest and says `Break Open`.
         #  * `Trapped` shows a floating character and says `Rescue`.
         var HiveStashStyle<public>:hive_stash_style = external {}
-
-    # Used to spawn and configure an aerial supply drop that can provide players with customized weapons/supplies.
-    supply_drop_spawner_device<public> := class<concrete><final>(creative_device_base):
-        # Signaled when the balloon on the supply crate is popped.
-        # Sends the `?agent` that popped the balloon. If no `agent` popped the balloon returns `false`.
-        BalloonPoppedEvent<public>:listenable(?agent) = external {}
-
-        # Signaled when the supply crate is opened.
-        # Sends the `agent` that opened the crate.
-        OpenedEvent<public>:listenable(agent) = external {}
-
-        # Signaled when the supply crate lands for the first time.
-        LandingEvent<public>:listenable(tuple()) = external {}
-
-        # Signaled when the supply crate is destroyed.
-        # Sends the destroying `agent`. If no `agent` destroyed the crate then `false` is returned.
-        DestroyCrateEvent<public>:listenable(?agent) = external {}
-
-        # Spawns a supply drop provided one hasn't already spawned. *Owning Team* is set to `Agent`'s team.
-        Spawn<public>(Agent:agent):void = external {}
-
-        # Spawns a supply drop provided one hasn't already spawned.
-        Spawn<public>():void = external {}
-
-        # Destroys the balloon and causes the supply crate to freefall.
-        DestroyBalloon<public>():void = external {}
-
-        # Opens the supply crate, ignoring the locked or unlocked state. `Agent` acts as the instigator of the open action.
-        Open<public>(Agent:agent):void = external {}
-
-        # Locks the supply crate so `agent`s cannot open it.
-        Lock<public>():void = external {}
-
-        # Unlocks the supply crate so `agent`s can open it.
-        Unlock<public>():void = external {}
-
-        # Destroys supply drops spawned by this device.
-        DestroySpawnedDrops<public>():void = external {}
 
     hero_chest_rank<public> := enum<open>:
         C
@@ -11257,7 +7306,7 @@ Devices<public> := module:
 
         # Close the chest, refresh its loot, and set the chest to its default locked state for everyone.
         #  * The default locked state is initialized by the *Start Locked* user option and is overridden by *LockForAll* and *UnlockForAll*.
-        Reset<public>():void = external {}
+        (/Fortnite.com/Devices/hero_chest_device:)Reset<public>():void = external {}
 
         # Determines the hologram that appears above the chest, as well as the loot the chest contains.
         #  * From low to high, the ranks are C, B, A, and S.
@@ -11281,8 +7330,46 @@ Devices<public> := module:
         #  * By default, this says 'You cannot open this right now.'.
         var LockedDescription<public>:message = external {}
 
-    using {/Fortnite.com/Playspaces}
+    # Used to spawn and configure an aerial supply drop that can provide players with customized weapons/supplies.
+    supply_drop_spawner_device<public> := class<concrete><final>(creative_device_base):
+        # Signaled when the balloon on the supply crate is popped.
+        # Sends the `?agent` that popped the balloon. If no `agent` popped the balloon returns `false`.
+        BalloonPoppedEvent<public>:listenable(?agent) = external {}
+
+        # Signaled when the supply crate is opened.
+        # Sends the `agent` that opened the crate.
+        OpenedEvent<public>:listenable(agent) = external {}
+
+        # Signaled when the supply crate lands for the first time.
+        LandingEvent<public>:listenable(tuple()) = external {}
+
+        # Signaled when the supply crate is destroyed.
+        # Sends the destroying `agent`. If no `agent` destroyed the crate then `false` is returned.
+        DestroyCrateEvent<public>:listenable(?agent) = external {}
+
+        # Spawns a supply drop provided one hasn't already spawned. *Owning Team* is set to `Agent`'s team.
+        Spawn<public>(Agent:agent):void = external {}
+
+        # Spawns a supply drop provided one hasn't already spawned.
+        Spawn<public>():void = external {}
+
+        # Destroys the balloon and causes the supply crate to freefall.
+        DestroyBalloon<public>():void = external {}
+
+        # Opens the supply crate, ignoring the locked or unlocked state. `Agent` acts as the instigator of the open action.
+        Open<public>(Agent:agent):void = external {}
+
+        # Locks the supply crate so `agent`s cannot open it.
+        Lock<public>():void = external {}
+
+        # Unlocks the supply crate so `agent`s can open it.
+        Unlock<public>():void = external {}
+
+        # Destroys supply drops spawned by this device.
+        DestroySpawnedDrops<public>():void = external {}
+
     using {/Fortnite.com/AI}
+    using {/Fortnite.com/Playspaces}
     using {/Verse.org/Simulation/Tags}
     using {/Verse.org/SceneGraph}
     # Module import path: /Fortnite.com/Devices/CreativeAnimation
@@ -11307,19 +7394,19 @@ Devices<public> := module:
         # Convenience interpolation modes. These built in modes are based on the CSS animation standard: https://www.w3.org/TR/css-easing-1/
         InterpolationTypes<public> := module:
             # `Linear` animations move at a constant speed.
-            Linear<public>:cubic_bezier_parameters = external {}
+            (/Fortnite.com/Devices/CreativeAnimation/InterpolationTypes:)Linear<public>:cubic_bezier_parameters = external {}
 
             # `Ease` animations start slowly, speed up, then end slowly. The speed of the animation is slightly slower at the end than the start.
-            Ease<public>:cubic_bezier_parameters = external {}
+            (/Fortnite.com/Devices/CreativeAnimation/InterpolationTypes:)Ease<public>:cubic_bezier_parameters = external {}
 
             # `EaseIn` animations start slow, then speed up towards the end.
-            EaseIn<public>:cubic_bezier_parameters = external {}
+            (/Fortnite.com/Devices/CreativeAnimation/InterpolationTypes:)EaseIn<public>:cubic_bezier_parameters = external {}
 
             # `EaseOut` animations start fast, then slow down towards the end.
-            EaseOut<public>:cubic_bezier_parameters = external {}
+            (/Fortnite.com/Devices/CreativeAnimation/InterpolationTypes:)EaseOut<public>:cubic_bezier_parameters = external {}
 
             # `EaseInOut` animations are similar to `Ease` but the start and end animation speed is symmetric.
-            EaseInOut<public>:cubic_bezier_parameters = external {}
+            (/Fortnite.com/Devices/CreativeAnimation/InterpolationTypes:)EaseInOut<public>:cubic_bezier_parameters = external {}
 
         # Instead of specifying the actual keyframe positions, we specify the keyframe *deltas*. This allows us to treat the initial position of the prop as keyframe 0 and avoid the question of how to get the prop to its initial location. For a `animation_mode.Loop` animation, the net rotation and translation must both be zero. Each delta is interpreted as a world-space transformation to be concatenated onto the previous transform(s).
         keyframe_delta<native><public> := struct:
@@ -11437,6 +7524,20 @@ Devices<public> := module:
         # Moves the `creative_device` to the specified `Transform` over the specified time, in seconds. If an animation is currently playing on the `creative_device` it will be stopped and put into the `AnimationNotSet` state.
         MoveTo<public>(Transform:(/UnrealEngine.com/Temporary/SpatialMath:)transform, OverTime:float)<suspends>:move_to_result = external {}
 
+        # Gets the global transform of this device.
+        GetGlobalTransform<override>()<transacts>:(/Verse.org/SpatialMath:)transform = external {}
+
+        # Sets the global transform of this device.
+        SetGlobalTransform<public>(NewGlobalTransform:(/Verse.org/SpatialMath:)transform)<transacts>:void = external {}
+
+        @available {MinUploadedAtFNVersion := 4000}
+        # Teleports the `creative_device` to the specified location defined by `Transform`, also applies rotation and scale accordingly.
+        TeleportTo<public>(Transform:(/Verse.org/SpatialMath:)transform)<transacts><decides>:void = external {}
+
+        @available {MinUploadedAtFNVersion := 4000}
+        # Moves the `creative_device` to the specified `Transform` over the specified time, in seconds. If an animation is currently playing on the `creative_device` it will be stopped and put into the `AnimationNotSet` state.
+        MoveTo<public>(Transform:(/Verse.org/SpatialMath:)transform, OverTime:float)<suspends>:move_to_result = external {}
+
         # Shows this device in the world.
         Show<native><public>()<transacts>:void
 
@@ -11453,8 +7554,6 @@ Devices<public> := module:
     #   * The simulation entity is the rootmost entity in an experience.
     #   * Fails if this `creative_device` is not operating in a context with a valid SimulationEntity.
     (CreativeDevice:creative_device).(/Fortnite.com/Devices:)GetSimulationEntity<native><public>()<transacts><decides>:entity
-
-    creative_object_interface<native><public> := interface<epic_internal>(positional):
 
     # Base class for creative devices and props.
     creative_object<native><public> := class<epic_internal>(creative_object_interface):
@@ -11474,31 +7573,19 @@ Devices<public> := module:
         # Moves the `creative_object` to the specified `Transform` over the specified time, in seconds. If an animation is currently playing on the `creative_object` it will be stopped and put into the `AnimationNotSet` state.
         MoveTo<public>(Transform:(/UnrealEngine.com/Temporary/SpatialMath:)transform, OverTime:float)<suspends>:move_to_result = external {}
 
-    @available {MinUploadedAtFNVersion := 2930}
-    # Generates a `creative_object_interface` for every creative object that has been marked with the specified `Tag`. Will not find anything if called on a default constructed object.
-    (InCreativeDevice:creative_device).FindCreativeObjectsWithTag<public>(Tag:tag)<transacts>:generator(creative_object_interface) = external {}
+        # Gets the global transform of this object.
+        GetGlobalTransform<override>()<transacts>:(/Verse.org/SpatialMath:)transform = external {}
 
-    @available {MinUploadedAtFNVersion := 2930}
-    # Generates a `creative_object_interface` for every creative object that has been marked with the specified `Tag`. Will not find anything if called on a default constructed object.
-    (InCreativeDevice:creative_device_base).FindCreativeObjectsWithTag<public>(Tag:tag)<transacts>:generator(creative_object_interface) = external {}
+        # Sets the global transform of this object.
+        SetGlobalTransform<public>(NewGlobalTransform:(/Verse.org/SpatialMath:)transform)<transacts>:void = external {}
 
-    @available {MinUploadedAtFNVersion := 3300}
-    # Generates a `creative_object_interface` for every creative object that has been marked with the specified `Tag`. Will not find anything if called on an `npc_behavior` that is not simulating.
-    (InNPCBehavior:npc_behavior).FindCreativeObjectsWithTag<native><public>(Tag:tag)<transacts>:generator(creative_object_interface)
+        @available {MinUploadedAtFNVersion := 4000}
+        # Teleports the `creative_device` to the specified location defined by `Transform`, also applies rotation and scale accordingly.
+        TeleportTo<public>(Transform:(/Verse.org/SpatialMath:)transform)<transacts><decides>:void = external {}
 
-    @available {MinUploadedAtFNVersion := 2930}
-    # Generates a `creative_object_interface` for every creative object that has been marked with the specified `Tag`. Will not find anything if called on an `entity` that is not in the scene.
-    (InEntity:entity).FindCreativeObjectsWithTag<native><public>(Tag:tag)<transacts>:generator(creative_object_interface)
-
-    @deprecated
-    # Deprecated, use `FindCreativeObjectsWithTag` instead.
-    # Returns an array containing all creative objects which have been marked with the specified `Tag`.
-    GetCreativeObjectsWithTag<native><public>(Tag:tag)<transacts>:[]creative_object_interface
-
-    @deprecated
-    # Deprecated, use `FindCreativeObjectsWithTag` instead.
-    # Returns an array containing creative objects which have tag(s) matching the specified `SearchCriteria`.
-    GetCreativeObjectsWithTags<native><public>(SearchCriteria:tag_search_criteria)<transacts>:[]creative_object_interface
+        @available {MinUploadedAtFNVersion := 4000}
+        # Moves the `creative_device` to the specified `Transform` over the specified time, in seconds. If an animation is currently playing on the `creative_device` it will be stopped and put into the `AnimationNotSet` state.
+        MoveTo<public>(Transform:(/Verse.org/SpatialMath:)transform, OverTime:float)<suspends>:move_to_result = external {}
 
     # Returns a queryable `tag_view` which can be used to query the tags on `CreativeObject`.
     (CreativeObject:creative_object_interface).GetTags<native><public>()<transacts>:tag_view
@@ -11510,6 +7597,8 @@ Devices<public> := module:
     #   * The simulation entity is the rootmost entity in an experience.
     #   * Fails if this `creative_object` is not operating in a context with a valid SimulationEntity.
     (CreativeObject:creative_object).(/Fortnite.com/Devices:)GetSimulationEntity<native><public>()<transacts><decides>:entity
+
+    creative_object_interface<native><public> := interface<epic_internal>(positional):
 
     # A Fortnite prop that has been placed or spawned in the island.
     creative_prop<native><public> := class<concrete><final>(creative_object, invalidatable):
@@ -11625,6 +7714,56 @@ Devices<public> := module:
         # Whether the impact was a direct result of being thrown (as opposed to an indirect hit from bouncing or rolling).
         ImpactedFromThrow<native><public>:logic
 
+    @available {MinUploadedAtFNVersion := 3200}
+    # Generates a `creative_object_interface` for every creative object that has any tag of type `tag_type`. Will not find anything if called on a default constructed object.
+    (InCreativeDevice:creative_device).FindCreativeObjectsWithTag<public>(tag_type:castable_subtype(tag))<transacts>:generator(creative_object_interface) = external {}
+
+    @available {MinUploadedAtFNVersion := 3200}
+    # Generates a `creative_object_interface` for every creative object that has any tag of type `tag_type`. Will not find anything if called on a default constructed object.
+    (InCreativeDevice:creative_device_base).FindCreativeObjectsWithTag<public>(tag_type:castable_subtype(tag))<transacts>:generator(creative_object_interface) = external {}
+
+    @available {MinUploadedAtFNVersion := 3200}
+    # Generates a `creative_object_interface` for every creative object that has any tag of type `tag_type`. Will not find anything if called on an `npc_behavior` that is not simulating.
+    (InNPCBehavior:npc_behavior).FindCreativeObjectsWithTag<native><public>(tag_type:castable_subtype(tag))<transacts>:generator(creative_object_interface)
+
+    @available {MinUploadedAtFNVersion := 3200}
+    # Generates a `creative_object_interface` for every creative object that has any tag of type `tag_type`. Will not find anything if called on an `entity` that is not in the scene.
+    (InEntity:entity).FindCreativeObjectsWithTag<native><public>(tag_type:castable_subtype(tag))<transacts>:generator(creative_object_interface)
+
+    @available {MinUploadedAtFNVersion := 2930}
+    @deprecated
+    # DEPRECATED - use corresponding extension methods that takes a tag type instead of a tag instance.
+    # Generates a `creative_object_interface` for every creative object that has been marked with the specified `Tag`. Will not find anything if called on a default constructed object.
+    (InCreativeDevice:creative_device).FindCreativeObjectsWithTag<public>(Tag:tag)<transacts>:generator(creative_object_interface) = external {}
+
+    @available {MinUploadedAtFNVersion := 2930}
+    @deprecated
+    # DEPRECATED - use corresponding extension methods that takes a tag type instead of a tag instance.
+    # Generates a `creative_object_interface` for every creative object that has been marked with the specified `Tag`. Will not find anything if called on a default constructed object.
+    (InCreativeDevice:creative_device_base).FindCreativeObjectsWithTag<public>(Tag:tag)<transacts>:generator(creative_object_interface) = external {}
+
+    @available {MinUploadedAtFNVersion := 3300}
+    @deprecated
+    # DEPRECATED - use corresponding extension methods that takes a tag type instead of a tag instance.
+    # Generates a `creative_object_interface` for every creative object that has been marked with the specified `Tag`. Will not find anything if called on an `npc_behavior` that is not simulating.
+    (InNPCBehavior:npc_behavior).FindCreativeObjectsWithTag<native><public>(Tag:tag)<transacts>:generator(creative_object_interface)
+
+    @available {MinUploadedAtFNVersion := 2930}
+    @deprecated
+    # DEPRECATED - use corresponding extension methods that takes a tag type instead of a tag instance.
+    # Generates a `creative_object_interface` for every creative object that has been marked with the specified `Tag`. Will not find anything if called on an `entity` that is not in the scene.
+    (InEntity:entity).FindCreativeObjectsWithTag<native><public>(Tag:tag)<transacts>:generator(creative_object_interface)
+
+    @deprecated
+    # DEPRECATED - use `FindCreativeObjectsWithTag` instead.
+    # Returns an array containing all creative objects which have been marked with the specified `Tag`.
+    GetCreativeObjectsWithTag<native><public>(Tag:tag)<transacts>:[]creative_object_interface
+
+    @deprecated
+    # DEPRECATED - use `FindCreativeObjectsWithTag` instead.
+    # Returns an array containing creative objects which have tag(s) matching the specified `SearchCriteria`.
+    GetCreativeObjectsWithTags<native><public>(SearchCriteria:tag_search_criteria)<transacts>:[]creative_object_interface
+
     # Results for `MoveTo`.
     move_to_result<public> := enum:
         # The destination has been reached.
@@ -11635,7 +7774,6 @@ Devices<public> := module:
 Marketplace<public> := module:
     using {/Verse.org/Simulation}
     using {/Verse.org/SceneGraph}
-    @experimental
     offer_interactable_component<native><public> := class(interactable_component):
         @editable
         var Offer<public>:offer
@@ -11734,7 +7872,7 @@ Marketplace<public> := module:
     # Entitlements that have changed in quantity.
     # This will also include entitlement changes triggered by moderation, refunds and other commerce operations.
     entitlement_change<native><public>(t:type) := class<internal>:
-        (/Fortnite.com/Marketplace/entitlement_change:)Marketplace_entitlement_change_Variance<private>:?type {_():tuple(t)} = external {}
+        (/Fortnite.com/Marketplace/entitlement_change:)Marketplace_entitlement_change_Variance<private>():tuple(t) = external {}
 
         # Entitlement that has changed in quantity.
         Entitlement<native><public>:t
@@ -11758,6 +7896,336 @@ Marketplace<public> := module:
 
     # Shows the Epic provided store front contain the specified `Offers`.
     ShowOffersDialog<native><public>(Player:player, Offers:[]offer, ?Title:message = external {})<suspends>:void
+
+Armory<public> := module:
+    using {/Verse.org/SceneGraph}
+    using {/Verse.org/Assets}
+    using {/Verse.org/SpatialMath}
+    using {/Verse.org/Simulation}
+    # The multi trace specific subtype of trace_weapon_component which adds multiple traces per shot properties
+    fort_multi_trace_weapon_component<native><public> := class<final_super><internal>(fort_trace_weapon_component):
+        @editable_number(int) {MinValue := option {1}; MaxValue := option {20}}
+        # The number of bullets to fire per shot
+        var<private> BulletsPerShot<native><public>:int = external {}
+
+        SetBulletsPerShot<native><public>(Val:int):void
+
+    # Struct that defines a range based damage multiplier
+    fort_range_damage_multiplier<native><public> := struct<concrete>:
+        @editable_number(float) {MinValue := option {0.000000}}
+        # The distance at which to apply the damage multiplier
+        Range<native><public>:float = external {}
+
+        @editable_number(float) {MinValue := option {0.000000}; MaxValue := option {10.000000}}
+        # The multiplier applied to the damage at the specified range
+        DamageMultiplier<native><public>:float = external {}
+
+    # The component on weapons entities like pistols and assault rifles for tweaking weapon properties
+    fort_trace_weapon_component<native><public> := class<internal>(fort_weapon_component):
+        OnRemovingFromScene<native><override>():void
+
+        @editable_number(float) {MinValue := option {0.000000}; MaxValue := option {1000.000000}}
+        # The damage dealt by the weapon
+        var<private> Damage<native><public>:float = external {}
+
+        SetDamage<native><public>(Val:float):void
+
+        @editable_number(float) {MinValue := option {0.000000}; MaxValue := option {10.000000}}
+        # The damage multiplier for the environment
+        var<private> EnvironmentalDamageMultiplier<native><public>:float = external {}
+
+        SetEnvironmentalDamageMultiplier<native><public>(Val:float):void
+
+        @editable {}
+        # Range based damage multiplier
+        var<private> RangeDamageMultiplier<native><public>:[]fort_range_damage_multiplier = external {}
+
+        SetRangeDamageMultiplier<native><public>(Val:[]fort_range_damage_multiplier):void
+
+        @editable_number(float) {MinValue := option {0.000000}}
+        # The max range of the weapon
+        var<private> MaxRange<native><public>:float = external {}
+
+        SetMaxRange<native><public>(Val:float):void
+
+        @editable_number(float) {MinValue := option {0.000000}; MaxValue := option {25.000000}}
+        # The fire rate of the weapon
+        var<private> FireRate<native><public>:float = external {}
+
+        SetFireRate<native><public>(Val:float):void
+
+        @editable_number(float) {MinValue := option {0.000000}; MaxValue := option {10.000000}}
+        # The reload time of the weapon
+        var<private> ReloadTime<native><public>:float = external {}
+
+        SetReloadTime<native><public>(Val:float):void
+
+        @editable_number(float) {MinValue := option {0.000000}; MaxValue := option {10.000000}}
+        # The multiplier that affects the weapon spread expansion per shot
+        var<private> ExpansionRateMultiplierPerShot<native><public>:float = external {}
+
+        SetExpansionRateMultiplierPerShot<native><public>(Val:float):void
+
+        @editable_number(float) {MinValue := option {0.000000}; MaxValue := option {10.000000}}
+        # The multiplier that affects the weapon spread cooldown over time when not shooting
+        var<private> CooldownRateMultiplierOverTime<native><public>:float = external {}
+
+        SetCooldownRateMultiplierOverTime<native><public>(Val:float):void
+
+        @editable_number(float) {MinValue := option {0.000000}; MaxValue := option {10.000000}}
+        # The multiplier that affects the weapon spread while idle
+        var<private> IdleSpreadMultiplier<native><public>:float = external {}
+
+        SetIdleSpreadMultiplier<native><public>(Val:float):void
+
+        @editable_number(float) {MinValue := option {0.000000}; MaxValue := option {10.000000}}
+        # The multiplier that affects the weapon spread while moving
+        var<private> MovingSpreadMultiplier<native><public>:float = external {}
+
+        SetMovingSpreadMultiplier<native><public>(Val:float):void
+
+        @editable_number(float) {MinValue := option {0.000000}; MaxValue := option {10.000000}}
+        # The multiplier that affects the weapon spread while crouching
+        var<private> CrouchingSpreadMultiplier<native><public>:float = external {}
+
+        SetCrouchingSpreadMultiplier<native><public>(Val:float):void
+
+        @editable_number(float) {MinValue := option {0.000000}; MaxValue := option {10.000000}}
+        # The multiplier that affects the weapon spread while sliding
+        var<private> SlidingSpreadMultiplier<native><public>:float = external {}
+
+        SetSlidingSpreadMultiplier<native><public>(Val:float):void
+
+        @editable_number(float) {MinValue := option {0.000000}; MaxValue := option {10.000000}}
+        # The multiplier that affects the weapon spread while sprinting
+        var<private> SprintingSpreadMultiplier<native><public>:float = external {}
+
+        SetSprintingSpreadMultiplier<native><public>(Val:float):void
+
+        @editable_number(float) {MinValue := option {0.000000}; MaxValue := option {10.000000}}
+        # The multiplier that affects the weapon spread while aiming down sights
+        var<private> AimDownSightSpreadMultiplier<native><public>:float = external {}
+
+        SetAimDownSightSpreadMultiplier<native><public>(Val:float):void
+
+        @editable_number(float) {MinValue := option {0.000000}; MaxValue := option {10.000000}}
+        # The multiplier that affects the recoil of the weapon
+        var<private> RecoilMultiplier<native><public>:float = external {}
+
+        SetRecoilMultiplier<native><public>(Val:float):void
+
+        @editable_number(float) {MinValue := option {0.000000}; MaxValue := option {10.000000}}
+        # The multiplier that affects the recoil of the weapon when aiming down sights
+        var<private> AimDownSightRecoilMultiplier<native><public>:float = external {}
+
+        SetAimDownSightRecoilMultiplier<native><public>(Val:float):void
+
+        @editable_number(int) {MinValue := option {1}; MaxValue := option {1000}}
+        # The magazine size of the weapon
+        var<private> MagazineCapacity<native><public>:int = external {}
+
+        SetMagazineCapacity<native><public>(Val:int):void
+
+        @editable_number(int) {MinValue := option {0}; MaxValue := option {10}}
+        # The amount of ammo consumed per shot
+        var<private> ShotAmmoCost<native><public>:int = external {}
+
+        SetShotAmmoCost<native><public>(Val:int):void
+
+        @editable {}
+        # The transform by which to offset the weapon muzzle
+        var<private> MuzzleOffset<native><public>:(/Verse.org/SpatialMath:)transform = external {}
+
+        SetMuzzleOffset<native><public>(Val:(/Verse.org/SpatialMath:)transform):void
+
+        @editable {}
+        # The particle system to use for weapon muzzle flash
+        var<private> MuzzleFlash<native><public>:?particle_system = external {}
+
+        SetMuzzleFlash<native><public>(Val:?particle_system):void
+
+        @editable {}
+        # The particle system to use for weapon bullet tracers. The FX system's HitDistance parameter will update with impact distance or max range of the weapon.
+        var<private> BulletTracer<native><public>:?particle_system = external {}
+
+        SetBulletTracer<native><public>(Val:?particle_system):void
+
+        @editable {}
+        # The transform by which to offset the bullet shell ejection FX
+        var<private> EjectionPortOffset<native><public>:(/Verse.org/SpatialMath:)transform = external {}
+
+        SetEjectionPortOffset<native><public>(Val:(/Verse.org/SpatialMath:)transform):void
+
+        @editable {}
+        # The particle system to use for weapon bullet shells
+        var<private> BulletShells<native><public>:?particle_system = external {}
+
+        SetBulletShells<native><public>(Val:?particle_system):void
+
+        @editable {}
+        # The sounds to use when firing the weapon
+        var<private> WeaponFireSound<native><public>:[]sound_wave = external {}
+
+        SetWeaponFireSound<native><public>(Val:[]sound_wave):void
+
+        @editable {}
+        # The sounds to use when equipping the weapon
+        var<private> EquipSound<native><public>:[]sound_wave = external {}
+
+        SetEquipSound<native><public>(Val:[]sound_wave):void
+
+        @editable {}
+        # The sounds to use when starting aiming down sights
+        var<private> AimingDownSightsStartSound<native><public>:[]sound_wave = external {}
+
+        SetAimingDownSightsStartSound<native><public>(Val:[]sound_wave):void
+
+        @editable {}
+        # The sounds to use when ending aiming down sights
+        var<private> AimingDownSightsEndSound<native><public>:[]sound_wave = external {}
+
+        SetAimingDownSightsEndSound<native><public>(Val:[]sound_wave):void
+
+        @editable {}
+        # The sounds to use when starting a reload
+        var<private> ReloadStartSound<native><public>:[]sound_wave = external {}
+
+        SetReloadStartSound<native><public>(Val:[]sound_wave):void
+
+        @editable {}
+        # The sounds to use when inserting a magazine during reload
+        var<private> ReloadInsertSound<native><public>:[]sound_wave = external {}
+
+        SetReloadInsertSound<native><public>(Val:[]sound_wave):void
+
+        @editable {}
+        # The sounds to use when finishing a reload
+        var<private> ReloadEndSound<native><public>:[]sound_wave = external {}
+
+        SetReloadEndSound<native><public>(Val:[]sound_wave):void
+
+        @editable {}
+        # The sounds to use when the weapon is out of ammo
+        var<private> OutOfAmmoSound<native><public>:[]sound_wave = external {}
+
+        SetOutOfAmmoSound<native><public>(Val:[]sound_wave):void
+
+    # Base component for weapon related properties
+    fort_weapon_component<native><public> := class<abstract><final_super><internal>(component):
+        OnAddedToScene<native><override>():void
+
+        # Indicates whether the weapon is currently holstered
+        var<private> IsHolstered<native><public>:logic = external {}
+
+        # Event that is signalled when the weapon holster state changes
+        HolsterChangedEvent<native><final><public>:listenable(tuple()) = external {}
+
+    pistol_mesh<public> := class<final>(mesh_component):
+
+    # The entity prefab for a creator customizable pistol
+    pistol_template<public> := class<concrete><final>(entity):
+
+    assault_rifle_mesh<public> := class<final>(mesh_component):
+
+    # The entity prefab for a creator customizable assault rifle
+    assault_rifle_template<public> := class<concrete><final>(entity):
+
+    sub_machine_gun_mesh<public> := class<final>(mesh_component):
+
+    # The entity prefab for a creator customizable SMG
+    sub_machine_gun_template<public> := class<concrete><final>(entity):
+
+    shotgun_mesh<public> := class<final>(mesh_component):
+
+    # The entity prefab for a creator customizable shotgun
+    shotgun_template<public> := class<concrete><final>(entity):
+
+Itemization<public> := module:
+    using {/Verse.org/Native}
+    using {/Verse.org/Simulation}
+    using {/Verse.org/SceneGraph}
+    using {/UnrealEngine.com/Itemization}
+    # `fort_inventory_component` is a shared class for all Fortnite inventories, with appropriate default UI and behavior. The HUD when using the BR Style Inventory Configuration will only be shown when using the default configuration. If new inventories are added you will need to create your own custom HUD using Verse UI.
+    fort_inventory_component<native><public> := class<epic_internal>(inventory_component):
+        # Returns the total number of slots in this inventory.
+        GetMaxSlots<native><public>()<reads><decides>:int
+
+    # `fort_inventory_weapon_hotbar_component` is the UEFN inventory for Fortnite weapons and gadgets.
+    fort_inventory_weapon_hotbar_component<native><public> := class<final>(fort_inventory_component):
+        # Sets the total number of slots.
+        SetMaxSlots<native><public>(InNumSlots:int):void
+
+    # `fort_inventory_build_hotbar_component` is the UEFN inventory for Fortnite build tools.
+    fort_inventory_build_hotbar_component<native><public> := class<final>(fort_inventory_component):
+
+    # `fort_inventory_harvest_tool_component` is the UEFN inventory for the Fortnite harvest tool.
+    fort_inventory_harvest_tool_component<native><public> := class<final>(fort_inventory_component):
+
+    # `fort_inventory_trap_component` is the UEFN inventory for the Fortnite trap slot.
+    fort_inventory_trap_component<native><public> := class<final>(fort_inventory_component):
+
+    # `fort_inventory_resources_component` is the inventory for Fortnite resources.
+    fort_inventory_resources_component<native><public> := class<final>(fort_inventory_component):
+
+    # `fort_inventory_ammo_component` is the inventory for Fortnite ammo.
+    fort_inventory_ammo_component<native><public> := class<final>(fort_inventory_component):
+
+    # `fort_inventory_currencies_component` is the inventory for Fortnite currencies.
+    fort_inventory_currencies_component<native><public> := class<final>(fort_inventory_component):
+
+    # Module import path: /Fortnite.com/Itemization/FortniteItemCategories
+    FortniteItemCategories<public> := module:
+        using {/UnrealEngine.com/Itemization}
+        WorldItem<public>:item_category = external {}
+
+        Currency<public>:item_category = external {}
+
+        Trap<public>:item_category = external {}
+
+        Ammo<public>:item_category = external {}
+
+        Resource<public>:item_category = external {}
+
+        WeaponMelee<public>:item_category = external {}
+
+        WeaponRanged<public>:item_category = external {}
+
+    @available {MinUploadedAtFNVersion := 4040}
+    # Place this component onto an entity to allow it to be added to an agent inventory on interaction. The owning entity should have an item_component and a mesh_component. This component expects the interacting agent to have a subentity with an inventory_component.
+    fort_item_pickup_interactable_component<public> := class(basic_interactable_component):
+        OnAddedToScene<override>():void = external {}
+
+        OnRemovingFromScene<override>():void = external {}
+
+        Enable<override>():void = external {}
+
+        Disable<override>():void = external {}
+
+        EnableItemInteraction<protected>():void = external {}
+
+        DisableItemInteraction<protected>():void = external {}
+
+        OnInteractionSucceeded<protected>(Agent:agent):void = external {}
+
+        GetInteractorInventory<public>(Agent:agent)<transacts><decides>:inventory_component = external {}
+
+    @available {MinUploadedAtFNVersion := 4000}
+    # Module import path: /Fortnite.com/Itemization/FortniteRarities
+    FortniteRarities<public> := module:
+        using {/Verse.org/SceneGraph}
+        Common<public>:rarity = external {}
+
+        Uncommon<public>:rarity = external {}
+
+        Rare<public>:rarity = external {}
+
+        Epic<public>:rarity = external {}
+
+        Legendary<public>:rarity = external {}
+
+        Mythic<public>:rarity = external {}
+
+        Exotic<public>:rarity = external {}
 
 # Module import path: /Fortnite.com/Animation
 Animation<public> := module:
@@ -11827,6 +8295,10 @@ Animation<public> := module:
 
         # Get the play_animation_controller for the specified character.
         (InCharacter:fort_character).GetPlayAnimationController<native><public>()<transacts><decides>:play_animation_controller
+
+# Module import path: /Fortnite.com/Assets
+(/Fortnite.com:)Assets<public> := module:
+    npc_character_definition<native><public> := class<computes><final><epic_internal>:
 
 # Module import path: /Fortnite.com/Characters
 Characters<public> := module:
@@ -11974,6 +8446,7 @@ FortPlayerUtilities<public> := module:
 
 # Module import path: /Fortnite.com/Game
 Game<public> := module:
+    using {/Verse.org/SpatialMath}
     using {/UnrealEngine.com/Temporary/SpatialMath}
     using {/Verse.org/SceneGraph}
     using {/Fortnite.com/Characters}
@@ -12003,6 +8476,9 @@ Game<public> := module:
     positional<native><public> := interface<epic_internal>:
         # Returns the transform of the object.
         GetTransform<public>()<transacts>:(/UnrealEngine.com/Temporary/SpatialMath:)transform
+
+        # Returns the transform of the object.
+        GetGlobalTransform<public>()<transacts>:(/Verse.org/SpatialMath:)transform = external {}
 
     # Implemented by Fortnite objects that have health state and can be eliminated.
     healthful<native><public> := interface<epic_internal>:
@@ -12093,6 +8569,9 @@ Game<public> := module:
 
         # Player, weapon, vehicle, etc. that damaged `Target`. Can be false when damage is caused by code, the environment, etc.
         Source<native><public>:?game_action_causer = external {}
+
+        # `true` if the damage hit a weakpoint, `false` otherwise.
+        IsWeakpointDamage<native><public>:logic = external {}
 
     # Parameters for common healing functions on Fortnite objects.
     healing_args<native><public> := struct:
@@ -12214,9 +8693,9 @@ Teams<public> := module:
 # Module import path: /Fortnite.com/Vehicles
 Vehicles<public> := module:
     using {/UnrealEngine.com/Temporary/SpatialMath}
+    using {/Verse.org/Simulation}
     using {/Fortnite.com/Game}
     using {/Fortnite.com/Characters}
-
     # Returns the `fort_vehicle` for `InCharacter`.
     # Fails if `InCharacter` is not associated with a `fort_vehicle`.
     (InCharacter:fort_character).GetVehicle<native><public>()<transacts><decides>:fort_vehicle
@@ -12232,8 +8711,14 @@ Vehicles<public> := module:
         # Succeeds if this `fort_vehicle` is standing in water.
         IsInWater<public>()<transacts><decides>:void
 
-        # Returns an array with all the passengers of the vehicle.
-        GetPassengers<public>()<transacts>:[]fort_character
+        # Returns an array of every `fort_character` in the vehicle. Calls `GetOccupants()` and casts each occupying agent to a `fort_character`.
+        GetPassengers<public>()<transacts>:[]fort_character = external {}
+
+        # Returns an array with all `agent` currently occupying the vehicle.
+        GetOccupants<public>()<reads>:[]agent
+
+        # Returns an array with all the current drivers of the vehicle, which is usually a single agent.
+        GetDrivers<public>()<reads>:[]agent
 
         # Returns the fuel state of the vehicle. If the vehicle uses fuel, this value will be between 0.0 and `GetFuelCapacity`. Otherwise, this value will be -1.0.
         GetFuelRemaining<public>()<transacts>:float
@@ -12244,7 +8729,7 @@ Vehicles<public> := module:
         # Teleports the `fort_vehicle` to the specified `Position` and `Rotation`.
         TeleportTo<public>(Position:(/UnrealEngine.com/Temporary/SpatialMath:)vector3, Rotation:(/UnrealEngine.com/Temporary/SpatialMath:)rotation)<transacts><decides>:void
 
-        # The current speed of the vehicle in km/hr.
+        # The current speed of the vehicle in m/s.
         var<private> Speed<public>:float
 
         # The boost state of the vehicle. If the vehicle uses boost, this value will be between 0.0 and `BoostCapacity`. Otherwise, this value will be false.
@@ -12252,3 +8737,2831 @@ Vehicles<public> := module:
 
         # The maximum boost capacity of the vehicle. If the vehicle uses boost, this value will be between 1.0 and Inf. Otherwise, this value will be false.
         var<private> BoostCapacity<public>:?float
+
+        # Removes the specified agent from the vehicle. Fails if the agent is not in the vehicle.
+        RemoveAgent<public>(InAgent:agent)<transacts><decides>:void
+
+        # Removes all occupying agents from the vehicle.
+        RemoveAll<public>()<transacts>:void
+
+        # Attempts to add the agent to the `fort_vehicle`. If there are no empty seats, or the agent cannot otherwise be placed in the vehicle, the operation fails.
+        AddAgent<public>(InAgent:agent)<transacts><decides>:void
+
+        # Returns an array of all `fort_vehicle_seat`s in the `fort_vehicle`.
+        GetSeats<public>()<reads>:[]fort_vehicle_seat
+
+    # Represents a seat in a `fort_vehicle`.
+    fort_vehicle_seat<native><public> := class<unique><epic_internal>:
+        # Succeeds if this is a driver seat.
+        IsDriverSeat<native><public>()<reads><decides>:void
+
+        # The `agent` currently occupying this seat, if any.
+        var<private> Occupant<public>:?agent
+
+        # Attempts to seat `Agent` into this seat. Fails if the seat is occupied or the agent cannot be seated. Setting the occupant to `false` will remove any seated agent.
+        SetOccupant<native><public>(Value:?agent)<transacts><decides>:void
+
+        # The `fort_vehicle` this seat belongs to.
+        var<private> Vehicle<public>:fort_vehicle
+
+# Module import path: /Fortnite.com/Items
+Items<public> := module:
+    using {/Verse.org/SceneGraph}
+    Acorn_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    ActivePowercell_Creative_V1_Epic<public> := class<final><concrete>(entity):
+
+    AdhesiveResin_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    AirStrike_BR_CH1S9_Legendary<public> := class<final><concrete>(entity):
+
+    AlienNanites_BR_CH2S7_Common<public> := class<final><concrete>(entity):
+
+    AmmoArrows_BR_CH2S6_Common<public> := class<final><concrete>(entity):
+
+    AmmoHeavyBullets_BR_PreSeason_Common<public> := class<final><concrete>(entity):
+
+    AmmoLightBullets_BR_PreSeason_Common<public> := class<final><concrete>(entity):
+
+    AmmoMediumBullets_BR_PreSeason_Common<public> := class<final><concrete>(entity):
+
+    AmmoRockets_BR_PreSeason_Common<public> := class<final><concrete>(entity):
+
+    AmmoShells_BR_PreSeason_Common<public> := class<final><concrete>(entity):
+
+    AnimalBones_BR_CH2S6_Common<public> := class<final><concrete>(entity):
+
+    Apple_BR_CH1S4_Common<public> := class<final><concrete>(entity):
+
+    ArmoredWall_BR_CH2S8_Uncommon<public> := class<final><concrete>(entity):
+
+    AuthorityKeycard_BR_CH2S3_Legendary<public> := class<final><concrete>(entity):
+
+    Bacon_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    Balloons_BR_CH1S6_Rare<public> := class<final><concrete>(entity):
+
+    Banana_BR_CH1S8_Common<public> := class<final><concrete>(entity):
+
+    BananaOfTheGods_BR_CH5S2_Legendary<public> := class<final><concrete>(entity):
+
+    Bandage_BR_PreSeason_Common<public> := class<final><concrete>(entity):
+
+    Bandage_BR_CH5S1_Common<public> := class<final><concrete>(entity):
+
+    BandageBazooka_BR_CH2S1_Epic<public> := class<final><concrete>(entity):
+
+    Batteries_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    BigBushBomb_BR_CH4S1_Rare<public> := class<final><concrete>(entity):
+
+    BirthdayPresents_BR_CH1S9_Legendary<public> := class<final><concrete>(entity):
+
+    BlastPowder_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    BlizzardGrenade_BR_CH6S1_Rare<public> := class<final><concrete>(entity):
+
+    BoarHair_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    BoogieBomb_BR_CH1S2_Rare<public> := class<final><concrete>(entity):
+
+    BoomBox_BR_CH1S7_Epic<public> := class<final><concrete>(entity):
+
+    BottleRockets_BR_CH1S7_Uncommon<public> := class<final><concrete>(entity):
+
+    Bouncer_BR_CH1S4_Rare<public> := class<final><concrete>(entity):
+
+    BrickABunker_BR_CH7S2_Common<public> := class<final><concrete>(entity):
+
+    BubbleShield_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    Bush_BR_CH1S1_Legendary<public> := class<final><concrete>(entity):
+
+    BusinessTurret_BR_CH4S4_Epic<public> := class<final><concrete>(entity):
+
+    Butter_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    Cabbage_BR_CH2S3_Common<public> := class<final><concrete>(entity):
+
+    CandyCorn_BR_CH2S4_Common<public> := class<final><concrete>(entity):
+
+    CattyCornerKeycard_BR_CH2S3_Legendary<public> := class<final><concrete>(entity):
+
+    CeilingZapper_BR_CH1S1_Rare<public> := class<final><concrete>(entity):
+
+    @deprecated
+    # Deprecated. Please use CeilingZapper_BR_CH1S1_Rare instead.
+    CeilingZapper_BR_CH4MS1_Rare<public> := class<final><concrete>(entity):
+
+    ChiliChugSplash_BR_CH2S8_Exotic<public> := class<final><concrete>(entity):
+
+    Chiller_BR_CH1S6_Common<public> := class<final><concrete>(entity):
+
+    ChillerGrenade_BR_CH1S7_Common<public> := class<final><concrete>(entity):
+
+    ChugCannon_BR_CH2S5_Exotic<public> := class<final><concrete>(entity):
+
+    ChugJug_BR_CH1S2_Legendary<public> := class<final><concrete>(entity):
+
+    OceansBottomlessChugJug_BR_CH2S3_Mythic<public> := class<final><concrete>(entity):
+
+    ChugJug_BR_CH6S2_Legendary<public> := class<final><concrete>(entity):
+
+    ChugSplash_BR_CH1S9_Rare<public> := class<final><concrete>(entity):
+
+    Clinger_BR_CH1S3_Uncommon<public> := class<final><concrete>(entity):
+
+    CloakGauntlets_BR_CH4S3_Epic<public> := class<final><concrete>(entity):
+
+    WildguardReliksCloakGauntlets_BR_CH4S3_Mythic<public> := class<final><concrete>(entity):
+
+    ClusterClinger_BR_CH5S1_Uncommon<public> := class<final><concrete>(entity):
+
+    Coconut_BR_CH1S8_Common<public> := class<final><concrete>(entity):
+
+    CommandCavernKeycard_BR_CH3S2_Legendary<public> := class<final><concrete>(entity):
+
+    Corn_BR_CH2S3_Common<public> := class<final><concrete>(entity):
+
+    CozyCampfire_BR_CH1S2_Rare<public> := class<final><concrete>(entity):
+
+    CrashPad_BR_CH2S2_Rare<public> := class<final><concrete>(entity):
+
+    CrashPadJr_BR_CH4S4_Uncommon<public> := class<final><concrete>(entity):
+
+    CreepinCardboard_BR_CH2S2_Uncommon<public> := class<final><concrete>(entity):
+
+    QuartzCrystal_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    RainbowCrystal_Creative_V1_Epic<public> := class<final><concrete>(entity):
+
+    ShadowshardCrystal_Creative_V1_Epic<public> := class<final><concrete>(entity):
+
+    SunbeamCrystal_Creative_V1_Epic<public> := class<final><concrete>(entity):
+
+    CuddleFish_BR_CH2S6_Rare<public> := class<final><concrete>(entity):
+
+    DamageTrap_BR_CH1S2_Uncommon<public> := class<final><concrete>(entity):
+
+    Decoy_BR_CH2S2_Rare<public> := class<final><concrete>(entity):
+
+    DialADrop_BR_CH3S4_Epic<public> := class<final><concrete>(entity):
+
+    Diamond_Creative_V1_Epic<public> := class<final><concrete>(entity):
+
+    WhiteDinoEgg_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    BrownDinoEgg_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    GreenDinoEgg_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    WhiteSpeckledDinoEgg_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    BrownSpeckledDinoEgg_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    BlueSpeckledDinoEgg_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    WhiteMarbledDinoEgg_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    PinkMarbledDinoEgg_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    GreenMarbledDinoEgg_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    BlueFleckedDinoEgg_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    RedFleckedDinoEgg_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    GreenFleckedDinoEgg_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    WhiteShimmeringDinoEgg_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    BlueShimmeringDinoEgg_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    RedShimmeringDinoEgg_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    GrayEruptionDinoEgg_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    RedEruptionDinoEgg_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    YellowEruptionDinoEgg_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    DuctTape_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    Dynamite_BR_CH1S6_Uncommon<public> := class<final><concrete>(entity):
+
+    EnhancedHarpoonGun_BR_CH7S2_Mythic<public> := class<final><concrete>(entity):
+
+    EstateVaultKeycard_BR_CH4S4_Legendary<public> := class<final><concrete>(entity):
+
+    ExoticSlapBerryFizz_BR_CH6S4_Exotic<public> := class<final><concrete>(entity):
+
+    FalconScout_BR_CH4S1_Epic<public> := class<final><concrete>(entity):
+
+    FibrousHerbs_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    FireflyJar_BR_CH2S3_Rare<public> := class<final><concrete>(entity):
+
+    FireGrenade_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    FireTrap_BR_CH2S4_Uncommon<public> := class<final><concrete>(entity):
+
+    CreativeFishingRod_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    CreativeProFishingRod_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    Flag_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    Flashbang_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    Flashlight_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    Flopper_BR_CH2S1_Uncommon<public> := class<final><concrete>(entity):
+
+    FlowBerry_BR_CH5S1_Uncommon<public> := class<final><concrete>(entity):
+
+    FlowBerryFizz_BR_CH5S1_Rare<public> := class<final><concrete>(entity):
+
+    FlowBerryMistGrenade_BR_CH7S1_Epic<public> := class<final><concrete>(entity):
+
+    FlowerPetals_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    FortillaKeycard_BR_CH2S3_Legendary<public> := class<final><concrete>(entity):
+
+    FragGrenade_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    FrozenIcecreamCone_BR_CH3S3_Common<public> := class<final><concrete>(entity):
+
+    GasCan_BR_CH2S3_Common<public> := class<final><concrete>(entity):
+
+    Gliders_BR_CH1S7_Rare<public> := class<final><concrete>(entity):
+
+    Gold_BR_CH2S1_Common<public> := class<final><concrete>(entity):
+
+    GoldSplash_BR_CH6S2_Rare<public> := class<final><concrete>(entity):
+
+    GrappleGlider_BR_CH3S4_Epic<public> := class<final><concrete>(entity):
+
+    GrappleGlove_BR_CH3S3_Epic<public> := class<final><concrete>(entity):
+
+    Grappler_BR_CH1S5_Epic<public> := class<final><concrete>(entity):
+
+    Grenade_BR_PreSeason_Common<public> := class<final><concrete>(entity):
+
+    Grenade_BR_CH4MS1_Common<public> := class<final><concrete>(entity):
+
+    Grenade_BR_CH7S1_Common<public> := class<final><concrete>(entity):
+
+    GrottoKeycard_BR_CH2S2_Legendary<public> := class<final><concrete>(entity):
+
+    Grub_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    GuardianShield_BR_CH4S1_Rare<public> := class<final><concrete>(entity):
+
+    GuzzleJuice_BR_CH3S1_Uncommon<public> := class<final><concrete>(entity):
+
+    GuzzlingIcecreamCone_BR_CH3S3_Uncommon<public> := class<final><concrete>(entity):
+
+    HarpoonGun_BR_CH2S1_Rare<public> := class<final><concrete>(entity):
+
+    HealEgg_BR_CH4S2_Uncommon<public> := class<final><concrete>(entity):
+
+    Herb_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    HolidayPresents_BR_CH2S5_Legendary<public> := class<final><concrete>(entity):
+
+    Honey_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    HopDrop_BR_CH2S4_Common<public> := class<final><concrete>(entity):
+
+    HopEgg_BR_CH4S2_Rare<public> := class<final><concrete>(entity):
+
+    HopFlopper_BR_CH2S4_Epic<public> := class<final><concrete>(entity):
+
+    IcecreamCone_BR_CH3S3_Common<public> := class<final><concrete>(entity):
+
+    IcyGrappler_BR_CH2S8_Exotic<public> := class<final><concrete>(entity):
+
+    ImpulseGrenade_BR_CH1S2_Rare<public> := class<final><concrete>(entity):
+
+    ImpulseGrenade_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    InflateABull_BR_CH2S7_Rare<public> := class<final><concrete>(entity):
+
+    JellyBean_BR_CH2S4_Common<public> := class<final><concrete>(entity):
+
+    Jellyfish_BR_CH2S4_Rare<public> := class<final><concrete>(entity):
+
+    Jetpack_BR_CH1S4_Legendary<public> := class<final><concrete>(entity):
+
+    Jewel_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    JulesGliderGun_BR_CH2S3_Mythic<public> := class<final><concrete>(entity):
+
+    JunkRift_BR_CH1SX_Epic<public> := class<final><concrete>(entity):
+
+    Key_BR_CH3S4_Rare<public> := class<final><concrete>(entity):
+
+    LaunchPad_BR_CH3S4_Rare<public> := class<final><concrete>(entity):
+
+    SuperLaunchPad_Creative_V1_Epic<public> := class<final><concrete>(entity):
+
+    LawlessRiftLauncher_BR_CH6S2_Exotic<public> := class<final><concrete>(entity):
+
+    LawlessSlapCannon_BR_CH6S2_Exotic<public> := class<final><concrete>(entity):
+
+    LawlessSlapJug_BR_CH6S2_Exotic<public> := class<final><concrete>(entity):
+
+    LemonLime_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    LilWhipsSpecialServe_BR_CH3S3_Legendary<public> := class<final><concrete>(entity):
+
+    LimitlessSevenSliders_BR_CH7S3_Mythic<public> := class<final><concrete>(entity):
+
+    LumpOfCoal_BR_CH2S1_Common<public> := class<final><concrete>(entity):
+
+    MapleSyrup_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    Meat_BR_CH2S6_Uncommon<public> := class<final><concrete>(entity):
+
+    MechanicalParts_BR_CH2S6_Common<public> := class<final><concrete>(entity):
+
+    RustyMechanicalParts_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    SimpleMechanicalParts_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    SturdyMechanicalParts_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    SleekMechanicalParts_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    EfficientMechanicalParts_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    VindertechMechanicalParts_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    MedMist_BR_CH3S1_Uncommon<public> := class<final><concrete>(entity):
+
+    MedMistSmokeGrenade_BR_CH6S2_Rare<public> := class<final><concrete>(entity):
+
+    MedKit_BR_PreSeason_Uncommon<public> := class<final><concrete>(entity):
+
+    MedKit_BR_CH5S1_Uncommon<public> := class<final><concrete>(entity):
+
+    Metal_BR_PreSeason_Common<public> := class<final><concrete>(entity):
+
+    MidasFlopper_BR_CH2S4_Legendary<public> := class<final><concrete>(entity):
+
+    Milk_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    RoughMineralPowder_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    SimpleMineralPowder_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    FineGrainMineralPowder_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    CharBlackMineralPowder_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    OxidizedMineralPowder_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    MonsterParts_BR_CH2S8_Common<public> := class<final><concrete>(entity):
+
+    BlueMushroom_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    PinkMushroom_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    RedMushroom_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    WhiteMushroom_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    YellowMushroom_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    MystForm_BR_CH6S3_Epic<public> := class<final><concrete>(entity):
+
+    MythicGoldfish_BR_CH2S1_Mythic<public> := class<final><concrete>(entity):
+
+    NitroSplash_BR_CH5S3_Rare<public> := class<final><concrete>(entity):
+
+    OrangePaintGrenade_BR_CH2S2_Rare<public> := class<final><concrete>(entity):
+
+    RoughOre_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    Coal_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    BrightcoreOre_Creative_V1_Epic<public> := class<final><concrete>(entity):
+
+    CopperOre_Creative_V1_Epic<public> := class<final><concrete>(entity):
+
+    MalachiteOre_Creative_V1_Epic<public> := class<final><concrete>(entity):
+
+    ObsidianOre_Creative_V1_Epic<public> := class<final><concrete>(entity):
+
+    SilverOre_Creative_V1_Epic<public> := class<final><concrete>(entity):
+
+    SpectroliteOre_Creative_V1_Epic<public> := class<final><concrete>(entity):
+
+    Overdrive_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    OverdriveGrenade_BR_CH7S2_Rare<public> := class<final><concrete>(entity):
+
+    PatchworkTool_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    Pepper_BR_CH1S8_Common<public> := class<final><concrete>(entity):
+
+    PepperMint_BR_CH2S4_Common<public> := class<final><concrete>(entity):
+
+    PizzaParty_BR_CH3S1_Epic<public> := class<final><concrete>(entity):
+
+    PizzaSlice_BR_CH3S1_Rare<public> := class<final><concrete>(entity):
+
+    Planks_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    PoisonDartTrap_BR_CH1S8_Uncommon<public> := class<final><concrete>(entity):
+
+    PortABunker_BR_CH3S4_Uncommon<public> := class<final><concrete>(entity):
+
+    PortACover_BR_CH6S2_Rare<public> := class<final><concrete>(entity):
+
+    PortAFort_BR_CH1S3_Rare<public> := class<final><concrete>(entity):
+
+    PortAFortress_BR_CH1S5_Legendary<public> := class<final><concrete>(entity):
+
+    PrecisionAirStrike_BR_CH6S4_Legendary<public> := class<final><concrete>(entity):
+
+    Presents_BR_CH1S7_Legendary<public> := class<final><concrete>(entity):
+
+    PropOMatic_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    ProximityMine_BR_CH2S2_Rare<public> := class<final><concrete>(entity):
+
+    ProximityMine_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    PulseScanner_BR_CH6S2_Epic<public> := class<final><concrete>(entity):
+
+    Pumpkin_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    PurplePaintGrenade_BR_CH2S2_Rare<public> := class<final><concrete>(entity):
+
+    RaptorEye_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    ReconGrenade_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    RemoteExplosives_BR_CH1S3_Epic<public> := class<final><concrete>(entity):
+
+    RepairTorch_BR_CH3S2_Rare<public> := class<final><concrete>(entity):
+
+    RiftToGo_BR_CH1S5_Epic<public> := class<final><concrete>(entity):
+
+    RiftFish_BR_CH2S5_Epic<public> := class<final><concrete>(entity):
+
+    RiftPointDevice_Ballistic_V1_Exotic<public> := class<final><concrete>(entity):
+
+    RigKeycard_BR_CH2S2_Legendary<public> := class<final><concrete>(entity):
+
+    RoastedChicken_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    RotatingGizmo_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    RustyCan_BR_CH2S1_Common<public> := class<final><concrete>(entity):
+
+    SevenSliders_BR_CH7S3_Epic<public> := class<final><concrete>(entity):
+
+    ShadowBomb_BR_CH1S8_Uncommon<public> := class<final><concrete>(entity):
+
+    ShadowFlopper_BR_CH2S8_Rare<public> := class<final><concrete>(entity):
+
+    SharkKeycard_BR_CH2S2_Legendary<public> := class<final><concrete>(entity):
+
+    SharkTooth_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    ShieldBreakerEMP_BR_CH4S4_Rare<public> := class<final><concrete>(entity):
+
+    ShieldBubble_BR_CH1SX_Rare<public> := class<final><concrete>(entity):
+
+    ShieldBubbleJr_BR_CH5S2_Uncommon<public> := class<final><concrete>(entity):
+
+    ShieldFish_BR_CH2S4_Rare<public> := class<final><concrete>(entity):
+
+    ShieldKeg_BR_CH3S1_Rare<public> := class<final><concrete>(entity):
+
+    ShieldMushroom_BR_CH1S4_Common<public> := class<final><concrete>(entity):
+
+    ShieldPotion_BR_PreSeason_Rare<public> := class<final><concrete>(entity):
+
+    ShieldPotion_BR_CH5S1_Rare<public> := class<final><concrete>(entity):
+
+    ShockwaveGrenade_BR_CH1S5_Epic<public> := class<final><concrete>(entity):
+
+    Shove_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    SignalRemote_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    SignalRemoteA_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    SignalRemoteB_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    SignalRemoteC_Creative_V1_Epic<public> := class<final><concrete>(entity):
+
+    SignalRemoteD_Creative_V1_Legendary<public> := class<final><concrete>(entity):
+
+    SkyesGrappler_BR_CH2S2_Mythic<public> := class<final><concrete>(entity):
+
+    SkylineDeployer_BR_CH7S2_Rare<public> := class<final><concrete>(entity):
+
+    SlapBerry_BR_CH4S1_Uncommon<public> := class<final><concrete>(entity):
+
+    SlapJuice_BR_CH4S1_Rare<public> := class<final><concrete>(entity):
+
+    SlapperoniPizza_BR_CH7S2_Legendary<public> := class<final><concrete>(entity):
+
+    SlapperoniSlice_BR_CH7S2_Legendary<public> := class<final><concrete>(entity):
+
+    SlapSplash_BR_CH4S3_Rare<public> := class<final><concrete>(entity):
+
+    SuperSlapSplash_BR_CH4S3_Exotic<public> := class<final><concrete>(entity):
+
+    Slurpfish_BR_CH2S1_Epic<public> := class<final><concrete>(entity):
+
+    SlurpJuice_BR_CH1S1_Legendary<public> := class<final><concrete>(entity):
+
+    SlurpJuice_BR_CH6S4_Epic<public> := class<final><concrete>(entity):
+
+    SlurpMushroom_BR_CH2S1_Common<public> := class<final><concrete>(entity):
+
+    SmallFry_BR_CH2S1_Common<public> := class<final><concrete>(entity):
+
+    SmallShieldPotion_BR_CH1S2_Uncommon<public> := class<final><concrete>(entity):
+
+    SmallShieldPotion_BR_CH5S1_Uncommon<public> := class<final><concrete>(entity):
+
+    SmokeGrenade_BR_CH1S1_Uncommon<public> := class<final><concrete>(entity):
+
+    SmokeGrenade_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    SneakySnowman_BR_CH2S1_Rare<public> := class<final><concrete>(entity):
+
+    SneakySnowman_OG_CH1S7_Common<public> := class<final><concrete>(entity):
+
+    SnowyFlopper_BR_CH2S5_Uncommon<public> := class<final><concrete>(entity):
+
+    SpeedBoostLow_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    SpeedBoostMedium_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    SpeedBoostHigh_Creative_V1_Epic<public> := class<final><concrete>(entity):
+
+    SpicyFish_BR_CH2S4_Rare<public> := class<final><concrete>(entity):
+
+    SpicyIcecreamCone_BR_CH3S3_Common<public> := class<final><concrete>(entity):
+
+    SpireJumpboots_BR_CH2S6_Mythic<public> := class<final><concrete>(entity):
+
+    StealthSplash_BR_CH7S1_Rare<public> := class<final><concrete>(entity):
+
+    StinkBomb_BR_CH1S4_Rare<public> := class<final><concrete>(entity):
+
+    StinkFish_BR_CH2S6_Uncommon<public> := class<final><concrete>(entity):
+
+    StinkSac_BR_CH2S6_Uncommon<public> := class<final><concrete>(entity):
+
+    Stone_BR_PreSeason_Common<public> := class<final><concrete>(entity):
+
+    StormFlip_BR_CH1S9_Epic<public> := class<final><concrete>(entity):
+
+    SurfCube_BR_CH6S3_Epic<public> := class<final><concrete>(entity):
+
+    LightridersSurfCube_BR_CH6S3_Mythic<public> := class<final><concrete>(entity):
+
+    ThermalFish_BR_CH2S4_Legendary<public> := class<final><concrete>(entity):
+
+    ThermalTaffy_BR_CH2S4_Common<public> := class<final><concrete>(entity):
+
+    Thermite_BR_CH6S2_Rare<public> := class<final><concrete>(entity):
+
+    ThunderboltOfZeus_BR_CH5S2_Mythic<public> := class<final><concrete>(entity):
+
+    Torch_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    TrackingVisor_BR_CH6S3_Rare<public> := class<final><concrete>(entity):
+
+    StringyTwine_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    SimpleTwine_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    SturdyTwine_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    PeakyTwine_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    CarvedTwine_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    SpectralTwine_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    UnstableBounceGrenade_BR_CH6S3_Exotic<public> := class<final><concrete>(entity):
+
+    VehicleModCowCatcher_BR_CH3S2_Common<public> := class<final><concrete>(entity):
+
+    VehicleModOffRoadTires_BR_CH2S6_Common<public> := class<final><concrete>(entity):
+
+    VendettaFlopper_BR_CH2S4_Legendary<public> := class<final><concrete>(entity):
+
+    VoidOniMask_BR_CH6S1_Epic<public> := class<final><concrete>(entity):
+
+    NightRosesVoidOniMask_BR_CH6S1_Mythic<public> := class<final><concrete>(entity):
+
+    WallDynamo_BR_CH1S1_Rare<public> := class<final><concrete>(entity):
+
+    @deprecated
+    # Deprecated. Please use WallDynamo_BR_CH1S1_Rare instead.
+    WallDynamo_BR_CH4MS1_Rare<public> := class<final><concrete>(entity):
+
+    Wheat_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    WildwaspJar_BR_CH4S3_Rare<public> := class<final><concrete>(entity):
+
+    WingsOfIcarus_BR_CH5S2_Epic<public> := class<final><concrete>(entity):
+
+    Wingsuit_BR_CH7S1_Epic<public> := class<final><concrete>(entity):
+
+    WitchBroom_BR_CH2S4_Mythic<public> := class<final><concrete>(entity):
+
+    WolfTooth_Creative_V1_Uncommon<public> := class<final><concrete>(entity):
+
+    Wood_BR_PreSeason_Common<public> := class<final><concrete>(entity):
+
+    ZeroPointFish_BR_CH2S5_Rare<public> := class<final><concrete>(entity):
+
+    ZeroPointPretzel_BR_CH2S8_Uncommon<public> := class<final><concrete>(entity):
+
+# Module import path: /Fortnite.com/Weapons
+Weapons<public> := module:
+    using {/Verse.org/SceneGraph}
+    AnvilRocketLauncher_BR_CH3S2_Rare<public> := class<final><concrete>(entity):
+
+    AnvilRocketLauncher_BR_CH3S2_Epic<public> := class<final><concrete>(entity):
+
+    AnvilRocketLauncher_BR_CH3S2_Legendary<public> := class<final><concrete>(entity):
+
+    ArcLightningGun_BR_CH7S1_Epic<public> := class<final><concrete>(entity):
+
+    ArcLightningGun_BR_CH7S1_Legendary<public> := class<final><concrete>(entity):
+
+    HumanBillsArcLightningGun_BR_CH7S1_Mythic<public> := class<final><concrete>(entity):
+
+    AscendedMyst_BR_CH6S3_Legendary<public> := class<final><concrete>(entity):
+
+    AssaultRifle_BR_PreSeason_Common<public> := class<final><concrete>(entity):
+
+    AssaultRifle_BR_PreSeason_Uncommon<public> := class<final><concrete>(entity):
+
+    AssaultRifle_BR_PreSeason_Rare<public> := class<final><concrete>(entity):
+
+    AssaultRifle_BR_PreSeason_Epic<public> := class<final><concrete>(entity):
+
+    AssaultRifle_BR_PreSeason_Legendary<public> := class<final><concrete>(entity):
+
+    SkyesAssaultRifle_BR_CH2S2_Mythic<public> := class<final><concrete>(entity):
+
+    AssaultRifle_BR_CH4S1_Common<public> := class<final><concrete>(entity):
+
+    AssaultRifle_BR_CH4S1_Uncommon<public> := class<final><concrete>(entity):
+
+    AssaultRifle_BR_CH4S1_Rare<public> := class<final><concrete>(entity):
+
+    AssaultRifle_BR_CH4S1_Epic<public> := class<final><concrete>(entity):
+
+    AssaultRifle_BR_CH4S1_Legendary<public> := class<final><concrete>(entity):
+
+    EnhancedAssaultRifle_BR_CH6S4_Mythic<public> := class<final><concrete>(entity):
+
+    AutomaticSniperRifle_BR_CH1SX_Rare<public> := class<final><concrete>(entity):
+
+    AutomaticSniperRifle_BR_CH1SX_Epic<public> := class<final><concrete>(entity):
+
+    AutomaticSniperRifle_BR_CH1SX_Legendary<public> := class<final><concrete>(entity):
+
+    AutomaticSniperRifle_BR_CH2S5_Uncommon<public> := class<final><concrete>(entity):
+
+    AutoShotgun_BR_CH3S1_Common<public> := class<final><concrete>(entity):
+
+    AutoShotgun_BR_CH3S1_Uncommon<public> := class<final><concrete>(entity):
+
+    AutoShotgun_BR_CH3S1_Rare<public> := class<final><concrete>(entity):
+
+    AutoShotgun_BR_CH3S1_Epic<public> := class<final><concrete>(entity):
+
+    AutoShotgun_BR_CH3S1_Legendary<public> := class<final><concrete>(entity):
+
+    AutoShotgun_BR_CH3S1_Mythic<public> := class<final><concrete>(entity):
+
+    BallisticShield_BR_CH5S1_Epic<public> := class<final><concrete>(entity):
+
+    BasicHammer_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    BasicSword_Creative_V1_Common<public> := class<final><concrete>(entity):
+
+    BassBoost_BR_CH6S3_Rare<public> := class<final><concrete>(entity):
+
+    BassBoost_BR_CH6S3_Epic<public> := class<final><concrete>(entity):
+
+    BassBoost_BR_CH6S3_Mythic<public> := class<final><concrete>(entity):
+
+    BoltActionSniperRifle_BR_PreSeason_Rare<public> := class<final><concrete>(entity):
+
+    BoltActionSniperRifle_BR_PreSeason_Epic<public> := class<final><concrete>(entity):
+
+    BoltActionSniperRifle_BR_PreSeason_Legendary<public> := class<final><concrete>(entity):
+
+    BoltActionSniperRifle_BR_CH2S1_Common<public> := class<final><concrete>(entity):
+
+    BoltActionSniperRifle_BR_CH2S1_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularBoomBolt_BR_CH5S3_Rare<public> := class<final><concrete>(entity):
+
+    ModularBoomBolt_BR_CH5S3_Epic<public> := class<final><concrete>(entity):
+
+    ModularBoomBolt_BR_CH5S3_Legendary<public> := class<final><concrete>(entity):
+
+    RingmastersModularBoomBolt_BR_CH5S3_Mythic<public> := class<final><concrete>(entity):
+
+    BoomBow_BR_CH1S8_Legendary<public> := class<final><concrete>(entity):
+
+    BoomSniperRifle_BR_CH2S5_Exotic<public> := class<final><concrete>(entity):
+
+    BugBlaster_BR_CH6S4_Rare<public> := class<final><concrete>(entity):
+
+    BugBlaster_BR_CH6S4_Epic<public> := class<final><concrete>(entity):
+
+    BugBlaster_BR_CH6S4_Legendary<public> := class<final><concrete>(entity):
+
+    BurstAR_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    BurstAssaultRifle_BR_PreSeason_Common<public> := class<final><concrete>(entity):
+
+    BurstAssaultRifle_BR_PreSeason_Uncommon<public> := class<final><concrete>(entity):
+
+    BurstAssaultRifle_BR_PreSeason_Rare<public> := class<final><concrete>(entity):
+
+    BurstAssaultRifle_BR_CH1S4_Epic<public> := class<final><concrete>(entity):
+
+    BurstAssaultRifle_BR_CH1S4_Legendary<public> := class<final><concrete>(entity):
+
+    OceansBurstAssaultRifle_BR_CH2S3_Mythic<public> := class<final><concrete>(entity):
+
+    SlonesBurstAssaultRifle_BR_CH2S8_Mythic<public> := class<final><concrete>(entity):
+
+    BurstAssaultRifle_BR_CH4MS1_Common<public> := class<final><concrete>(entity):
+
+    BurstAssaultRifle_BR_CH4MS1_Uncommon<public> := class<final><concrete>(entity):
+
+    BurstAssaultRifle_BR_CH4MS1_Rare<public> := class<final><concrete>(entity):
+
+    BurstAssaultRifle_BR_CH4MS1_Epic<public> := class<final><concrete>(entity):
+
+    BurstAssaultRifle_BR_CH4MS1_Legendary<public> := class<final><concrete>(entity):
+
+    BurstQuadLauncher_BR_CH2S5_Exotic<public> := class<final><concrete>(entity):
+
+    BurstSMG_BR_CH1S9_Common<public> := class<final><concrete>(entity):
+
+    BurstSMG_BR_CH1S9_Uncommon<public> := class<final><concrete>(entity):
+
+    BurstSMG_BR_CH1S9_Rare<public> := class<final><concrete>(entity):
+
+    Chainsaw_BR_CH5S4_Epic<public> := class<final><concrete>(entity):
+
+    ChainsOfHades_BR_CH5S2_Epic<public> := class<final><concrete>(entity):
+
+    ChaosExploderRifle_BR_CH7S3_Common<public> := class<final><concrete>(entity):
+
+    ChaosExploderRifle_BR_CH7S3_Uncommon<public> := class<final><concrete>(entity):
+
+    ChaosExploderRifle_BR_CH7S3_Rare<public> := class<final><concrete>(entity):
+
+    ChaosExploderRifle_BR_CH7S3_Epic<public> := class<final><concrete>(entity):
+
+    ChaosExploderRifle_BR_CH7S3_Legendary<public> := class<final><concrete>(entity):
+
+    ChaosReloaderShotgun_BR_CH7S2_Common<public> := class<final><concrete>(entity):
+
+    ChaosReloaderShotgun_BR_CH7S2_Uncommon<public> := class<final><concrete>(entity):
+
+    ChaosReloaderShotgun_BR_CH7S2_Rare<public> := class<final><concrete>(entity):
+
+    ChaosReloaderShotgun_BR_CH7S2_Epic<public> := class<final><concrete>(entity):
+
+    ChaosReloaderShotgun_BR_CH7S2_Legendary<public> := class<final><concrete>(entity):
+
+    DarkVoyagersObliterator_BR_CH7S2_Mythic<public> := class<final><concrete>(entity):
+
+    ChargeShotgun_BR_CH2S3_Common<public> := class<final><concrete>(entity):
+
+    ChargeShotgun_BR_CH2S3_Uncommon<public> := class<final><concrete>(entity):
+
+    ChargeShotgun_BR_CH2S3_Rare<public> := class<final><concrete>(entity):
+
+    ChargeShotgun_BR_CH2S3_Epic<public> := class<final><concrete>(entity):
+
+    ChargeShotgun_BR_CH2S3_Legendary<public> := class<final><concrete>(entity):
+
+    KitsChargeShotgun_BR_CH2S3_Mythic<public> := class<final><concrete>(entity):
+
+    ChargeSMG_BR_CH3S3_Common<public> := class<final><concrete>(entity):
+
+    ChargeSMG_BR_CH3S3_Uncommon<public> := class<final><concrete>(entity):
+
+    ChargeSMG_BR_CH3S3_Rare<public> := class<final><concrete>(entity):
+
+    ChargeSMG_BR_CH3S3_Epic<public> := class<final><concrete>(entity):
+
+    ChargeSMG_BR_CH3S3_Legendary<public> := class<final><concrete>(entity):
+
+    ChargeSMG_BR_CH3S3_Mythic<public> := class<final><concrete>(entity):
+
+    CobraDMR_BR_CH3S4_Common<public> := class<final><concrete>(entity):
+
+    CobraDMR_BR_CH3S4_Uncommon<public> := class<final><concrete>(entity):
+
+    CobraDMR_BR_CH3S4_Rare<public> := class<final><concrete>(entity):
+
+    CobraDMR_BR_CH3S4_Epic<public> := class<final><concrete>(entity):
+
+    CobraDMR_BR_CH3S4_Legendary<public> := class<final><concrete>(entity):
+
+    CobraDMR_BR_CH3S4_Mythic<public> := class<final><concrete>(entity):
+
+    CollateralDamageAssaultRifle_BR_CH6S2_Common<public> := class<final><concrete>(entity):
+
+    CollateralDamageAssaultRifle_BR_CH6S2_Uncommon<public> := class<final><concrete>(entity):
+
+    CollateralDamageAssaultRifle_BR_CH6S2_Rare<public> := class<final><concrete>(entity):
+
+    CollateralDamageAssaultRifle_BR_CH6S2_Epic<public> := class<final><concrete>(entity):
+
+    CollateralDamageAssaultRifle_BR_CH6S2_Legendary<public> := class<final><concrete>(entity):
+
+    EnhancedCollateralDamageAR_BR_CH6S2_Mythic<public> := class<final><concrete>(entity):
+
+    LawlessTrinityAssaultRifle_BR_CH6S2_Exotic<public> := class<final><concrete>(entity):
+
+    CombatAssaultRifle_BR_CH2S8_Common<public> := class<final><concrete>(entity):
+
+    CombatAssaultRifle_BR_CH2S8_Uncommon<public> := class<final><concrete>(entity):
+
+    CombatAssaultRifle_BR_CH2S8_Rare<public> := class<final><concrete>(entity):
+
+    CombatAssaultRifle_BR_CH2S8_Epic<public> := class<final><concrete>(entity):
+
+    CombatAssaultRifle_BR_CH2S8_Legendary<public> := class<final><concrete>(entity):
+
+    ModularCombatAssaultRifle_BR_CH5S3_Common<public> := class<final><concrete>(entity):
+
+    ModularCombatAssaultRifle_BR_CH5S3_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularCombatAssaultRifle_BR_CH5S3_Rare<public> := class<final><concrete>(entity):
+
+    ModularCombatAssaultRifle_BR_CH5S3_Epic<public> := class<final><concrete>(entity):
+
+    ModularCombatAssaultRifle_BR_CH5S3_Legendary<public> := class<final><concrete>(entity):
+
+    TheMachinistsModularCombatAssaultRifle_BR_CH5S3_Mythic<public> := class<final><concrete>(entity):
+
+    CombatAssaultRifle_BR_CH7S2_Common<public> := class<final><concrete>(entity):
+
+    CombatAssaultRifle_BR_CH7S2_Uncommon<public> := class<final><concrete>(entity):
+
+    CombatAssaultRifle_BR_CH7S2_Rare<public> := class<final><concrete>(entity):
+
+    CombatAssaultRifle_BR_CH7S2_Epic<public> := class<final><concrete>(entity):
+
+    CombatAssaultRifle_BR_CH7S2_Legendary<public> := class<final><concrete>(entity):
+
+    CombatPistol_BR_CH2S8_Common<public> := class<final><concrete>(entity):
+
+    CombatPistol_BR_CH2S8_Uncommon<public> := class<final><concrete>(entity):
+
+    CombatPistol_BR_CH2S8_Rare<public> := class<final><concrete>(entity):
+
+    CombatPistol_BR_CH2S8_Epic<public> := class<final><concrete>(entity):
+
+    CombatPistol_BR_CH2S8_Legendary<public> := class<final><concrete>(entity):
+
+    CombatShotgun_BR_CH1S9_Rare<public> := class<final><concrete>(entity):
+
+    CombatShotgun_BR_CH1S9_Epic<public> := class<final><concrete>(entity):
+
+    CombatShotgun_BR_CH1S9_Legendary<public> := class<final><concrete>(entity):
+
+    CombatShotgun_BR_CH2S8_Uncommon<public> := class<final><concrete>(entity):
+
+    CombatShotgun_BR_CH4S2_Common<public> := class<final><concrete>(entity):
+
+    ModularCombatShotgun_BR_CH5S3_Common<public> := class<final><concrete>(entity):
+
+    ModularCombatShotgun_BR_CH5S3_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularCombatShotgun_BR_CH5S3_Rare<public> := class<final><concrete>(entity):
+
+    ModularCombatShotgun_BR_CH5S3_Epic<public> := class<final><concrete>(entity):
+
+    ModularCombatShotgun_BR_CH5S3_Legendary<public> := class<final><concrete>(entity):
+
+    MegaloDonsModularCombatShotgun_BR_CH5S3_Mythic<public> := class<final><concrete>(entity):
+
+    CombatSMG_BR_CH3S2_Common<public> := class<final><concrete>(entity):
+
+    CombatSMG_BR_CH3S2_Uncommon<public> := class<final><concrete>(entity):
+
+    CombatSMG_BR_CH3S2_Rare<public> := class<final><concrete>(entity):
+
+    CombatSMG_BR_CH3S2_Epic<public> := class<final><concrete>(entity):
+
+    CombatSMG_BR_CH3S2_Legendary<public> := class<final><concrete>(entity):
+
+    CombatSMG_BR_CH3S2_Mythic<public> := class<final><concrete>(entity):
+
+    CompactSMG_BR_CH1S5_Epic<public> := class<final><concrete>(entity):
+
+    CompactSMG_BR_CH1S5_Legendary<public> := class<final><concrete>(entity):
+
+    CompactSMG_BR_CH6MS2_Uncommon<public> := class<final><concrete>(entity):
+
+    CompactSMG_BR_CH6MS2_Rare<public> := class<final><concrete>(entity):
+
+    EnhancedCompactSMG_BR_CH6MS2_Mythic<public> := class<final><concrete>(entity):
+
+    Crossbow_BR_CH1S3_Rare<public> := class<final><concrete>(entity):
+
+    Crossbow_BR_CH1S3_Epic<public> := class<final><concrete>(entity):
+
+    CubeRifle_BR_CH7S2_Epic<public> := class<final><concrete>(entity):
+
+    CubeRifle_BR_CH7S2_Legendary<public> := class<final><concrete>(entity):
+
+    CubeRifle_BR_CH7S2_Mythic<public> := class<final><concrete>(entity):
+
+    CupidsCrossbow_BR_CH1S2_Epic<public> := class<final><concrete>(entity):
+
+    EmpoweredCupidsCrossbow_BR_CH7S1_Mythic<public> := class<final><concrete>(entity):
+
+    DarkVoyagersChaosRifle_BR_CH7S3_Mythic<public> := class<final><concrete>(entity):
+
+    DeadeyeAssaultRifle_BR_CH7S1_Common<public> := class<final><concrete>(entity):
+
+    DeadeyeAssaultRifle_BR_CH7S1_Uncommon<public> := class<final><concrete>(entity):
+
+    DeadeyeAssaultRifle_BR_CH7S1_Rare<public> := class<final><concrete>(entity):
+
+    DeadeyeAssaultRifle_BR_CH7S1_Epic<public> := class<final><concrete>(entity):
+
+    DeadeyeAssaultRifle_BR_CH7S1_Legendary<public> := class<final><concrete>(entity):
+
+    HushsDeadeyeAssaultRifle_BR_CH7S1_Mythic<public> := class<final><concrete>(entity):
+
+    DeadeyeDMR_BR_CH6S3_Common<public> := class<final><concrete>(entity):
+
+    DeadeyeDMR_BR_CH6S3_Uncommon<public> := class<final><concrete>(entity):
+
+    DeadeyeDMR_BR_CH6S3_Rare<public> := class<final><concrete>(entity):
+
+    DeadeyeDMR_BR_CH6S3_Epic<public> := class<final><concrete>(entity):
+
+    DeadeyeDMR_BR_CH6S3_Legendary<public> := class<final><concrete>(entity):
+
+    KorsDeadeyeDMR_BR_CH6S3_Mythic<public> := class<final><concrete>(entity):
+
+    UnstableThunderclapDMR_BR_CH6S3_Exotic<public> := class<final><concrete>(entity):
+
+    DMR_BR_CH3S3_Common<public> := class<final><concrete>(entity):
+
+    DMR_BR_CH3S3_Uncommon<public> := class<final><concrete>(entity):
+
+    DMR_BR_CH3S3_Rare<public> := class<final><concrete>(entity):
+
+    DMR_BR_CH3S3_Epic<public> := class<final><concrete>(entity):
+
+    DMR_BR_CH3S3_Legendary<public> := class<final><concrete>(entity):
+
+    DMR_BR_CH3S3_Mythic<public> := class<final><concrete>(entity):
+
+    Double_BR_CH6S4_Exotic<public> := class<final><concrete>(entity):
+
+    DoubleBarrelShotgun_BR_CH1S5_Epic<public> := class<final><concrete>(entity):
+
+    DoubleBarrelShotgun_BR_CH1S5_Legendary<public> := class<final><concrete>(entity):
+
+    DragonsBreathShotgun_BR_CH6S2_Epic<public> := class<final><concrete>(entity):
+
+    DragonsBreathShotgun_BR_CH6S2_Legendary<public> := class<final><concrete>(entity):
+
+    DragonsBreathSniper_BR_CH2S5_Exotic<public> := class<final><concrete>(entity):
+
+    DragonsBreathShotgun_BR_CH2S5_Epic<public> := class<final><concrete>(entity):
+
+    DragonsBreathShotgun_BR_CH2S5_Legendary<public> := class<final><concrete>(entity):
+
+    DrumGun_BR_CH1S4_Uncommon<public> := class<final><concrete>(entity):
+
+    DrumGun_BR_CH1S4_Rare<public> := class<final><concrete>(entity):
+
+    MidasDrumGun_BR_CH2S2_Mythic<public> := class<final><concrete>(entity):
+
+    JulesDrumGun_BR_CH2S3_Mythic<public> := class<final><concrete>(entity):
+
+    ShadowMidasDrumGun_BR_CH2S4_Mythic<public> := class<final><concrete>(entity):
+
+    ModularDrumGun_BR_CH5S2_Rare<public> := class<final><concrete>(entity):
+
+    ModularDrumGun_BR_CH5S2_Epic<public> := class<final><concrete>(entity):
+
+    ModularDrumGun_BR_CH5S2_Legendary<public> := class<final><concrete>(entity):
+
+    MidasModularDrumGun_BR_CH5S2_Mythic<public> := class<final><concrete>(entity):
+
+    MidasGildedEyeDrumGun_BR_CH6S2_Mythic<public> := class<final><concrete>(entity):
+
+    DrumGun_BR_CH6MS2_Rare<public> := class<final><concrete>(entity):
+
+    DrumGun_BR_CH6MS2_Epic<public> := class<final><concrete>(entity):
+
+    DrumGun_BR_CH6MS2_Legendary<public> := class<final><concrete>(entity):
+
+    DrumGun_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    DrumShotgun_BR_CH1S9_Common<public> := class<final><concrete>(entity):
+
+    DrumShotgun_BR_CH1S9_Uncommon<public> := class<final><concrete>(entity):
+
+    DrumShotgun_BR_CH1S9_Rare<public> := class<final><concrete>(entity):
+
+    DrumShotgun_BR_CH3S2_Epic<public> := class<final><concrete>(entity):
+
+    DrumShotgun_BR_CH3S2_Legendary<public> := class<final><concrete>(entity):
+
+    EnhancedDrumShotgun_BR_CH4S3_Mythic<public> := class<final><concrete>(entity):
+
+    DualFiendHunters_BR_CH2S8_Common<public> := class<final><concrete>(entity):
+
+    DualFiendHunters_BR_CH2S8_Uncommon<public> := class<final><concrete>(entity):
+
+    DualFiendHunters_BR_CH2S8_Rare<public> := class<final><concrete>(entity):
+
+    DualFiendHunters_BR_CH2S8_Epic<public> := class<final><concrete>(entity):
+
+    DualFiendHunters_BR_CH2S8_Legendary<public> := class<final><concrete>(entity):
+
+    DualMicroSMGs_BR_CH5S4_Common<public> := class<final><concrete>(entity):
+
+    DualMicroSMGs_BR_CH5S4_Uncommon<public> := class<final><concrete>(entity):
+
+    DualMicroSMGs_BR_CH5S4_Rare<public> := class<final><concrete>(entity):
+
+    DualMicroSMGs_BR_CH5S4_Epic<public> := class<final><concrete>(entity):
+
+    DualMicroSMGs_BR_CH5S4_Legendary<public> := class<final><concrete>(entity):
+
+    DualMicroSMGs_BR_CH7S1_Common<public> := class<final><concrete>(entity):
+
+    DualMicroSMGs_BR_CH7S1_Uncommon<public> := class<final><concrete>(entity):
+
+    DualMicroSMGs_BR_CH7S1_Rare<public> := class<final><concrete>(entity):
+
+    DualMicroSMGs_BR_CH7S1_Epic<public> := class<final><concrete>(entity):
+
+    DualMicroSMGs_BR_CH7S1_Legendary<public> := class<final><concrete>(entity):
+
+    DualPistols_BR_CH1S4_Rare<public> := class<final><concrete>(entity):
+
+    DualPistols_BR_CH1S4_Epic<public> := class<final><concrete>(entity):
+
+    DualPistols_BR_CH2S6_Common<public> := class<final><concrete>(entity):
+
+    DualPistols_BR_CH2S6_Uncommon<public> := class<final><concrete>(entity):
+
+    DualPistols_BR_CH2S6_Legendary<public> := class<final><concrete>(entity):
+
+    DualSuppressedPistols_BR_CH3S1_Uncommon<public> := class<final><concrete>(entity):
+
+    DualSuppressedPistols_BR_CH3S1_Rare<public> := class<final><concrete>(entity):
+
+    DualSuppressedPistols_BR_CH3S1_Epic<public> := class<final><concrete>(entity):
+
+    DualSuppressedPistols_BR_CH3S1_Legendary<public> := class<final><concrete>(entity):
+
+    EggLauncher_BR_CH1S3_Rare<public> := class<final><concrete>(entity):
+
+    EggLauncher_BR_CH1S3_Epic<public> := class<final><concrete>(entity):
+
+    EggLauncher_BR_CH1S3_Legendary<public> := class<final><concrete>(entity):
+
+    EggLauncher_BR_CH2S6_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularEnforcerAR_BR_CH5S1_Common<public> := class<final><concrete>(entity):
+
+    ModularEnforcerAR_BR_CH5S1_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularEnforcerAR_BR_CH5S1_Rare<public> := class<final><concrete>(entity):
+
+    ModularEnforcerAR_BR_CH5S1_Epic<public> := class<final><concrete>(entity):
+
+    ModularEnforcerAR_BR_CH5S1_Legendary<public> := class<final><concrete>(entity):
+
+    EnforcerAR_BR_CH7S1_Common<public> := class<final><concrete>(entity):
+
+    EnforcerAR_BR_CH7S1_Uncommon<public> := class<final><concrete>(entity):
+
+    EnforcerAR_BR_CH7S1_Rare<public> := class<final><concrete>(entity):
+
+    EnforcerAR_BR_CH7S1_Epic<public> := class<final><concrete>(entity):
+
+    EnforcerAR_BR_CH7S1_Legendary<public> := class<final><concrete>(entity):
+
+    EnforcerAR_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    EvoChromeBurstRifle_BR_CH3S4_Common<public> := class<final><concrete>(entity):
+
+    EvoChromeBurstRifle_BR_CH3S4_Uncommon<public> := class<final><concrete>(entity):
+
+    EvoChromeBurstRifle_BR_CH3S4_Rare<public> := class<final><concrete>(entity):
+
+    EvoChromeBurstRifle_BR_CH3S4_Epic<public> := class<final><concrete>(entity):
+
+    EvoChromeBurstRifle_BR_CH3S4_Legendary<public> := class<final><concrete>(entity):
+
+    EvoChromeBurstRifle_BR_CH3S4_Mythic<public> := class<final><concrete>(entity):
+
+    EvoChromeShotgun_BR_CH3S4_Common<public> := class<final><concrete>(entity):
+
+    EvoChromeShotgun_BR_CH3S4_Uncommon<public> := class<final><concrete>(entity):
+
+    EvoChromeShotgun_BR_CH3S4_Rare<public> := class<final><concrete>(entity):
+
+    EvoChromeShotgun_BR_CH3S4_Epic<public> := class<final><concrete>(entity):
+
+    EvoChromeShotgun_BR_CH3S4_Legendary<public> := class<final><concrete>(entity):
+
+    EvoChromeShotgun_BR_CH3S4_Mythic<public> := class<final><concrete>(entity):
+
+    ExCaliberRifle_BR_CH4S1_Common<public> := class<final><concrete>(entity):
+
+    ExCaliberRifle_BR_CH4S1_Uncommon<public> := class<final><concrete>(entity):
+
+    ExCaliberRifle_BR_CH4S1_Rare<public> := class<final><concrete>(entity):
+
+    ExCaliberRifle_BR_CH4S1_Epic<public> := class<final><concrete>(entity):
+
+    ExCaliberRifle_BR_CH4S1_Legendary<public> := class<final><concrete>(entity):
+
+    TheAgelessChampionsExCaliberRifle_BR_CH4S1_Mythic<public> := class<final><concrete>(entity):
+
+    ExoticLeapingLightningGun_BR_CH7S2_Exotic<public> := class<final><concrete>(entity):
+
+    ExplosiveGooGun_BR_CH3S4_Rare<public> := class<final><concrete>(entity):
+
+    ExplosiveRepeaterRifle_BR_CH4S3_Common<public> := class<final><concrete>(entity):
+
+    ExplosiveRepeaterRifle_BR_CH4S3_Uncommon<public> := class<final><concrete>(entity):
+
+    ExplosiveRepeaterRifle_BR_CH4S3_Rare<public> := class<final><concrete>(entity):
+
+    ExplosiveRepeaterRifle_BR_CH4S3_Epic<public> := class<final><concrete>(entity):
+
+    ExplosiveRepeaterRifle_BR_CH4S3_Legendary<public> := class<final><concrete>(entity):
+
+    ExplosiveRepeaterRifle_BR_CH4S3_Mythic<public> := class<final><concrete>(entity):
+
+    ExtendingFocusShotgun_BR_CH7S3_Common<public> := class<final><concrete>(entity):
+
+    ExtendingFocusShotgun_BR_CH7S3_Uncommon<public> := class<final><concrete>(entity):
+
+    ExtendingFocusShotgun_BR_CH7S3_Rare<public> := class<final><concrete>(entity):
+
+    ExtendingFocusShotgun_BR_CH7S3_Epic<public> := class<final><concrete>(entity):
+
+    ExtendingFocusShotgun_BR_CH7S3_Legendary<public> := class<final><concrete>(entity):
+
+    FalconEyeSniper_BR_CH6S2_Common<public> := class<final><concrete>(entity):
+
+    FalconEyeSniper_BR_CH6S2_Uncommon<public> := class<final><concrete>(entity):
+
+    FalconEyeSniper_BR_CH6S2_Rare<public> := class<final><concrete>(entity):
+
+    FalconEyeSniper_BR_CH6S2_Epic<public> := class<final><concrete>(entity):
+
+    FalconEyeSniper_BR_CH6S2_Legendary<public> := class<final><concrete>(entity):
+
+    EnhancedFalconEyeSniper_BR_CH6S2_Mythic<public> := class<final><concrete>(entity):
+
+    FiendHunterCrossbow_BR_CH1S6_Epic<public> := class<final><concrete>(entity):
+
+    FireOniMask_BR_CH6S1_Epic<public> := class<final><concrete>(entity):
+
+    ShogunXsFireOniMask_BR_CH6S1_Mythic<public> := class<final><concrete>(entity):
+
+    FireworkFlareGun_BR_CH3S3_Rare<public> := class<final><concrete>(entity):
+
+    FlapjackRifle_BR_CH4S3_Common<public> := class<final><concrete>(entity):
+
+    FlapjackRifle_BR_CH4S3_Uncommon<public> := class<final><concrete>(entity):
+
+    FlapjackRifle_BR_CH4S3_Rare<public> := class<final><concrete>(entity):
+
+    FlapjackRifle_BR_CH4S3_Epic<public> := class<final><concrete>(entity):
+
+    FlapjackRifle_BR_CH4S3_Legendary<public> := class<final><concrete>(entity):
+
+    EnhancedFlapJackRifle_BR_CH4S3_Mythic<public> := class<final><concrete>(entity):
+
+    FlareGun_BR_CH2S3_Rare<public> := class<final><concrete>(entity):
+
+    FlashlightPistol_Creative_V1_Rare<public> := class<final><concrete>(entity):
+
+    FlexSMG_BR_CH7S1_Common<public> := class<final><concrete>(entity):
+
+    FlexSMG_BR_CH7S1_Uncommon<public> := class<final><concrete>(entity):
+
+    FlexSMG_BR_CH7S1_Rare<public> := class<final><concrete>(entity):
+
+    FlexSMG_BR_CH7S1_Epic<public> := class<final><concrete>(entity):
+
+    FlexSMG_BR_CH7S1_Legendary<public> := class<final><concrete>(entity):
+
+    BigfootsFlexSMG_BR_CH7S1_Mythic<public> := class<final><concrete>(entity):
+
+    FlintKnockPistol_BR_CH1S8_Common<public> := class<final><concrete>(entity):
+
+    FlintKnockPistol_BR_CH1S8_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularFrenzyAutoShotgun_BR_CH5S1_Common<public> := class<final><concrete>(entity):
+
+    ModularFrenzyAutoShotgun_BR_CH5S1_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularFrenzyAutoShotgun_BR_CH5S1_Rare<public> := class<final><concrete>(entity):
+
+    ModularFrenzyAutoShotgun_BR_CH5S1_Epic<public> := class<final><concrete>(entity):
+
+    ModularFrenzyAutoShotgun_BR_CH5S1_Legendary<public> := class<final><concrete>(entity):
+
+    OscarsModularFrenzyAutoShotgun_BR_CH5S1_Mythic<public> := class<final><concrete>(entity):
+
+    FrenzyAutoShotgun_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    FuryAssaultRifle_BR_CH6S1_Common<public> := class<final><concrete>(entity):
+
+    FuryAssaultRifle_BR_CH6S1_Uncommon<public> := class<final><concrete>(entity):
+
+    FuryAssaultRifle_BR_CH6S1_Rare<public> := class<final><concrete>(entity):
+
+    FuryAssaultRifle_BR_CH6S1_Epic<public> := class<final><concrete>(entity):
+
+    FuryAssaultRifle_BR_CH6S1_Legendary<public> := class<final><concrete>(entity):
+
+    EnhancedFuryAssaultRifle_BR_CH6S1_Mythic<public> := class<final><concrete>(entity):
+
+    EradicatorHopRockFuryAssaultRifle_BR_CH6S4_Exotic<public> := class<final><concrete>(entity):
+
+    ModularGatekeeperShotgun_BR_CH5S2_Common<public> := class<final><concrete>(entity):
+
+    ModularGatekeeperShotgun_BR_CH5S2_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularGatekeeperShotgun_BR_CH5S2_Rare<public> := class<final><concrete>(entity):
+
+    ModularGatekeeperShotgun_BR_CH5S2_Epic<public> := class<final><concrete>(entity):
+
+    ModularGatekeeperShotgun_BR_CH5S2_Legendary<public> := class<final><concrete>(entity):
+
+    CerberusModularGatekeeperShotgun_BR_CH5S2_Mythic<public> := class<final><concrete>(entity):
+
+    GrappleBlade_BR_CH5S1_Epic<public> := class<final><concrete>(entity):
+
+    GrapplerBow_BR_CH2S6_Exotic<public> := class<final><concrete>(entity):
+
+    GrenadeLauncher_BR_PreSeason_Rare<public> := class<final><concrete>(entity):
+
+    GrenadeLauncher_BR_PreSeason_Epic<public> := class<final><concrete>(entity):
+
+    GrenadeLauncher_BR_PreSeason_Legendary<public> := class<final><concrete>(entity):
+
+    GuidedMissile_OG_CH1S3_Epic<public> := class<final><concrete>(entity):
+
+    @deprecated
+    # Deprecated. Please use GuidedMissile_OG_CH1S3_Epic instead.
+    GuidedMissile_BR_CH4MS1_Epic<public> := class<final><concrete>(entity):
+
+    GuidedMissile_OG_CH1S3_Legendary<public> := class<final><concrete>(entity):
+
+    @deprecated
+    # Deprecated. Please use GuidedMissile_OG_CH1S3_Legendary instead.
+    GuidedMissile_BR_CH4MS1_Legendary<public> := class<final><concrete>(entity):
+
+    HammerAssaultRifle_BR_CH3S3_Common<public> := class<final><concrete>(entity):
+
+    HammerAssaultRifle_BR_CH3S3_Uncommon<public> := class<final><concrete>(entity):
+
+    HammerAssaultRifle_BR_CH3S3_Rare<public> := class<final><concrete>(entity):
+
+    HammerAssaultRifle_BR_CH3S3_Epic<public> := class<final><concrete>(entity):
+
+    HammerAssaultRifle_BR_CH3S3_Legendary<public> := class<final><concrete>(entity):
+
+    HammerAssaultRifle_BR_CH3S3_Mythic<public> := class<final><concrete>(entity):
+
+    ModularHammerPumpShotgun_BR_CH5S1_Common<public> := class<final><concrete>(entity):
+
+    ModularHammerPumpShotgun_BR_CH5S1_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularHammerPumpShotgun_BR_CH5S1_Rare<public> := class<final><concrete>(entity):
+
+    ModularHammerPumpShotgun_BR_CH5S1_Epic<public> := class<final><concrete>(entity):
+
+    ModularHammerPumpShotgun_BR_CH5S1_Legendary<public> := class<final><concrete>(entity):
+
+    HammerPumpShotgun_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    HammerRevolver_BR_CH7S2_Uncommon<public> := class<final><concrete>(entity):
+
+    HammerRevolver_BR_CH7S2_Rare<public> := class<final><concrete>(entity):
+
+    HammerRevolver_BR_CH7S2_Epic<public> := class<final><concrete>(entity):
+
+    HammerRevolver_BR_CH7S2_Legendary<public> := class<final><concrete>(entity):
+
+    HammerRevolver_BR_CH7S2_Mythic<public> := class<final><concrete>(entity):
+
+    HandCannon_BR_CH1S3_Epic<public> := class<final><concrete>(entity):
+
+    HandCannon_BR_CH1S3_Legendary<public> := class<final><concrete>(entity):
+
+    HandCannon_BR_CH2S2_Rare<public> := class<final><concrete>(entity):
+
+    ModularHandCannon_BR_CH5S2_Rare<public> := class<final><concrete>(entity):
+
+    ModularHandCannon_BR_CH5S2_Epic<public> := class<final><concrete>(entity):
+
+    ModularHandCannon_BR_CH5S2_Legendary<public> := class<final><concrete>(entity):
+
+    ModularConductorHandCannon_BR_CH5S3_Mythic<public> := class<final><concrete>(entity):
+
+    HandCannon_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    ModularHarbingerSMG_BR_CH5S2_Common<public> := class<final><concrete>(entity):
+
+    ModularHarbingerSMG_BR_CH5S2_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularHarbingerSMG_BR_CH5S2_Rare<public> := class<final><concrete>(entity):
+
+    ModularHarbingerSMG_BR_CH5S2_Epic<public> := class<final><concrete>(entity):
+
+    ModularHarbingerSMG_BR_CH5S2_Legendary<public> := class<final><concrete>(entity):
+
+    HadesModularHarbingerSMG_BR_CH5S2_Mythic<public> := class<final><concrete>(entity):
+
+    HavocPumpShotgun_BR_CH4S2_Common<public> := class<final><concrete>(entity):
+
+    HavocPumpShotgun_BR_CH4S2_Uncommon<public> := class<final><concrete>(entity):
+
+    HavocPumpShotgun_BR_CH4S2_Rare<public> := class<final><concrete>(entity):
+
+    HavocPumpShotgun_BR_CH4S2_Epic<public> := class<final><concrete>(entity):
+
+    HavocPumpShotgun_BR_CH4S2_Legendary<public> := class<final><concrete>(entity):
+
+    EnhancedHavocShotgun_BR_CH4S2_Mythic<public> := class<final><concrete>(entity):
+
+    HavocSuppressedAssaultRifle_BR_CH4S2_Common<public> := class<final><concrete>(entity):
+
+    HavocSuppressedAssaultRifle_BR_CH4S2_Uncommon<public> := class<final><concrete>(entity):
+
+    HavocSuppressedAssaultRifle_BR_CH4S2_Rare<public> := class<final><concrete>(entity):
+
+    HavocSuppressedAssaultRifle_BR_CH4S2_Epic<public> := class<final><concrete>(entity):
+
+    HavocSuppressedAssaultRifle_BR_CH4S2_Legendary<public> := class<final><concrete>(entity):
+
+    HavocSuppressedAssaultRifle_BR_CH4S2_Mythic<public> := class<final><concrete>(entity):
+
+    HighcardsHavocSuppressedRifle_BR_CH4S2_Mythic<public> := class<final><concrete>(entity):
+
+    HeartsHavocSuppressedRifle_BR_CH4S4_Mythic<public> := class<final><concrete>(entity):
+
+    HeavyAssaultRifle_BR_CH1S6_Rare<public> := class<final><concrete>(entity):
+
+    HeavyAssaultRifle_BR_CH1S6_Epic<public> := class<final><concrete>(entity):
+
+    HeavyAssaultRifle_BR_CH1S6_Legendary<public> := class<final><concrete>(entity):
+
+    HeavyAssaultRifle_BR_CH1S8_Common<public> := class<final><concrete>(entity):
+
+    HeavyAssaultRifle_BR_CH1S8_Uncommon<public> := class<final><concrete>(entity):
+
+    HeavyImpactSniperRifle_BR_CH5S3_Rare<public> := class<final><concrete>(entity):
+
+    HeavyImpactSniperRifle_BR_CH5S3_Epic<public> := class<final><concrete>(entity):
+
+    HeavyImpactSniperRifle_BR_CH5S3_Legendary<public> := class<final><concrete>(entity):
+
+    LawlessHeavyImpactTrackingRifle_BR_CH6S2_Exotic<public> := class<final><concrete>(entity):
+
+    LawfulHeavyImpactTrackingRifle_BR_CH7S2_Exotic<public> := class<final><concrete>(entity):
+
+    HeavyShotgun_BR_CH3S1_Common<public> := class<final><concrete>(entity):
+
+    HeavyShotgun_BR_CH3S1_Uncommon<public> := class<final><concrete>(entity):
+
+    HeavyShotgun_BR_CH3S1_Rare<public> := class<final><concrete>(entity):
+
+    HeavyShotgun_BR_CH3S1_Epic<public> := class<final><concrete>(entity):
+
+    HeavyShotgun_BR_CH3S1_Legendary<public> := class<final><concrete>(entity):
+
+    HeistedBreacherShotgun_BR_CH4S1_Exotic<public> := class<final><concrete>(entity):
+
+    HeavyShotgun_OG_CH1S3_Epic<public> := class<final><concrete>(entity):
+
+    HeavyShotgun_OG_CH1S3_Legendary<public> := class<final><concrete>(entity):
+
+    HeavySniperRifle_BR_CH1S5_Epic<public> := class<final><concrete>(entity):
+
+    HeavySniperRifle_BR_CH1S5_Legendary<public> := class<final><concrete>(entity):
+
+    HeavySniperRifle_BR_CH3S3_Mythic<public> := class<final><concrete>(entity):
+
+    HoloRushSMG_BR_CH7S1_Common<public> := class<final><concrete>(entity):
+
+    HoloRushSMG_BR_CH7S1_Uncommon<public> := class<final><concrete>(entity):
+
+    HoloRushSMG_BR_CH7S1_Rare<public> := class<final><concrete>(entity):
+
+    HoloRushSMG_BR_CH7S1_Epic<public> := class<final><concrete>(entity):
+
+    HoloRushSMG_BR_CH7S1_Legendary<public> := class<final><concrete>(entity):
+
+    YuleTroopersHoloRushSMG_BR_CH7S1_Mythic<public> := class<final><concrete>(entity):
+
+    HoloTwisterAssaultRifle_BR_CH6S1_Common<public> := class<final><concrete>(entity):
+
+    HoloTwisterAssaultRifle_BR_CH6S1_Uncommon<public> := class<final><concrete>(entity):
+
+    HoloTwisterAssaultRifle_BR_CH6S1_Rare<public> := class<final><concrete>(entity):
+
+    HoloTwisterAssaultRifle_BR_CH6S1_Epic<public> := class<final><concrete>(entity):
+
+    HoloTwisterAssaultRifle_BR_CH6S1_Legendary<public> := class<final><concrete>(entity):
+
+    EnhancedHoloTwisterAssaultRifle_BR_CH6S1_Mythic<public> := class<final><concrete>(entity):
+
+    HopRockDualies_BR_CH2S5_Exotic<public> := class<final><concrete>(entity):
+
+    HunterBoltActionSniper_BR_CH3S1_Common<public> := class<final><concrete>(entity):
+
+    HunterBoltActionSniper_BR_CH3S1_Uncommon<public> := class<final><concrete>(entity):
+
+    HunterBoltActionSniper_BR_CH3S1_Rare<public> := class<final><concrete>(entity):
+
+    HunterBoltActionSniper_BR_CH3S1_Epic<public> := class<final><concrete>(entity):
+
+    HunterBoltActionSniper_BR_CH3S1_Legendary<public> := class<final><concrete>(entity):
+
+    HuntingRifle_BR_CH1S3_Uncommon<public> := class<final><concrete>(entity):
+
+    HuntingRifle_BR_CH1S3_Rare<public> := class<final><concrete>(entity):
+
+    HuntingRifle_BR_CH2S3_Epic<public> := class<final><concrete>(entity):
+
+    HuntingRifle_BR_CH2S3_Legendary<public> := class<final><concrete>(entity):
+
+    HuntingRifle_BR_CH6S1_Uncommon<public> := class<final><concrete>(entity):
+
+    HuntingRifle_BR_CH6S1_Rare<public> := class<final><concrete>(entity):
+
+    HuntingRifle_BR_CH6S1_Mythic<public> := class<final><concrete>(entity):
+
+    LawlessStinkRifle_BR_CH6S2_Exotic<public> := class<final><concrete>(entity):
+
+    ModularHuntressDMR_BR_CH5S2_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularHuntressDMR_BR_CH5S2_Rare<public> := class<final><concrete>(entity):
+
+    ModularHuntressDMR_BR_CH5S2_Epic<public> := class<final><concrete>(entity):
+
+    ModularHuntressDMR_BR_CH5S2_Legendary<public> := class<final><concrete>(entity):
+
+    ModularZeusHuntressDMR_BR_CH5S2_Mythic<public> := class<final><concrete>(entity):
+
+    HyperburstPistol_BR_CH6S3_Common<public> := class<final><concrete>(entity):
+
+    HyperburstPistol_BR_CH6S3_Uncommon<public> := class<final><concrete>(entity):
+
+    HyperburstPistol_BR_CH6S3_Rare<public> := class<final><concrete>(entity):
+
+    HyperburstPistol_BR_CH6S3_Epic<public> := class<final><concrete>(entity):
+
+    HyperburstPistol_BR_CH6S3_Legendary<public> := class<final><concrete>(entity):
+
+    EnhancedHyperburstPistol_BR_CH6S3_Mythic<public> := class<final><concrete>(entity):
+
+    UnstableVoltageBurstPistol_BR_CH6S3_Exotic<public> := class<final><concrete>(entity):
+
+    ModularHyperSMG_BR_CH5S1_Common<public> := class<final><concrete>(entity):
+
+    ModularHyperSMG_BR_CH5S1_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularHyperSMG_BR_CH5S1_Rare<public> := class<final><concrete>(entity):
+
+    ModularHyperSMG_BR_CH5S1_Epic<public> := class<final><concrete>(entity):
+
+    ModularHyperSMG_BR_CH5S1_Legendary<public> := class<final><concrete>(entity):
+
+    ValeriasModularHyperSMG_BR_CH5S1_Mythic<public> := class<final><concrete>(entity):
+
+    HyperSMG_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    IceKingsGauntlets_BR_CH7S2_Mythic<public> := class<final><concrete>(entity):
+
+    InfantryRifle_BR_CH1S7_Common<public> := class<final><concrete>(entity):
+
+    InfantryRifle_BR_CH1S7_Uncommon<public> := class<final><concrete>(entity):
+
+    InfantryRifle_BR_CH1S7_Rare<public> := class<final><concrete>(entity):
+
+    InfantryRifle_BR_CH1S8_Epic<public> := class<final><concrete>(entity):
+
+    InfantryRifle_BR_CH1S8_Legendary<public> := class<final><concrete>(entity):
+
+    InfantryRifle_BR_CH6MS2_Epic<public> := class<final><concrete>(entity):
+
+    InfantryRifle_BR_CH6MS2_Legendary<public> := class<final><concrete>(entity):
+
+    InfiltratorPumpShotgun_BR_CH4S4_Common<public> := class<final><concrete>(entity):
+
+    InfiltratorPumpShotgun_BR_CH4S4_Uncommon<public> := class<final><concrete>(entity):
+
+    InfiltratorPumpShotgun_BR_CH4S4_Rare<public> := class<final><concrete>(entity):
+
+    InfiltratorPumpShotgun_BR_CH4S4_Epic<public> := class<final><concrete>(entity):
+
+    InfiltratorPumpShotgun_BR_CH4S4_Legendary<public> := class<final><concrete>(entity):
+
+    EnhancedInfiltratorPumpShotgun_BR_CH4S4_Mythic<public> := class<final><concrete>(entity):
+
+    InfinityBlade_BR_CH1S7_Mythic<public> := class<final><concrete>(entity):
+
+    IronPumpShotgun_BR_CH7S1_Common<public> := class<final><concrete>(entity):
+
+    IronPumpShotgun_BR_CH7S1_Uncommon<public> := class<final><concrete>(entity):
+
+    IronPumpShotgun_BR_CH7S1_Rare<public> := class<final><concrete>(entity):
+
+    IronPumpShotgun_BR_CH7S1_Epic<public> := class<final><concrete>(entity):
+
+    IronPumpShotgun_BR_CH7S1_Legendary<public> := class<final><concrete>(entity):
+
+    PinpointIronPumpShotgun_BR_CH7S1_Mythic<public> := class<final><concrete>(entity):
+
+    KillswitchsRevolvers_BR_CH6S3_Mythic<public> := class<final><concrete>(entity):
+
+    KillswitchRevolvers_BR_CH6S3_Rare<public> := class<final><concrete>(entity):
+
+    KillswitchRevolvers_BR_CH6S3_Epic<public> := class<final><concrete>(entity):
+
+    KillswitchRevolvers_BR_CH6S3_Legendary<public> := class<final><concrete>(entity):
+
+    KineticBlade_BR_CH4S2_Rare<public> := class<final><concrete>(entity):
+
+    KineticBlade_BR_CH4S2_Epic<public> := class<final><concrete>(entity):
+
+    ThornesVampiricBlade_BR_CH4S4_Mythic<public> := class<final><concrete>(entity):
+
+    KineticBoomerang_BR_CH4S3_Epic<public> := class<final><concrete>(entity):
+
+    KymeraRayGun_BR_CH2S7_Rare<public> := class<final><concrete>(entity):
+
+    KymeraRayGun_BR_CH2S7_Epic<public> := class<final><concrete>(entity):
+
+    KymeraRayGun_BR_CH2S7_Legendary<public> := class<final><concrete>(entity):
+
+    ZygAndChoppysRayGun_BR_CH2S7_Mythic<public> := class<final><concrete>(entity):
+
+    LawfulAccelerantHoloTwisterAR_BR_CH7S2_Exotic<public> := class<final><concrete>(entity):
+
+    LawfulShockwaveRocketLauncher_BR_CH7S2_Exotic<public> := class<final><concrete>(entity):
+
+    LawlessAccelerantHoloTwisterAR_BR_CH6S2_Exotic<public> := class<final><concrete>(entity):
+
+    LawlessFinalMarkRifle_BR_CH6S2_Exotic<public> := class<final><concrete>(entity):
+
+    LawlessShockwaveRocketLauncher_BR_CH6S2_Exotic<public> := class<final><concrete>(entity):
+
+    Leadspitter3000_BR_CH6S4_Epic<public> := class<final><concrete>(entity):
+
+    Leadspitter3000_BR_CH6S4_Legendary<public> := class<final><concrete>(entity):
+
+    Leadspitter3000_BR_CH6S4_Mythic<public> := class<final><concrete>(entity):
+
+    LeverActionRifle_BR_CH2S5_Uncommon<public> := class<final><concrete>(entity):
+
+    LeverActionRifle_BR_CH2S5_Rare<public> := class<final><concrete>(entity):
+
+    LeverActionRifle_BR_CH2S5_Epic<public> := class<final><concrete>(entity):
+
+    LeverActionRifle_BR_CH2S5_Legendary<public> := class<final><concrete>(entity):
+
+    LeverActionShotgun_BR_CH2S5_Common<public> := class<final><concrete>(entity):
+
+    LeverActionShotgun_BR_CH2S5_Uncommon<public> := class<final><concrete>(entity):
+
+    LeverActionShotgun_BR_CH2S5_Rare<public> := class<final><concrete>(entity):
+
+    LeverActionShotgun_BR_CH2S5_Epic<public> := class<final><concrete>(entity):
+
+    LeverActionShotgun_BR_CH2S5_Legendary<public> := class<final><concrete>(entity):
+
+    LightMachineGun_BR_CH1S3_Rare<public> := class<final><concrete>(entity):
+
+    LightMachineGun_BR_CH1S3_Epic<public> := class<final><concrete>(entity):
+
+    LightMachineGun_BR_CH3S2_Common<public> := class<final><concrete>(entity):
+
+    LightMachineGun_BR_CH3S2_Uncommon<public> := class<final><concrete>(entity):
+
+    LightMachineGun_BR_CH3S2_Legendary<public> := class<final><concrete>(entity):
+
+    LockOnAssaultRifle_BR_CH7S1_Common<public> := class<final><concrete>(entity):
+
+    LockOnAssaultRifle_BR_CH7S1_Uncommon<public> := class<final><concrete>(entity):
+
+    LockOnAssaultRifle_BR_CH7S1_Rare<public> := class<final><concrete>(entity):
+
+    LockOnAssaultRifle_BR_CH7S1_Epic<public> := class<final><concrete>(entity):
+
+    LockOnAssaultRifle_BR_CH7S1_Legendary<public> := class<final><concrete>(entity):
+
+    LockOnPistol_BR_CH4S2_Rare<public> := class<final><concrete>(entity):
+
+    MachinePistol_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    MachineSMG_BR_CH3S1_Common<public> := class<final><concrete>(entity):
+
+    MachineSMG_BR_CH3S1_Uncommon<public> := class<final><concrete>(entity):
+
+    MachineSMG_BR_CH3S1_Rare<public> := class<final><concrete>(entity):
+
+    MachineSMG_BR_CH3S1_Epic<public> := class<final><concrete>(entity):
+
+    MachineSMG_BR_CH3S1_Legendary<public> := class<final><concrete>(entity):
+
+    MakeshiftBow_BR_CH2S6_Uncommon<public> := class<final><concrete>(entity):
+
+    MakeshiftRevolver_BR_CH2S6_Common<public> := class<final><concrete>(entity):
+
+    MakeshiftRevolver_BR_CH2S6_Uncommon<public> := class<final><concrete>(entity):
+
+    MakeshiftRevolver_BR_CH2S6_Rare<public> := class<final><concrete>(entity):
+
+    MakeshiftRifle_BR_CH2S6_Common<public> := class<final><concrete>(entity):
+
+    MakeshiftRifle_BR_CH2S6_Uncommon<public> := class<final><concrete>(entity):
+
+    MakeshiftRifle_BR_CH2S6_Rare<public> := class<final><concrete>(entity):
+
+    MakeshiftShotgun_BR_CH2S6_Common<public> := class<final><concrete>(entity):
+
+    MakeshiftShotgun_BR_CH2S6_Uncommon<public> := class<final><concrete>(entity):
+
+    MakeshiftShotgun_BR_CH2S6_Rare<public> := class<final><concrete>(entity):
+
+    MakeshiftSubmachineGun_BR_CH2S6_Common<public> := class<final><concrete>(entity):
+
+    MakeshiftSubmachineGun_BR_CH2S6_Uncommon<public> := class<final><concrete>(entity):
+
+    MakeshiftSubmachineGun_BR_CH2S6_Rare<public> := class<final><concrete>(entity):
+
+    MammothPistol_BR_CH4S3_Common<public> := class<final><concrete>(entity):
+
+    MammothPistol_BR_CH4S3_Uncommon<public> := class<final><concrete>(entity):
+
+    MammothPistol_BR_CH4S3_Rare<public> := class<final><concrete>(entity):
+
+    MammothPistol_BR_CH4S3_Epic<public> := class<final><concrete>(entity):
+
+    MammothPistol_BR_CH4S3_Legendary<public> := class<final><concrete>(entity):
+
+    BaronsDoubleDownPistol_BR_CH6S2_Mythic<public> := class<final><concrete>(entity):
+
+    LawlessExplosiveMammothPistol_BR_CH6S2_Exotic<public> := class<final><concrete>(entity):
+
+    LawfulExplosiveMammothPistol_BR_CH7S2_Exotic<public> := class<final><concrete>(entity):
+
+    MarksmanSixShooter_BR_CH2S6_Exotic<public> := class<final><concrete>(entity):
+
+    MavenAutoShotgun_BR_CH4S1_Common<public> := class<final><concrete>(entity):
+
+    MavenAutoShotgun_BR_CH4S1_Uncommon<public> := class<final><concrete>(entity):
+
+    MavenAutoShotgun_BR_CH4S1_Rare<public> := class<final><concrete>(entity):
+
+    MavenAutoShotgun_BR_CH4S1_Epic<public> := class<final><concrete>(entity):
+
+    MavenAutoShotgun_BR_CH4S1_Legendary<public> := class<final><concrete>(entity):
+
+    HeistedAccelerantShotgun_BR_CH4S1_Exotic<public> := class<final><concrete>(entity):
+
+    MechanicalBow_BR_CH2S6_Rare<public> := class<final><concrete>(entity):
+
+    MechanicalExplosiveBow_BR_CH2S6_Rare<public> := class<final><concrete>(entity):
+
+    MechanicalExplosiveBow_BR_CH2S6_Epic<public> := class<final><concrete>(entity):
+
+    MechanicalExplosiveBow_BR_CH2S6_Legendary<public> := class<final><concrete>(entity):
+
+    RazsExplosiveBow_BR_CH2S6_Mythic<public> := class<final><concrete>(entity):
+
+    MechanicalShockwaveBow_BR_CH2S6_Rare<public> := class<final><concrete>(entity):
+
+    MechanicalShockwaveBow_BR_CH2S6_Epic<public> := class<final><concrete>(entity):
+
+    MechanicalShockwaveBow_BR_CH2S6_Legendary<public> := class<final><concrete>(entity):
+
+    MeowsclesPeowPeowRifle_BR_CH2S2_Mythic<public> := class<final><concrete>(entity):
+
+    Minigun_BR_CH1S2_Epic<public> := class<final><concrete>(entity):
+
+    Minigun_BR_CH1S2_Legendary<public> := class<final><concrete>(entity):
+
+    BrutusMinigun_BR_CH2S2_Mythic<public> := class<final><concrete>(entity):
+
+    Minigun_BR_CH5S3_Rare<public> := class<final><concrete>(entity):
+
+    MKAlphaAssaultRifle_BR_CH4S2_Common<public> := class<final><concrete>(entity):
+
+    MKAlphaAssaultRifle_BR_CH4S2_Uncommon<public> := class<final><concrete>(entity):
+
+    MKAlphaAssaultRifle_BR_CH4S2_Rare<public> := class<final><concrete>(entity):
+
+    MKAlphaAssaultRifle_BR_CH4S2_Epic<public> := class<final><concrete>(entity):
+
+    MKAlphaAssaultRifle_BR_CH4S2_Legendary<public> := class<final><concrete>(entity):
+
+    MKSevenAssaultRifle_BR_CH3S1_Common<public> := class<final><concrete>(entity):
+
+    MKSevenAssaultRifle_BR_CH3S1_Uncommon<public> := class<final><concrete>(entity):
+
+    MKSevenAssaultRifle_BR_CH3S1_Rare<public> := class<final><concrete>(entity):
+
+    MKSevenAssaultRifle_BR_CH3S1_Epic<public> := class<final><concrete>(entity):
+
+    MKSevenAssaultRifle_BR_CH3S1_Legendary<public> := class<final><concrete>(entity):
+
+    ReliksMKAlphaAssaultRifle_BR_CH4S2_Mythic<public> := class<final><concrete>(entity):
+
+    TheFoundationsMKSevenAssaultRifle_BR_CH3S1_Mythic<public> := class<final><concrete>(entity):
+
+    ModularMonarchPistol_BR_CH5S4_Common<public> := class<final><concrete>(entity):
+
+    ModularMonarchPistol_BR_CH5S4_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularMonarchPistol_BR_CH5S4_Rare<public> := class<final><concrete>(entity):
+
+    ModularMonarchPistol_BR_CH5S4_Epic<public> := class<final><concrete>(entity):
+
+    ModularMonarchPistol_BR_CH5S4_Legendary<public> := class<final><concrete>(entity):
+
+    MystGauntlets_BR_CH6S3_Epic<public> := class<final><concrete>(entity):
+
+    ModularNemesisAR_BR_CH5S1_Common<public> := class<final><concrete>(entity):
+
+    ModularNemesisAR_BR_CH5S1_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularNemesisAR_BR_CH5S1_Rare<public> := class<final><concrete>(entity):
+
+    ModularNemesisAR_BR_CH5S1_Epic<public> := class<final><concrete>(entity):
+
+    ModularNemesisAR_BR_CH5S1_Legendary<public> := class<final><concrete>(entity):
+
+    MontaguesModularNemesisAR_BR_CH5S1_Mythic<public> := class<final><concrete>(entity):
+
+    NemesisAR_BR_CH7S2_Common<public> := class<final><concrete>(entity):
+
+    NemesisAR_BR_CH7S2_Uncommon<public> := class<final><concrete>(entity):
+
+    NemesisAR_BR_CH7S2_Rare<public> := class<final><concrete>(entity):
+
+    NemesisAR_BR_CH7S2_Epic<public> := class<final><concrete>(entity):
+
+    NemesisAR_BR_CH7S2_Legendary<public> := class<final><concrete>(entity):
+
+    NemesisAR_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    NightHawk_BR_CH2S5_Exotic<public> := class<final><concrete>(entity):
+
+    NitroFists_BR_CH5S3_Epic<public> := class<final><concrete>(entity):
+
+    MegaloDonsNitroFists_BR_CH5S3_Mythic<public> := class<final><concrete>(entity):
+
+    OXRRifle_BR_CH6S4_Common<public> := class<final><concrete>(entity):
+
+    OXRRifle_BR_CH6S4_Uncommon<public> := class<final><concrete>(entity):
+
+    OXRRifle_BR_CH6S4_Rare<public> := class<final><concrete>(entity):
+
+    OXRRifle_BR_CH6S4_Epic<public> := class<final><concrete>(entity):
+
+    OXRRifle_BR_CH6S4_Legendary<public> := class<final><concrete>(entity):
+
+    OXRRifle_BR_CH6S4_Mythic<public> := class<final><concrete>(entity):
+
+    OniShotgun_BR_CH6S1_Common<public> := class<final><concrete>(entity):
+
+    OniShotgun_BR_CH6S1_Uncommon<public> := class<final><concrete>(entity):
+
+    OniShotgun_BR_CH6S1_Rare<public> := class<final><concrete>(entity):
+
+    OniShotgun_BR_CH6S1_Epic<public> := class<final><concrete>(entity):
+
+    OniShotgun_BR_CH6S1_Legendary<public> := class<final><concrete>(entity):
+
+    EnhancedOniShotgun_BR_CH6S1_Mythic<public> := class<final><concrete>(entity):
+
+    OrangePaintLauncher_BR_CH2S2_Rare<public> := class<final><concrete>(entity):
+
+    OutlawShotgun_BR_CH6S2_Common<public> := class<final><concrete>(entity):
+
+    OutlawShotgun_BR_CH6S2_Uncommon<public> := class<final><concrete>(entity):
+
+    OutlawShotgun_BR_CH6S2_Rare<public> := class<final><concrete>(entity):
+
+    OutlawShotgun_BR_CH6S2_Epic<public> := class<final><concrete>(entity):
+
+    OutlawShotgun_BR_CH6S2_Legendary<public> := class<final><concrete>(entity):
+
+    EnhancedOutlawShotgun_BR_CH6S2_Mythic<public> := class<final><concrete>(entity):
+
+    UnstableYoinkShotgun_BR_CH6S3_Exotic<public> := class<final><concrete>(entity):
+
+    EradicatorOXRRifle_BR_CH6S4_Exotic<public> := class<final><concrete>(entity):
+
+    Pistol_BR_CH4MS1_Common<public> := class<final><concrete>(entity):
+
+    Pistol_BR_CH4MS1_Uncommon<public> := class<final><concrete>(entity):
+
+    Pistol_BR_CH4MS1_Rare<public> := class<final><concrete>(entity):
+
+    Pistol_BR_CH7S2_Common<public> := class<final><concrete>(entity):
+
+    Pistol_BR_CH7S2_Uncommon<public> := class<final><concrete>(entity):
+
+    Pistol_BR_CH7S2_Rare<public> := class<final><concrete>(entity):
+
+    Pistol_BR_CH7S2_Epic<public> := class<final><concrete>(entity):
+
+    Pistol_BR_CH7S2_Legendary<public> := class<final><concrete>(entity):
+
+    PlasmaBurstLaser_BR_CH6S2_Epic<public> := class<final><concrete>(entity):
+
+    PlasmaCannon_BR_CH2S7_Legendary<public> := class<final><concrete>(entity):
+
+    PrimalBow_BR_CH2S6_Rare<public> := class<final><concrete>(entity):
+
+    PrimalFlameBow_BR_CH2S6_Rare<public> := class<final><concrete>(entity):
+
+    PrimalFlameBow_BR_CH2S6_Epic<public> := class<final><concrete>(entity):
+
+    PrimalFlameBow_BR_CH2S6_Legendary<public> := class<final><concrete>(entity):
+
+    PrimalPistol_BR_CH2S6_Uncommon<public> := class<final><concrete>(entity):
+
+    PrimalPistol_BR_CH2S6_Rare<public> := class<final><concrete>(entity):
+
+    PrimalPistol_BR_CH2S6_Epic<public> := class<final><concrete>(entity):
+
+    PrimalPistol_BR_CH2S6_Legendary<public> := class<final><concrete>(entity):
+
+    PrimalRifle_BR_CH2S6_Uncommon<public> := class<final><concrete>(entity):
+
+    PrimalRifle_BR_CH2S6_Rare<public> := class<final><concrete>(entity):
+
+    PrimalRifle_BR_CH2S6_Epic<public> := class<final><concrete>(entity):
+
+    PrimalRifle_BR_CH2S6_Legendary<public> := class<final><concrete>(entity):
+
+    SpireGuardiansPrimalAssaultRifle_BR_CH2S6_Mythic<public> := class<final><concrete>(entity):
+
+    PrimalShotgun_BR_CH2S6_Uncommon<public> := class<final><concrete>(entity):
+
+    PrimalShotgun_BR_CH2S6_Rare<public> := class<final><concrete>(entity):
+
+    PrimalShotgun_BR_CH2S6_Epic<public> := class<final><concrete>(entity):
+
+    PrimalShotgun_BR_CH2S6_Legendary<public> := class<final><concrete>(entity):
+
+    SpireAssassinsPrimalShotgun_BR_CH2S6_Mythic<public> := class<final><concrete>(entity):
+
+    PrimalSMG_BR_CH2S6_Uncommon<public> := class<final><concrete>(entity):
+
+    PrimalSMG_BR_CH2S6_Rare<public> := class<final><concrete>(entity):
+
+    PrimalSMG_BR_CH2S6_Epic<public> := class<final><concrete>(entity):
+
+    PrimalSMG_BR_CH2S6_Legendary<public> := class<final><concrete>(entity):
+
+    PrimalStinkBow_BR_CH2S6_Rare<public> := class<final><concrete>(entity):
+
+    PrimalStinkBow_BR_CH2S6_Epic<public> := class<final><concrete>(entity):
+
+    PrimalStinkBow_BR_CH2S6_Legendary<public> := class<final><concrete>(entity):
+
+    PrimeShotgun_BR_CH3S3_Common<public> := class<final><concrete>(entity):
+
+    PrimeShotgun_BR_CH3S3_Uncommon<public> := class<final><concrete>(entity):
+
+    PrimeShotgun_BR_CH3S3_Rare<public> := class<final><concrete>(entity):
+
+    PrimeShotgun_BR_CH3S3_Epic<public> := class<final><concrete>(entity):
+
+    PrimeShotgun_BR_CH3S3_Legendary<public> := class<final><concrete>(entity):
+
+    PrimeShotgun_BR_CH3S3_Mythic<public> := class<final><concrete>(entity):
+
+    ProximityGrenadeLauncher_BR_CH1S9_Epic<public> := class<final><concrete>(entity):
+
+    ProximityGrenadeLauncher_BR_CH1S9_Legendary<public> := class<final><concrete>(entity):
+
+    PulseRifle_BR_CH2S7_Rare<public> := class<final><concrete>(entity):
+
+    PulseRifle_BR_CH2S7_Epic<public> := class<final><concrete>(entity):
+
+    PulseRifle_BR_CH2S7_Legendary<public> := class<final><concrete>(entity):
+
+    SlonesPulseRifle_BR_CH2S7_Mythic<public> := class<final><concrete>(entity):
+
+    BurstPulseRifle_BR_CH2S7_Exotic<public> := class<final><concrete>(entity):
+
+    OverclockedPulseRifle_BR_CH4S2_Mythic<public> := class<final><concrete>(entity):
+
+    PulseRifle_BR_CH7S2_Uncommon<public> := class<final><concrete>(entity):
+
+    OverdrivePulseRifle_BR_CH7S2_Exotic<public> := class<final><concrete>(entity):
+
+    PumpDump_BR_CH6S2_Common<public> := class<final><concrete>(entity):
+
+    PumpDump_BR_CH6S2_Uncommon<public> := class<final><concrete>(entity):
+
+    PumpDump_BR_CH6S2_Rare<public> := class<final><concrete>(entity):
+
+    PumpDump_BR_CH6S2_Epic<public> := class<final><concrete>(entity):
+
+    PumpDump_BR_CH6S2_Legendary<public> := class<final><concrete>(entity):
+
+    PumpDump_BR_CH6S2_Mythic<public> := class<final><concrete>(entity):
+
+    LawlessBlinkPumpDump_BR_CH6S2_Exotic<public> := class<final><concrete>(entity):
+
+    PumpkinLauncher_BR_CH1S1_Rare<public> := class<final><concrete>(entity):
+
+    PumpkinLauncher_BR_CH1S1_Epic<public> := class<final><concrete>(entity):
+
+    PumpkinLauncher_BR_CH1S1_Legendary<public> := class<final><concrete>(entity):
+
+    PumpkinLauncher_BR_CH2S1_Uncommon<public> := class<final><concrete>(entity):
+
+    PumpkinLauncher_BR_CH6S4_Rare<public> := class<final><concrete>(entity):
+
+    PumpkinLauncher_BR_CH6S4_Epic<public> := class<final><concrete>(entity):
+
+    PumpkinLauncher_BR_CH6S4_Legendary<public> := class<final><concrete>(entity):
+
+    PumpShotgun_BR_PreSeason_Uncommon<public> := class<final><concrete>(entity):
+
+    PumpShotgun_BR_PreSeason_Rare<public> := class<final><concrete>(entity):
+
+    PumpShotgun_BR_CH1S6_Epic<public> := class<final><concrete>(entity):
+
+    PumpShotgun_BR_CH1S6_Legendary<public> := class<final><concrete>(entity):
+
+    PumpShotgun_BR_CH2S1_Common<public> := class<final><concrete>(entity):
+
+    PumpShotgun_BR_CH4MS1_Common<public> := class<final><concrete>(entity):
+
+    PumpShotgun_BR_CH4MS1_Uncommon<public> := class<final><concrete>(entity):
+
+    PumpShotgun_BR_CH4MS1_Rare<public> := class<final><concrete>(entity):
+
+    PumpShotgun_BR_CH4MS1_Epic<public> := class<final><concrete>(entity):
+
+    PumpShotgun_BR_CH4MS1_Legendary<public> := class<final><concrete>(entity):
+
+    PurplePaintLauncher_BR_CH2S2_Rare<public> := class<final><concrete>(entity):
+
+    QuadLauncher_BR_CH1S6_Epic<public> := class<final><concrete>(entity):
+
+    QuadLauncher_BR_CH1S6_Legendary<public> := class<final><concrete>(entity):
+
+    RailGun_BR_CH2S7_Rare<public> := class<final><concrete>(entity):
+
+    RailGun_BR_CH2S7_Epic<public> := class<final><concrete>(entity):
+
+    RailGun_BR_CH2S7_Legendary<public> := class<final><concrete>(entity):
+
+    RangerAssaultRifle_BR_CH3S1_Common<public> := class<final><concrete>(entity):
+
+    RangerAssaultRifle_BR_CH3S1_Uncommon<public> := class<final><concrete>(entity):
+
+    RangerAssaultRifle_BR_CH3S1_Rare<public> := class<final><concrete>(entity):
+
+    RangerAssaultRifle_BR_CH3S1_Epic<public> := class<final><concrete>(entity):
+
+    RangerAssaultRifle_BR_CH3S1_Legendary<public> := class<final><concrete>(entity):
+
+    RangerAssaultRifle_BR_CH3S1_Mythic<public> := class<final><concrete>(entity):
+
+    ModularRangerPistol_BR_CH5S1_Common<public> := class<final><concrete>(entity):
+
+    ModularRangerPistol_BR_CH5S1_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularRangerPistol_BR_CH5S1_Rare<public> := class<final><concrete>(entity):
+
+    ModularRangerPistol_BR_CH5S1_Epic<public> := class<final><concrete>(entity):
+
+    ModularRangerPistol_BR_CH5S1_Legendary<public> := class<final><concrete>(entity):
+
+    RangerPistol_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    RangerShotgun_BR_CH3S2_Common<public> := class<final><concrete>(entity):
+
+    RangerShotgun_BR_CH3S2_Uncommon<public> := class<final><concrete>(entity):
+
+    RangerShotgun_BR_CH3S2_Rare<public> := class<final><concrete>(entity):
+
+    RangerShotgun_BR_CH3S2_Epic<public> := class<final><concrete>(entity):
+
+    RangerShotgun_BR_CH3S2_Legendary<public> := class<final><concrete>(entity):
+
+    RapidFireSMG_BR_CH2S2_Uncommon<public> := class<final><concrete>(entity):
+
+    RapidFireSMG_BR_CH2S2_Rare<public> := class<final><concrete>(entity):
+
+    RapidFireSMG_BR_CH2S3_Common<public> := class<final><concrete>(entity):
+
+    RapidFireSMG_BR_CH2S3_Epic<public> := class<final><concrete>(entity):
+
+    RapidFireSMG_BR_CH2S3_Legendary<public> := class<final><concrete>(entity):
+
+    RapidFireSMG_BR_CH3S4_Mythic<public> := class<final><concrete>(entity):
+
+    ReacherExtendingShotgun_BR_CH7S3_Mythic<public> := class<final><concrete>(entity):
+
+    ReaperModularSniperRifle_BR_CH5S1_Uncommon<public> := class<final><concrete>(entity):
+
+    ReaperModularSniperRifle_BR_CH5S1_Rare<public> := class<final><concrete>(entity):
+
+    ReaperModularSniperRifle_BR_CH5S1_Epic<public> := class<final><concrete>(entity):
+
+    ReaperModularSniperRifle_BR_CH5S1_Legendary<public> := class<final><concrete>(entity):
+
+    ReaperSniperRifle_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    ExoticReconBow_BR_CH7S2_Exotic<public> := class<final><concrete>(entity):
+
+    ReconScanner_BR_CH2S7_Rare<public> := class<final><concrete>(entity):
+
+    Recycler_BR_CH2S6_Rare<public> := class<final><concrete>(entity):
+
+    Recycler_BR_CH2S6_Epic<public> := class<final><concrete>(entity):
+
+    Recycler_BR_CH2S6_Legendary<public> := class<final><concrete>(entity):
+
+    SpireAssassinsRecycler_BR_CH2S6_Mythic<public> := class<final><concrete>(entity):
+
+    RedEyeAssaultRifle_BR_CH4S1_Common<public> := class<final><concrete>(entity):
+
+    RedEyeAssaultRifle_BR_CH4S1_Uncommon<public> := class<final><concrete>(entity):
+
+    RedEyeAssaultRifle_BR_CH4S1_Rare<public> := class<final><concrete>(entity):
+
+    RedEyeAssaultRifle_BR_CH4S1_Epic<public> := class<final><concrete>(entity):
+
+    RedEyeAssaultRifle_BR_CH4S1_Legendary<public> := class<final><concrete>(entity):
+
+    HeistedExplosiveAssaultRifle_BR_CH4S1_Exotic<public> := class<final><concrete>(entity):
+
+    Revolver_BR_PreSeason_Common<public> := class<final><concrete>(entity):
+
+    Revolver_BR_PreSeason_Uncommon<public> := class<final><concrete>(entity):
+
+    Revolver_BR_PreSeason_Rare<public> := class<final><concrete>(entity):
+
+    Revolver_BR_CH1S9_Epic<public> := class<final><concrete>(entity):
+
+    Revolver_BR_CH1S9_Legendary<public> := class<final><concrete>(entity):
+
+    Revolver_OG_CH1S1_Common<public> := class<final><concrete>(entity):
+
+    @deprecated
+    # Deprecated. Please use Revolver_OG_CH1S1_Common instead.
+    Revolver_BR_CH4MS1_Common<public> := class<final><concrete>(entity):
+
+    Revolver_OG_CH1S1_Uncommon<public> := class<final><concrete>(entity):
+
+    @deprecated
+    # Deprecated. Please use Revolver_OG_CH1S1_Uncommon instead.
+    Revolver_BR_CH4MS1_Uncommon<public> := class<final><concrete>(entity):
+
+    Revolver_OG_CH1S1_Rare<public> := class<final><concrete>(entity):
+
+    @deprecated
+    # Deprecated. Please use Revolver_OG_CH1S1_Rare instead.
+    Revolver_BR_CH4MS1_Rare<public> := class<final><concrete>(entity):
+
+    Revolver_OG_CH1S1_Epic<public> := class<final><concrete>(entity):
+
+    @deprecated
+    # Deprecated. Please use Revolver_OG_CH1S1_Epic instead.
+    Revolver_BR_CH4MS1_Epic<public> := class<final><concrete>(entity):
+
+    Revolver_OG_CH1S1_Legendary<public> := class<final><concrete>(entity):
+
+    @deprecated
+    # Deprecated. Please use Revolver_OG_CH1S1_Legendary instead.
+    Revolver_BR_CH4MS1_Legendary<public> := class<final><concrete>(entity):
+
+    RipsawLauncher_BR_CH3S3_Rare<public> := class<final><concrete>(entity):
+
+    RocketDrill_BR_CH6S2_Epic<public> := class<final><concrete>(entity):
+
+    RocketLauncher_BR_PreSeason_Rare<public> := class<final><concrete>(entity):
+
+    RocketLauncher_BR_PreSeason_Epic<public> := class<final><concrete>(entity):
+
+    RocketLauncher_BR_PreSeason_Legendary<public> := class<final><concrete>(entity):
+
+    RocketLauncher_BR_CH2S1_Common<public> := class<final><concrete>(entity):
+
+    RocketLauncher_BR_CH2S1_Uncommon<public> := class<final><concrete>(entity):
+
+    RocketRam_BR_CH4S4_Rare<public> := class<final><concrete>(entity):
+
+    ScopedAssaultRifle_BR_PreSeason_Uncommon<public> := class<final><concrete>(entity):
+
+    ScopedAssaultRifle_BR_PreSeason_Rare<public> := class<final><concrete>(entity):
+
+    ScopedAssaultRifle_BR_CH2S4_Epic<public> := class<final><concrete>(entity):
+
+    ScopedAssaultRifle_BR_CH2S4_Legendary<public> := class<final><concrete>(entity):
+
+    ScopedBurstSMG_BR_CH4S4_Common<public> := class<final><concrete>(entity):
+
+    ScopedBurstSMG_BR_CH4S4_Uncommon<public> := class<final><concrete>(entity):
+
+    ScopedBurstSMG_BR_CH4S4_Rare<public> := class<final><concrete>(entity):
+
+    ScopedBurstSMG_BR_CH4S4_Epic<public> := class<final><concrete>(entity):
+
+    ScopedBurstSMG_BR_CH4S4_Legendary<public> := class<final><concrete>(entity):
+
+    ThornesScopedBurstSMG_BR_CH4S4_Mythic<public> := class<final><concrete>(entity):
+
+    ScopedRevolver_BR_CH1S7_Epic<public> := class<final><concrete>(entity):
+
+    ScopedRevolver_BR_CH1S7_Legendary<public> := class<final><concrete>(entity):
+
+    SemiAutoPistol_BR_PreSeason_Common<public> := class<final><concrete>(entity):
+
+    SemiAutoPistol_BR_PreSeason_Uncommon<public> := class<final><concrete>(entity):
+
+    SemiAutoPistol_BR_PreSeason_Rare<public> := class<final><concrete>(entity):
+
+    SemiAutoPistol_BR_CH2S1_Epic<public> := class<final><concrete>(entity):
+
+    SemiAutoPistol_BR_CH2S1_Legendary<public> := class<final><concrete>(entity):
+
+    SemiAutoSniperRifle_BR_PreSeason_Uncommon<public> := class<final><concrete>(entity):
+
+    SemiAutoSniperRifle_BR_PreSeason_Rare<public> := class<final><concrete>(entity):
+
+    SemiAutoSniperRifle_BR_CH2S2_Epic<public> := class<final><concrete>(entity):
+
+    SemiAutoSniperRifle_BR_CH2S2_Legendary<public> := class<final><concrete>(entity):
+
+    SemiAutoSuppressedPistol_BR_CH1S2_Rare<public> := class<final><concrete>(entity):
+
+    SemiAutoSuppressedPistol_BR_CH1S2_Epic<public> := class<final><concrete>(entity):
+
+    SemiAutoSuppressedPistol_BR_CH3S1_Uncommon<public> := class<final><concrete>(entity):
+
+    SemiAutoSuppressedPistol_BR_CH3S1_Legendary<public> := class<final><concrete>(entity):
+
+    SentinelPumpShotgun_BR_CH6S1_Common<public> := class<final><concrete>(entity):
+
+    SentinelPumpShotgun_BR_CH6S1_Uncommon<public> := class<final><concrete>(entity):
+
+    SentinelPumpShotgun_BR_CH6S1_Rare<public> := class<final><concrete>(entity):
+
+    SentinelPumpShotgun_BR_CH6S1_Epic<public> := class<final><concrete>(entity):
+
+    SentinelPumpShotgun_BR_CH6S1_Legendary<public> := class<final><concrete>(entity):
+
+    EnhancedSentinelPumpShotgun_BR_CH6S1_Mythic<public> := class<final><concrete>(entity):
+
+    SevenClusterCannon_BR_CH7S2_Epic<public> := class<final><concrete>(entity):
+
+    SevenClusterCannon_BR_CH7S2_Legendary<public> := class<final><concrete>(entity):
+
+    SevenPowerGloves_BR_CH7S2_Epic<public> := class<final><concrete>(entity):
+
+    FoundationsPowerGloves_BR_CH7S2_Mythic<public> := class<final><concrete>(entity):
+
+    ShadowTracker_BR_CH2S5_Exotic<public> := class<final><concrete>(entity):
+
+    SharpToothShotgun_BR_CH4S3_Uncommon<public> := class<final><concrete>(entity):
+
+    SharpToothShotgun_BR_CH4S3_Rare<public> := class<final><concrete>(entity):
+
+    SharpToothShotgun_BR_CH4S3_Epic<public> := class<final><concrete>(entity):
+
+    SharpToothShotgun_BR_CH4S3_Legendary<public> := class<final><concrete>(entity):
+
+    ShockwaveHammer_BR_CH4S1_Epic<public> := class<final><concrete>(entity):
+
+    TheAgelessChampionsShockwaveHammer_BR_CH4S1_Mythic<public> := class<final><concrete>(entity):
+
+    KitsShockwaveLauncher_BR_CH2S3_Mythic<public> := class<final><concrete>(entity):
+
+    ShockwaveLauncher_BR_CH2S8_Legendary<public> := class<final><concrete>(entity):
+
+    ShockwaveLauncher_BR_CH6S4_Epic<public> := class<final><concrete>(entity):
+
+    EradicatorShockNSlowShockwaveLauncher_BR_CH6S4_Exotic<public> := class<final><concrete>(entity):
+
+    SidearmPistol_BR_CH3S1_Common<public> := class<final><concrete>(entity):
+
+    SidearmPistol_BR_CH3S1_Uncommon<public> := class<final><concrete>(entity):
+
+    SidearmPistol_BR_CH3S1_Rare<public> := class<final><concrete>(entity):
+
+    SidearmPistol_BR_CH3S1_Epic<public> := class<final><concrete>(entity):
+
+    SidearmPistol_BR_CH3S1_Legendary<public> := class<final><concrete>(entity):
+
+    SidewaysMinigun_BR_CH2S8_Common<public> := class<final><concrete>(entity):
+
+    SidewaysMinigun_BR_CH2S8_Uncommon<public> := class<final><concrete>(entity):
+
+    SidewaysMinigun_BR_CH2S8_Rare<public> := class<final><concrete>(entity):
+
+    SidewaysMinigun_BR_CH2S8_Epic<public> := class<final><concrete>(entity):
+
+    SidewaysMinigun_BR_CH2S8_Legendary<public> := class<final><concrete>(entity):
+
+    SidewaysMinigun_BR_CH2S8_Mythic<public> := class<final><concrete>(entity):
+
+    SidewaysRifle_BR_CH2S8_Common<public> := class<final><concrete>(entity):
+
+    SidewaysRifle_BR_CH2S8_Uncommon<public> := class<final><concrete>(entity):
+
+    SidewaysRifle_BR_CH2S8_Rare<public> := class<final><concrete>(entity):
+
+    SidewaysRifle_BR_CH2S8_Epic<public> := class<final><concrete>(entity):
+
+    SidewaysRifle_BR_CH2S8_Legendary<public> := class<final><concrete>(entity):
+
+    SidewaysRifle_BR_CH2S8_Mythic<public> := class<final><concrete>(entity):
+
+    SidewaysScythe_BR_CH2S8_Common<public> := class<final><concrete>(entity):
+
+    SidewaysScythe_BR_CH2S8_Uncommon<public> := class<final><concrete>(entity):
+
+    SidewaysScythe_BR_CH2S8_Rare<public> := class<final><concrete>(entity):
+
+    SidewaysScythe_BR_CH2S8_Epic<public> := class<final><concrete>(entity):
+
+    SidewaysScythe_BR_CH2S8_Legendary<public> := class<final><concrete>(entity):
+
+    SidewaysScythe_BR_CH2S8_Mythic<public> := class<final><concrete>(entity):
+
+    SixShooter_BR_CH1S6_Uncommon<public> := class<final><concrete>(entity):
+
+    SixShooter_BR_CH1S6_Rare<public> := class<final><concrete>(entity):
+
+    SixShooter_BR_CH1S6_Epic<public> := class<final><concrete>(entity):
+
+    SixShooter_BR_CH7S1_Legendary<public> := class<final><concrete>(entity):
+
+    SnowballLauncher_BR_CH1S2_Rare<public> := class<final><concrete>(entity):
+
+    SnowballLauncher_BR_CH1S2_Epic<public> := class<final><concrete>(entity):
+
+    SnowballLauncher_BR_CH1S2_Legendary<public> := class<final><concrete>(entity):
+
+    SnowballLauncher_BR_CH2S1_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularSovereignShotgun_BR_CH5S4_Common<public> := class<final><concrete>(entity):
+
+    ModularSovereignShotgun_BR_CH5S4_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularSovereignShotgun_BR_CH5S4_Rare<public> := class<final><concrete>(entity):
+
+    ModularSovereignShotgun_BR_CH5S4_Epic<public> := class<final><concrete>(entity):
+
+    ModularSovereignShotgun_BR_CH5S4_Legendary<public> := class<final><concrete>(entity):
+
+    SovereignShotgun_BR_CH7S1_Common<public> := class<final><concrete>(entity):
+
+    SovereignShotgun_BR_CH7S1_Uncommon<public> := class<final><concrete>(entity):
+
+    SovereignShotgun_BR_CH7S1_Rare<public> := class<final><concrete>(entity):
+
+    SovereignShotgun_BR_CH7S1_Epic<public> := class<final><concrete>(entity):
+
+    SovereignShotgun_BR_CH7S1_Legendary<public> := class<final><concrete>(entity):
+
+    SovereignSniper_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    SpireRifle_BR_CH6S3_Common<public> := class<final><concrete>(entity):
+
+    SpireRifle_BR_CH6S3_Uncommon<public> := class<final><concrete>(entity):
+
+    SpireRifle_BR_CH6S3_Rare<public> := class<final><concrete>(entity):
+
+    SpireRifle_BR_CH6S3_Epic<public> := class<final><concrete>(entity):
+
+    SpireRifle_BR_CH6S3_Legendary<public> := class<final><concrete>(entity):
+
+    EnhancedSpireRifle_BR_CH6S3_Mythic<public> := class<final><concrete>(entity):
+
+    StickyGrenadeLauncher_BR_CH4S4_Epic<public> := class<final><concrete>(entity):
+
+    StickyGrenadeLauncher_BR_CH4S4_Legendary<public> := class<final><concrete>(entity):
+
+    StingerSMG_BR_CH3S1_Common<public> := class<final><concrete>(entity):
+
+    StingerSMG_BR_CH3S1_Uncommon<public> := class<final><concrete>(entity):
+
+    StingerSMG_BR_CH3S1_Rare<public> := class<final><concrete>(entity):
+
+    StingerSMG_BR_CH3S1_Epic<public> := class<final><concrete>(entity):
+
+    StingerSMG_BR_CH3S1_Legendary<public> := class<final><concrete>(entity):
+
+    GunnarsStingerSMG_BR_CH3S1_Mythic<public> := class<final><concrete>(entity):
+
+    StormScout_BR_CH2S5_Exotic<public> := class<final><concrete>(entity):
+
+    StormScoutSniperRifle_BR_CH1S9_Epic<public> := class<final><concrete>(entity):
+
+    StormScoutSniperRifle_BR_CH1S9_Legendary<public> := class<final><concrete>(entity):
+
+    ModularStrikerAR_BR_CH5S1_Common<public> := class<final><concrete>(entity):
+
+    ModularStrikerAR_BR_CH5S1_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularStrikerAR_BR_CH5S1_Rare<public> := class<final><concrete>(entity):
+
+    ModularStrikerAR_BR_CH5S1_Epic<public> := class<final><concrete>(entity):
+
+    ModularStrikerAR_BR_CH5S1_Legendary<public> := class<final><concrete>(entity):
+
+    NishasModularStrikerAR_BR_CH5S1_Mythic<public> := class<final><concrete>(entity):
+
+    StrikerAR_BR_CH6MS2_Common<public> := class<final><concrete>(entity):
+
+    StrikerAR_BR_CH6MS2_Uncommon<public> := class<final><concrete>(entity):
+
+    StrikerAR_BR_CH6MS2_Rare<public> := class<final><concrete>(entity):
+
+    StrikerAR_BR_CH6MS2_Epic<public> := class<final><concrete>(entity):
+
+    StrikerAR_BR_CH6MS2_Legendary<public> := class<final><concrete>(entity):
+
+    StrikerAR_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    StrikerBurstRifle_BR_CH3S2_Common<public> := class<final><concrete>(entity):
+
+    StrikerBurstRifle_BR_CH3S2_Uncommon<public> := class<final><concrete>(entity):
+
+    StrikerBurstRifle_BR_CH3S2_Rare<public> := class<final><concrete>(entity):
+
+    StrikerBurstRifle_BR_CH3S2_Epic<public> := class<final><concrete>(entity):
+
+    StrikerBurstRifle_BR_CH3S2_Legendary<public> := class<final><concrete>(entity):
+
+    StrikerBurstRifle_BR_CH3S2_Mythic<public> := class<final><concrete>(entity):
+
+    SlonesStrikerBurstRifle_BR_CH3S2_Mythic<public> := class<final><concrete>(entity):
+
+    ModularStrikerBurstRifle_BR_CH5S4_Common<public> := class<final><concrete>(entity):
+
+    ModularStrikerBurstRifle_BR_CH5S4_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularStrikerBurstRifle_BR_CH5S4_Rare<public> := class<final><concrete>(entity):
+
+    ModularStrikerBurstRifle_BR_CH5S4_Epic<public> := class<final><concrete>(entity):
+
+    ModularStrikerBurstRifle_BR_CH5S4_Legendary<public> := class<final><concrete>(entity):
+
+    StrikerPumpShotgun_BR_CH3S1_Common<public> := class<final><concrete>(entity):
+
+    StrikerPumpShotgun_BR_CH3S1_Uncommon<public> := class<final><concrete>(entity):
+
+    StrikerPumpShotgun_BR_CH3S1_Rare<public> := class<final><concrete>(entity):
+
+    StrikerPumpShotgun_BR_CH3S1_Epic<public> := class<final><concrete>(entity):
+
+    StrikerPumpShotgun_BR_CH3S1_Legendary<public> := class<final><concrete>(entity):
+
+    StrikerPumpShotgun_BR_CH3S1_Mythic<public> := class<final><concrete>(entity):
+
+    SubmachineGun_BR_CH1S5_Common<public> := class<final><concrete>(entity):
+
+    SubmachineGun_BR_CH1S5_Uncommon<public> := class<final><concrete>(entity):
+
+    SubmachineGun_BR_CH1S5_Rare<public> := class<final><concrete>(entity):
+
+    SubmachineGun_BR_CH2S1_Epic<public> := class<final><concrete>(entity):
+
+    SubmachineGun_BR_CH2S1_Legendary<public> := class<final><concrete>(entity):
+
+    HeistedRunNGunSMG_BR_CH4S1_Exotic<public> := class<final><concrete>(entity):
+
+    SubmachineGun_BR_CH4S2_Epic<public> := class<final><concrete>(entity):
+
+    SubmachineGun_BR_CH4S2_Legendary<public> := class<final><concrete>(entity):
+
+    SubmachineGun_OG_CH1S1_Common<public> := class<final><concrete>(entity):
+
+    @deprecated
+    # Deprecated. Please use SubmachineGun_OG_CH1S1_Common instead.
+    SubmachineGun_BR_CH4MS1_Common<public> := class<final><concrete>(entity):
+
+    SubmachineGun_OG_CH1S1_Uncommon<public> := class<final><concrete>(entity):
+
+    @deprecated
+    # Deprecated. Please use SubmachineGun_OG_CH1S1_Uncommon instead.
+    SubmachineGun_BR_CH4MS1_Uncommon<public> := class<final><concrete>(entity):
+
+    SubmachineGun_OG_CH1S1_Rare<public> := class<final><concrete>(entity):
+
+    @deprecated
+    # Deprecated. Please use SubmachineGun_OG_CH1S1_Rare instead.
+    SubmachineGun_BR_CH4MS1_Rare<public> := class<final><concrete>(entity):
+
+    SuperShredder_BR_CH7S2_Rare<public> := class<final><concrete>(entity):
+
+    SuperShredder_BR_CH7S2_Epic<public> := class<final><concrete>(entity):
+
+    SuperShredder_BR_CH7S2_Legendary<public> := class<final><concrete>(entity):
+
+    SuppressedAssaultRifle_BR_CH1S5_Epic<public> := class<final><concrete>(entity):
+
+    SuppressedAssaultRifle_BR_CH1S5_Legendary<public> := class<final><concrete>(entity):
+
+    SuppressedAssaultRifle_BR_CH2S2_Rare<public> := class<final><concrete>(entity):
+
+    SuppressedAssaultRifle_BR_CH6MS2_Common<public> := class<final><concrete>(entity):
+
+    SuppressedAssaultRifle_BR_CH6MS2_Uncommon<public> := class<final><concrete>(entity):
+
+    SuppressedPistol_BR_CH4S4_Common<public> := class<final><concrete>(entity):
+
+    SuppressedPistol_BR_CH4S4_Uncommon<public> := class<final><concrete>(entity):
+
+    SuppressedPistol_BR_CH4S4_Rare<public> := class<final><concrete>(entity):
+
+    SuppressedPistol_BR_CH4S4_Epic<public> := class<final><concrete>(entity):
+
+    SuppressedPistol_BR_CH4S4_Legendary<public> := class<final><concrete>(entity):
+
+    SuppressedPistol_BR_CH6S2_Mythic<public> := class<final><concrete>(entity):
+
+    SuppressedSniperRifle_BR_CH1S7_Epic<public> := class<final><concrete>(entity):
+
+    SuppressedSniperRifle_BR_CH1S7_Legendary<public> := class<final><concrete>(entity):
+
+    SuppressedSniperRifle_BR_CH2S2_Rare<public> := class<final><concrete>(entity):
+
+    SuppressedSubmachineGun_BR_PreSeason_Common<public> := class<final><concrete>(entity):
+
+    SuppressedSubmachineGun_BR_PreSeason_Uncommon<public> := class<final><concrete>(entity):
+
+    SuppressedSubmachineGun_BR_PreSeason_Rare<public> := class<final><concrete>(entity):
+
+    SuppressedSubmachineGun_BR_CH3S4_Epic<public> := class<final><concrete>(entity):
+
+    SuppressedSubmachineGun_BR_CH3S4_Legendary<public> := class<final><concrete>(entity):
+
+    InkquisitorsSuppressedSMG_BR_CH3S4_Mythic<public> := class<final><concrete>(entity):
+
+    SurgefireSMG_BR_CH6S1_Common<public> := class<final><concrete>(entity):
+
+    SurgefireSMG_BR_CH6S1_Uncommon<public> := class<final><concrete>(entity):
+
+    SurgefireSMG_BR_CH6S1_Rare<public> := class<final><concrete>(entity):
+
+    SurgefireSMG_BR_CH6S1_Epic<public> := class<final><concrete>(entity):
+
+    SurgefireSMG_BR_CH6S1_Legendary<public> := class<final><concrete>(entity):
+
+    EnhancedSurgefireSMG_BR_CH6S1_Mythic<public> := class<final><concrete>(entity):
+
+    VanguardBurstRifle_BR_CH7S3_Common<public> := class<final><concrete>(entity):
+
+    VanguardBurstRifle_BR_CH7S3_Uncommon<public> := class<final><concrete>(entity):
+
+    VanguardBurstRifle_BR_CH7S3_Rare<public> := class<final><concrete>(entity):
+
+    VanguardBurstRifle_BR_CH7S3_Epic<public> := class<final><concrete>(entity):
+
+    VanguardBurstRifle_BR_CH7S3_Legendary<public> := class<final><concrete>(entity):
+
+    Swarmstrike_BR_CH6S4_Epic<public> := class<final><concrete>(entity):
+
+    Swarmstrike_BR_CH6S4_Legendary<public> := class<final><concrete>(entity):
+
+    SweeperShotgun_BR_CH6S4_Common<public> := class<final><concrete>(entity):
+
+    SweeperShotgun_BR_CH6S4_Uncommon<public> := class<final><concrete>(entity):
+
+    SweeperShotgun_BR_CH6S4_Rare<public> := class<final><concrete>(entity):
+
+    SweeperShotgun_BR_CH6S4_Epic<public> := class<final><concrete>(entity):
+
+    SweeperShotgun_BR_CH6S4_Legendary<public> := class<final><concrete>(entity):
+
+    SweeperShotgun_BR_CH6S4_Mythic<public> := class<final><concrete>(entity):
+
+    TacticalAssaultRifle_BR_CH1S9_Rare<public> := class<final><concrete>(entity):
+
+    TacticalAssaultRifle_BR_CH1S9_Epic<public> := class<final><concrete>(entity):
+
+    TacticalAssaultRifle_BR_CH1S9_Legendary<public> := class<final><concrete>(entity):
+
+    TacticalAssaultRifle_BR_CH4S1_Common<public> := class<final><concrete>(entity):
+
+    TacticalAssaultRifle_BR_CH4S1_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularTacticalAssaultRifle_BR_CH5S2_Common<public> := class<final><concrete>(entity):
+
+    ModularTacticalAssaultRifle_BR_CH5S2_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularTacticalAssaultRifle_BR_CH5S2_Rare<public> := class<final><concrete>(entity):
+
+    ModularTacticalAssaultRifle_BR_CH5S2_Epic<public> := class<final><concrete>(entity):
+
+    ModularTacticalAssaultRifle_BR_CH5S2_Legendary<public> := class<final><concrete>(entity):
+
+    TacticalAssaultRifle_BR_CH7S1_Common<public> := class<final><concrete>(entity):
+
+    TacticalAssaultRifle_BR_CH7S1_Uncommon<public> := class<final><concrete>(entity):
+
+    TacticalAssaultRifle_BR_CH7S1_Rare<public> := class<final><concrete>(entity):
+
+    TacticalAssaultRifle_BR_CH7S1_Epic<public> := class<final><concrete>(entity):
+
+    TacticalAssaultRifle_BR_CH7S1_Legendary<public> := class<final><concrete>(entity):
+
+    TacticalDMR_BR_CH4S4_Common<public> := class<final><concrete>(entity):
+
+    TacticalDMR_BR_CH4S4_Uncommon<public> := class<final><concrete>(entity):
+
+    TacticalDMR_BR_CH4S4_Rare<public> := class<final><concrete>(entity):
+
+    TacticalDMR_BR_CH4S4_Epic<public> := class<final><concrete>(entity):
+
+    TacticalDMR_BR_CH4S4_Legendary<public> := class<final><concrete>(entity):
+
+    TacticalPistol_BR_CH4S1_Common<public> := class<final><concrete>(entity):
+
+    TacticalPistol_BR_CH4S1_Uncommon<public> := class<final><concrete>(entity):
+
+    TacticalPistol_BR_CH4S1_Rare<public> := class<final><concrete>(entity):
+
+    TacticalPistol_BR_CH4S1_Epic<public> := class<final><concrete>(entity):
+
+    TacticalPistol_BR_CH4S1_Legendary<public> := class<final><concrete>(entity):
+
+    TacticalPistol_BR_CH4S1_Mythic<public> := class<final><concrete>(entity):
+
+    TacticalPistol_BR_CH7S1_Common<public> := class<final><concrete>(entity):
+
+    TacticalPistol_BR_CH7S1_Uncommon<public> := class<final><concrete>(entity):
+
+    TacticalPistol_BR_CH7S1_Rare<public> := class<final><concrete>(entity):
+
+    TacticalPistol_BR_CH7S1_Epic<public> := class<final><concrete>(entity):
+
+    TacticalPistol_BR_CH7S1_Legendary<public> := class<final><concrete>(entity):
+
+    OverdriveTacticalPistol_BR_CH7S1_Mythic<public> := class<final><concrete>(entity):
+
+    TacticalShotgun_BR_PreSeason_Common<public> := class<final><concrete>(entity):
+
+    TacticalShotgun_BR_PreSeason_Uncommon<public> := class<final><concrete>(entity):
+
+    TacticalShotgun_BR_PreSeason_Rare<public> := class<final><concrete>(entity):
+
+    TacticalShotgun_BR_CH1S9_Epic<public> := class<final><concrete>(entity):
+
+    TacticalShotgun_BR_CH1S9_Legendary<public> := class<final><concrete>(entity):
+
+    TacticalShotgun_BR_CH6MS2_Epic<public> := class<final><concrete>(entity):
+
+    TacticalShotgun_BR_CH6MS2_Legendary<public> := class<final><concrete>(entity):
+
+    TacticalSubmachineGun_BR_PreSeason_Uncommon<public> := class<final><concrete>(entity):
+
+    TacticalSubmachineGun_BR_PreSeason_Rare<public> := class<final><concrete>(entity):
+
+    TacticalSubmachineGun_BR_PreSeason_Epic<public> := class<final><concrete>(entity):
+
+    TacticalSubmachineGun_BR_CH1SX_Legendary<public> := class<final><concrete>(entity):
+
+    TheBigChill_BR_CH2S5_Exotic<public> := class<final><concrete>(entity):
+
+    TheDub_BR_CH2S5_Exotic<public> := class<final><concrete>(entity):
+
+    TheFoundationsRiftRifle_BR_CH7S2_Exotic<public> := class<final><concrete>(entity):
+
+    TheKneecapper_BR_CH6S2_Epic<public> := class<final><concrete>(entity):
+
+    ThermalDMR_BR_CH4S3_Common<public> := class<final><concrete>(entity):
+
+    ThermalDMR_BR_CH4S3_Uncommon<public> := class<final><concrete>(entity):
+
+    ThermalDMR_BR_CH4S3_Rare<public> := class<final><concrete>(entity):
+
+    ThermalDMR_BR_CH4S3_Epic<public> := class<final><concrete>(entity):
+
+    ThermalDMR_BR_CH4S3_Legendary<public> := class<final><concrete>(entity):
+
+    ThermalDMR_BR_CH4S3_Mythic<public> := class<final><concrete>(entity):
+
+    DiamondsThermalDMR_BR_CH4S4_Mythic<public> := class<final><concrete>(entity):
+
+    ThermalScopedAssaultRifle_BR_CH1S4_Epic<public> := class<final><concrete>(entity):
+
+    ThermalScopedAssaultRifle_BR_CH1S4_Legendary<public> := class<final><concrete>(entity):
+
+    HuntmasterSabersThermalRifle_BR_CH3S2_Mythic<public> := class<final><concrete>(entity):
+
+    TheVoidbladesBurstRifle_BR_CH7S3_Mythic<public> := class<final><concrete>(entity):
+
+    ModularThunderBurstSMG_BR_CH5S1_Common<public> := class<final><concrete>(entity):
+
+    ModularThunderBurstSMG_BR_CH5S1_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularThunderBurstSMG_BR_CH5S1_Rare<public> := class<final><concrete>(entity):
+
+    ModularThunderBurstSMG_BR_CH5S1_Epic<public> := class<final><concrete>(entity):
+
+    ModularThunderBurstSMG_BR_CH5S1_Legendary<public> := class<final><concrete>(entity):
+
+    ThunderBurstSMG_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    ThunderShotgun_BR_CH4S1_Common<public> := class<final><concrete>(entity):
+
+    ThunderShotgun_BR_CH4S1_Uncommon<public> := class<final><concrete>(entity):
+
+    ThunderShotgun_BR_CH4S1_Rare<public> := class<final><concrete>(entity):
+
+    ThunderShotgun_BR_CH4S1_Epic<public> := class<final><concrete>(entity):
+
+    ThunderShotgun_BR_CH4S1_Legendary<public> := class<final><concrete>(entity):
+
+    TNTinasKaBoomBow_BR_CH2S2_Mythic<public> := class<final><concrete>(entity):
+
+    TowHookCannon_BR_CH5S3_Rare<public> := class<final><concrete>(entity):
+
+    Trouble_BR_CH6S4_Exotic<public> := class<final><concrete>(entity):
+
+    TwinfireAutoShotgun_BR_CH6S1_Common<public> := class<final><concrete>(entity):
+
+    TwinfireAutoShotgun_BR_CH6S1_Uncommon<public> := class<final><concrete>(entity):
+
+    TwinfireAutoShotgun_BR_CH6S1_Rare<public> := class<final><concrete>(entity):
+
+    TwinfireAutoShotgun_BR_CH6S1_Epic<public> := class<final><concrete>(entity):
+
+    TwinfireAutoShotgun_BR_CH6S1_Legendary<public> := class<final><concrete>(entity):
+
+    EnhancedTwinfireAutoShotgun_BR_CH6S1_Mythic<public> := class<final><concrete>(entity):
+
+    LawlessTwinfireSlapShotgun_BR_CH6S2_Exotic<public> := class<final><concrete>(entity):
+
+    TwinHammerShotguns_BR_CH7S1_Common<public> := class<final><concrete>(entity):
+
+    TwinHammerShotguns_BR_CH7S1_Uncommon<public> := class<final><concrete>(entity):
+
+    TwinHammerShotguns_BR_CH7S1_Rare<public> := class<final><concrete>(entity):
+
+    TwinHammerShotguns_BR_CH7S1_Epic<public> := class<final><concrete>(entity):
+
+    TwinHammerShotguns_BR_CH7S1_Legendary<public> := class<final><concrete>(entity):
+
+    BrutusTwinHammerShotguns_BR_CH7S1_Mythic<public> := class<final><concrete>(entity):
+
+    TwinMagAssaultRifle_BR_CH4S4_Common<public> := class<final><concrete>(entity):
+
+    TwinMagAssaultRifle_BR_CH4S4_Uncommon<public> := class<final><concrete>(entity):
+
+    TwinMagAssaultRifle_BR_CH4S4_Rare<public> := class<final><concrete>(entity):
+
+    TwinMagAssaultRifle_BR_CH4S4_Epic<public> := class<final><concrete>(entity):
+
+    TwinMagAssaultRifle_BR_CH4S4_Legendary<public> := class<final><concrete>(entity):
+
+    TwinMagSMG_BR_CH4S1_Common<public> := class<final><concrete>(entity):
+
+    TwinMagSMG_BR_CH4S1_Uncommon<public> := class<final><concrete>(entity):
+
+    TwinMagSMG_BR_CH4S1_Rare<public> := class<final><concrete>(entity):
+
+    TwinMagSMG_BR_CH4S1_Epic<public> := class<final><concrete>(entity):
+
+    TwinMagSMG_BR_CH4S1_Legendary<public> := class<final><concrete>(entity):
+
+    HeistedBlinkMagSMG_BR_CH4S1_Exotic<public> := class<final><concrete>(entity):
+
+    TwoShotShotgun_BR_CH3S3_Common<public> := class<final><concrete>(entity):
+
+    TwoShotShotgun_BR_CH3S3_Uncommon<public> := class<final><concrete>(entity):
+
+    TwoShotShotgun_BR_CH3S3_Rare<public> := class<final><concrete>(entity):
+
+    TwoShotShotgun_BR_CH3S3_Epic<public> := class<final><concrete>(entity):
+
+    TwoShotShotgun_BR_CH3S3_Legendary<public> := class<final><concrete>(entity):
+
+    TwoShotShotgun_BR_CH3S3_Mythic<public> := class<final><concrete>(entity):
+
+    TyphoonBlade_BR_CH6S1_Epic<public> := class<final><concrete>(entity):
+
+    TyphoonBlade_BR_CH6S1_Mythic<public> := class<final><concrete>(entity):
+
+    UnstableBow_BR_CH2S6_Exotic<public> := class<final><concrete>(entity):
+
+    UnstableFrostfireShotgun_BR_CH6S3_Exotic<public> := class<final><concrete>(entity):
+
+    Vector7DMR_BR_CH7S2_Rare<public> := class<final><concrete>(entity):
+
+    Vector7DMR_BR_CH7S2_Epic<public> := class<final><concrete>(entity):
+
+    Vector7DMR_BR_CH7S2_Legendary<public> := class<final><concrete>(entity):
+
+    VeiledPrecisionSMG_BR_CH6S1_Common<public> := class<final><concrete>(entity):
+
+    VeiledPrecisionSMG_BR_CH6S1_Uncommon<public> := class<final><concrete>(entity):
+
+    VeiledPrecisionSMG_BR_CH6S1_Rare<public> := class<final><concrete>(entity):
+
+    VeiledPrecisionSMG_BR_CH6S1_Epic<public> := class<final><concrete>(entity):
+
+    VeiledPrecisionSMG_BR_CH6S1_Legendary<public> := class<final><concrete>(entity):
+
+    NightRoseVeiledPrecisionSMG_BR_CH6S1_Mythic<public> := class<final><concrete>(entity):
+
+    EradicatorShadowPrecisionSMG_BR_CH6S4_Exotic<public> := class<final><concrete>(entity):
+
+    VeiledPrecisionSMG_Ballistic_V1_Common<public> := class<final><concrete>(entity):
+
+    VengefulSniperRifle_BR_CH7S1_Uncommon<public> := class<final><concrete>(entity):
+
+    VengefulSniperRifle_BR_CH7S1_Rare<public> := class<final><concrete>(entity):
+
+    VengefulSniperRifle_BR_CH7S1_Epic<public> := class<final><concrete>(entity):
+
+    VengefulSniperRifle_BR_CH7S1_Legendary<public> := class<final><concrete>(entity):
+
+    ModularWarforgedAssaultRifle_BR_CH5S2_Common<public> := class<final><concrete>(entity):
+
+    ModularWarforgedAssaultRifle_BR_CH5S2_Uncommon<public> := class<final><concrete>(entity):
+
+    ModularWarforgedAssaultRifle_BR_CH5S2_Rare<public> := class<final><concrete>(entity):
+
+    ModularWarforgedAssaultRifle_BR_CH5S2_Epic<public> := class<final><concrete>(entity):
+
+    ModularWarforgedAssaultRifle_BR_CH5S2_Legendary<public> := class<final><concrete>(entity):
+
+    AresModularWarforgedAssaultRifle_BR_CH5S2_Mythic<public> := class<final><concrete>(entity):
+
+    WoodStakeShotgun_BR_CH4S4_Rare<public> := class<final><concrete>(entity):
+
+    WoodStakeShotgun_BR_CH4S4_Epic<public> := class<final><concrete>(entity):
+
+    WoodStakeShotgun_BR_CH4S4_Legendary<public> := class<final><concrete>(entity):
+
+    HighStakesShotgun_BR_CH4S4_Mythic<public> := class<final><concrete>(entity):
+
+    WreckerRevolver_BR_CH6S4_Common<public> := class<final><concrete>(entity):
+
+    WreckerRevolver_BR_CH6S4_Uncommon<public> := class<final><concrete>(entity):
+
+    WreckerRevolver_BR_CH6S4_Rare<public> := class<final><concrete>(entity):
+
+    WreckerRevolver_BR_CH6S4_Epic<public> := class<final><concrete>(entity):
+
+    WreckerRevolver_BR_CH6S4_Legendary<public> := class<final><concrete>(entity):
+
+    EnhancedWreckerRevolver_BR_CH6S4_Mythic<public> := class<final><concrete>(entity):
+
+    EradicatorMarksmanWreckerRevolver_BR_CH6S4_Exotic<public> := class<final><concrete>(entity):
+
+    Zapotron_OG_CH1S2_Legendary<public> := class<final><concrete>(entity):
+
+    @deprecated
+    # Deprecated. Please use Zapotron_OG_CH1S2_Legendary instead.
+    Zapotron_OG_CH1S1_Legendary<public> := class<final><concrete>(entity):

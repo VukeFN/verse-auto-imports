@@ -313,9 +313,26 @@ export class ProjectPathCache {
     }
 
     /**
+     * Whether a URI points at a generated *.digest.verse file. Digest files are
+     * generated API surface, never project declarations, so they must never
+     * enter this cache regardless of which workspace root they live in. In the
+     * UEFN multi-root workspace the external Assets.digest.verse is reachable by
+     * the workspace-wide .verse watcher; without this guard its regeneration is
+     * re-rooted into the project Content folder, where the scanner then errors
+     * on a nonexistent path.
+     */
+    static isDigestFile(uri: { fsPath: string }): boolean {
+        return uri.fsPath.toLowerCase().endsWith(".digest.verse");
+    }
+
+    /**
      * Handle file change events with debouncing.
      */
     private handleFileChange(uri: vscode.Uri): void {
+        if (ProjectPathCache.isDigestFile(uri)) {
+            return;
+        }
+
         const relativePath = vscode.workspace.asRelativePath(uri, false);
         this.pendingUpdates.add(relativePath);
 
@@ -336,6 +353,10 @@ export class ProjectPathCache {
      * Handle file delete events.
      */
     private handleFileDelete(uri: vscode.Uri): void {
+        if (ProjectPathCache.isDigestFile(uri)) {
+            return;
+        }
+
         const relativePath = vscode.workspace.asRelativePath(uri, false);
 
         if (!this.data) {

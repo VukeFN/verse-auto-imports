@@ -42,6 +42,69 @@ describe("ImportFormatter.isModuleImport", () => {
     });
 });
 
+describe("ImportFormatter.stripTrailingComment", () => {
+    it("removes a line comment and its leading whitespace", () => {
+        expect(ImportFormatter.stripTrailingComment("/Verse.org/Simulation # keep me")).toBe("/Verse.org/Simulation");
+    });
+
+    it("removes a block comment, including the opening angle bracket", () => {
+        expect(ImportFormatter.stripTrailingComment("/Verse.org/Simulation <# keep me #>")).toBe("/Verse.org/Simulation");
+    });
+
+    it("leaves content without a comment untouched apart from trimming", () => {
+        expect(ImportFormatter.stripTrailingComment("  /Verse.org/Simulation  ")).toBe("/Verse.org/Simulation");
+    });
+
+    it("returns an empty string when the content is only a comment", () => {
+        expect(ImportFormatter.stripTrailingComment(" # just a note")).toBe("");
+    });
+});
+
+describe("ImportFormatter trailing comments on import statements", () => {
+    let formatter: ImportFormatter;
+
+    beforeEach(() => {
+        formatter = new ImportFormatter();
+    });
+
+    // A trailing comment used to be captured as part of the path by the greedy
+    // dot-syntax pattern, so re-emitting the import produced
+    // `using { /X # note }` — the `#` opens a line comment that swallows the
+    // closing brace, leaving a statement that no longer parses.
+    it("dot syntax: does not carry a trailing comment into the extracted path", () => {
+        expect(formatter.extractPathFromImport("using. /Verse.org/Simulation # keep me")).toBe("/Verse.org/Simulation");
+    });
+
+    it("braced syntax: does not carry a trailing comment into the extracted path", () => {
+        expect(formatter.extractPathFromImport("using { /Verse.org/Simulation } # keep me")).toBe("/Verse.org/Simulation");
+    });
+
+    it("dot syntax: a trailing block comment is stripped too", () => {
+        expect(formatter.extractPathFromImport("using. /Verse.org/Simulation <# keep me #>")).toBe("/Verse.org/Simulation");
+    });
+
+    it("self-heals an already-corrupted statement with the comment inside the braces", () => {
+        expect(formatter.extractPathFromImport("using { /Verse.org/Simulation # keep me }")).toBe("/Verse.org/Simulation");
+    });
+
+    it("returns null when the statement carries no path, only a comment", () => {
+        expect(formatter.extractPathFromImport("using. # just a note")).toBeNull();
+    });
+
+    it("a rewritten dot-syntax import with a trailing comment emits a well-formed statement", () => {
+        const path = formatter.extractPathFromImport("using. /Verse.org/Simulation # keep me");
+        expect(formatter.groupAndFormatImports([path as string], false, true, "none")).toEqual(["using { /Verse.org/Simulation }"]);
+    });
+
+    it("a trailing comment does not change module-import classification", () => {
+        // Without stripping, the `.` in a comment such as `# see Foo.Bar` made a
+        // bare local-scope using look like a dotted module import.
+        expect(ImportFormatter.isModuleImport("using. Instance # see Foo.Bar")).toBe(false);
+        expect(ImportFormatter.isModuleImport("using. /Verse.org/Simulation # note")).toBe(true);
+        expect(ImportFormatter.isModuleImport("using:", "    Features # note", { atFileScope: true })).toBe(true);
+    });
+});
+
 describe("ImportFormatter.sortImportsByRank", () => {
     let formatter: ImportFormatter;
 

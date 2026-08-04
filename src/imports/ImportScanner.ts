@@ -56,9 +56,12 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
         // as a single entry.
         if (/^using\s*:\s*$/.test(trimmed)) {
             if (nextLine !== undefined && /^\s+\S/.test(nextLine)) {
-                imports.push({ path: nextLine.trim(), startLine: i, endLine: i + 1 });
-                i += 2;
-                continue;
+                const indentedPath = ImportFormatter.stripTrailingComment(nextLine);
+                if (indentedPath) {
+                    imports.push({ path: indentedPath, startLine: i, endLine: i + 1 });
+                    i += 2;
+                    continue;
+                }
             }
             // `using:` without indented content is not a usable import; leave it alone
             i += 1;

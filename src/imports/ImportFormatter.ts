@@ -17,6 +17,29 @@ export interface IsModuleImportOptions {
  */
 export class ImportFormatter {
     /**
+     * Strips a trailing Verse comment from the content of a `using` statement.
+     *
+     * `#` opens a line comment and `<#` opens a block comment. Neither
+     * character is legal in a module path, so everything from the first
+     * comment opener onward is trivia. The path captures are greedy to end of
+     * line, so without this a trailing comment is captured as part of the path
+     * and re-emitted inside the braces — `using { /X # note }`, where the
+     * comment swallows the closing brace and the statement no longer parses.
+     *
+     * @param content The captured content of a `using` statement
+     * @returns The content with any trailing comment removed, trimmed
+     */
+    static stripTrailingComment(content: string): string {
+        const hashIndex = content.indexOf("#");
+        if (hashIndex === -1) {
+            return content.trim();
+        }
+        // For a `<#` block comment the `<` opens the comment, not the path.
+        const commentStart = hashIndex > 0 && content[hashIndex - 1] === "<" ? hashIndex - 1 : hashIndex;
+        return content.slice(0, commentStart).trim();
+    }
+
+    /**
      * Determines if a line is a module import (as opposed to a local-scope `using`).
      *
      * `using` has two meanings in Verse:
@@ -77,7 +100,7 @@ export class ImportFormatter {
         // Content is on the next line — use nextLine for content-based detection.
         if (/^using\s*:\s*$/.test(trimmed)) {
             if (nextLine !== undefined) {
-                return isModuleImportContent(nextLine.trim());
+                return isModuleImportContent(ImportFormatter.stripTrailingComment(nextLine));
             }
             // Without next line context, conservatively assume module import
             return true;
@@ -86,13 +109,13 @@ export class ImportFormatter {
         // Dotted style: using. <content>
         const dotMatch = trimmed.match(/^using\.\s+(.+)/);
         if (dotMatch) {
-            return isModuleImportContent(dotMatch[1].trim());
+            return isModuleImportContent(ImportFormatter.stripTrailingComment(dotMatch[1]));
         }
 
         // Braced style: using { /path } or using{Variable}
         const curlyMatch = trimmed.match(/^using\s*\{\s*([^}]+)\s*\}/);
         if (curlyMatch) {
-            return isModuleImportContent(curlyMatch[1].trim());
+            return isModuleImportContent(ImportFormatter.stripTrailingComment(curlyMatch[1]));
         }
 
         return false;
@@ -110,18 +133,21 @@ export class ImportFormatter {
     /**
      * Extracts the module path from an import statement.
      * Handles both curly syntax (using { /path }) and dot syntax (using. /path).
+     * A trailing comment is stripped, so the returned path never carries trivia
+     * that would corrupt the statement when it is re-emitted.
      * @param importStatement The full import statement
-     * @returns The extracted path or null if not found
+     * @returns The extracted path, or null if there is none (including a
+     *   statement whose content is nothing but a comment)
      */
     extractPathFromImport(importStatement: string): string | null {
         const curlyMatch = importStatement.match(/using\s*\{\s*([^}]+)\s*\}/);
         if (curlyMatch) {
-            return curlyMatch[1].trim();
+            return ImportFormatter.stripTrailingComment(curlyMatch[1]) || null;
         }
 
         const dotMatch = importStatement.match(/using\.\s*(.+)/);
         if (dotMatch) {
-            return dotMatch[1].trim();
+            return ImportFormatter.stripTrailingComment(dotMatch[1]) || null;
         }
 
         return null;

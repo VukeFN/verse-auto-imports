@@ -81,11 +81,12 @@ export class ImportPathConverter {
         return new RegExp(`\\b${escaped}(?:'[^']*')?\\s*(?:<\\s*(?:public|private|internal|protected)\\s*>)?\\s*:=\\s*module\\s*[:>]`, "m");
     }
 
-    /** Extracts the path string from an import statement */
+    /** Extracts the path string from an import statement, minus any trailing comment */
     private extractPathFromImport(importStatement: string): string {
         const curlyMatch = importStatement.match(/using\s*\{\s*([^}]+)\s*\}/);
         const dotMatch = importStatement.match(/using\.\s*(.+)/);
-        return curlyMatch ? curlyMatch[1].trim() : dotMatch ? dotMatch[1].trim() : "";
+        const captured = curlyMatch ? curlyMatch[1] : dotMatch ? dotMatch[1] : "";
+        return ImportFormatter.stripTrailingComment(captured);
     }
 
     /** Checks if an import is already in full path format */

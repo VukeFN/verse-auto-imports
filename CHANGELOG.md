@@ -8,6 +8,10 @@ Where an entry resolves a tracked issue, it ends with a `[#N]` reference linked 
 
 ## [Unreleased]
 
+### Fixed
+
+- **CRLF Files Keep Their Line Endings**: editing imports in a file saved with Windows line endings no longer mixes CRLF and LF. The writers split the document on `\n` and rejoined with `\n`, so every rewritten import line came back LF-only while the untouched body lines kept their carriage returns. Because the rebuilt text could then never equal the original, the "nothing changed" check in **Optimize Imports** never matched, and the command replaced and saved the whole document on every invocation — a full-file diff each time. Imports, the blank line after the import block, and the document body are now written with the line ending the file already uses ([#139])
+
 ## [0.8.0] - 2026-08-04
 
 ### Added
@@ -328,3 +332,4 @@ See [GitHub Releases](https://github.com/VukeFN/verse-auto-imports/releases) for
 [#97]: https://github.com/VukeFN/verse-auto-imports/issues/97
 [#120]: https://github.com/VukeFN/verse-auto-imports/issues/120
 [#121]: https://github.com/VukeFN/verse-auto-imports/issues/121
+[#139]: https://github.com/VukeFN/verse-auto-imports/issues/139

@@ -10,6 +10,39 @@ interface ImportBlock {
     imports: ScannedImport[];
 }
 
+/** The line ending a document is written with. */
+export type LineEnding = "\r\n" | "\n";
+
+/** Splits text into lines without keeping the carriage return of a CRLF pair. */
+const LINE_SPLIT = /\r?\n/;
+
+/**
+ * Detects the dominant line ending of a text, or null when it has no line
+ * break at all and therefore carries no evidence either way.
+ *
+ * Every writer joins with this rather than a hardcoded "\n": on Windows
+ * `files.eol` resolves to CRLF, so joining with LF produces a mixed-ending
+ * buffer and, because the rebuilt text can then never equal the original,
+ * defeats the `organized === text` short-circuit in organizeImports.
+ *
+ * The text is the authority, not TextDocument.eol: the two can disagree, and
+ * only matching what is actually in the buffer keeps a rebuild idempotent.
+ */
+export function detectEol(text: string): LineEnding | null {
+    const crlf = (text.match(/\r\n/g) ?? []).length;
+    const lf = (text.match(/\n/g) ?? []).length - crlf;
+    if (crlf === 0 && lf === 0) {
+        return null;
+    }
+    // A tie means the text is already mixed; LF is the portable choice.
+    return crlf > lf ? "\r\n" : "\n";
+}
+
+/** The line ending VS Code writes new lines with in this document. */
+function documentEol(document: vscode.TextDocument): LineEnding {
+    return document.eol === vscode.EndOfLine.CRLF ? "\r\n" : "\n";
+}
+
 /**
  * Handles all document modifications for imports.
  */
@@ -26,7 +59,15 @@ export class ImportDocumentEditor {
     /**
      * Creates an edit to replace an import block with combined and formatted imports.
      */
-    private createBlockReplacementEdit(edit: vscode.WorkspaceEdit, document: vscode.TextDocument, block: ImportBlock, newPaths: string[], preferDotSyntax: boolean, sortAlphabetically: boolean): void {
+    private createBlockReplacementEdit(
+        edit: vscode.WorkspaceEdit,
+        document: vscode.TextDocument,
+        block: ImportBlock,
+        newPaths: string[],
+        preferDotSyntax: boolean,
+        sortAlphabetically: boolean,
+        eol: LineEnding,
+    ): void {
         // Get existing paths in this block for combined sorting
         const existingBlockPaths = block.imports.map((imp) => imp.path);
 
@@ -39,7 +80,7 @@ export class ImportDocumentEditor {
         const formattedImports = combinedPaths.map((path) => this.formatter.formatImportStatement(path, preferDotSyntax));
 
         // Replace the entire block
-        edit.replace(document.uri, new vscode.Range(new vscode.Position(block.start, 0), new vscode.Position(block.end + 1, 0)), formattedImports.join("\n") + "\n");
+        edit.replace(document.uri, new vscode.Range(new vscode.Position(block.start, 0), new vscode.Position(block.end + 1, 0)), formattedImports.join(eol) + eol);
     }
 
     /**
@@ -48,7 +89,7 @@ export class ImportDocumentEditor {
      */
     extractExistingImports(document: vscode.TextDocument): string[] {
         logger.debug("ImportDocumentEditor", "Extracting existing imports from document");
-        const lines = document.getText().split("\n");
+        const lines = document.getText().split(LINE_SPLIT);
         const imports = new Set<string>();
 
         for (const imp of scanModuleImports(lines)) {
@@ -82,7 +123,8 @@ export class ImportDocumentEditor {
         });
 
         const text = document.getText();
-        const lines = text.split("\n");
+        const eol = detectEol(text) ?? documentEol(document);
+        const lines = text.split(LINE_SPLIT);
         const scannedImports = scanModuleImports(lines);
 
         const importBlocks: ImportBlock[] = [];
@@ -163,12 +205,12 @@ export class ImportDocumentEditor {
 
                 // Add digest imports to digest block
                 if (newDigestPaths.length > 0 && digestBlockIndex >= 0) {
-                    this.createBlockReplacementEdit(edit, document, importBlocks[digestBlockIndex], newDigestPaths, preferDotSyntax, sortAlphabetically);
+                    this.createBlockReplacementEdit(edit, document, importBlocks[digestBlockIndex], newDigestPaths, preferDotSyntax, sortAlphabetically, eol);
                 }
 
                 // Add local imports to local block
                 if (newLocalPaths.length > 0 && localBlockIndex >= 0) {
-                    this.createBlockReplacementEdit(edit, document, importBlocks[localBlockIndex], newLocalPaths, preferDotSyntax, sortAlphabetically);
+                    this.createBlockReplacementEdit(edit, document, importBlocks[localBlockIndex], newLocalPaths, preferDotSyntax, sortAlphabetically, eol);
                 }
 
                 // Handle imports that don't have a matching block
@@ -181,9 +223,9 @@ export class ImportDocumentEditor {
 
                     // Add unhandled imports at the appropriate position
                     if (importBlocks.length > 0) {
-                        edit.insert(document.uri, new vscode.Position(importBlocks[importBlocks.length - 1].end + 1, 0), unhandledImports.join("\n") + "\n");
+                        edit.insert(document.uri, new vscode.Position(importBlocks[importBlocks.length - 1].end + 1, 0), unhandledImports.join(eol) + eol);
                     } else {
-                        edit.insert(document.uri, new vscode.Position(0, 0), unhandledImports.join("\n") + "\n\n");
+                        edit.insert(document.uri, new vscode.Position(0, 0), unhandledImports.join(eol) + eol + eol);
                     }
                 }
             } else {
@@ -201,7 +243,7 @@ export class ImportDocumentEditor {
                         // branch only sees one block when grouping != "none", since 2+
                         // gapped blocks are handled by the hasGrouping branch above).
                         const firstBlock = importBlocks[0];
-                        edit.replace(document.uri, new vscode.Range(new vscode.Position(firstBlock.start, 0), new vscode.Position(firstBlock.end + 1, 0)), groupedImports.join("\n") + "\n");
+                        edit.replace(document.uri, new vscode.Range(new vscode.Position(firstBlock.start, 0), new vscode.Position(firstBlock.end + 1, 0)), groupedImports.join(eol) + eol);
 
                         for (let i = importBlocks.length - 1; i >= 1; i--) {
                             const block = importBlocks[i];
@@ -209,7 +251,7 @@ export class ImportDocumentEditor {
                         }
                     } else {
                         // No existing imports - insert grouped imports at the top
-                        edit.insert(document.uri, new vscode.Position(0, 0), groupedImports.join("\n") + "\n\n");
+                        edit.insert(document.uri, new vscode.Position(0, 0), groupedImports.join(eol) + eol + eol);
                     }
                 } else {
                     // No grouping or no existing imports - use original behavior
@@ -224,7 +266,7 @@ export class ImportDocumentEditor {
                         // `using { Features }` below a consumer such as
                         // `using { Economy.Shop }`, which breaks Verse's
                         // top-down using resolution.
-                        this.createBlockReplacementEdit(edit, document, importBlocks[0], newImportPathsArray, preferDotSyntax, true);
+                        this.createBlockReplacementEdit(edit, document, importBlocks[0], newImportPathsArray, preferDotSyntax, true, eol);
                     } else {
                         // Sorting off or no existing block: keep the original
                         // append-in-place behavior and leave existing lines
@@ -232,9 +274,9 @@ export class ImportDocumentEditor {
                         const newImports = this.formatter.groupAndFormatImports(newImportPathsArray, preferDotSyntax, sortAlphabetically, importGrouping);
 
                         if (importBlocks.length > 0 && importBlocks[0].start === 0) {
-                            edit.insert(document.uri, new vscode.Position(importBlocks[0].end + 1, 0), newImports.join("\n") + "\n");
+                            edit.insert(document.uri, new vscode.Position(importBlocks[0].end + 1, 0), newImports.join(eol) + eol);
                         } else {
-                            edit.insert(document.uri, new vscode.Position(0, 0), newImports.join("\n") + "\n\n");
+                            edit.insert(document.uri, new vscode.Position(0, 0), newImports.join(eol) + eol + eol);
                         }
                     }
                 }
@@ -248,7 +290,7 @@ export class ImportDocumentEditor {
             const formattedImports = this.formatter.groupAndFormatImports(allImportsArray, preferDotSyntax, sortAlphabetically, importGrouping);
 
             // Insert imports at top with minimal spacing (will be fixed by ensureEmptyLinesAfterImports)
-            const importsText = formattedImports.join("\n") + "\n";
+            const importsText = formattedImports.join(eol) + eol;
             edit.insert(document.uri, new vscode.Position(0, 0), importsText);
 
             // Remove existing import blocks (in reverse order to maintain line numbers)
@@ -282,6 +324,10 @@ export class ImportDocumentEditor {
      * (`using:` plus the indented path on the next line). Local-scope `using`
      * statements are left where they are. Returns null when the document has
      * no module imports and no additional paths (nothing to organize).
+     *
+     * The result keeps the text's own line ending, so rebuilding an already
+     * organized document reproduces it byte for byte and organizeImports can
+     * skip the edit.
      */
     buildOrganizedContent(
         text: string,
@@ -290,9 +336,12 @@ export class ImportDocumentEditor {
             preferDotSyntax: boolean;
             sortAlphabetically: boolean;
             importGrouping: string;
+            /** Line ending to use when the text has no line break to detect one from. */
+            fallbackEol?: LineEnding;
         },
     ): string | null {
-        const lines = text.split("\n");
+        const eol = detectEol(text) ?? options.fallbackEol ?? "\n";
+        const lines = text.split(LINE_SPLIT);
         const scannedImports = scanModuleImports(lines);
 
         const paths = scannedImports.map((imp) => imp.path);
@@ -321,10 +370,10 @@ export class ImportDocumentEditor {
         const remainingBody = body.slice(firstContent);
 
         if (remainingBody.length === 0) {
-            return formatted.join("\n") + "\n";
+            return formatted.join(eol) + eol;
         }
 
-        return [...formatted, "", ...remainingBody].join("\n");
+        return [...formatted, "", ...remainingBody].join(eol);
     }
 
     /**
@@ -344,6 +393,7 @@ export class ImportDocumentEditor {
             preferDotSyntax,
             sortAlphabetically,
             importGrouping,
+            fallbackEol: documentEol(document),
         });
 
         if (organized === null || organized === text) {
@@ -381,7 +431,8 @@ export class ImportDocumentEditor {
         logger.debug("ImportDocumentEditor", `Ensuring ${emptyLinesAfterImports} empty lines after imports`);
 
         const text = document.getText();
-        const lines = text.split("\n");
+        const eol = detectEol(text) ?? documentEol(document);
+        const lines = text.split(LINE_SPLIT);
 
         // Find the last file-level import (module imports only: not local-scope
         // using, and not module-scoped imports inside module bodies)
@@ -431,7 +482,7 @@ export class ImportDocumentEditor {
 
         if (lineDifference > 0) {
             // Need to add empty lines
-            const newLines = "\n".repeat(lineDifference);
+            const newLines = eol.repeat(lineDifference);
             const insertPosition = new vscode.Position(lastImportLine + 1, 0);
             edit.insert(document.uri, insertPosition, newLines);
             logger.info("ImportDocumentEditor", `Adding ${lineDifference} empty lines after imports`);

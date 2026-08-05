@@ -75,7 +75,6 @@ const workspace = {
     applyEdit: jest.fn().mockResolvedValue(true),
     workspaceFolders: undefined as { uri: { fsPath: string }; name: string; index: number }[] | undefined,
     findFiles: jest.fn().mockResolvedValue([]),
-    asRelativePath: jest.fn().mockImplementation((uri: { fsPath: string } | string) => (typeof uri === "string" ? uri : uri.fsPath)),
     createFileSystemWatcher: jest.fn().mockImplementation(() => createFileSystemWatcherStub()),
 };
 

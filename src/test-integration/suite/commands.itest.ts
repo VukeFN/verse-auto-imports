@@ -6,17 +6,6 @@ function globalAutoImport(): boolean | undefined {
     return vscode.workspace.getConfiguration("verseAutoImports").inspect<boolean>("general.autoImport")?.globalValue;
 }
 
-async function waitForGlobalAutoImport(expected: boolean, timeoutMs: number = 3000): Promise<void> {
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-        if (globalAutoImport() === expected) {
-            return;
-        }
-        await sleep(50);
-    }
-    throw new Error(`general.autoImport globalValue did not become ${expected} within ${timeoutMs}ms (currently ${globalAutoImport()})`);
-}
-
 describe("commands and snooze (playbook T7/T8)", () => {
     before(async () => {
         // Guarantees activation so all commands are registered.
@@ -57,19 +46,25 @@ describe("commands and snooze (playbook T7/T8)", () => {
         await vscode.commands.executeCommand("verseAutoImports.rebuildPathCache");
     });
 
-    it("T8: snooze disables auto-import globally; re-snoozing stays coherent; cancel restores", async () => {
+    // Regression (#132): the snooze used to write general.autoImport: false
+    // into global user settings, so a reload during the snooze left auto-import
+    // off permanently. Snooze state is now in-memory and settings stay clean.
+    it("T8: snooze leaves user settings untouched; re-snoozing stays coherent; cancel is clean", async () => {
+        const before = globalAutoImport();
         try {
             await vscode.commands.executeCommand("verseAutoImports.snoozeAutoImport");
-            await waitForGlobalAutoImport(false);
+            await sleep(300);
+            assert.strictEqual(globalAutoImport(), before, "snooze must not write general.autoImport to user settings");
 
             // Re-invoking while already snoozed must not corrupt the state
-            // (single timer per the 0.6.x snooze fix); the setting stays off.
+            // (single timer per the 0.6.x snooze fix).
             await vscode.commands.executeCommand("verseAutoImports.snoozeAutoImport");
             await sleep(300);
-            assert.strictEqual(globalAutoImport(), false, "auto-import must stay disabled while snoozed");
+            assert.strictEqual(globalAutoImport(), before, "re-snoozing must not write general.autoImport either");
 
             await vscode.commands.executeCommand("verseAutoImports.cancelSnooze");
-            await waitForGlobalAutoImport(true);
+            await sleep(300);
+            assert.strictEqual(globalAutoImport(), before, "cancelling must not write general.autoImport either");
         } finally {
             // Never leak a snoozed state into later suites: cancel again and
             // clear the global override so the default (true) applies.

@@ -161,7 +161,16 @@ live digest emits `<scoped {...}>` specifiers and instance declarations).
        while already snoozing; countdown stays coherent (single timer), and
        cancel/expiry restores the normal state. Watch Debug channel for
        duplicate-interval evidence.
-3. [ ] Enable auto-imports mid-snooze: snooze cancels automatically.
+3. [ ] Disable then re-enable auto-imports mid-snooze: snooze cancels
+       automatically on the re-enable. The snooze itself never flips the
+       setting, so before you touch it the Auto Import row reads
+       "Snoozed (M:SS)" with its checkbox still ticked.
+4. [ ] #132: snooze, then reload the window inside the 5 minutes. Auto-import
+       must work again immediately, and settings.json must hold no
+       verseAutoImports.general.autoImport entry.
+5. [ ] #132: trigger a diagnostic and snooze within the debounce window
+       (general.autoImportDebounceDelay, 3s by default) before the import
+       lands. Nothing is imported.
 
 ### T9 -- book-construct validation (fixtures: T9/) [gates #65 and #71]
 

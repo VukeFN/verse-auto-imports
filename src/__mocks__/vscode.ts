@@ -70,6 +70,10 @@ const window = {
     setStatusBarMessage: jest.fn(),
 };
 
+const languages = {
+    getDiagnostics: jest.fn().mockReturnValue([]),
+};
+
 const DiagnosticSeverity = {
     Error: 0,
     Warning: 1,
@@ -88,4 +92,9 @@ const ConfigurationTarget = {
     WorkspaceFolder: 3,
 };
 
-export { workspace, window, DiagnosticSeverity, StatusBarAlignment, ConfigurationTarget, Position, Range, WorkspaceEdit };
+const EndOfLine = {
+    LF: 1,
+    CRLF: 2,
+};
+
+export { workspace, window, languages, DiagnosticSeverity, StatusBarAlignment, ConfigurationTarget, EndOfLine, Position, Range, WorkspaceEdit };

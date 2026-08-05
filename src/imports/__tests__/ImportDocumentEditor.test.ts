@@ -1,6 +1,29 @@
-import { ImportDocumentEditor } from "../ImportDocumentEditor";
+import { detectEol, ImportDocumentEditor } from "../ImportDocumentEditor";
 import { ImportFormatter } from "../ImportFormatter";
 import * as vscode from "vscode";
+
+describe("detectEol", () => {
+    it("returns null for a text with no line break", () => {
+        expect(detectEol("code()")).toBeNull();
+    });
+
+    it("detects LF", () => {
+        expect(detectEol("a\nb\n")).toBe("\n");
+    });
+
+    it("detects CRLF", () => {
+        expect(detectEol("a\r\nb\r\n")).toBe("\r\n");
+    });
+
+    it("takes the dominant ending in a mixed text", () => {
+        expect(detectEol("a\r\nb\r\nc\n")).toBe("\r\n");
+        expect(detectEol("a\nb\nc\r\n")).toBe("\n");
+    });
+
+    it("prefers LF on a tie", () => {
+        expect(detectEol("a\r\nb\n")).toBe("\n");
+    });
+});
 
 describe("ImportDocumentEditor.buildOrganizedContent", () => {
     let editor: ImportDocumentEditor;
@@ -109,6 +132,35 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
             ["using { /Top }", "", "Utilities := module:", "    using { /Verse.org/Random }", "", "    GenerateId<public>():int = 1"].join("\n"),
         );
     });
+
+    // A CRLF document must come back CRLF throughout: joining with LF left the
+    // body lines carrying their original "\r" and produced a mixed buffer.
+    it("keeps CRLF endings when reorganizing a CRLF document", () => {
+        const input = "using { /B }\r\nusing { /A }\r\ncode()\r\n";
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe("using { /A }\r\nusing { /B }\r\n\r\ncode()\r\n");
+    });
+
+    it("reproduces an already organized CRLF document exactly, so organize can skip the edit", () => {
+        const input = "using { /A }\r\n\r\ncode()\r\n";
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(input);
+    });
+
+    it("keeps CRLF endings when adding a path to a CRLF document", () => {
+        const input = "using { /Existing }\r\ncode()\r\n";
+        expect(editor.buildOrganizedContent(input, ["/Added"], curlySorted)).toBe("using { /Added }\r\nusing { /Existing }\r\n\r\ncode()\r\n");
+    });
+
+    it("keeps CRLF endings for a CRLF file that is nothing but imports", () => {
+        expect(editor.buildOrganizedContent("using { /B }\r\nusing { /A }", [], curlySorted)).toBe("using { /A }\r\nusing { /B }\r\n");
+    });
+
+    it("uses the fallback ending when the text has no line break to detect one from", () => {
+        expect(editor.buildOrganizedContent("code()", ["/New"], { ...curlyNoSort, fallbackEol: "\r\n" })).toBe("using { /New }\r\n\r\ncode()");
+    });
+
+    it("still writes LF for an LF document even when the fallback is CRLF", () => {
+        expect(editor.buildOrganizedContent("using { /A }\ncode()", [], { ...curlyNoSort, fallbackEol: "\r\n" })).toBe("using { /A }\n\ncode()");
+    });
 });
 
 interface RecordedOperation {
@@ -118,11 +170,12 @@ interface RecordedOperation {
     text?: string;
 }
 
-function fakeDocument(text: string): vscode.TextDocument {
-    const lines = text.split("\n");
+function fakeDocument(text: string, eol: number = vscode.EndOfLine.LF): vscode.TextDocument {
+    const lines = text.split(/\r?\n/);
     return {
         uri: { toString: () => "file:///test.verse" },
         getText: () => text,
+        eol,
         lineCount: lines.length,
         lineAt: (index: number) => ({ range: { end: new vscode.Position(index, lines[index].length) } }),
     } as unknown as vscode.TextDocument;
@@ -339,6 +392,46 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         expect(insert!.text).toBe("using { Features }\n");
     });
 
+    it("writes CRLF endings into a CRLF document when merging into an existing block", async () => {
+        mockConfig({
+            "behavior.preserveImportLocations": true,
+            "behavior.importGrouping": "none",
+            "behavior.sortImportsAlphabetically": true,
+        });
+        const input = "using { Economy.Shop }\r\n\r\nhello := 1\r\n";
+
+        const success = await editor.addImportsToDocument(fakeDocument(input, vscode.EndOfLine.CRLF), ["using { Features }"]);
+
+        expect(success).toBe(true);
+        const replace = appliedOperations(0).find((op) => op.kind === "replace");
+        expect(replace!.text).toBe("using { Features }\r\nusing { Economy.Shop }\r\n");
+    });
+
+    it("writes CRLF endings into a CRLF document when inserting a new block at the top", async () => {
+        mockConfig({
+            "behavior.preserveImportLocations": true,
+            "behavior.importGrouping": "digestFirst",
+        });
+        const input = "hello := 1\r\nworld := 2\r\n";
+
+        const success = await editor.addImportsToDocument(fakeDocument(input, vscode.EndOfLine.CRLF), ["using { /Fortnite.com/Random }"]);
+
+        expect(success).toBe(true);
+        const insert = appliedOperations(0).find((op) => op.kind === "insert");
+        expect(insert!.text).toBe("using { /Fortnite.com/Random }\r\n\r\n");
+    });
+
+    it("writes CRLF endings into a CRLF document when consolidating at the top", async () => {
+        mockConfig({ "behavior.preserveImportLocations": false });
+        const input = "using { /Verse.org/Simulation }\r\n\r\nhello := 1\r\n";
+
+        const success = await editor.addImportsToDocument(fakeDocument(input, vscode.EndOfLine.CRLF), ["using { /Fortnite.com/Devices }"]);
+
+        expect(success).toBe(true);
+        const insert = appliedOperations(0).find((op) => op.kind === "insert");
+        expect(insert!.text).toBe("using { /Fortnite.com/Devices }\r\nusing { /Verse.org/Simulation }\r\n");
+    });
+
     it("preserve + digestFirst: inserts at the top when the file has no existing imports", async () => {
         mockConfig({
             "behavior.preserveImportLocations": true,
@@ -390,5 +483,17 @@ describe("ImportDocumentEditor.ensureEmptyLinesAfterImports", () => {
         expect(operations).toHaveLength(1);
         expect(operations[0].kind).toBe("insert");
         expect(operations[0].position!.line).toBe(1);
+    });
+
+    // This runs right after both writers, so an LF blank line here would put
+    // back the mixed endings they now avoid.
+    it("inserts a CRLF blank line in a CRLF document", async () => {
+        const input = "using { /Top }\r\ncode()\r\n";
+
+        const success = await editor.ensureEmptyLinesAfterImports(fakeDocument(input, vscode.EndOfLine.CRLF));
+
+        expect(success).toBe(true);
+        const operations = appliedOperations(0);
+        expect(operations[0].text).toBe("\r\n");
     });
 });

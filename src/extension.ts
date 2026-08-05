@@ -56,8 +56,8 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create handlers and providers
     const importHandler = new ImportHandler(outputChannel, assetsDigestParser, context);
-    const diagnosticsHandler = new DiagnosticsHandler(outputChannel, importHandler);
     const statusBarHandler = new StatusBarHandler(outputChannel);
+    const diagnosticsHandler = new DiagnosticsHandler(outputChannel, importHandler, () => statusBarHandler.isSnoozeActive());
     const importPathConverter = new ImportPathConverter(outputChannel, projectPathCache);
     const importCodeLensProvider = new ImportCodeLensProvider(outputChannel);
 
@@ -171,7 +171,13 @@ export function activate(context: vscode.ExtensionContext) {
                     const document = await vscode.workspace.openTextDocument(uri);
                     if (document.languageId === "verse") {
                         const config = vscode.workspace.getConfiguration("verseAutoImports");
-                        if (config.get<boolean>("general.autoImport", true)) {
+                        // The snooze is in-memory state, not a setting, so it
+                        // is checked here rather than read back from config.
+                        // This is only the cheap early exit; the authoritative
+                        // check is in the debounce callback, which has to
+                        // re-check because a snooze can start after a timer
+                        // has already been scheduled.
+                        if (config.get<boolean>("general.autoImport", true) && !statusBarHandler.isSnoozeActive()) {
                             await diagnosticsHandler.handle(document);
                         }
                     }

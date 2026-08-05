@@ -58,3 +58,84 @@ describe("StatusBarHandler snooze timer lifecycle", () => {
         expect(jest.getTimerCount()).toBe(0);
     });
 });
+
+describe("StatusBarHandler snooze state", () => {
+    beforeEach(() => {
+        jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+        jest.clearAllMocks();
+    });
+
+    function makeHandler(): StatusBarHandler {
+        const outputChannel = vscode.window.createOutputChannel("test");
+        return new StatusBarHandler(outputChannel);
+    }
+
+    function updateMock(): jest.Mock {
+        return vscode.workspace.getConfiguration("verseAutoImports").update as jest.Mock;
+    }
+
+    it("suppresses auto imports while snoozed", () => {
+        const handler = makeHandler();
+        expect(handler.isSnoozeActive()).toBe(false);
+
+        handler.startSnooze(5);
+        expect(handler.isSnoozeActive()).toBe(true);
+    });
+
+    it("stops suppressing auto imports once the snooze expires", () => {
+        const handler = makeHandler();
+        handler.startSnooze(5);
+
+        jest.advanceTimersByTime(5 * 60000);
+
+        expect(handler.isSnoozeActive()).toBe(false);
+    });
+
+    it("stops suppressing auto imports when the snooze is cancelled", () => {
+        const handler = makeHandler();
+        handler.startSnooze(5);
+
+        handler.cancelSnooze();
+
+        expect(handler.isSnoozeActive()).toBe(false);
+    });
+
+    // Regression: a snooze used to write general.autoImport: false into global
+    // user settings and only the in-memory interval ever restored it, so a
+    // window reload during the snooze disabled auto imports permanently.
+    it("does not touch user settings when a snooze starts, expires or is cancelled", () => {
+        const update = updateMock();
+        const handler = makeHandler();
+        update.mockClear();
+
+        handler.startSnooze(5);
+        expect(update).not.toHaveBeenCalled();
+
+        jest.advanceTimersByTime(5 * 60000);
+        expect(update).not.toHaveBeenCalled();
+
+        handler.startSnooze(5);
+        handler.cancelSnooze();
+        expect(update).not.toHaveBeenCalled();
+    });
+
+    it("leaves nothing disabled behind when disposed mid-snooze", () => {
+        const update = updateMock();
+        const handler = makeHandler();
+        update.mockClear();
+
+        handler.startSnooze(5);
+        // Stands in for a window reload: dispose runs, the process goes away.
+        handler.dispose();
+
+        expect(update).not.toHaveBeenCalled();
+
+        // A fresh handler, as created on the next activation, is not snoozed.
+        expect(makeHandler().isSnoozeActive()).toBe(false);
+    });
+});

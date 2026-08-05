@@ -44,6 +44,14 @@ function documentEol(document: vscode.TextDocument): LineEnding {
 }
 
 /**
+ * The line ending every write into this document must use. One home for the
+ * policy so the writers cannot drift apart on it.
+ */
+function resolveEol(document: vscode.TextDocument, text: string): LineEnding {
+    return detectEol(text) ?? documentEol(document);
+}
+
+/**
  * Handles all document modifications for imports.
  */
 export class ImportDocumentEditor {
@@ -123,7 +131,7 @@ export class ImportDocumentEditor {
         });
 
         const text = document.getText();
-        const eol = detectEol(text) ?? documentEol(document);
+        const eol = resolveEol(document, text);
         const lines = text.split(LINE_SPLIT);
         const scannedImports = scanModuleImports(lines);
 
@@ -431,7 +439,7 @@ export class ImportDocumentEditor {
         logger.debug("ImportDocumentEditor", `Ensuring ${emptyLinesAfterImports} empty lines after imports`);
 
         const text = document.getText();
-        const eol = detectEol(text) ?? documentEol(document);
+        const eol = resolveEol(document, text);
         const lines = text.split(LINE_SPLIT);
 
         // Find the last file-level import (module imports only: not local-scope

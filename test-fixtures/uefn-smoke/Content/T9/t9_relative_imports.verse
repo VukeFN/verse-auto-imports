@@ -1,7 +1,7 @@
 # T9 cases A-C: relative import forms documented in the Book of Verse
 # (16_modules, "Local and Relative Imports"). Uncomment ONE case at a time,
 # push Verse changes, and record the verbatim outcome (clean compile or the
-# exact diagnostic) via "Verse: Capture Diagnostics Corpus".
+# exact diagnostic) via "Verse Auto Imports: Capture Diagnostics Corpus".
 # Results gate the fix design for issue #65.
 
 # Case A: bare same-directory module import (module folder T9/Sub)

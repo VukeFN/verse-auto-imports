@@ -26,79 +26,98 @@
     "commands": [
       {
         "command": "verseAutoImports.showStatusMenu",
-        "title": "Verse: Show Quick Menu"
+        "title": "Show Quick Menu",
+        "category": "Verse Auto Imports"
       },
       {
         "command": "verseAutoImports.optimizeImports",
-        "title": "Verse: Optimize Imports"
+        "title": "Optimize Imports",
+        "category": "Verse Auto Imports"
       },
       {
         "command": "verseAutoImports.addSingleImport",
-        "title": "Verse: Add Import"
+        "title": "Add Import",
+        "category": "Verse Auto Imports"
       },
       {
         "command": "verseAutoImports.toggleAutoImport",
-        "title": "Verse: Toggle Auto Import"
+        "title": "Toggle Auto Import",
+        "category": "Verse Auto Imports"
       },
       {
         "command": "verseAutoImports.togglePreserveLocations",
-        "title": "Verse: Toggle Preserve Import Locations"
+        "title": "Toggle Preserve Import Locations",
+        "category": "Verse Auto Imports"
       },
       {
         "command": "verseAutoImports.toggleImportSyntax",
-        "title": "Verse: Toggle Import Syntax"
+        "title": "Toggle Import Syntax",
+        "category": "Verse Auto Imports"
       },
       {
         "command": "verseAutoImports.toggleDigestFiles",
-        "title": "Verse: Toggle Digest Files"
+        "title": "Toggle Digest Files",
+        "category": "Verse Auto Imports"
       },
       {
         "command": "verseAutoImports.toggleFullPathCodeLens",
-        "title": "Verse: Toggle Path Conversion Helper"
+        "title": "Toggle Path Conversion Helper",
+        "category": "Verse Auto Imports"
       },
       {
         "command": "verseAutoImports.snoozeAutoImport",
-        "title": "Verse: Snooze Auto Import"
+        "title": "Snooze Auto Import",
+        "category": "Verse Auto Imports"
       },
       {
         "command": "verseAutoImports.cancelSnooze",
-        "title": "Verse: Cancel Snooze"
+        "title": "Cancel Snooze",
+        "category": "Verse Auto Imports"
       },
       {
         "command": "verseAutoImports.convertToFullPath",
-        "title": "Verse: Use Absolute Path"
+        "title": "Use Absolute Path",
+        "category": "Verse Auto Imports"
       },
       {
         "command": "verseAutoImports.convertAllToFullPath",
-        "title": "Verse: Use Absolute Paths for All"
+        "title": "Use Absolute Paths for All",
+        "category": "Verse Auto Imports"
       },
       {
         "command": "verseAutoImports.convertToRelativePath",
-        "title": "Verse: Use Relative Path"
+        "title": "Use Relative Path",
+        "category": "Verse Auto Imports"
       },
       {
         "command": "verseAutoImports.convertAllToRelativePath",
-        "title": "Verse: Use Relative Paths for All"
+        "title": "Use Relative Paths for All",
+        "category": "Verse Auto Imports"
       },
       {
         "command": "verseAutoImports.exportDebugLogs",
-        "title": "Verse: Export Debug Logs"
+        "title": "Export Debug Logs",
+        "category": "Verse Auto Imports"
       },
       {
         "command": "verseAutoImports.captureDiagnosticsCorpus",
-        "title": "Verse: Capture Diagnostics Corpus"
+        "title": "Capture Diagnostics Corpus",
+        "category": "Verse Auto Imports"
       },
       {
         "command": "verseAutoImports.rebuildPathCache",
-        "title": "Verse: Rebuild Project Path Cache"
+        "title": "Rebuild Project Path Cache",
+        "category": "Verse Auto Imports"
       },
       {
         "command": "verseAutoImports.clearPathCache",
-        "title": "Verse: Clear Project Path Cache"
+        "title": "Clear Project Path Cache",
+        "category": "Verse Auto Imports"
       },
       {
         "command": "verseAutoImports.showCacheStatus",
-        "title": "Verse: Show Cache Status"
+        "title": "Show Cache Status",
+        "category": "Verse Auto Imports"
       }
     ],
     "configuration": {

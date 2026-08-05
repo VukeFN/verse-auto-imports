@@ -62,10 +62,11 @@ live digest emits `<scoped {...}>` specifiers and instance declarations).
 2. [ ] Debug channel shows the project detected as
        `/vukefn@fortnite.com/VerseAutoImports` (from .uefnproject found in the
        parent of Content).
-3. [ ] Run "Verse: Rebuild Project Path Cache". Debug log file count must
-       correspond to Content fixtures only -- if it reports scanning
-       hundreds of files or mentions digest folders (/Verse.org etc.), the
-       scan is leaking into other workspace roots. Record the count.
+3. [ ] Run "Verse Auto Imports: Rebuild Project Path Cache". Debug log file
+       count must correspond to Content fixtures only -- if it reports
+       scanning hundreds of files or mentions digest folders (/Verse.org
+       etc.), the scan is leaking into other workspace roots. Record the
+       count.
 4. [ ] Open `Fortnite.digest.verse` from the /Fortnite.com root: no CodeLens
        spam, no auto-import activity triggered by it.
 
@@ -128,10 +129,10 @@ live digest emits `<scoped {...}>` specifiers and instance declarations).
 
 ### T5 -- Optimize Imports (fixture: Scripts/T5_optimize.verse)
 
-1. [ ] With autoImport ON: run "Verse: Optimize Imports" once. All expected
-       outcomes in the fixture header hold; specifically the missing
-       SpatialMath import is added in the SAME single edit (no visible
-       intermediate state where imports vanish), the local-scope
+1. [ ] With autoImport ON: run "Verse Auto Imports: Optimize Imports" once.
+       All expected outcomes in the fixture header hold; specifically the
+       missing SpatialMath import is added in the SAME single edit (no
+       visible intermediate state where imports vanish), the local-scope
        `using { Helper }` is untouched, and one Ctrl+Z restores the original.
 2. [ ] Re-sync the fixture, set general.autoImport OFF, repeat: identical end
        state.
@@ -148,8 +149,9 @@ live digest emits `<scoped {...}>` specifiers and instance declarations).
 
 ### T7 -- cache commands and settings
 
-1. [ ] "Verse: Rebuild Project Path Cache" and "Verse: Clear Project Path
-       Cache" both exist in the palette and log sensible results.
+1. [ ] "Verse Auto Imports: Rebuild Project Path Cache" and
+       "Verse Auto Imports: Clear Project Path Cache" both exist in the
+       palette and log sensible results.
 2. [ ] Rebuild reports a plausible file/module count for the fixtures.
 3. [ ] Toggle the three cache.* settings; no errors on flip; behavior follows
        (see T4.5).
@@ -178,9 +180,10 @@ Each case checks whether live UEFN accepts a construct documented in the Book
 of Verse; the results decide the fix design for #65 (relative import
 classification) and #71 (import aliases), and give live regression coverage
 for #67/#68. For every case record the verbatim outcome (clean compile, or
-the exact diagnostic) with "Verse: Capture Diagnostics Corpus", then fold new
-message shapes into test-fixtures/corpus/<UEFN version>/diagnostics.json with
-expectations filled in (see test-fixtures/corpus/README.md).
+the exact diagnostic) with "Verse Auto Imports: Capture Diagnostics Corpus",
+then fold new message shapes into
+test-fixtures/corpus/<UEFN version>/diagnostics.json with expectations filled
+in (see test-fixtures/corpus/README.md).
 
 1. [ ] Case A bare same-directory import: in t9_relative_imports.verse,
        uncomment `using { Sub }` (plus the probe line). Compiles or exact
@@ -193,7 +196,8 @@ expectations filled in (see test-fixtures/corpus/README.md).
        synced. Then remove the indented `/Verse.org/Simulation` pair, wait
        for the auto-import to re-add it, and confirm the module-scoped
        `using { /Verse.org/Random }` was not moved, deleted, or duplicated.
-       Run "Verse: Optimize Imports" and save: same expectation (#67 live).
+       Run "Verse Auto Imports: Optimize Imports" and save: same expectation
+       (#67 live).
 5. [ ] Case E indented style (same file): re-sync the fixture so the
        `using:` pair is back, then trigger any auto-import in the file (e.g.
        reference `button_device`). The pair must be consolidated into the
@@ -204,8 +208,8 @@ expectations filled in (see test-fixtures/corpus/README.md).
        `using { /Verse.org/SpatialMath }` below and confirm the extension
        does not add duplicates or misbehave in the file (#71).
 7. [ ] Capture: with all T9 files open and their diagnostics present, run
-       "Verse: Capture Diagnostics Corpus" and curate the output into the
-       corpus folder for this UEFN version.
+       "Verse Auto Imports: Capture Diagnostics Corpus" and curate the output
+       into the corpus folder for this UEFN version.
 
 ## Phase D: verdict
 

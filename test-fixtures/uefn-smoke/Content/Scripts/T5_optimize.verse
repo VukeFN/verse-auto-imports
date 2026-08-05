@@ -6,8 +6,9 @@
 # local-scope using inside a function body, and an indented-style using block
 # at the bottom.
 #
-# Run "Verse: Optimize Imports" with general.autoImport ON, then again on a
-# re-synced copy with it OFF. Expected in both cases, as ONE atomic edit:
+# Run "Verse Auto Imports: Optimize Imports" with general.autoImport ON, then
+# again on a re-synced copy with it OFF. Expected in both cases, as ONE atomic
+# edit:
 #   - all module imports consolidated at the top, deduplicated
 #   - using { /Fortnite.com/Characters } ADDED (from the fort_character
 #     diagnostic; must be single-option so optimize can apply it)

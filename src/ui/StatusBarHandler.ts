@@ -44,6 +44,17 @@ export class StatusBarHandler {
         });
     }
 
+    /**
+     * Whether auto imports are currently suppressed by a snooze. Snooze state
+     * is deliberately in-memory only: it is ephemeral and time-boxed, so it
+     * must not outlive the extension host. Persisting it (or mirroring it into
+     * user settings) is what could leave auto imports off forever after a
+     * reload mid-snooze.
+     */
+    isSnoozeActive(): boolean {
+        return this.snoozeEndTime !== null && Date.now() < this.snoozeEndTime;
+    }
+
     updateDisplay(): void {
         if (this.snoozeEndTime !== null) {
             // Snooze is active - show text with countdown
@@ -99,9 +110,20 @@ export class StatusBarHandler {
             kind: vscode.QuickPickItemKind.Separator,
         });
 
+        // A snooze no longer flips the setting, so the row would otherwise
+        // report "Enabled" while imports are suppressed.
+        let autoImportDescription: string;
+        if (!autoImportEnabled) {
+            autoImportDescription = "Disabled";
+        } else if (this.snoozeEndTime !== null) {
+            autoImportDescription = `Snoozed (${this.getRemainingTime()})`;
+        } else {
+            autoImportDescription = "Enabled";
+        }
+
         items.push({
             label: toggleIcon(autoImportEnabled, "Auto Import"),
-            description: autoImportEnabled ? "Enabled" : "Disabled",
+            description: autoImportDescription,
             action: async () => {
                 await config.update("general.autoImport", !autoImportEnabled, vscode.ConfigurationTarget.Global);
                 logger.debug("StatusBarHandler", `Auto import toggled: ${!autoImportEnabled}`);
@@ -425,12 +447,11 @@ export class StatusBarHandler {
         // palette while already snoozed) cannot orphan a running interval.
         this.clearSnoozeState();
 
-        // Set snooze end time
+        // Set snooze end time. This is the whole of the snooze state: the
+        // auto-import path consults isSnoozeActive(), and no user setting is
+        // touched, so nothing can survive the extension host and leave auto
+        // imports disabled.
         this.snoozeEndTime = Date.now() + minutes * MS_PER_MINUTE;
-
-        // Disable auto imports
-        const config = vscode.workspace.getConfiguration("verseAutoImports");
-        config.update("general.autoImport", false, vscode.ConfigurationTarget.Global);
 
         // Start countdown interval
         this.snoozeInterval = setInterval(() => {
@@ -469,9 +490,6 @@ export class StatusBarHandler {
         logger.debug("StatusBarHandler", "Cancelling snooze");
         this.clearSnoozeState();
 
-        const config = vscode.workspace.getConfiguration("verseAutoImports");
-        config.update("general.autoImport", true, vscode.ConfigurationTarget.Global);
-
         this.updateDisplay();
         vscode.window.showInformationMessage("Auto imports resumed");
     }
@@ -488,9 +506,6 @@ export class StatusBarHandler {
     private endSnooze(): void {
         logger.debug("StatusBarHandler", "Snooze timer expired");
         this.clearSnoozeState();
-
-        const config = vscode.workspace.getConfiguration("verseAutoImports");
-        config.update("general.autoImport", true, vscode.ConfigurationTarget.Global);
 
         this.updateDisplay();
         vscode.window.showInformationMessage("Auto imports resumed automatically");

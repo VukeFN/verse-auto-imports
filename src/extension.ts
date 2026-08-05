@@ -171,7 +171,9 @@ export function activate(context: vscode.ExtensionContext) {
                     const document = await vscode.workspace.openTextDocument(uri);
                     if (document.languageId === "verse") {
                         const config = vscode.workspace.getConfiguration("verseAutoImports");
-                        if (config.get<boolean>("general.autoImport", true)) {
+                        // The snooze is in-memory state, not a setting, so it
+                        // is checked here rather than read back from config.
+                        if (config.get<boolean>("general.autoImport", true) && !statusBarHandler.isSnoozeActive()) {
                             await diagnosticsHandler.handle(document);
                         }
                     }

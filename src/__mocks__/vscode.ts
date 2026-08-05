@@ -117,6 +117,8 @@ const workspace = {
     }),
     onDidChangeConfiguration: jest.fn().mockReturnValue({ dispose: jest.fn() }),
     applyEdit: jest.fn().mockResolvedValue(true),
+    workspaceFolders: undefined as { uri: { fsPath: string }; name: string; index: number }[] | undefined,
+    findFiles: jest.fn().mockResolvedValue([]),
     createFileSystemWatcher: jest.fn().mockImplementation((globPattern: unknown) => new FileSystemWatcher(globPattern)),
 };
 

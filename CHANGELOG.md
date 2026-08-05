@@ -8,6 +8,8 @@ Where an entry resolves a tracked issue, it ends with a `[#N]` reference linked 
 
 ## [Unreleased]
 
+Pending changes are kept as one file per change under [changelog.d/](changelog.d/) and assembled here at release.
+
 ### Changed
 
 - **Commands Grouped Under a Verse Auto Imports Category**: every command now appears in the command palette as **Verse Auto Imports: Optimize Imports**, **Verse Auto Imports: Show Quick Menu** and so on. The `Verse: ` prefix was hardcoded into each command title, which read as though the commands belonged to Epic's official Verse extension; it now lives in the palette category field, where VS Code renders it in front of the title and groups the extension's commands together. The command IDs are unchanged, so existing keybindings and tasks that reference `verseAutoImports.*` keep working ([#94])

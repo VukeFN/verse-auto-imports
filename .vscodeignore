@@ -8,6 +8,7 @@ src/**
 .vscode/**
 .github/**
 .claude/**
+changelog.d/**
 CLAUDE.md
 tsconfig.json
 tsconfig.integration.json

@@ -14,6 +14,14 @@ import { ProjectPathCache } from "../ProjectPathCache";
  * These run against stub VS Code workspace APIs, so no extension host is needed.
  */
 describe("ProjectPathCache recovery after an empty first build", () => {
+    /** The subset of the mock watcher these tests drive. */
+    interface FakeWatcher {
+        globPattern: unknown;
+        fireCreate(fsPath: string): void;
+    }
+
+    const createFileSystemWatcher = vscode.workspace.createFileSystemWatcher as unknown as jest.Mock;
+
     /** Minimal in-memory stand-in for vscode.Memento (workspaceState). */
     class FakeMemento {
         private readonly store: Map<string, unknown> = new Map();
@@ -93,13 +101,12 @@ describe("ProjectPathCache recovery after an empty first build", () => {
         cache.setupFileWatchers();
 
         // Watchers are created in order: **/*.verse first, then **/*.uefnproject.
-        const createWatcher = vscode.workspace.createFileSystemWatcher as jest.Mock;
-        expect(createWatcher).toHaveBeenCalledTimes(2);
-        const projectWatcher = createWatcher.mock.results[1].value;
+        const watchers = createFileSystemWatcher.mock.results.map((result) => result.value as FakeWatcher);
+        const projectWatcher = watchers[1];
+        expect(projectWatcher.globPattern).toBe("**/*.uefnproject");
 
         handler.projectName = "MyGame";
-        const onCreate = projectWatcher.onDidCreate.mock.calls[0][0];
-        onCreate({ fsPath: "C:\\Project\\MyGame.uefnproject" });
+        projectWatcher.fireCreate("C:\\Project\\MyGame.uefnproject");
         await flushAsync();
 
         expect(cache.getStats().loaded).toBe(true);

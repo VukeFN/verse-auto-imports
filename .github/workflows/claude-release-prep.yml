@@ -42,24 +42,36 @@ jobs:
             The checkout is the main branch, which is the only long-lived branch.
 
             Requested version: "${{ inputs.version }}". If empty, derive the bump
-            by applying this rule to the [Unreleased] section of CHANGELOG.md -
-            do not use judgement, apply the rule.
+            by applying this rule to the pending changes - do not use judgement,
+            apply the rule.
+
+            The pending changes come from two places and you must read both. A
+            release that reads only one of them silently drops half the notes.
+              - the fragment files under changelog.d/, each named
+                <key>.<category>.md, where the category is the second-to-last
+                dot-separated part of the file name. changelog.d/README is
+                documentation, not a fragment.
+              - any entries still sitting inline under [Unreleased] in
+                CHANGELOG.md, left over from before the switch to fragments.
 
             First read the current version from package.json. Let PRE_1_0 be true
             when its major component is 0. Do not assume this - read it, because
             the answer changes the first branch below and it changes for good the
             day this project ships 1.0.0.
 
-              - any entry under Removed, or any entry explicitly marked breaking
+              - any pending change in the removed category, or any entry
+                explicitly marked breaking
                 -> minor if PRE_1_0, otherwise major
                 (SemVer treats 0.y.z as an unstable public API, so a breaking
                 change is conventionally a minor below 1.0 and a major at or
                 above it)
-              - otherwise any entry under Added or Deprecated -> minor
+              - otherwise any pending change in the added or deprecated
+                categories -> minor
                 (SemVer rule 7 requires a minor for a deprecation on its own)
-              - otherwise, entries only under Fixed / Changed / Security -> patch
-              - no user-facing entries at all -> STOP. Do not cut a release that
-                contains only CI, test, or refactor commits.
+              - otherwise, pending changes only in the fixed / changed /
+                security categories -> patch
+              - no fragments and no inline entries at all -> STOP. Do not cut a
+                release that contains only CI, test, or refactor commits.
             State the version you read, whether PRE_1_0 was true, which rule
             branch fired, and why, in the PR body.
 
@@ -69,13 +81,28 @@ jobs:
             2. Review changes since the last release:
                `git log $(git describe --tags --abbrev=0 origin/main)..HEAD --oneline`
                plus the diff summary. Identify user-facing changes.
-            3. Update CHANGELOG.md following Keep a Changelog: create a section for
-               the new version dated today (UTC), grouped under Added / Changed /
-               Fixed as appropriate, written for end users (what changed in the
-               editor experience, not internal refactor details). Keep an empty
-               [Unreleased] section on top. Add the version compare-link to the
-               link-definition block at the bottom, and repoint [Unreleased] at
-               the new tag.
+            3. Update CHANGELOG.md following Keep a Changelog: create a section
+               for the new version dated today (UTC) out of the pending changes,
+               written for end users (what changed in the editor experience, not
+               internal refactor details).
+               - Group the entries under Added / Changed / Deprecated / Removed /
+                 Fixed / Security, in that order, keeping only the categories
+                 that have entries.
+               - Each fragment becomes one "- <prose>" bullet. When its key is
+                 numeric, append " ([#N])" to that bullet and make sure the
+                 matching "[#N]: https://github.com/VukeFN/verse-auto-imports/issues/N"
+                 line exists in the issue-reference block at the bottom of the
+                 file. A tag with no definition renders as literal text, and
+                 that has shipped here before. A slug key gets neither a tag nor
+                 a definition.
+               - Copy any inline [Unreleased] entries into the same categories
+                 verbatim; they already carry their tag and their definition.
+               - Leave [Unreleased] holding only its pointer line to changelog.d/,
+                 with no category headings under it.
+               - Add the version compare-link to the link-definition block at the
+                 bottom, and repoint [Unreleased] at the new tag.
+               - `git rm` every fragment file the new section consumed. Leave
+                 changelog.d/README in place.
             4. Set the new version in package.json (version field only; do not
                touch other fields or package-lock.json by hand - run
                `npm install --package-lock-only` after the bump to sync it).

@@ -37,9 +37,31 @@ describe("DiagnosticsHandler.shouldProcessUri", () => {
     });
 });
 
-describe("DiagnosticsHandler auto-import suppression", () => {
-    const DELAY_MS = 10;
+const DELAY_MS = 10;
 
+function makeImportHandler(): ImportHandler {
+    return {
+        extractImportSuggestions: jest.fn().mockResolvedValue([{ importStatement: "using { /Fortnite.com/Devices }", confidence: "high" }]),
+        addImportsToDocument: jest.fn().mockResolvedValue(undefined),
+    } as unknown as ImportHandler;
+}
+
+/**
+ * The uri carries a toString() because DiagnosticsHandler keys its debounce
+ * state on it, exactly as vscode.Uri does at runtime. A plain object literal
+ * would stringify every document to "[object Object]" and collapse them all
+ * onto one key, hiding the very collision these tests exist to catch.
+ */
+function makeDocument(fsPath = "C:\\Project\\Content\\device.verse"): vscode.TextDocument {
+    const uri = {
+        scheme: "file",
+        fsPath,
+        toString: () => `file:///${fsPath.replace(/\\/g, "/")}`,
+    };
+    return { uri, languageId: "verse" } as unknown as vscode.TextDocument;
+}
+
+describe("DiagnosticsHandler auto-import suppression", () => {
     beforeEach(() => {
         jest.useFakeTimers();
         (vscode.languages.getDiagnostics as jest.Mock).mockReturnValue([{ message: "Unknown identifier `button_device`." }]);
@@ -50,17 +72,6 @@ describe("DiagnosticsHandler auto-import suppression", () => {
         jest.useRealTimers();
         jest.clearAllMocks();
     });
-
-    function makeImportHandler(): ImportHandler {
-        return {
-            extractImportSuggestions: jest.fn().mockResolvedValue([{ importStatement: "using { /Fortnite.com/Devices }", confidence: "high" }]),
-            addImportsToDocument: jest.fn().mockResolvedValue(undefined),
-        } as unknown as ImportHandler;
-    }
-
-    function makeDocument(): vscode.TextDocument {
-        return { uri: { scheme: "file", fsPath: "C:\\Project\\Content\\device.verse" }, languageId: "verse" } as unknown as vscode.TextDocument;
-    }
 
     it("auto-imports when nothing suppresses it", async () => {
         const importHandler = makeImportHandler();
@@ -88,5 +99,71 @@ describe("DiagnosticsHandler auto-import suppression", () => {
         await jest.advanceTimersByTimeAsync(DELAY_MS);
 
         expect(importHandler.addImportsToDocument).not.toHaveBeenCalled();
+    });
+});
+
+// Regression for #134: the debounce state was keyed by path.basename, so two
+// files sharing a name in different module folders - ordinary in a UEFN
+// project - shared one timer and one processing flag. Whichever arrived second
+// either cancelled the first file's import or was dropped outright.
+describe("DiagnosticsHandler debounce keying", () => {
+    const WEAPONS_UTILS = "C:\\Project\\Content\\Weapons\\utils.verse";
+    const UI_UTILS = "C:\\Project\\Content\\UI\\utils.verse";
+
+    beforeEach(() => {
+        jest.useFakeTimers();
+        (vscode.languages.getDiagnostics as jest.Mock).mockReturnValue([{ message: "Unknown identifier `button_device`." }]);
+    });
+
+    afterEach(() => {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+        jest.clearAllMocks();
+    });
+
+    it("does not let one file's diagnostics cancel a same-named file's pending timer", async () => {
+        const importHandler = makeImportHandler();
+        const handler = new DiagnosticsHandler(vscode.window.createOutputChannel("test"), importHandler, () => false);
+        handler.setDelay(DELAY_MS);
+
+        const weaponsUtils = makeDocument(WEAPONS_UTILS);
+        const uiUtils = makeDocument(UI_UTILS);
+
+        await handler.handle(weaponsUtils);
+        await handler.handle(uiUtils);
+        await jest.advanceTimersByTimeAsync(DELAY_MS);
+
+        const imported = (importHandler.addImportsToDocument as jest.Mock).mock.calls.map((call) => call[0]);
+        expect(imported).toEqual(expect.arrayContaining([weaponsUtils, uiUtils]));
+        expect(imported).toHaveLength(2);
+    });
+
+    it("does not drop a same-named file while another is mid-processing", async () => {
+        const importHandler = makeImportHandler();
+        let releaseFirstImport: () => void = () => {};
+        (importHandler.addImportsToDocument as jest.Mock).mockImplementationOnce(
+            () =>
+                new Promise<void>((resolve) => {
+                    releaseFirstImport = resolve;
+                }),
+        );
+
+        const handler = new DiagnosticsHandler(vscode.window.createOutputChannel("test"), importHandler, () => false);
+        handler.setDelay(DELAY_MS);
+
+        const weaponsUtils = makeDocument(WEAPONS_UTILS);
+        const uiUtils = makeDocument(UI_UTILS);
+
+        // Let the first file's timer fire and park inside addImportsToDocument,
+        // so it is still in processingDocuments when the second file arrives.
+        await handler.handle(weaponsUtils);
+        await jest.advanceTimersByTimeAsync(DELAY_MS);
+        await handler.handle(uiUtils);
+
+        releaseFirstImport();
+        await jest.advanceTimersByTimeAsync(DELAY_MS);
+
+        const imported = (importHandler.addImportsToDocument as jest.Mock).mock.calls.map((call) => call[0]);
+        expect(imported).toEqual([weaponsUtils, uiUtils]);
     });
 });

@@ -51,7 +51,12 @@ export class ProjectPathCache {
                 await this.rebuildCache();
             }
 
-            this.initialized = true;
+            // Latch only once the cache actually holds data. A build that found
+            // no UEFN project - the workspace was opened before the
+            // .uefnproject existed, or it sits above the scanner's search depth
+            // - leaves the cache empty, and latching there would make every
+            // later lookup miss for the rest of the session.
+            this.initialized = this.data !== null;
         } catch (error) {
             logger.error("ProjectPathCache", "Failed to initialize cache", error);
         }
@@ -96,6 +101,7 @@ export class ProjectPathCache {
 
             if (data) {
                 this.data = data;
+                this.initialized = true;
                 this.rebuildIndexes();
                 await this.saveToStorage();
 
@@ -172,15 +178,20 @@ export class ProjectPathCache {
 
         disposables.push(this.fileWatcher);
 
-        // Watch for .uefnproject changes to trigger full cache rebuild
+        // Watch for .uefnproject changes to trigger full cache rebuild.
+        // Creation counts as much as change: a workspace opened before the
+        // project file exists builds nothing, and the file appearing is the
+        // signal that a rebuild can finally succeed.
         const projectWatcher = vscode.workspace.createFileSystemWatcher("**/*.uefnproject");
-        projectWatcher.onDidChange(() => {
+        const rebuildOnProjectFile = () => {
             logger.debug("ProjectPathCache", "Project file changed, triggering cache rebuild");
             this.clear();
             this.rebuildCache().catch((error) => {
                 logger.error("ProjectPathCache", "Failed to rebuild cache after project change", error);
             });
-        });
+        };
+        projectWatcher.onDidChange(rebuildOnProjectFile);
+        projectWatcher.onDidCreate(rebuildOnProjectFile);
         disposables.push(projectWatcher);
 
         // Clear any pending debounced update on teardown so it cannot run
@@ -214,6 +225,9 @@ export class ProjectPathCache {
      */
     clear(): void {
         this.data = null;
+        // Keeps `initialized` meaning "the cache holds data", so a later
+        // initialize() rebuilds instead of returning early onto nothing.
+        this.initialized = false;
         this.indexes = buildProjectIndexes([]);
         this.pendingUpdates.clear();
 

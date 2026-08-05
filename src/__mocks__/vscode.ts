@@ -37,6 +37,35 @@ class WorkspaceEdit {
     }
 }
 
+/** Matches vscode.RelativePattern closely enough for findFiles stubs. */
+class RelativePattern {
+    constructor(
+        public readonly base: unknown,
+        public readonly pattern: string,
+    ) {}
+}
+
+/** Minimal stand-in for vscode.Disposable, including the static combinator. */
+class Disposable {
+    constructor(private readonly callOnDispose: () => void) {}
+
+    static from(...disposables: { dispose: () => unknown }[]): Disposable {
+        return new Disposable(() => disposables.forEach((disposable) => disposable.dispose()));
+    }
+
+    dispose(): void {
+        this.callOnDispose();
+    }
+}
+
+/** Fresh watcher stub; each event is a jest.fn so tests can capture handlers. */
+const createFileSystemWatcherStub = () => ({
+    onDidChange: jest.fn(),
+    onDidCreate: jest.fn(),
+    onDidDelete: jest.fn(),
+    dispose: jest.fn(),
+});
+
 const workspace = {
     getConfiguration: jest.fn().mockReturnValue({
         get: jest.fn().mockImplementation((_key: string, defaultValue?: unknown) => defaultValue),
@@ -44,6 +73,10 @@ const workspace = {
     }),
     onDidChangeConfiguration: jest.fn().mockReturnValue({ dispose: jest.fn() }),
     applyEdit: jest.fn().mockResolvedValue(true),
+    workspaceFolders: undefined as { uri: { fsPath: string }; name: string; index: number }[] | undefined,
+    findFiles: jest.fn().mockResolvedValue([]),
+    asRelativePath: jest.fn().mockImplementation((uri: { fsPath: string } | string) => (typeof uri === "string" ? uri : uri.fsPath)),
+    createFileSystemWatcher: jest.fn().mockImplementation(() => createFileSystemWatcherStub()),
 };
 
 const window = {
@@ -97,4 +130,4 @@ const EndOfLine = {
     CRLF: 2,
 };
 
-export { workspace, window, languages, DiagnosticSeverity, StatusBarAlignment, ConfigurationTarget, EndOfLine, Position, Range, WorkspaceEdit };
+export { workspace, window, languages, DiagnosticSeverity, StatusBarAlignment, ConfigurationTarget, EndOfLine, Position, Range, WorkspaceEdit, RelativePattern, Disposable };

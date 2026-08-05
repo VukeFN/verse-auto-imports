@@ -37,6 +37,79 @@ class WorkspaceEdit {
     }
 }
 
+class Uri {
+    private constructor(public readonly fsPath: string) {}
+
+    static file(fsPath: string): Uri {
+        return new Uri(fsPath);
+    }
+}
+
+class RelativePattern {
+    constructor(
+        public readonly base: unknown,
+        public readonly pattern: string,
+    ) {}
+}
+
+class Disposable {
+    constructor(private readonly callOnDispose: () => void) {}
+
+    static from(...disposables: Array<{ dispose(): unknown }>): Disposable {
+        return new Disposable(() => disposables.forEach((disposable) => disposable.dispose()));
+    }
+
+    dispose(): void {
+        this.callOnDispose();
+    }
+}
+
+type WatcherHandler = (uri: Uri) => void;
+
+/**
+ * Records the handlers a watcher registers so tests can fire file events and
+ * assert on what the extension does with them.
+ */
+class FileSystemWatcher {
+    readonly changeHandlers: WatcherHandler[] = [];
+    readonly createHandlers: WatcherHandler[] = [];
+    readonly deleteHandlers: WatcherHandler[] = [];
+    disposed = false;
+
+    constructor(public readonly globPattern: unknown) {}
+
+    onDidChange(handler: WatcherHandler): { dispose: () => void } {
+        this.changeHandlers.push(handler);
+        return { dispose: () => {} };
+    }
+
+    onDidCreate(handler: WatcherHandler): { dispose: () => void } {
+        this.createHandlers.push(handler);
+        return { dispose: () => {} };
+    }
+
+    onDidDelete(handler: WatcherHandler): { dispose: () => void } {
+        this.deleteHandlers.push(handler);
+        return { dispose: () => {} };
+    }
+
+    dispose(): void {
+        this.disposed = true;
+    }
+
+    fireChange(fsPath: string): void {
+        this.changeHandlers.forEach((handler) => handler(Uri.file(fsPath)));
+    }
+
+    fireCreate(fsPath: string): void {
+        this.createHandlers.forEach((handler) => handler(Uri.file(fsPath)));
+    }
+
+    fireDelete(fsPath: string): void {
+        this.deleteHandlers.forEach((handler) => handler(Uri.file(fsPath)));
+    }
+}
+
 const workspace = {
     getConfiguration: jest.fn().mockReturnValue({
         get: jest.fn().mockImplementation((_key: string, defaultValue?: unknown) => defaultValue),
@@ -44,6 +117,7 @@ const workspace = {
     }),
     onDidChangeConfiguration: jest.fn().mockReturnValue({ dispose: jest.fn() }),
     applyEdit: jest.fn().mockResolvedValue(true),
+    createFileSystemWatcher: jest.fn().mockImplementation((globPattern: unknown) => new FileSystemWatcher(globPattern)),
 };
 
 const window = {
@@ -97,4 +171,4 @@ const EndOfLine = {
     CRLF: 2,
 };
 
-export { workspace, window, languages, DiagnosticSeverity, StatusBarAlignment, ConfigurationTarget, EndOfLine, Position, Range, WorkspaceEdit };
+export { workspace, window, languages, DiagnosticSeverity, StatusBarAlignment, ConfigurationTarget, EndOfLine, Position, Range, WorkspaceEdit, Uri, RelativePattern, Disposable, FileSystemWatcher };

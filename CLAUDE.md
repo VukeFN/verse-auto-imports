@@ -38,6 +38,8 @@ GitHub Flow: `main` is the only long-lived branch and the default branch. There 
 
 - Every change branches from `main` and returns by PR into `main`. Because PRs target the default branch, `Closes #N` in a PR body actually links and closes the issue — always use it.
 - Branch prefixes: `feature/` `fix/` `chore/` `docs/` `test/` `refactor/`. A hotfix is just a `fix/` branch; it needs no special path.
+- Merge method: every PR into `main` is **squash-merged**. The `Default Branch` ruleset restricts it — `squash` is the only merge method allowed there — so this is not convention alone, though repo admins can bypass that ruleset. Repo settings still permit merge commits, which governs any branch the ruleset does not cover.
+- A squash merge replays the branch as one new commit, so a branch's own commits **never become ancestors of `main`**. Any check shaped like "is this commit on `main`" reports a fully-landed branch as unmerged; compare file content instead. Merge commits earlier in the history predate this convention — do not infer the merge method from `git log`.
 - Release: a `chore/release-vX.Y.Z` PR into `main` bumps the version and finalizes the changelog. Merging it produces a draft GitHub Release; publishing that draft ships to the Marketplace.
 - `release/X.Y` branches are cut **retroactively**, and only to patch an older released line. Do not create one in advance.
 

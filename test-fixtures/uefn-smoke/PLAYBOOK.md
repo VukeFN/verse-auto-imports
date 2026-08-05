@@ -162,9 +162,9 @@ live digest emits `<scoped {...}>` specifiers and instance declarations).
        cancel/expiry restores the normal state. Watch Debug channel for
        duplicate-interval evidence.
 3. [ ] Disable then re-enable auto-imports mid-snooze: snooze cancels
-       automatically on the re-enable. (A snooze no longer flips the setting
-       itself, so it reads Enabled throughout; the Auto Import row shows
-       "Snoozed (M:SS)".)
+       automatically on the re-enable. The snooze itself never flips the
+       setting, so before you touch it the Auto Import row reads
+       "Snoozed (M:SS)" with its checkbox still ticked.
 4. [ ] #132: snooze, then reload the window inside the 5 minutes. Auto-import
        must work again immediately, and settings.json must hold no
        verseAutoImports.general.autoImport entry.

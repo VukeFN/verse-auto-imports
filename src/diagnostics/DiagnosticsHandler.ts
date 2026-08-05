@@ -16,7 +16,9 @@ export class DiagnosticsHandler {
         // Consulted when a debounce timer fires, not when it is scheduled, so
         // a snooze started while a timer is already pending still suppresses
         // that import. Returns false when nothing is suppressing auto-import.
-        private isAutoImportSuppressed: () => boolean = () => false,
+        // Required rather than defaulted: a call site that forgot it would
+        // lose suppression silently at runtime instead of failing the build.
+        private isAutoImportSuppressed: () => boolean,
     ) {
         // Use the shared, fully-wired ImportHandler so the auto-import path has
         // the same asset-class detection and precompiled digests as quick fixes.

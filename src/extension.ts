@@ -173,6 +173,10 @@ export function activate(context: vscode.ExtensionContext) {
                         const config = vscode.workspace.getConfiguration("verseAutoImports");
                         // The snooze is in-memory state, not a setting, so it
                         // is checked here rather than read back from config.
+                        // This is only the cheap early exit; the authoritative
+                        // check is in the debounce callback, which has to
+                        // re-check because a snooze can start after a timer
+                        // has already been scheduled.
                         if (config.get<boolean>("general.autoImport", true) && !statusBarHandler.isSnoozeActive()) {
                             await diagnosticsHandler.handle(document);
                         }

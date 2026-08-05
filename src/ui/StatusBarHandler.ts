@@ -31,7 +31,9 @@ export class StatusBarHandler {
             if (event.affectsConfiguration("verseAutoImports")) {
                 // A snooze does not touch the setting, so this only fires when
                 // the user turns auto import on themselves mid-snooze. Take
-                // that as "imports now, please" and drop the snooze.
+                // that as "imports now, please" and drop the snooze. The raw
+                // field, not isSnoozeActive(): the question here is whether
+                // there is any snooze to clear, an expired one included.
                 if (event.affectsConfiguration("verseAutoImports.general.autoImport") && this.snoozeEndTime !== null) {
                     const config = vscode.workspace.getConfiguration("verseAutoImports");
                     const autoImportEnabled = config.get<boolean>("general.autoImport", true);

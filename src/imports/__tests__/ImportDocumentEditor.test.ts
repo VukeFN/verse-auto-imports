@@ -64,6 +64,15 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, [], curlyNoSort)).toBe("using { /Zebra }\nusing { /Apple }\n\ncode()");
     });
 
+    it("leaves a commented-out import in the body instead of resurrecting it", () => {
+        const input = "<#\nusing { /Old/Path }\n#>\nusing { /Verse.org/Simulation }\n\ncode()";
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe("using { /Verse.org/Simulation }\n\n<#\nusing { /Old/Path }\n#>\n\ncode()");
+    });
+
+    it("returns null when the only import in the text is inside a block comment", () => {
+        expect(editor.buildOrganizedContent("<#\nusing { /Old/Path }\n#>\n\ncode()", [], curlyNoSort)).toBeNull();
+    });
+
     it("writes the preferred dot syntax", () => {
         const input = "using { /A }\ncode()";
         expect(
@@ -232,6 +241,19 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
 
         expect(success).toBe(true);
         expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
+    it("adds an import that exists only inside a block comment, above the comment", async () => {
+        const input = ["<#", "using { /Fortnite.com/Devices }", "#>", "", "my_device := class(creative_device):", "    Button : button_device = button_device{}"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
+
+        expect(success).toBe(true);
+        const operations = appliedOperations(0);
+        expect(operations).toHaveLength(1);
+        expect(operations[0].kind).toBe("insert");
+        expect(operations[0].position).toEqual({ line: 0, character: 0 });
+        expect(operations[0].text).toBe("using { /Fortnite.com/Devices }\n\n");
     });
 
     it("dedupes a bare folder import that already exists at column 0 and makes no edit", async () => {
@@ -466,6 +488,15 @@ describe("ImportDocumentEditor.ensureEmptyLinesAfterImports", () => {
 
     it("does not enforce spacing after a module-scoped using", async () => {
         const input = ["using { /Top }", "", "M := module:", "    using { /Verse.org/Random }", "    F():void = {}", ""].join("\n");
+
+        const success = await editor.ensureEmptyLinesAfterImports(fakeDocument(input));
+
+        expect(success).toBe(true);
+        expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
+    it("does not enforce spacing after an import inside a block comment", async () => {
+        const input = ["<#", "using { /Fortnite.com/Devices }", "#>", "", "code()"].join("\n");
 
         const success = await editor.ensureEmptyLinesAfterImports(fakeDocument(input));
 

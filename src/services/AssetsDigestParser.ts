@@ -34,7 +34,17 @@ export class AssetsDigestParser {
     private lastParsed: number = 0;
     private fileWatcher: vscode.FileSystemWatcher | null = null;
     private cachedDigestPath: string | null = null;
+    private refreshTimer: ReturnType<typeof setTimeout> | null = null;
     private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes (aligned with DigestParser)
+    /**
+     * How long to wait after the last watcher event before re-parsing. UEFN
+     * rewrites the digest in bursts, so waiting coalesces a burst into one
+     * parse. It also leaves room for ProjectPathHandler, which clears its
+     * project name cache from a separate watcher on the same `.uefnproject`
+     * event: both handlers run in the same event-loop turn, so the wait is far
+     * longer than the gap between them, though nothing contracts that order.
+     */
+    private static readonly REFRESH_DEBOUNCE_MS = 250;
 
     constructor(
         private outputChannel: vscode.OutputChannel,
@@ -216,6 +226,45 @@ export class AssetsDigestParser {
     }
 
     /**
+     * Clears the cache and re-parses immediately.
+     *
+     * The only consumer, ImportSuggestionExtractor, reads the cache through the
+     * synchronous isAssetClassName(), so nothing refills it lazily. Clearing
+     * without re-parsing therefore empties the cache for the rest of the
+     * session and asset class names stop being recognized.
+     */
+    private async refreshCache(): Promise<void> {
+        this.clearCache();
+        await this.parseAssetsDigest();
+    }
+
+    /**
+     * Queues a refresh for REFRESH_DEBOUNCE_MS after the last watcher event.
+     */
+    private scheduleRefresh(): void {
+        if (this.refreshTimer) {
+            clearTimeout(this.refreshTimer);
+        }
+
+        this.refreshTimer = setTimeout(() => {
+            this.refreshTimer = null;
+            this.refreshCache().catch((error) => {
+                logger.error("AssetsDigestParser", "Error refreshing asset class names", error);
+            });
+        }, AssetsDigestParser.REFRESH_DEBOUNCE_MS);
+    }
+
+    /**
+     * Cancels a queued refresh so it cannot run after the watchers are disposed.
+     */
+    private cancelScheduledRefresh(): void {
+        if (this.refreshTimer) {
+            clearTimeout(this.refreshTimer);
+            this.refreshTimer = null;
+        }
+    }
+
+    /**
      * Sets up a file watcher for the Assets.digest.verse file.
      * The file changes when assets are modified in UEFN.
      */
@@ -231,9 +280,12 @@ export class AssetsDigestParser {
         const verseProjectDir = path.join(localAppData, "UnrealEditorFortnite", "Saved", "VerseProject");
         const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(verseProjectDir), "**/Assets.digest.verse"));
 
+        // A create event is the cold-start case: VS Code opened before UEFN had
+        // generated the digest, so this is the first moment there is anything to
+        // read. A delete event re-parses to nothing, which is correct.
         const handleChange = (uri: vscode.Uri) => {
             logger.debug("AssetsDigestParser", `Assets.digest.verse changed: ${uri.fsPath}`);
-            this.clearCache();
+            this.scheduleRefresh();
         };
 
         watcher.onDidChange(handleChange);
@@ -242,13 +294,24 @@ export class AssetsDigestParser {
 
         disposables.push(watcher);
 
-        // Also watch for .uefnproject changes to clear cached path
+        // Also watch for .uefnproject changes: the digest path is derived from
+        // the project name, so a rename points the parser at a different file
+        // and the class names cached from the previous project are stale.
         const projectWatcher = vscode.workspace.createFileSystemWatcher("**/*.uefnproject");
-        projectWatcher.onDidChange(() => {
-            logger.debug("AssetsDigestParser", "Project file changed, clearing digest path cache");
-            this.cachedDigestPath = null;
-        });
+        const handleProjectChange = () => {
+            logger.debug("AssetsDigestParser", "Project file changed, refreshing asset class names");
+            this.scheduleRefresh();
+        };
+
+        projectWatcher.onDidChange(handleProjectChange);
+        projectWatcher.onDidCreate(handleProjectChange);
+        projectWatcher.onDidDelete(handleProjectChange);
+
         disposables.push(projectWatcher);
+
+        // Drop any queued refresh on teardown so it cannot run after the
+        // extension has been deactivated.
+        disposables.push({ dispose: () => this.cancelScheduledRefresh() });
 
         this.fileWatcher = watcher;
 

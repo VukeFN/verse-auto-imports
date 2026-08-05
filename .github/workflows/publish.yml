@@ -48,10 +48,29 @@ jobs:
           RELEASE_BODY: ${{ github.event.release.body }}
           RELEASE_URL: ${{ github.event.release.html_url }}
         run: |
-          # Escape special characters for JSON
-          ESCAPED_BODY=$(echo "$RELEASE_BODY" | jq -Rs '.')
+          # Discord renders HTML in embed descriptions as literal text and
+          # rejects descriptions over 4096 characters. Strip only known HTML
+          # tags - a bare <[^>]*> pattern would also eat the Verse specifiers
+          # these release notes quote, like <public> - and run sed over the
+          # whole input (-z) so a tag wrapped across lines is still caught.
+          CLEAN_BODY=$(printf '%s' "$RELEASE_BODY" | sed -Ez 's#</?(a|b|br|center|details|div|em|font|h[1-6]|hr|i|img|p|picture|source|span|strong|summary)\b[^>]*>|<!--[^>]*-->##g')
+          MAX_BODY_LENGTH=3900
+          if [ "${#CLEAN_BODY}" -gt "$MAX_BODY_LENGTH" ]; then
+            # Cut back to the last newline under the budget so the cut cannot
+            # land mid-line, then point at the full notes.
+            CLEAN_BODY="${CLEAN_BODY:0:$MAX_BODY_LENGTH}"
+            CLEAN_BODY="${CLEAN_BODY%$'\n'*}"$'\n\n'"[Full release notes](${RELEASE_URL})"
+          fi
+          if [ -z "$CLEAN_BODY" ]; then
+            CLEAN_BODY="See the [GitHub Release](${RELEASE_URL})."
+          fi
 
-          curl -H "Content-Type: application/json" \
+          # Escape special characters for JSON
+          ESCAPED_BODY=$(printf '%s' "$CLEAN_BODY" | jq -Rs '.')
+
+          # --fail-with-body makes a rejected webhook fail the step; this runs
+          # after the Marketplace publish, so failing here is safe and honest.
+          curl --fail-with-body -H "Content-Type: application/json" \
             -d "{
               \"content\": \"@everyone\",
               \"embeds\": [{

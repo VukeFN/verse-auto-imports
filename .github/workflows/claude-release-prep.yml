@@ -87,7 +87,12 @@ jobs:
                GitHub Release which they publish to ship to the Marketplace.
 
             Rules: no emojis, no AI attribution in commits, conventional commit
-            prefixes only.
+            prefixes only. Create exactly one branch (chore/release-vX.Y.Z) and
+            open exactly one PR (the release PR in step 6). Do not open any
+            other PR or branch, do not file issues, and do not run checks or
+            fixes beyond what the steps above ask for - pushing the release
+            branch and opening the release PR take priority over everything
+            optional.
           claude_args: |
             --allowedTools "Bash(npm ci),Bash(npm run compile),Bash(npm test),Bash(npm install --package-lock-only),Bash(git:*),Bash(gh pr:*),Bash(gh api:*),Read,Write,Edit,Grep,Glob"
-            --max-turns 30
+            --max-turns 60

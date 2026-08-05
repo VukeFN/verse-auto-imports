@@ -8,10 +8,14 @@ Where an entry resolves a tracked issue, it ends with a `[#N]` reference linked 
 
 ## [Unreleased]
 
+### Changed
+
+- **Commands Grouped Under a Verse Auto Imports Category**: every command now appears in the command palette as **Verse Auto Imports: Optimize Imports**, **Verse Auto Imports: Show Quick Menu** and so on. The `Verse: ` prefix was hardcoded into each command title, which read as though the commands belonged to Epic's official Verse extension; it now lives in the palette category field, where VS Code renders it in front of the title and groups the extension's commands together. The command IDs are unchanged, so existing keybindings and tasks that reference `verseAutoImports.*` keep working ([#94])
+
 ### Fixed
 
 - **CRLF Files Keep Their Line Endings**: editing imports in a file saved with Windows line endings no longer mixes CRLF and LF. The writers split the document on `\n` and rejoined with `\n`, so every rewritten import line came back LF-only while the untouched body lines kept their carriage returns. Because the rebuilt text could then never equal the original, the "nothing changed" check in **Optimize Imports** never matched, and the command replaced and saved the whole document on every invocation — a full-file diff each time. Imports, the blank line after the import block, and the document body are now written with the line ending the file already uses ([#139])
-- **Snooze No Longer Disables Auto Import Permanently**: **Verse: Snooze Auto Import** no longer writes `general.autoImport: false` into your user settings. It previously did, and only an in-memory timer ever wrote the value back, so a window reload, a VS Code restart, an update, or a crash during the five-minute snooze left auto import switched off for good — with no countdown in the status bar and no message connecting it to a snooze taken days earlier. The snooze is now held in memory and consulted by the auto-import check, which also means a reload simply ends the snooze instead of extending it forever. The status menu shows `Snoozed (M:SS)` on the Auto Import row while one is active. If an earlier snooze already left the setting off, re-enable **Auto Import** from the status bar menu once ([#132])
+- **Snooze No Longer Disables Auto Import Permanently**: **Verse Auto Imports: Snooze Auto Import** no longer writes `general.autoImport: false` into your user settings. It previously did, and only an in-memory timer ever wrote the value back, so a window reload, a VS Code restart, an update, or a crash during the five-minute snooze left auto import switched off for good — with no countdown in the status bar and no message connecting it to a snooze taken days earlier. The snooze is now held in memory and consulted by the auto-import check, which also means a reload simply ends the snooze instead of extending it forever. The status menu shows `Snoozed (M:SS)` on the Auto Import row while one is active. If an earlier snooze already left the setting off, re-enable **Auto Import** from the status bar menu once ([#132])
 - **"Did you mean" Suggestions Are Shape-Checked Before Import**: a "Did you mean" suggestion is now only turned into an import when it is a dotted chain of Verse identifiers; anything else, such as trailing sentence punctuation ("Did you mean Economy.Shop.") or prose ("Did you mean to use Bar.Baz instead?"), is dropped instead of being split into a plausible-looking but wrong import. Previously the raw suggestion text was split on its last period with no validation, so a trailing period produced an import one module level too deep (`using { Economy.Shop }` where `using { Economy }` is correct) and prose produced syntactically invalid Verse (`using { to use Bar }`), both emitted with high confidence and auto-inserted. Prose lines trailing a "Did you mean any of" option list are dropped the same way ([#130])
 
 ## [0.8.0] - 2026-08-04
@@ -330,6 +334,7 @@ See [GitHub Releases](https://github.com/VukeFN/verse-auto-imports/releases) for
 [#90]: https://github.com/VukeFN/verse-auto-imports/issues/90
 [#91]: https://github.com/VukeFN/verse-auto-imports/issues/91
 [#93]: https://github.com/VukeFN/verse-auto-imports/issues/93
+[#94]: https://github.com/VukeFN/verse-auto-imports/issues/94
 [#95]: https://github.com/VukeFN/verse-auto-imports/issues/95
 [#97]: https://github.com/VukeFN/verse-auto-imports/issues/97
 [#120]: https://github.com/VukeFN/verse-auto-imports/issues/120

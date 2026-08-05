@@ -5,8 +5,8 @@
 #   behavior.importSyntax (curly <-> dot)
 #   behavior.importGrouping (none / digestFirst / localFirst)
 #   behavior.sortImportsAlphabetically
-# and run "Verse: Optimize Imports" after each flip. Verify layout matches the
-# setting and that repeated runs are idempotent.
+# and run "Verse Auto Imports: Optimize Imports" after each flip. Verify
+# layout matches the setting and that repeated runs are idempotent.
 
 using { /Verse.org/Simulation }
 using { /Fortnite.com/Devices }

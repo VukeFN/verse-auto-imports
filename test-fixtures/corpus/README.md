@@ -57,8 +57,8 @@ and asserts, for each entry, the output of both extraction paths.
 
 1. During a smoke session (see `test-fixtures/uefn-smoke/PLAYBOOK.md`), open
    the fixture files so the Verse LSP reports their diagnostics.
-2. Run the command **Verse: Capture Diagnostics Corpus**. It writes the
-   verbatim diagnostics of all open `.verse` files to a JSON file.
+2. Run the command **Verse Auto Imports: Capture Diagnostics Corpus**. It
+   writes the verbatim diagnostics of all open `.verse` files to a JSON file.
 3. Curate the capture into entries: keep one entry per distinct message
    shape, fill in the two `expected` arrays, mark `source: "captured"`.
 4. For a new UEFN version, create a new folder rather than editing the old

@@ -495,6 +495,15 @@ describe("ImportDocumentEditor.ensureEmptyLinesAfterImports", () => {
         expect(applyEditMock()).not.toHaveBeenCalled();
     });
 
+    it("does not enforce spacing after an import inside a block comment", async () => {
+        const input = ["<#", "using { /Fortnite.com/Devices }", "#>", "", "code()"].join("\n");
+
+        const success = await editor.ensureEmptyLinesAfterImports(fakeDocument(input));
+
+        expect(success).toBe(true);
+        expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
     it("still enforces spacing after the file-level import block", async () => {
         const input = ["using { /Top }", "code()"].join("\n");
 

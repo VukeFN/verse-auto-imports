@@ -1,4 +1,6 @@
+import * as vscode from "vscode";
 import { DiagnosticsHandler } from "../DiagnosticsHandler";
+import { ImportHandler } from "../../imports";
 
 describe("DiagnosticsHandler.shouldProcessUri", () => {
     const fileUri = (fsPath: string) => ({ scheme: "file", fsPath });
@@ -32,5 +34,59 @@ describe("DiagnosticsHandler.shouldProcessUri", () => {
     it("is case-insensitive about the extension", () => {
         expect(DiagnosticsHandler.shouldProcessUri(fileUri("C:\\Project\\Device.VERSE"))).toBe(true);
         expect(DiagnosticsHandler.shouldProcessUri(fileUri("C:\\Project\\Assets.DIGEST.verse"))).toBe(false);
+    });
+});
+
+describe("DiagnosticsHandler auto-import suppression", () => {
+    const DELAY_MS = 10;
+
+    beforeEach(() => {
+        jest.useFakeTimers();
+        (vscode.languages.getDiagnostics as jest.Mock).mockReturnValue([{ message: "Unknown identifier `button_device`." }]);
+    });
+
+    afterEach(() => {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+        jest.clearAllMocks();
+    });
+
+    function makeImportHandler(): ImportHandler {
+        return {
+            extractImportSuggestions: jest.fn().mockResolvedValue([{ importStatement: "using { /Fortnite.com/Devices }", confidence: "high" }]),
+            addImportsToDocument: jest.fn().mockResolvedValue(undefined),
+        } as unknown as ImportHandler;
+    }
+
+    function makeDocument(): vscode.TextDocument {
+        return { uri: { scheme: "file", fsPath: "C:\\Project\\Content\\device.verse" }, languageId: "verse" } as unknown as vscode.TextDocument;
+    }
+
+    it("auto-imports when nothing suppresses it", async () => {
+        const importHandler = makeImportHandler();
+        const handler = new DiagnosticsHandler(vscode.window.createOutputChannel("test"), importHandler, () => false);
+        handler.setDelay(DELAY_MS);
+
+        await handler.handle(makeDocument());
+        await jest.advanceTimersByTimeAsync(DELAY_MS);
+
+        expect(importHandler.addImportsToDocument).toHaveBeenCalledTimes(1);
+    });
+
+    // Regression: the debounce timer re-reads the auto-import decision when it
+    // fires, so a snooze started while a timer is already pending suppresses
+    // that import too. Gating only where the timer is scheduled left a window
+    // of one debounce delay (3s by default) in which a snooze was ignored.
+    it("does not auto-import when a snooze starts after the timer is scheduled", async () => {
+        const importHandler = makeImportHandler();
+        let snoozed = false;
+        const handler = new DiagnosticsHandler(vscode.window.createOutputChannel("test"), importHandler, () => snoozed);
+        handler.setDelay(DELAY_MS);
+
+        await handler.handle(makeDocument());
+        snoozed = true;
+        await jest.advanceTimersByTimeAsync(DELAY_MS);
+
+        expect(importHandler.addImportsToDocument).not.toHaveBeenCalled();
     });
 });

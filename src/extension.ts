@@ -56,8 +56,8 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create handlers and providers
     const importHandler = new ImportHandler(outputChannel, assetsDigestParser, context);
-    const diagnosticsHandler = new DiagnosticsHandler(outputChannel, importHandler);
     const statusBarHandler = new StatusBarHandler(outputChannel);
+    const diagnosticsHandler = new DiagnosticsHandler(outputChannel, importHandler, () => statusBarHandler.isSnoozeActive());
     const importPathConverter = new ImportPathConverter(outputChannel, projectPathCache);
     const importCodeLensProvider = new ImportCodeLensProvider(outputChannel);
 

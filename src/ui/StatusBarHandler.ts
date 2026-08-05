@@ -29,7 +29,9 @@ export class StatusBarHandler {
         // Listen for configuration changes to update status bar
         vscode.workspace.onDidChangeConfiguration((event) => {
             if (event.affectsConfiguration("verseAutoImports")) {
-                // Check if auto import was manually enabled while snooze is active
+                // A snooze does not touch the setting, so this only fires when
+                // the user turns auto import on themselves mid-snooze. Take
+                // that as "imports now, please" and drop the snooze.
                 if (event.affectsConfiguration("verseAutoImports.general.autoImport") && this.snoozeEndTime !== null) {
                     const config = vscode.workspace.getConfiguration("verseAutoImports");
                     const autoImportEnabled = config.get<boolean>("general.autoImport", true);
@@ -56,7 +58,7 @@ export class StatusBarHandler {
     }
 
     updateDisplay(): void {
-        if (this.snoozeEndTime !== null) {
+        if (this.isSnoozeActive()) {
             // Snooze is active - show text with countdown
             const remaining = this.getRemainingTime();
             this.statusBarItem.text = `Verse Auto Imports (${remaining})`;
@@ -115,7 +117,7 @@ export class StatusBarHandler {
         let autoImportDescription: string;
         if (!autoImportEnabled) {
             autoImportDescription = "Disabled";
-        } else if (this.snoozeEndTime !== null) {
+        } else if (this.isSnoozeActive()) {
             autoImportDescription = `Snoozed (${this.getRemainingTime()})`;
         } else {
             autoImportDescription = "Enabled";
@@ -131,7 +133,7 @@ export class StatusBarHandler {
         });
 
         // Snooze section
-        if (this.snoozeEndTime !== null) {
+        if (this.isSnoozeActive()) {
             const remaining = this.getRemainingTime();
 
             items.push({
@@ -469,7 +471,7 @@ export class StatusBarHandler {
     }
 
     private extendSnooze(minutes: number): void {
-        if (this.snoozeEndTime === null) return;
+        if (!this.isSnoozeActive()) return;
 
         logger.debug("StatusBarHandler", `Extending snooze by ${minutes} minutes`);
         this.snoozeEndTime += minutes * MS_PER_MINUTE;

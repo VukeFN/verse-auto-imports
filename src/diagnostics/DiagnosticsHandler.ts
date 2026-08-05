@@ -13,6 +13,10 @@ export class DiagnosticsHandler {
     constructor(
         private outputChannel: vscode.OutputChannel,
         importHandler: ImportHandler,
+        // Consulted when a debounce timer fires, not when it is scheduled, so
+        // a snooze started while a timer is already pending still suppresses
+        // that import. Returns false when nothing is suppressing auto-import.
+        private isAutoImportSuppressed: () => boolean = () => false,
     ) {
         // Use the shared, fully-wired ImportHandler so the auto-import path has
         // the same asset-class detection and precompiled digests as quick fixes.
@@ -69,7 +73,7 @@ export class DiagnosticsHandler {
                 logger.debug("DiagnosticsHandler", `Processing diagnostics for ${documentKey} after delay`);
 
                 const config = vscode.workspace.getConfiguration("verseAutoImports");
-                const autoImportEnabled = config.get<boolean>("general.autoImport", true);
+                const autoImportEnabled = config.get<boolean>("general.autoImport", true) && !this.isAutoImportSuppressed();
                 const multiOptionStrategy = config.get<string>("behavior.multiOptionStrategy", "quickfix");
 
                 const autoImportSuggestions = new Set<string>();

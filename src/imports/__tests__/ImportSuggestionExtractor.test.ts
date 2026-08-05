@@ -128,6 +128,44 @@ describe("ImportSuggestionExtractor", () => {
 
             expect(suggestions).toHaveLength(0);
         });
+
+        it("should drop a 'Did you mean' suggestion with trailing sentence punctuation", async () => {
+            // Regression #130: the trailing period used to create an empty last
+            // segment, so the split went one level too deep and produced
+            // `using { Economy.Shop }` where `using { Economy }` is correct.
+            const errorMessage = "Unknown identifier `Shop`. Did you mean Economy.Shop.";
+
+            const suggestions = await extractor.extractImportSuggestions(errorMessage);
+
+            expect(suggestions).toHaveLength(0);
+        });
+
+        it("should drop a 'Did you mean' suggestion that is prose rather than a path", async () => {
+            // Regression #130: this used to produce `using { to use Bar }`
+            const errorMessage = "Unknown identifier `Foo`. Did you mean to use Bar.Baz instead?";
+
+            const suggestions = await extractor.extractImportSuggestions(errorMessage);
+
+            expect(suggestions).toHaveLength(0);
+        });
+
+        it("should drop a prose 'Did you mean' suggestion without an unknown-identifier prefix", async () => {
+            // Regression #130: this used to produce `using { Self }`
+            const errorMessage = "This call is invalid. Did you mean Self.Widget?";
+
+            const suggestions = await extractor.extractImportSuggestions(errorMessage);
+
+            expect(suggestions).toHaveLength(0);
+        });
+
+        it("should drop prose lines trailing a 'Did you mean any of' option list", async () => {
+            // Regression #130: the trailing sentence used to become an option
+            const errorMessage = "Unknown identifier `Combat`. Did you mean any of: \nSystems.Combat\nFeatures.Combat\nUsed inside module /mygame@fortnite.com/MyGame/Scripts.";
+
+            const suggestions = await extractor.extractImportSuggestions(errorMessage);
+
+            expect(suggestions.map((s) => s.importStatement)).toEqual(["using { Systems }", "using { Features }"]);
+        });
     });
 
     describe("extractImportsFromDiagnostics", () => {
@@ -178,6 +216,13 @@ describe("ImportSuggestionExtractor", () => {
             const paths = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `image2`. Did you mean Folder1.image2")]);
 
             expect(paths).toEqual(["Folder1"]);
+        });
+
+        it("should not extract a path from a 'Did you mean' suggestion with trailing punctuation", () => {
+            // Regression #130: this used to add "Economy.Shop" instead of "Economy"
+            const paths = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `Shop`. Did you mean Economy.Shop.")]);
+
+            expect(paths).toEqual([]);
         });
 
         it("should deduplicate paths across diagnostics and skip unrelated ones", () => {

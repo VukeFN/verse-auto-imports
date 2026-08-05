@@ -8,7 +8,9 @@ Where an entry resolves a tracked issue, it ends with a `[#N]` reference linked 
 
 ## [Unreleased]
 
-## [0.8.0] - 2026-08-04
+### Fixed
+
+- **"Did you mean" Suggestions Are Shape-Checked Before Import**: a "Did you mean" suggestion is now only turned into an import when it is a dotted chain of Verse identifiers; anything else, such as trailing sentence punctuation ("Did you mean Economy.Shop.") or prose ("Did you mean to use Bar.Baz instead?"), is dropped instead of being split into a plausible-looking but wrong import. Previously the raw suggestion text was split on its last period with no validation, so a trailing period produced an import one module level too deep (`using { Economy.Shop }` where `using { Economy }` is correct) and prose produced syntactically invalid Verse (`using { to use Bar }`), both emitted with high confidence and auto-inserted. Prose lines trailing a "Did you mean any of" option list are dropped the same way ([#130])
 
 ### Added
 
@@ -328,3 +330,4 @@ See [GitHub Releases](https://github.com/VukeFN/verse-auto-imports/releases) for
 [#97]: https://github.com/VukeFN/verse-auto-imports/issues/97
 [#120]: https://github.com/VukeFN/verse-auto-imports/issues/120
 [#121]: https://github.com/VukeFN/verse-auto-imports/issues/121
+[#130]: https://github.com/VukeFN/verse-auto-imports/issues/130

@@ -24,6 +24,8 @@ const PATTERNS = {
     USING_PATH: /using \{ (\/[^}]+) \}/g,
     /** Extracts path from "(/Path:)" format */
     PATH_IN_PARENS: /\((\/[^:)]+):\)/g,
+    /** A dotted chain of Verse identifiers, e.g. "Module.Submodule.Name" */
+    QUALIFIED_NAME: /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/,
 } as const;
 
 /** A resolvable import extracted from a compiler message. */
@@ -93,6 +95,15 @@ export class ImportSuggestionExtractor {
      * @returns The correct module path and class name, or null if invalid
      */
     private findCorrectModulePath(fullName: string): { modulePath: string; className: string } | null {
+        // "Did you mean" captures raw sentence text, so trailing punctuation
+        // ("Economy.Shop.") or prose ("to use Bar.Baz instead?") reaches this
+        // point; splitting those would produce a plausible-looking but wrong
+        // import. Anything that is not a dotted identifier chain is dropped.
+        if (!PATTERNS.QUALIFIED_NAME.test(fullName)) {
+            logger.debug("ImportSuggestionExtractor", `Rejecting suggestion text that is not a dotted identifier chain: ${fullName}`);
+            return null;
+        }
+
         const parts = fullName.split(".");
         if (parts.length < 2) {
             return null;

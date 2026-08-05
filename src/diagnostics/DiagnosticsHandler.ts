@@ -42,25 +42,31 @@ export class DiagnosticsHandler {
     }
 
     async handle(document: vscode.TextDocument) {
-        const documentKey = path.basename(document.uri.fsPath);
+        // Key the debounce state by the full URI, never by the basename: UEFN
+        // projects routinely hold same-named files in different module folders
+        // (Weapons/utils.verse and UI/utils.verse), and a shared key makes one
+        // file's diagnostics cancel or block the other's timer, silently
+        // dropping an auto-import. The basename stays as the log label only.
+        const documentKey = document.uri.toString();
+        const displayName = path.basename(document.uri.fsPath);
 
-        logger.trace("DiagnosticsHandler", `Received diagnostics for ${documentKey}`);
+        logger.trace("DiagnosticsHandler", `Received diagnostics for ${displayName}`);
 
         // Cancel any pending timer for this document
         const existingTimer = this.pendingTimers.get(documentKey);
         if (existingTimer) {
             clearTimeout(existingTimer);
             this.pendingTimers.delete(documentKey);
-            logger.trace("DiagnosticsHandler", `Cancelled pending timer for ${documentKey} (debouncing)`);
+            logger.trace("DiagnosticsHandler", `Cancelled pending timer for ${displayName} (debouncing)`);
         }
 
         // If already processing this document, don't start a new timer
         if (this.processingDocuments.has(documentKey)) {
-            logger.debug("DiagnosticsHandler", `Already processing ${documentKey}, skipping new timer`);
+            logger.debug("DiagnosticsHandler", `Already processing ${displayName}, skipping new timer`);
             return;
         }
 
-        logger.debug("DiagnosticsHandler", `Starting debounce timer (${this.delayMs}ms) for ${documentKey}`);
+        logger.debug("DiagnosticsHandler", `Starting debounce timer (${this.delayMs}ms) for ${displayName}`);
 
         // Create new timer with proper debouncing
         const timer = setTimeout(async () => {
@@ -72,7 +78,7 @@ export class DiagnosticsHandler {
             try {
                 const currentDiagnostics = vscode.languages.getDiagnostics(document.uri);
 
-                logger.debug("DiagnosticsHandler", `Processing diagnostics for ${documentKey} after delay`);
+                logger.debug("DiagnosticsHandler", `Processing diagnostics for ${displayName} after delay`);
 
                 const config = vscode.workspace.getConfiguration("verseAutoImports");
                 const autoImportEnabled = config.get<boolean>("general.autoImport", true) && !this.isAutoImportSuppressed();
@@ -124,7 +130,7 @@ export class DiagnosticsHandler {
                     });
 
                     await this.importHandler.addImportsToDocument(document, Array.from(autoImportSuggestions));
-                    vscode.window.setStatusBarMessage(`Auto-imported ${autoImportSuggestions.size} statements to ${path.basename(document.uri.fsPath)}`, 3000);
+                    vscode.window.setStatusBarMessage(`Auto-imported ${autoImportSuggestions.size} statements to ${displayName}`, 3000);
                 }
 
                 // Show status for multi-option diagnostics
@@ -135,7 +141,7 @@ export class DiagnosticsHandler {
                 logger.error("DiagnosticsHandler", "Error processing diagnostics", error);
             } finally {
                 this.processingDocuments.delete(documentKey);
-                logger.trace("DiagnosticsHandler", `Finished processing ${documentKey}`);
+                logger.trace("DiagnosticsHandler", `Finished processing ${displayName}`);
             }
         }, this.delayMs);
 

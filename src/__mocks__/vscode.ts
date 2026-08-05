@@ -92,4 +92,9 @@ const ConfigurationTarget = {
     WorkspaceFolder: 3,
 };
 
-export { workspace, window, languages, DiagnosticSeverity, StatusBarAlignment, ConfigurationTarget, Position, Range, WorkspaceEdit };
+const EndOfLine = {
+    LF: 1,
+    CRLF: 2,
+};
+
+export { workspace, window, languages, DiagnosticSeverity, StatusBarAlignment, ConfigurationTarget, EndOfLine, Position, Range, WorkspaceEdit };

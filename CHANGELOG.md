@@ -10,6 +10,7 @@ Where an entry resolves a tracked issue, it ends with a `[#N]` reference linked 
 
 ### Fixed
 
+- **CRLF Files Keep Their Line Endings**: editing imports in a file saved with Windows line endings no longer mixes CRLF and LF. The writers split the document on `\n` and rejoined with `\n`, so every rewritten import line came back LF-only while the untouched body lines kept their carriage returns. Because the rebuilt text could then never equal the original, the "nothing changed" check in **Optimize Imports** never matched, and the command replaced and saved the whole document on every invocation — a full-file diff each time. Imports, the blank line after the import block, and the document body are now written with the line ending the file already uses ([#139])
 - **Snooze No Longer Disables Auto Import Permanently**: **Verse: Snooze Auto Import** no longer writes `general.autoImport: false` into your user settings. It previously did, and only an in-memory timer ever wrote the value back, so a window reload, a VS Code restart, an update, or a crash during the five-minute snooze left auto import switched off for good — with no countdown in the status bar and no message connecting it to a snooze taken days earlier. The snooze is now held in memory and consulted by the auto-import check, which also means a reload simply ends the snooze instead of extending it forever. The status menu shows `Snoozed (M:SS)` on the Auto Import row while one is active. If an earlier snooze already left the setting off, re-enable **Auto Import** from the status bar menu once ([#132])
 
 ## [0.8.0] - 2026-08-04
@@ -333,3 +334,4 @@ See [GitHub Releases](https://github.com/VukeFN/verse-auto-imports/releases) for
 [#120]: https://github.com/VukeFN/verse-auto-imports/issues/120
 [#121]: https://github.com/VukeFN/verse-auto-imports/issues/121
 [#132]: https://github.com/VukeFN/verse-auto-imports/issues/132
+[#139]: https://github.com/VukeFN/verse-auto-imports/issues/139

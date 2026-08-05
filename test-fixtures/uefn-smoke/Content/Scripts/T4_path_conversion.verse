@@ -16,8 +16,9 @@
 #   fix). Expect both locations detected.
 #
 # Steps: hover each import line, use the conversion CodeLens, then run the
-# bulk "convert all" command. Also run "Rebuild Project Path Cache" first and
-# compare behavior with cache.enabled true vs false.
+# bulk "convert all" command. Also run
+# "Verse Auto Imports: Rebuild Project Path Cache" first and compare behavior
+# with cache.enabled true vs false.
 
 using { Gadgets.Tools }
 using { Combat.Weapons }

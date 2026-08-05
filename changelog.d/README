@@ -1,0 +1,49 @@
+changelog.d - one file per user-facing change, assembled into CHANGELOG.md at
+release time.
+
+Why this directory exists
+-------------------------
+
+Every branch that writes an entry under the [Unreleased] heading of
+CHANGELOG.md, and appends a link definition at the bottom of it, touches the
+same two regions of the same file. The second such branch to merge conflicts
+every time, on a file neither change is really about. Resolving that conflict by
+hand is also the riskiest moment in the flow, because the correct resolution is
+to keep both entries and a dropped entry is invisible afterwards.
+
+Two branches that add two differently named files cannot conflict.
+
+File name
+---------
+
+    <key>.<category>.md
+
+The key is the tracked issue number, for example 153.fixed.md. Use a short slug
+instead when nothing tracks the change, for example crlf-endings.fixed.md. A
+numeric key gets an ([#N]) tag and its matching link definition at assembly; a
+slug gets neither.
+
+The category is one of the Keep a Changelog six, lowercase: added, changed,
+deprecated, removed, fixed, security.
+
+File content
+------------
+
+The entry prose only, written for end users - what changed in the editor
+experience, not internal refactor details.
+
+Do not write a leading "- ". Do not write the ([#N]) tag. Do not add a link
+definition. Release assembly generates all three, because all three are exactly
+what conflicts when branches write them by hand.
+
+Assembly reads every .md file in this directory as a fragment and stops on one
+it cannot parse as <key>.<category>.md. A file with no .md extension is skipped
+instead. That is why this README has no extension - named README.md it would be
+read as a fragment and stop the release. Do not give it one.
+
+Assembly happens in the release workflow, which writes issue links as
+https://github.com/VukeFN/... to match the definitions already at the bottom of
+CHANGELOG.md. If you assemble by hand with a tool that derives the URL from a
+config value, pass the owner name with that same capitalisation. GitHub treats
+the owner as case-insensitive, so only the uniformity of that block is at stake.
+

@@ -37,11 +37,35 @@ class WorkspaceEdit {
     }
 }
 
+/**
+ * Carries a toString() because production code keys per-document state on it -
+ * DiagnosticsHandler's debounce maps, CommandsHandler, ImportCodeLensProvider
+ * and extension.ts all do. Without one, every instance would inherit
+ * Object.prototype.toString, stringify to "[object Object]", and collapse every
+ * document in a test onto a single map entry - so a collision test would pass
+ * *because* the collision it asserts against happened.
+ */
 class Uri {
+    readonly scheme = "file";
+
     private constructor(public readonly fsPath: string) {}
 
     static file(fsPath: string): Uri {
         return new Uri(fsPath);
+    }
+
+    /**
+     * Renders the file URI the way VS Code does for the path shapes these tests
+     * use: backslashes become forward slashes, and a Windows drive letter is
+     * lowercased with its colon percent-encoded, so "C:\\a\\b.verse" becomes
+     * "file:///c%3A/a/b.verse". It is not a general URI encoder - a UNC path, or
+     * one holding "#", "?", a space or non-ASCII, would not match real VS Code
+     * output.
+     */
+    toString(): string {
+        const forwardSlashed = this.fsPath.replace(/\\/g, "/");
+        const rooted = forwardSlashed.startsWith("/") ? forwardSlashed : `/${forwardSlashed}`;
+        return `file://${rooted.replace(/^\/([A-Za-z]):/, (_match, drive: string) => `/${drive.toLowerCase()}%3A`)}`;
     }
 }
 

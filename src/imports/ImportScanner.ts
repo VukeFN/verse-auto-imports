@@ -22,9 +22,22 @@ export interface ScannedImport {
     opensBlockComment: boolean;
 }
 
+/** What one line of a document leaves behind for the line below it. */
+interface LineScan {
+    /** The block-comment nesting depth the next line starts at. */
+    depth: number;
+    /** Whether the line carries any text outside a comment. */
+    hasCode: boolean;
+    /**
+     * Whether the line holds a `<#>` marker, which makes every line below it
+     * indented past it part of the comment it opens.
+     */
+    opensIndentedComment: boolean;
+}
+
 /**
- * Advances `<# ... #>` block-comment nesting across one line and returns the
- * depth the next line starts at.
+ * Advances `<# ... #>` block-comment nesting across one line, and reports
+ * whether anything on the line was code rather than comment text.
  *
  * Three Verse rules decide what counts as an opener, all taken from the
  * language's own lexer and comment round-trip tests:
@@ -40,8 +53,9 @@ export interface ScannedImport {
  * Inside a block comment nothing else is special: a `<#` in a string literal
  * really does open a comment in Verse, so no string tracking is needed.
  */
-function advanceBlockCommentDepth(line: string, depth: number): number {
+function scanLine(line: string, depth: number): LineScan {
     let nesting = depth;
+    let hasCode = false;
     let i = 0;
 
     while (i < line.length) {
@@ -58,10 +72,16 @@ function advanceBlockCommentDepth(line: string, depth: number): number {
             continue;
         }
 
-        if (line.startsWith("<#>", i) || line[i] === "#") {
-            // Indented comment or line comment: the rest of the line is
-            // comment text and cannot open a block.
-            return nesting;
+        if (line.startsWith("<#>", i)) {
+            // Indented comment: the rest of this line is comment text, and so
+            // is everything below indented past this line.
+            return { depth: nesting, hasCode, opensIndentedComment: true };
+        }
+
+        if (line[i] === "#") {
+            // Line comment: the rest of the line is comment text and cannot
+            // open a block.
+            return { depth: nesting, hasCode, opensIndentedComment: false };
         }
 
         if (line.startsWith("<#", i)) {
@@ -70,10 +90,92 @@ function advanceBlockCommentDepth(line: string, depth: number): number {
             continue;
         }
 
+        if (!/\s/.test(line[i])) {
+            hasCode = true;
+        }
         i += 1;
     }
 
-    return nesting;
+    return { depth: nesting, hasCode, opensIndentedComment: false };
+}
+
+/** The width of a line's leading whitespace, which is its indentation. */
+function indentWidth(line: string): number {
+    return line.length - line.trimStart().length;
+}
+
+/** What a line contributes at file scope. */
+export type LineKind = "code" | "comment" | "blank";
+
+/** How a line reads once comment structure from above it is accounted for. */
+export interface LineClassification {
+    kind: LineKind;
+    /**
+     * Whether the line begins inside a `<# ... #>` block comment opened above
+     * it. This is what decides whether the scanner may read the line as an
+     * import at all.
+     */
+    insideBlockComment: boolean;
+    /**
+     * Whether the comment this line belongs to was opened on an earlier line,
+     * as a block-comment body or the indented body of a `<#>` marker. A caller
+     * moving a run of comment lines has to know this: a run whose opener stays
+     * behind is half a comment, and relocating it either resurrects the region
+     * below the opener or strands lines that no longer read as comment text.
+     */
+    continuesCommentAbove: boolean;
+}
+
+/**
+ * Classifies every line as code, comment or blank in one pass.
+ *
+ * Comment structure is a property of everything above a line, so no caller can
+ * decide this line by line: a bare `#>` reads as a line comment on its own but
+ * is the tail of a block comment when something above it opened one, a line of
+ * ordinary prose is comment text under an open `<#`, and an indented line is
+ * comment text under a `<#>` marker. Both writers here and in
+ * ImportDocumentEditor need the same answer, so it is computed once, here,
+ * next to the lexing rules it depends on.
+ *
+ * Block-comment depth advances across an indented comment's body exactly as it
+ * does anywhere else, so what the scanner sees is unchanged by this: the
+ * indented body affects `kind` only.
+ */
+export function classifyLines(lines: string[]): LineClassification[] {
+    const classifications: LineClassification[] = new Array(lines.length);
+    let depth = 0;
+    // The indentation of the `<#>` marker whose body we are inside, if any.
+    let indentedCommentIndent: number | null = null;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const insideBlockComment = depth > 0;
+        const blank = line.trim() === "";
+
+        // An indented comment runs until a line that is neither blank nor
+        // indented past its marker: "everything indented by four spaces on
+        // subsequent lines becomes part of the comment", blank lines included.
+        if (indentedCommentIndent !== null && !blank && indentWidth(line) <= indentedCommentIndent) {
+            indentedCommentIndent = null;
+        }
+        const insideIndentedComment = indentedCommentIndent !== null && !insideBlockComment;
+
+        const scan = scanLine(line, depth);
+        const kind: LineKind = blank ? (insideBlockComment ? "comment" : "blank") : insideIndentedComment || !scan.hasCode ? "comment" : "code";
+
+        classifications[i] = {
+            kind,
+            insideBlockComment,
+            continuesCommentAbove: insideBlockComment || insideIndentedComment,
+        };
+
+        if (!insideBlockComment && !insideIndentedComment && scan.opensIndentedComment) {
+            indentedCommentIndent = indentWidth(line);
+        }
+        depth = scan.depth;
+    }
+
+    return classifications;
 }
 
 /**
@@ -82,15 +184,7 @@ function advanceBlockCommentDepth(line: string, depth: number): number {
  * a line, which the scanner's main loop cannot see once it starts skipping.
  */
 function blockCommentMask(lines: string[]): boolean[] {
-    const mask: boolean[] = new Array(lines.length);
-    let depth = 0;
-
-    for (let i = 0; i < lines.length; i++) {
-        mask[i] = depth > 0;
-        depth = advanceBlockCommentDepth(lines[i], depth);
-    }
-
-    return mask;
+    return classifyLines(lines).map((classification) => classification.insideBlockComment);
 }
 
 /**

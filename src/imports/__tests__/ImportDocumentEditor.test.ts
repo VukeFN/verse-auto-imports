@@ -64,9 +64,17 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, [], curlyNoSort)).toBe("using { /Zebra }\nusing { /Apple }\n\ncode()");
     });
 
+    // The commented-out import stays inert. It also stays where it was
+    // written: it opens the file, so it is the file's header comment, and a
+    // header belongs above the import block rather than pushed under it.
     it("leaves a commented-out import in the body instead of resurrecting it", () => {
         const input = "<#\nusing { /Old/Path }\n#>\nusing { /Verse.org/Simulation }\n\ncode()";
-        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe("using { /Verse.org/Simulation }\n\n<#\nusing { /Old/Path }\n#>\n\ncode()");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(input);
+    });
+
+    it("leaves a commented-out import below the block inert when it is not the header", () => {
+        const input = "using { /Verse.org/Simulation }\n\n<#\nusing { /Old/Path }\n#>\n\ncode()";
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(input);
     });
 
     it("returns null when the only import in the text is inside a block comment", () => {
@@ -100,6 +108,101 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
     it("keeps an anchored indented pair intact instead of normalizing it to one line", () => {
         const input = ["using:", "    /A <# disabled below", "using { /Old/Path }", "#>", "using { /B }", "", "code()"].join("\n");
         expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /B }", "", "using:", "    /A <# disabled below", "using { /Old/Path }", "#>", "", "code()"].join("\n"));
+    });
+
+    // A rebuild that emits the import block at line 0 and everything else
+    // under it moves the file's header into the middle of the file and tears
+    // an explanatory comment off the import it explains. Both are text the
+    // author placed deliberately, and organize is not asked to move either.
+    it("keeps a file header comment above the rebuilt import block", () => {
+        const input = "# Copyright 2026 MyGame\n# Licensed MIT\n\nusing { /Verse.org/Simulation }\n\ncode()";
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(input);
+    });
+
+    it("keeps a comment written directly above the only import attached to it", () => {
+        const input = "# Devices for the shop\nusing { /Fortnite.com/Devices }\n\ncode()";
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(input);
+    });
+
+    it("keeps the header above a block it also sorts", () => {
+        const input = "# Copyright 2026 MyGame\n\nusing { /Zebra }\nusing { /Apple }\ncode()";
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe("# Copyright 2026 MyGame\n\nusing { /Apple }\nusing { /Zebra }\n\ncode()");
+    });
+
+    it("keeps a comment above the interior import it annotates", () => {
+        const input = ["using { /Apple }", "# talks to the shop service", "using { /Zebra }", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(input);
+    });
+
+    it("keeps a comment attached to its import when that import sorts upward", () => {
+        const input = ["using { /Zebra }", "# talks to the shop service", "using { /Apple }", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["# talks to the shop service", "using { /Apple }", "using { /Zebra }", "", "code()"].join("\n"));
+    });
+
+    it("hoists a comment along with the import it annotates from below the code", () => {
+        const input = ["code_before()", "# needed for the timer", "using { /A }", "code_after()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlyNoSort)).toBe(["# needed for the timer", "using { /A }", "", "code_before()", "code_after()"].join("\n"));
+    });
+
+    it("leaves a comment separated from an import by a blank line in the body", () => {
+        const input = ["using { /A }", "# loose note about what follows", "", "using { /B }", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A }", "using { /B }", "", "# loose note about what follows", "", "code()"].join("\n"));
+    });
+
+    // Moving part of a `<# ... #>` region would leave its opener behind to
+    // swallow whatever followed it, so an attached block comment travels whole
+    // or not at all.
+    it("moves a whole block comment with the import below it", () => {
+        const input = ["using { /B }", "<# why /A is needed", "the long version #>", "using { /A }", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["<# why /A is needed", "the long version #>", "using { /A }", "using { /B }", "", "code()"].join("\n"));
+    });
+
+    // Line 0 is ambiguous: a file header and an annotation of the first import
+    // are written identically. It is read as a header, which leaves the
+    // comment exactly where the author put it. Reading it as an annotation
+    // instead would carry a licence down into the middle of the block when the
+    // import under it sorts away, which is the defect being fixed here.
+    it("treats a comment on line 0 as the header, not as the first import's annotation", () => {
+        const input = ["# devices for the shop", "using { /Fortnite.com/Devices }", "using { /Fortnite.com/Characters }", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["# devices for the shop", "using { /Fortnite.com/Characters }", "using { /Fortnite.com/Devices }", "", "code()"].join("\n"));
+    });
+
+    it("attaches a comment below the header to its own import", () => {
+        const input = ["# Copyright 2026 MyGame", "", "using { /Fortnite.com/Characters }", "# devices for the shop", "using { /Fortnite.com/Devices }", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(input);
+    });
+
+    // The body of a `<#>` marker is every line below it indented past it, so
+    // rebuilding the block between the marker and its body would empty the
+    // comment and strand its text as indented lines at file scope.
+    it("never splits an indented comment from its marker", () => {
+        const input = ["<#> Copyright 2026 MyGame", "    all rights reserved", "using { /B }", "using { /A }", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["<#> Copyright 2026 MyGame", "    all rights reserved", "using { /A }", "using { /B }", "", "code()"].join("\n"));
+    });
+
+    it("keeps an indented comment header above the block when a blank line follows it", () => {
+        const input = ["<#> Copyright 2026 MyGame", "    all rights reserved", "", "using { /B }", "using { /A }", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["<#> Copyright 2026 MyGame", "    all rights reserved", "", "using { /A }", "using { /B }", "", "code()"].join("\n"));
+    });
+
+    it("leaves an indented comment whole when a blank line inside it breaks the run above an import", () => {
+        const input = ["<#> Notes", "    the first paragraph", "", "    the second paragraph", "using { /A }", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["<#> Notes", "    the first paragraph", "", "    the second paragraph", "using { /A }", "", "code()"].join("\n"));
+    });
+
+    it("does not keep a leading run of blank lines as a header", () => {
+        expect(editor.buildOrganizedContent("\n\nusing { /A }\ncode()", [], curlySorted)).toBe("using { /A }\n\ncode()");
+        expect(editor.buildOrganizedContent("", ["/A"], curlySorted)).toBe("using { /A }\n");
+    });
+
+    it("keeps a CRLF header above the rebuilt block", () => {
+        const input = "# Copyright 2026 MyGame\r\n\r\nusing { /B }\r\nusing { /A }\r\ncode()\r\n";
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe("# Copyright 2026 MyGame\r\n\r\nusing { /A }\r\nusing { /B }\r\n\r\ncode()\r\n");
+    });
+
+    it("puts an added path into the block under the header rather than above it", () => {
+        const input = "# Copyright 2026 MyGame\n\nusing { /Existing }\n\ncode()";
+        expect(editor.buildOrganizedContent(input, ["/Added"], curlySorted)).toBe("# Copyright 2026 MyGame\n\nusing { /Added }\nusing { /Existing }\n\ncode()");
     });
 
     it("writes the preferred dot syntax", () => {
@@ -564,6 +667,47 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         expect(insert).toBeDefined();
         expect(insert!.position!.line).toBe(3);
         expect(insert!.text).toBe("using { Economy.Shop }\n");
+    });
+
+    // Line 0 is the top of the file, not the top of the import block. Inserting
+    // there because the block starts lower put the new import above the header
+    // comment and left the file with two import regions that never merge.
+    it("preserve + grouping none + sort OFF: appends after a block that opens below a header comment", async () => {
+        mockConfig({
+            "behavior.preserveImportLocations": true,
+            "behavior.importGrouping": "none",
+            "behavior.sortImportsAlphabetically": false,
+        });
+        const input = ["# Copyright 2026 MyGame", "", "using { /Verse.org/Simulation }", "", "hello := 1"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
+
+        expect(success).toBe(true);
+        const insert = appliedOperations(0).find((op) => op.kind === "insert");
+        expect(insert).toBeDefined();
+        expect(insert!.position!.line).toBe(3);
+        expect(insert!.text).toBe("using { Economy.Shop }\n");
+    });
+
+    // The line after the last import does not exist in a document with no
+    // trailing newline, and VS Code clamps a position past the end onto the end
+    // of the last line - splicing the two statements into one unreadable line.
+    it("preserve + grouping none + sort OFF: appends onto a block that ends the document", async () => {
+        mockConfig({
+            "behavior.preserveImportLocations": true,
+            "behavior.importGrouping": "none",
+            "behavior.sortImportsAlphabetically": false,
+        });
+        const input = ["code()", "using { /A }"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /B }"]);
+
+        expect(success).toBe(true);
+        const insert = appliedOperations(0).find((op) => op.kind === "insert");
+        expect(insert).toBeDefined();
+        expect(insert!.position!.line).toBe(1);
+        expect(insert!.position!.character).toBe("using { /A }".length);
+        expect(insert!.text).toBe("\nusing { /B }");
     });
 
     it("writes CRLF endings into a CRLF document when merging into an existing block", async () => {

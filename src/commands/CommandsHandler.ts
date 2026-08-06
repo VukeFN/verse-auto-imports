@@ -94,7 +94,17 @@ export class CommandsHandler {
      * Adds a single import statement to a document.
      */
     async addSingleImport(document: vscode.TextDocument, importStatement: string): Promise<void> {
-        await this.deps.importHandler.addImportsToDocument(document, [importStatement]);
+        // A false here means applyEdit was rejected - a stale document version
+        // or a read-only file - and the document is unchanged. Reporting the
+        // import as added would leave the only trace in the output channel.
+        const applied = await this.deps.importHandler.addImportsToDocument(document, [importStatement]);
+
+        if (!applied) {
+            logger.warn("CommandsHandler", `Failed to add import: ${importStatement}`);
+            vscode.window.showWarningMessage(`Could not add import: ${importStatement}. The document may have changed or be read-only.`);
+            return;
+        }
+
         vscode.window.setStatusBarMessage(`Added import: ${importStatement}`, CommandsHandler.STATUS_MESSAGE_DURATION_MS);
     }
 
@@ -130,7 +140,15 @@ export class CommandsHandler {
             // Rebuild the import block in one atomic edit: existing imports plus
             // missing ones, deduplicated, grouped, sorted, and written in the
             // preferred syntax. The document is never left import-less.
-            await this.deps.importHandler.organizeImports(document, missingImportPaths);
+            const applied = await this.deps.importHandler.organizeImports(document, missingImportPaths);
+
+            // Saving a document whose edit was rejected writes the unorganized
+            // content back to disk and makes the failure look like a success.
+            if (!applied) {
+                logger.warn("CommandsHandler", "Import organization was not applied to the document");
+                vscode.window.showWarningMessage("Could not optimize imports. The document may have changed or be read-only.");
+                return;
+            }
 
             await document.save();
 

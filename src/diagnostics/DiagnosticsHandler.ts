@@ -129,8 +129,17 @@ export class DiagnosticsHandler {
                         logger.debug("DiagnosticsHandler", `Will auto-import: ${imp}`);
                     });
 
-                    await this.importHandler.addImportsToDocument(document, Array.from(autoImportSuggestions));
-                    vscode.window.setStatusBarMessage(`Auto-imported ${autoImportSuggestions.size} statements to ${displayName}`, 3000);
+                    // The edit is rejected when the document moved on between
+                    // the read and the write, or when the file is read-only.
+                    // Reporting the imports as applied hides that entirely.
+                    const applied = await this.importHandler.addImportsToDocument(document, Array.from(autoImportSuggestions));
+
+                    if (applied) {
+                        vscode.window.setStatusBarMessage(`Auto-imported ${autoImportSuggestions.size} statements to ${displayName}`, 3000);
+                    } else {
+                        logger.warn("DiagnosticsHandler", `Failed to auto-import ${autoImportSuggestions.size} statements to ${displayName}`);
+                        vscode.window.showWarningMessage(`Could not auto-import ${autoImportSuggestions.size} statement(s) into ${displayName}. The document may have changed or be read-only.`);
+                    }
                 }
 
                 // Show status for multi-option diagnostics

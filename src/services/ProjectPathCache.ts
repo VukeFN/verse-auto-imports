@@ -115,9 +115,17 @@ export class ProjectPathCache {
     /**
      * Invalidate cache for specific files.
      * Uses transaction-like pattern: parse first, then swap old for new only on success.
+     *
+     * Parsing awaits, and `this.data` can be replaced while it does - the
+     * .uefnproject watcher, watcher teardown and the Clear Project Path Cache
+     * command all reach {@link clear}. The commit below therefore runs against
+     * the snapshot taken here and is abandoned if the field has moved on, so
+     * the update can neither dereference a cleared cache nor write nodes into
+     * one a rebuild has already repopulated.
      */
     async invalidateFiles(filePaths: string[]): Promise<void> {
-        if (!this.data) {
+        const data = this.data;
+        if (!data) {
             return;
         }
 
@@ -146,20 +154,27 @@ export class ProjectPathCache {
             }
         }
 
+        // The cache was cleared or rebuilt while parsing; the snapshot these
+        // nodes were computed against is gone, so there is nothing to commit to.
+        if (this.data !== data) {
+            logger.debug("ProjectPathCache", "Cache changed during invalidation, discarding the parsed update");
+            return;
+        }
+
         // Phase 2: Apply changes only for successfully parsed files (transaction commit)
         const reparsedFiles = new Set(parsedResults.keys());
-        const keptNodes = this.data.nodes.filter((node) => !node.sourceFile || !reparsedFiles.has(node.sourceFile));
+        const keptNodes = data.nodes.filter((node) => !node.sourceFile || !reparsedFiles.has(node.sourceFile));
         for (const newNodes of parsedResults.values()) {
             keptNodes.push(...newNodes);
         }
-        this.data.nodes = keptNodes;
+        data.nodes = keptNodes;
         this.rebuildIndexes();
 
         if (failedFiles.length > 0) {
             logger.warn("ProjectPathCache", `Kept old cache for ${failedFiles.length} failed file(s): ${failedFiles.join(", ")}`);
         }
 
-        this.data.generatedAt = Date.now();
+        data.generatedAt = Date.now();
         await this.saveToStorage();
     }
 
@@ -370,12 +385,16 @@ export class ProjectPathCache {
             clearTimeout(this.updateDebounceTimer);
         }
 
-        this.updateDebounceTimer = setTimeout(async () => {
+        // Nothing awaits the timer callback, so a rejection escaping it would be
+        // an unhandled rejection in the extension host rather than a logged fault.
+        this.updateDebounceTimer = setTimeout(() => {
             const filesToUpdate = Array.from(this.pendingUpdates);
             this.pendingUpdates.clear();
 
             logger.debug("ProjectPathCache", `Processing ${filesToUpdate.length} file changes`);
-            await this.invalidateFiles(filesToUpdate);
+            this.invalidateFiles(filesToUpdate).catch((error) => {
+                logger.error("ProjectPathCache", "Failed to invalidate changed files", error);
+            });
         }, ProjectPathCache.DEBOUNCE_MS);
     }
 

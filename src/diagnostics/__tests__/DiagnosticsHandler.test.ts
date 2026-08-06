@@ -47,18 +47,13 @@ function makeImportHandler(): ImportHandler {
 }
 
 /**
- * The uri carries a toString() because DiagnosticsHandler keys its debounce
- * state on it, exactly as vscode.Uri does at runtime. A plain object literal
- * would stringify every document to "[object Object]" and collapse them all
- * onto one key, hiding the very collision these tests exist to catch.
+ * Builds the uri with the shared vscode mock, whose Uri carries a per-path
+ * toString(); DiagnosticsHandler keys its debounce state on it. A uri that
+ * stringifies the same for every path would collapse them all onto one key and
+ * hide the very collision the tests below exist to catch.
  */
 function makeDocument(fsPath = "C:\\Project\\Content\\device.verse"): vscode.TextDocument {
-    const uri = {
-        scheme: "file",
-        fsPath,
-        toString: () => `file:///${fsPath.replace(/\\/g, "/")}`,
-    };
-    return { uri, languageId: "verse" } as unknown as vscode.TextDocument;
+    return { uri: vscode.Uri.file(fsPath), languageId: "verse" } as unknown as vscode.TextDocument;
 }
 
 describe("DiagnosticsHandler auto-import suppression", () => {

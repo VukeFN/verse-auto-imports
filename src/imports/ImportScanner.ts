@@ -22,9 +22,17 @@ export interface ScannedImport {
     opensBlockComment: boolean;
 }
 
+/** What one line of a document leaves behind for the line below it. */
+interface LineScan {
+    /** The block-comment nesting depth the next line starts at. */
+    depth: number;
+    /** Whether the line carries any text outside a comment. */
+    hasCode: boolean;
+}
+
 /**
- * Advances `<# ... #>` block-comment nesting across one line and returns the
- * depth the next line starts at.
+ * Advances `<# ... #>` block-comment nesting across one line, and reports
+ * whether anything on the line was code rather than comment text.
  *
  * Three Verse rules decide what counts as an opener, all taken from the
  * language's own lexer and comment round-trip tests:
@@ -40,8 +48,9 @@ export interface ScannedImport {
  * Inside a block comment nothing else is special: a `<#` in a string literal
  * really does open a comment in Verse, so no string tracking is needed.
  */
-function advanceBlockCommentDepth(line: string, depth: number): number {
+function scanLine(line: string, depth: number): LineScan {
     let nesting = depth;
+    let hasCode = false;
     let i = 0;
 
     while (i < line.length) {
@@ -61,7 +70,7 @@ function advanceBlockCommentDepth(line: string, depth: number): number {
         if (line.startsWith("<#>", i) || line[i] === "#") {
             // Indented comment or line comment: the rest of the line is
             // comment text and cannot open a block.
-            return nesting;
+            return { depth: nesting, hasCode };
         }
 
         if (line.startsWith("<#", i)) {
@@ -70,10 +79,55 @@ function advanceBlockCommentDepth(line: string, depth: number): number {
             continue;
         }
 
+        if (!/\s/.test(line[i])) {
+            hasCode = true;
+        }
         i += 1;
     }
 
-    return nesting;
+    return { depth: nesting, hasCode };
+}
+
+/** What a line contributes at file scope. */
+export type LineKind = "code" | "comment" | "blank";
+
+/** How a line reads once block-comment nesting from above it is accounted for. */
+export interface LineClassification {
+    kind: LineKind;
+    /**
+     * Whether the line begins inside a `<# ... #>` block comment opened above
+     * it. A caller moving a run of comment lines has to know this: a run whose
+     * opener stays behind is half a comment, and relocating it either
+     * resurrects the region below the opener or swallows lines the author
+     * never commented out.
+     */
+    insideBlockComment: boolean;
+}
+
+/**
+ * Classifies every line as code, comment or blank in one pass.
+ *
+ * Comment structure is a property of everything above a line, so no caller can
+ * decide this line by line: a bare `#>` reads as a line comment on its own but
+ * is the tail of a block comment when something above it opened one, and a
+ * line of ordinary prose is comment text under an open `<#`. Both writers here
+ * and in ImportDocumentEditor need the same answer, so it is computed once,
+ * here, next to the lexing rules it depends on.
+ */
+export function classifyLines(lines: string[]): LineClassification[] {
+    const classifications: LineClassification[] = new Array(lines.length);
+    let depth = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+        const insideBlockComment = depth > 0;
+        const scan = scanLine(lines[i], depth);
+        const kind: LineKind = scan.hasCode ? "code" : !insideBlockComment && lines[i].trim() === "" ? "blank" : "comment";
+
+        classifications[i] = { kind, insideBlockComment };
+        depth = scan.depth;
+    }
+
+    return classifications;
 }
 
 /**
@@ -82,15 +136,7 @@ function advanceBlockCommentDepth(line: string, depth: number): number {
  * a line, which the scanner's main loop cannot see once it starts skipping.
  */
 function blockCommentMask(lines: string[]): boolean[] {
-    const mask: boolean[] = new Array(lines.length);
-    let depth = 0;
-
-    for (let i = 0; i < lines.length; i++) {
-        mask[i] = depth > 0;
-        depth = advanceBlockCommentDepth(lines[i], depth);
-    }
-
-    return mask;
+    return classifyLines(lines).map((classification) => classification.insideBlockComment);
 }
 
 /**

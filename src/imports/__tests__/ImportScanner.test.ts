@@ -1,4 +1,4 @@
-import { scanConvertibleImports, scanModuleImports } from "../ImportScanner";
+import { classifyLines, scanConvertibleImports, scanModuleImports } from "../ImportScanner";
 
 describe("scanModuleImports", () => {
     it("collects a braced import at column 0 with a single-line span", () => {
@@ -208,5 +208,37 @@ describe("scanConvertibleImports", () => {
         // document leaves "\r" on every line. The statement text has to match
         // what a conversion looks for, which is the trimmed line.
         expect(scanConvertibleImports(["using { /A }\r", "code()\r"])).toEqual([{ statement: "using { /A }", line: 0 }]);
+    });
+});
+
+describe("classifyLines", () => {
+    const kinds = (lines: string[]) => classifyLines(lines).map((classification) => classification.kind);
+
+    it("separates code, line comments and blank lines", () => {
+        expect(kinds(["code()", "# a note", "", "   ", "using { /A }"])).toEqual(["code", "comment", "blank", "blank", "code"]);
+    });
+
+    it("reads every line of a block comment as comment, blank ones included", () => {
+        expect(kinds(["<#", "still a comment", "", "#>", "code()"])).toEqual(["comment", "comment", "comment", "comment", "code"]);
+    });
+
+    it("calls a line that opens a block comment after code what it is: code", () => {
+        expect(kinds(["using { /A } <# disabled below", "using { /Old }", "#>"])).toEqual(["code", "comment", "comment"]);
+    });
+
+    it("calls a line that closes a block comment and then runs code, code", () => {
+        expect(kinds(["<#", "note", "#> code()"])).toEqual(["comment", "comment", "code"]);
+    });
+
+    it("reads an indented comment marker as a comment, trailing text included", () => {
+        expect(kinds(["<#> the marker is not a block opener", "code()"])).toEqual(["comment", "code"]);
+    });
+
+    it("does not mistake a block opener inside a line comment for one", () => {
+        expect(kinds(["# see <# below", "code()"])).toEqual(["comment", "code"]);
+    });
+
+    it("marks only the lines a block comment was opened above", () => {
+        expect(classifyLines(["<#", "note", "#>", "code()"]).map((classification) => classification.insideBlockComment)).toEqual([false, true, true, false]);
     });
 });

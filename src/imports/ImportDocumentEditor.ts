@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { logger } from "../utils";
 import { ImportFormatter } from "./ImportFormatter";
-import { rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
+import { classifyLines, LineClassification, rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
 
 /** Represents a contiguous block of import statements in the document. */
 interface ImportBlock {
@@ -49,6 +49,55 @@ function documentEol(document: vscode.TextDocument): LineEnding {
  */
 function resolveEol(document: vscode.TextDocument, text: string): LineEnding {
     return detectEol(text) ?? documentEol(document);
+}
+
+/**
+ * The end, exclusive, of the run of comment and blank lines a file opens with.
+ *
+ * That run is the file header - a licence, an attribution, a description of
+ * what the file is - and it belongs above the import block rather than below
+ * it. Rebuilding the block at line 0 pushed the header into the middle of the
+ * file, which is the one place a header must never be.
+ *
+ * Position identifies it, never content: the first line carrying code ends the
+ * header, whether that line is an import or anything else. A header therefore
+ * stays put even in a file whose imports sit further down among code, where
+ * everything else is hoisted past it.
+ */
+function headerLineCount(classifications: LineClassification[]): number {
+    let end = 0;
+    while (end < classifications.length && classifications[end].kind !== "code") {
+        end++;
+    }
+    return end;
+}
+
+/**
+ * The first line of the comment run written directly above an import, which is
+ * the annotation of that import and has to travel with it. Returns the
+ * import's own start line when nothing is attached.
+ *
+ * A blank line ends the run: a comment separated from an import by one is
+ * loose prose about the region, not a label for the statement below it. So is
+ * `firstAttachableLine`, the end of the header - a header explains the file
+ * and stays where the file starts, even where no blank line divides it from
+ * the first import.
+ */
+function attachedCommentStart(importStartLine: number, classifications: LineClassification[], firstAttachableLine: number): number {
+    let start = importStartLine;
+    while (start > firstAttachableLine && classifications[start - 1].kind === "comment") {
+        start--;
+    }
+
+    // Never carry away half a block comment. Where the run begins inside a
+    // `<# ... #>` opened above it - most often by an import line that itself
+    // opens one, which cannot move - moving those lines would leave the opener
+    // behind to swallow whatever followed it and strand the `#>` elsewhere.
+    while (start < importStartLine && classifications[start].insideBlockComment) {
+        start++;
+    }
+
+    return start;
 }
 
 /**
@@ -355,11 +404,18 @@ export class ImportDocumentEditor {
                         // untouched.
                         const newImports = this.formatter.groupAndFormatImports(newImportPathsArray, preferDotSyntax, sortAlphabetically, importGrouping);
 
-                        if (importBlocks.length > 0 && importBlocks[0].start === 0) {
+                        if (importBlocks.length > 0) {
                             // After the last import block, not the first: with
                             // sorting off nothing reorders a block afterwards,
                             // so any earlier position could leave a new import
                             // above one that has to stay above it.
+                            //
+                            // Wherever that block sits, not only when it starts
+                            // at line 0. A file whose imports open below a
+                            // licence header has its first block at a later
+                            // line, and inserting at line 0 there put the new
+                            // import above the header and left two disconnected
+                            // import regions behind.
                             const lastBlock = importBlocks[importBlocks.length - 1];
                             edit.insert(document.uri, new vscode.Position(lastBlock.end + 1, 0), newImports.join(eol) + eol);
                         } else {
@@ -412,6 +468,11 @@ export class ImportDocumentEditor {
      * statements are left where they are. Returns null when the document has
      * no module imports and no additional paths (nothing to organize).
      *
+     * Comments keep the position they were written in relative to the code
+     * they describe: the file's opening comment run stays above the block (see
+     * headerLineCount), and a comment written directly above an import travels
+     * with that import wherever the sort puts it (see attachedCommentStart).
+     *
      * The result keeps the text's own line ending, so rebuilding an already
      * organized document reproduces it byte for byte and organizeImports can
      * skip the edit.
@@ -439,21 +500,56 @@ export class ImportDocumentEditor {
         const anchoredPaths = new Set(allImports.filter((imp) => imp.opensBlockComment).map((imp) => imp.path));
 
         const paths = scannedImports.map((imp) => imp.path);
-        const importLines = new Set<number>();
-        for (const imp of scannedImports) {
-            for (let line = imp.startLine; line <= imp.endLine; line++) {
-                importLines.add(line);
-            }
-        }
-        const body = lines.filter((_, index) => !importLines.has(index));
-
         const extraPaths = additionalPaths.map((p) => p.trim()).filter((p) => p.length > 0 && !anchoredPaths.has(p));
         if (paths.length === 0 && extraPaths.length === 0) {
             return null;
         }
 
+        const classifications = classifyLines(lines);
+        const headerEnd = headerLineCount(classifications);
+
+        // Every line the rebuilt block accounts for: the import statements
+        // themselves, and the comment lines written above them, which are part
+        // of the statement they annotate rather than of the body.
+        const hoistedLines = new Set<number>();
+        const commentsByPath = new Map<string, string[]>();
+        for (const imp of scannedImports) {
+            for (let line = imp.startLine; line <= imp.endLine; line++) {
+                hoistedLines.add(line);
+            }
+
+            const commentStart = attachedCommentStart(imp.startLine, classifications, headerEnd);
+            if (commentStart === imp.startLine) {
+                continue;
+            }
+
+            for (let line = commentStart; line < imp.startLine; line++) {
+                hoistedLines.add(line);
+            }
+            // Deduplication keeps one statement for a repeated path, so its
+            // comments are concatenated rather than replaced: writing only the
+            // last one would delete text the author wrote.
+            commentsByPath.set(imp.path, [...(commentsByPath.get(imp.path) ?? []), ...lines.slice(commentStart, imp.startLine)]);
+        }
+
+        const header = lines.slice(0, headerEnd);
+        const body = lines.filter((_, index) => index >= headerEnd && !hoistedLines.has(index));
+
         const uniquePaths = Array.from(new Set([...paths, ...extraPaths]));
         const formatted = this.formatter.groupAndFormatImports(uniquePaths, options.preferDotSyntax, options.sortAlphabetically, options.importGrouping);
+
+        // Put each comment back above the statement it was written for,
+        // wherever the sort has since placed that statement. Keying on the
+        // formatted statement rather than on a position is what survives
+        // grouping, which emits blank separators no path formats to.
+        const commentsByStatement = new Map<string, string[]>();
+        for (const [path, comments] of commentsByPath) {
+            commentsByStatement.set(this.formatter.formatImportStatement(path, options.preferDotSyntax), comments);
+        }
+        const block = formatted.flatMap((statement) => {
+            const comments = commentsByStatement.get(statement);
+            return comments ? [...comments, statement] : [statement];
+        });
 
         // Drop blank lines the removed imports left at the top; the gap after
         // the block is normalized by ensureEmptyLinesAfterImports afterwards.
@@ -464,10 +560,10 @@ export class ImportDocumentEditor {
         const remainingBody = body.slice(firstContent);
 
         if (remainingBody.length === 0) {
-            return formatted.join(eol) + eol;
+            return [...header, ...block].join(eol) + eol;
         }
 
-        return [...formatted, "", ...remainingBody].join(eol);
+        return [...header, ...block, "", ...remainingBody].join(eol);
     }
 
     /**

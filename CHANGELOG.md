@@ -10,6 +10,8 @@ Where an entry resolves a tracked issue, it ends with a `[#N]` reference linked 
 
 Pending changes are kept as one file per change under [changelog.d/](changelog.d/) and assembled here at release.
 
+## [0.9.0] - 2026-08-06
+
 ### Changed
 
 - **Commands Grouped Under a Verse Auto Imports Category**: every command now appears in the command palette as **Verse Auto Imports: Optimize Imports**, **Verse Auto Imports: Show Quick Menu** and so on. The `Verse: ` prefix was hardcoded into each command title, which read as though the commands belonged to Epic's official Verse extension; it now lives in the palette category field, where VS Code renders it in front of the title and groups the extension's commands together. The command IDs are unchanged, so existing keybindings and tasks that reference `verseAutoImports.*` keep working ([#94])
@@ -21,6 +23,10 @@ Pending changes are kept as one file per change under [changelog.d/](changelog.d
 - **Snooze No Longer Disables Auto Import Permanently**: **Verse Auto Imports: Snooze Auto Import** no longer writes `general.autoImport: false` into your user settings. It previously did, and only an in-memory timer ever wrote the value back, so a window reload, a VS Code restart, an update, or a crash during the five-minute snooze left auto import switched off for good — with no countdown in the status bar and no message connecting it to a snooze taken days earlier. The snooze is now held in memory and consulted by the auto-import check, which also means a reload simply ends the snooze instead of extending it forever. The status menu shows `Snoozed (M:SS)` on the Auto Import row while one is active. If an earlier snooze already left the setting off, re-enable **Auto Import** from the status bar menu once ([#132])
 - **Asset Names Keep Working After UEFN Rewrites the Digest**: editing an asset in UEFN no longer stops the extension from recognizing asset class names for the rest of the session. The watcher on `Assets.digest.verse` only emptied its cache, and the one consumer reads that cache synchronously, so nothing ever re-parsed the file: from the first change onward, a "Did you mean Assets.UI_Textures.Foo" suggestion inserted `using { Assets.UI_Textures }` instead of `using { Assets }`, and only a window reload fixed it. Opening VS Code before UEFN had generated the digest was worse — the create event, the one moment where parsing is wanted, also only cleared, so no asset name was ever known. Digest changes, creations and deletions now re-parse the file, and a `.uefnproject` change, creation or deletion refreshes the asset names as well, so a renamed project no longer answers from the previous project's assets ([#131])
 - **"Did you mean" Suggestions Are Shape-Checked Before Import**: a "Did you mean" suggestion is now only turned into an import when it is a dotted chain of Verse identifiers; anything else, such as trailing sentence punctuation ("Did you mean Economy.Shop.") or prose ("Did you mean to use Bar.Baz instead?"), is dropped instead of being split into a plausible-looking but wrong import. Previously the raw suggestion text was split on its last period with no validation, so a trailing period produced an import one module level too deep (`using { Economy.Shop }` where `using { Economy }` is correct) and prose produced syntactically invalid Verse (`using { to use Bar }`), both emitted with high confidence and auto-inserted. Prose lines trailing a "Did you mean any of" option list are dropped the same way ([#130])
+- **New Imports No Longer Land Above the Import That Provides Them**: adding an import to a file whose imports are split into blank-line-separated groups now places it in the group the whole file's ordering calls for, instead of always the first group. A dotted import such as `using { Economy.Shop }` was inserted into the top group even when the `using { Features }` that brings `Economy` into scope sat in a group below it, and because Verse reads `using` statements top-down the file then failed to compile with the same "Unknown identifier" error the import was meant to fix. A bare provider added for a dotted import still lands above it, and with **Sort Imports Alphabetically** turned off new imports are appended after the last group rather than the first ([#129])
+- **Same-Named Files in Different Folders No Longer Steal Each Other's Auto-Import**: two files sharing a name across module folders, such as `Weapons/utils.verse` and `UI/utils.verse`, are now imported independently. The debounce state was tracked per file name rather than per file, so when the compiler reported missing imports for both at once, one file could cancel the other's pending import or be skipped entirely, and the missed import stayed missing until the next time diagnostics arrived for that file ([#134])
+- **Project Path Cache Recovers When the Project File Appears Later**: a `.uefnproject` file created in the workspace after it was opened now re-engages the project path cache, instead of leaving it disengaged for the rest of the session. The cache marked itself initialized even when the first build found no project, and its watcher listened only for changes to `.uefnproject`, never for its creation, so module lookups fell back to a full filesystem scan every time until you ran **Verse Auto Imports: Rebuild Project Path Cache** or reloaded the window. The cache now stays uninitialized until a build actually produces data, and a project file appearing triggers a rebuild. Imports resolved correctly throughout; only the speed of resolving them was affected ([#146])
+- **Imports That Open a Block Comment Are No Longer Rebuilt**: an import line that opens a `<#` block comment is now left where it is instead of being rebuilt from its path alone by **Optimize Imports**. Rebuilding dropped the opener, which turned the commented-out import below it back into live code and orphaned its `#>` ([#166])
 
 ## [0.8.0] - 2026-08-04
 
@@ -310,7 +316,8 @@ See [GitHub Releases](https://github.com/VukeFN/verse-auto-imports/releases) for
 
 <!-- Version comparisons. The chain starts at 0.6.0: no v0.4.x or v0.5.x tags exist. -->
 
-[Unreleased]: https://github.com/VukeFN/verse-auto-imports/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/vukefn/verse-auto-imports/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/vukefn/verse-auto-imports/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/VukeFN/verse-auto-imports/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/VukeFN/verse-auto-imports/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/VukeFN/verse-auto-imports/compare/v0.6.4...v0.7.0
@@ -322,6 +329,10 @@ See [GitHub Releases](https://github.com/VukeFN/verse-auto-imports/releases) for
 
 <!-- Issue references -->
 
+[#129]: https://github.com/vukefn/verse-auto-imports/issues/129
+[#134]: https://github.com/vukefn/verse-auto-imports/issues/134
+[#146]: https://github.com/vukefn/verse-auto-imports/issues/146
+[#166]: https://github.com/vukefn/verse-auto-imports/issues/166
 [#23]: https://github.com/VukeFN/verse-auto-imports/issues/23
 [#41]: https://github.com/VukeFN/verse-auto-imports/issues/41
 [#42]: https://github.com/VukeFN/verse-auto-imports/issues/42

@@ -1,4 +1,4 @@
-import { scanModuleImports } from "../ImportScanner";
+import { scanConvertibleImports, scanModuleImports } from "../ImportScanner";
 
 describe("scanModuleImports", () => {
     it("collects a braced import at column 0 with a single-line span", () => {
@@ -151,5 +151,55 @@ describe("scanModuleImports", () => {
             { path: "/B", startLine: 1, endLine: 2, opensBlockComment: false },
             { path: "/C", startLine: 3, endLine: 3, opensBlockComment: false },
         ]);
+    });
+});
+
+describe("scanConvertibleImports", () => {
+    it("returns a live top-level import with its statement text and line", () => {
+        expect(scanConvertibleImports(["using { /Old/Path }", "", "code()"])).toEqual([{ statement: "using { /Old/Path }", line: 0 }]);
+    });
+
+    it("keeps the dotted style, which converts the same way as the braced one", () => {
+        expect(scanConvertibleImports(["using. /Old/Path"])).toEqual([{ statement: "using. /Old/Path", line: 0 }]);
+    });
+
+    it("excludes an import inside a block comment", () => {
+        // The lens used to appear here, and acting on it edited a line inside
+        // the comment.
+        const lines = ["<#", "using { /Old/Path }", "#>", "", "code()"];
+        expect(scanConvertibleImports(lines)).toEqual([]);
+    });
+
+    it("excludes a module-scoped import indented inside a module body", () => {
+        const lines = ["MyModule := module:", "    using { /Old/Path }", "", "code()"];
+        expect(scanConvertibleImports(lines)).toEqual([]);
+    });
+
+    it("excludes an import whose own line opens a block comment", () => {
+        // Rebuilding the line from its path alone would drop the opener and
+        // resurrect the region below it.
+        const lines = ["using { /A } <#", "using { /Old/Path }", "#>", "code()"];
+        expect(scanConvertibleImports(lines)).toEqual([]);
+    });
+
+    it("excludes the indented style, which no conversion path can rewrite", () => {
+        // Every conversion identifies an import by one line of statement text
+        // and replaces that one line; this statement spans two.
+        expect(scanConvertibleImports(["using:", "    /Old/Path", "code()"])).toEqual([]);
+    });
+
+    it("keeps the live imports of a file that also holds excluded ones", () => {
+        const lines = ["using { /Live/One }", "<#", "using { /Commented }", "#>", "using:", "    /Indented", "using { /Live/Two }", "MyModule := module:", "    using { /Scoped }"];
+        expect(scanConvertibleImports(lines)).toEqual([
+            { statement: "using { /Live/One }", line: 0 },
+            { statement: "using { /Live/Two }", line: 6 },
+        ]);
+    });
+
+    it("strips the carriage return of a CRLF file split on newlines alone", () => {
+        // The CodeLens provider and the converter both split on "\n", so a CRLF
+        // document leaves "\r" on every line. The statement text has to match
+        // what a conversion looks for, which is the trimmed line.
+        expect(scanConvertibleImports(["using { /A }\r", "code()\r"])).toEqual([{ statement: "using { /A }", line: 0 }]);
     });
 });

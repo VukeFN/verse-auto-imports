@@ -4,6 +4,7 @@ import { logger } from "../utils";
 import { ProjectPathHandler } from "../project";
 import { ProjectPathCache } from "../services";
 import { ImportFormatter } from "./ImportFormatter";
+import { scanConvertibleImports } from "./ImportScanner";
 
 interface ImportConversionResult {
     originalImport: string;
@@ -418,17 +419,11 @@ export class ImportPathConverter {
         const text = document.getText();
         const lines = text.split("\n");
 
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            const trimmedLine = line.trim();
-
-            const nextLine = i + 1 < lines.length ? lines[i + 1] : undefined;
-            if (ImportFormatter.isModuleImport(trimmedLine, nextLine)) {
-                if (this.isFullPathImport(trimmedLine) && !this.isBuiltinModule(trimmedLine)) {
-                    const result = await this.convertFromFullPath(trimmedLine);
-                    if (result) {
-                        results.push(result);
-                    }
+        for (const { statement } of scanConvertibleImports(lines)) {
+            if (this.isFullPathImport(statement) && !this.isBuiltinModule(statement)) {
+                const result = await this.convertFromFullPath(statement);
+                if (result) {
+                    results.push(result);
                 }
             }
         }
@@ -511,14 +506,10 @@ export class ImportPathConverter {
         const text = document.getText();
         const lines = text.split("\n");
 
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            const nextLine = i + 1 < lines.length ? lines[i + 1] : undefined;
-            if (ImportFormatter.isModuleImport(line.trim(), nextLine)) {
-                const result = await this.convertToFullPath(line.trim(), document.uri);
-                if (result) {
-                    results.push(result);
-                }
+        for (const { statement } of scanConvertibleImports(lines)) {
+            const result = await this.convertToFullPath(statement, document.uri);
+            if (result) {
+                results.push(result);
             }
         }
 

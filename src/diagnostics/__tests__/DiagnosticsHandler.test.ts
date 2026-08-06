@@ -42,7 +42,9 @@ const DELAY_MS = 10;
 function makeImportHandler(): ImportHandler {
     return {
         extractImportSuggestions: jest.fn().mockResolvedValue([{ importStatement: "using { /Fortnite.com/Devices }", confidence: "high" }]),
-        addImportsToDocument: jest.fn().mockResolvedValue(undefined),
+        // true is what a successful applyEdit returns; the handler reads it to
+        // decide between the success status message and a warning.
+        addImportsToDocument: jest.fn().mockResolvedValue(true),
     } as unknown as ImportHandler;
 }
 
@@ -138,8 +140,8 @@ describe("DiagnosticsHandler debounce keying", () => {
         let releaseFirstImport: () => void = () => {};
         (importHandler.addImportsToDocument as jest.Mock).mockImplementationOnce(
             () =>
-                new Promise<void>((resolve) => {
-                    releaseFirstImport = resolve;
+                new Promise<boolean>((resolve) => {
+                    releaseFirstImport = () => resolve(true);
                 }),
         );
 
@@ -160,5 +162,48 @@ describe("DiagnosticsHandler debounce keying", () => {
 
         const imported = (importHandler.addImportsToDocument as jest.Mock).mock.calls.map((call) => call[0]);
         expect(imported).toEqual([weaponsUtils, uiUtils]);
+    });
+});
+
+// Regression for #133: addImportsToDocument returns false when applyEdit is
+// rejected, and the status message was shown regardless. The user was told
+// imports had been added to a document that never changed.
+describe("DiagnosticsHandler auto-import failure reporting", () => {
+    beforeEach(() => {
+        jest.useFakeTimers();
+        (vscode.languages.getDiagnostics as jest.Mock).mockReturnValue([{ message: "Unknown identifier `button_device`." }]);
+    });
+
+    afterEach(() => {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+        jest.clearAllMocks();
+    });
+
+    async function runAutoImport(applyEditResult: boolean): Promise<void> {
+        const importHandler = makeImportHandler();
+        (importHandler.addImportsToDocument as jest.Mock).mockResolvedValue(applyEditResult);
+
+        const handler = new DiagnosticsHandler(vscode.window.createOutputChannel("test"), importHandler, () => false);
+        handler.setDelay(DELAY_MS);
+
+        await handler.handle(makeDocument());
+        await jest.advanceTimersByTimeAsync(DELAY_MS);
+    }
+
+    it("warns and shows no success message when the edit is rejected", async () => {
+        await runAutoImport(false);
+
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledTimes(1);
+        expect((vscode.window.showWarningMessage as jest.Mock).mock.calls[0][0]).toMatch(/Could not auto-import/);
+        expect(vscode.window.setStatusBarMessage).not.toHaveBeenCalled();
+    });
+
+    it("reports success and warns about nothing when the edit applies", async () => {
+        await runAutoImport(true);
+
+        expect(vscode.window.setStatusBarMessage).toHaveBeenCalledTimes(1);
+        expect((vscode.window.setStatusBarMessage as jest.Mock).mock.calls[0][0]).toMatch(/Auto-imported 1 statements/);
+        expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
     });
 });

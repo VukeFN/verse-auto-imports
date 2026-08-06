@@ -33,8 +33,10 @@ Stop manually managing imports in your Verse code. This extension automatically 
 - **Multi-Option Quick Fixes** - Choose from multiple import options when VS Code finds ambiguous identifiers
 - **Full Path Conversion** - Convert relative imports to full path format with CodeLens
 - **Smart Error Recognition** - Enhanced pattern matching for various Verse compiler errors
+- **Path Tree Caching** - Fast identifier resolution with automatic cache updates
 - **Zero Configuration** - Works perfectly out of the box with sensible defaults
-- **Import Organization** - Automatically sorts and consolidates imports with proper spacing
+- **Import Organization** - Sorts and consolidates imports with proper spacing, in an order Verse can actually resolve
+- **Comment-Aware** - Imports inside block comments stay commented out, and files keep their own line endings
 - **Flexible Configuration** - Customize behavior to match your coding style
 
 ## Quick Start

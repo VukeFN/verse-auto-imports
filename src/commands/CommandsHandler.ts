@@ -25,6 +25,7 @@ interface PathConversionResult {
     moduleName: string;
     isAmbiguous: boolean;
     possiblePaths?: string[];
+    line?: number;
 }
 
 /**
@@ -421,11 +422,13 @@ export class CommandsHandler {
     /**
      * Converts a single import to absolute path format.
      */
-    async convertToFullPath(document: vscode.TextDocument, importStatement: string, _lineNumber: number): Promise<void> {
+    async convertToFullPath(document: vscode.TextDocument, importStatement: string, lineNumber: number): Promise<void> {
         const documentUri = document.uri.toString();
         this.prepareForConversion(documentUri);
 
-        const result = (await this.deps.importPathConverter.convertToFullPath(importStatement, document.uri)) as PathConversionResult | null;
+        // The line the lens was clicked on travels with the conversion, so the
+        // edit lands there rather than on the first line reading the same.
+        const result = (await this.deps.importPathConverter.convertToFullPath(importStatement, document.uri, lineNumber)) as PathConversionResult | null;
 
         if (!result) {
             vscode.window.showInformationMessage("Import is already in absolute path format or could not be converted.");
@@ -489,11 +492,11 @@ export class CommandsHandler {
     /**
      * Converts a single import to relative path format.
      */
-    async convertToRelativePath(document: vscode.TextDocument, importStatement: string, _lineNumber: number): Promise<void> {
+    async convertToRelativePath(document: vscode.TextDocument, importStatement: string, lineNumber: number): Promise<void> {
         const documentUri = document.uri.toString();
         this.prepareForConversion(documentUri);
 
-        const result = (await this.deps.importPathConverter.convertFromFullPath(importStatement)) as PathConversionResult | null;
+        const result = (await this.deps.importPathConverter.convertFromFullPath(importStatement, lineNumber)) as PathConversionResult | null;
 
         if (!result) {
             vscode.window.showInformationMessage("Import cannot be converted to relative path.");

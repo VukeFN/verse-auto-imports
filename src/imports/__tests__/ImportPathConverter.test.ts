@@ -1,3 +1,4 @@
+import * as vscode from "vscode";
 import { ImportPathConverter } from "../ImportPathConverter";
 
 describe("ImportPathConverter.buildFullVersePath", () => {
@@ -55,5 +56,97 @@ describe("ImportPathConverter.buildModuleDefinitionRegex", () => {
         const re = ImportPathConverter.buildModuleDefinitionRegex("a.b");
         expect(re.test("a.b := module:")).toBe(true);
         expect(re.test("axb := module:")).toBe(false);
+    });
+});
+
+interface RecordedOperation {
+    kind: "insert" | "delete" | "replace";
+    range?: { start: { line: number; character: number }; end: { line: number; character: number } };
+    text?: string;
+}
+
+function fakeDocument(lines: string[]): vscode.TextDocument {
+    const text = lines.join("\n");
+    return {
+        uri: vscode.Uri.file("C:/project/test.verse"),
+        getText: () => text,
+    } as unknown as vscode.TextDocument;
+}
+
+describe("ImportPathConverter.applyConversion", () => {
+    let converter: ImportPathConverter;
+    const applyEditMock = () => vscode.workspace.applyEdit as unknown as jest.Mock;
+
+    const replacedOperation = (): RecordedOperation => {
+        const edit = applyEditMock().mock.calls[0][0] as { operations: RecordedOperation[] };
+        return edit.operations[0];
+    };
+
+    /** A resolved relative-to-absolute conversion of `using { Gadgets.Tools }`. */
+    const conversion = (line?: number) => ({
+        originalImport: "using { Gadgets.Tools }",
+        fullPathImport: "using { /mygame@fortnite.com/mygame/Gadgets/Tools }",
+        moduleName: "Tools",
+        isAmbiguous: false,
+        line,
+    });
+
+    beforeEach(() => {
+        converter = new ImportPathConverter(vscode.window.createOutputChannel("test"));
+        applyEditMock().mockClear();
+    });
+
+    it("edits the line the conversion names, not an identical statement commented out above it", async () => {
+        // The commented copy carries no CodeLens after the scanner change, but a
+        // search from the top of the document still reaches it first.
+        const document = fakeDocument(["<#", "using { Gadgets.Tools }", "#>", "", "using { Gadgets.Tools }", "", "code()"]);
+
+        expect(await converter.applyConversion(document, conversion(4))).toBe(true);
+
+        const replaced = replacedOperation();
+        expect(replaced.kind).toBe("replace");
+        expect(replaced.range!.start.line).toBe(4);
+        expect(replaced.range!.end.line).toBe(4);
+        expect(replaced.text).toBe("using { /mygame@fortnite.com/mygame/Gadgets/Tools }");
+    });
+
+    it("edits the named one of two identical imports rather than the first", async () => {
+        const document = fakeDocument(["using { Gadgets.Tools }", "using { Gadgets.Tools }", "", "code()"]);
+
+        expect(await converter.applyConversion(document, conversion(1))).toBe(true);
+
+        expect(replacedOperation().range!.start.line).toBe(1);
+    });
+
+    it("keeps the indentation of the named line, not of the first match", async () => {
+        const document = fakeDocument(["using { Gadgets.Tools }", "    using { Gadgets.Tools }", "", "code()"]);
+
+        expect(await converter.applyConversion(document, conversion(1))).toBe(true);
+
+        expect(replacedOperation().text).toBe("    using { /mygame@fortnite.com/mygame/Gadgets/Tools }");
+    });
+
+    it("falls back to the first textual match when the conversion names no line", async () => {
+        const document = fakeDocument(["", "using { Gadgets.Tools }", "", "code()"]);
+
+        expect(await converter.applyConversion(document, conversion())).toBe(true);
+
+        expect(replacedOperation().range!.start.line).toBe(1);
+    });
+
+    it("falls back to the first textual match when the named line no longer holds the statement", async () => {
+        // The document changed while the conversion was being resolved.
+        const document = fakeDocument(["using { Gadgets.Tools }", "", "code()"]);
+
+        expect(await converter.applyConversion(document, conversion(7))).toBe(true);
+
+        expect(replacedOperation().range!.start.line).toBe(0);
+    });
+
+    it("reports failure when the statement is nowhere in the document", async () => {
+        const document = fakeDocument(["using { Other.Module }", "", "code()"]);
+
+        expect(await converter.applyConversion(document, conversion(0))).toBe(false);
+        expect(applyEditMock()).not.toHaveBeenCalled();
     });
 });

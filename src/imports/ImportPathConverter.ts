@@ -12,6 +12,12 @@ interface ImportConversionResult {
     moduleName: string;
     isAmbiguous: boolean;
     possiblePaths?: string[];
+    /**
+     * The line the conversion acts on, where the caller knows it. Statement text
+     * is not unique in a document, so this is what keeps the edit on the line the
+     * user chose rather than on the first line that reads the same.
+     */
+    line?: number;
 }
 
 /** Content folder name constant */
@@ -360,7 +366,7 @@ export class ImportPathConverter {
     /**
      * Converts a full path import to a relative import
      */
-    async convertFromFullPath(importStatement: string): Promise<ImportConversionResult | null> {
+    async convertFromFullPath(importStatement: string, line?: number): Promise<ImportConversionResult | null> {
         if (this.isBuiltinModule(importStatement)) {
             logger.debug("ImportPathConverter", "Cannot convert built-in module to relative path");
             return null;
@@ -408,6 +414,7 @@ export class ImportPathConverter {
             fullPathImport: relativeImport, // In this case, it's actually the relative import
             moduleName: modulePathSegments[modulePathSegments.length - 1] || relativeImportPath,
             isAmbiguous: false,
+            line,
         };
     }
 
@@ -419,9 +426,9 @@ export class ImportPathConverter {
         const text = document.getText();
         const lines = text.split("\n");
 
-        for (const { statement } of scanConvertibleImports(lines)) {
+        for (const { statement, line } of scanConvertibleImports(lines)) {
             if (this.isFullPathImport(statement) && !this.isBuiltinModule(statement)) {
-                const result = await this.convertFromFullPath(statement);
+                const result = await this.convertFromFullPath(statement, line);
                 if (result) {
                     results.push(result);
                 }
@@ -434,7 +441,7 @@ export class ImportPathConverter {
     /**
      * Converts a relative import to a full path import
      */
-    async convertToFullPath(importStatement: string, documentUri: vscode.Uri): Promise<ImportConversionResult | null> {
+    async convertToFullPath(importStatement: string, documentUri: vscode.Uri, line?: number): Promise<ImportConversionResult | null> {
         if (this.isFullPathImport(importStatement)) {
             if (this.isBuiltinModule(importStatement)) {
                 logger.debug("ImportPathConverter", "Import is a built-in module and should not be converted");
@@ -484,6 +491,7 @@ export class ImportPathConverter {
                 fullPathImport,
                 moduleName,
                 isAmbiguous: false,
+                line,
             };
         } else {
             const possiblePaths = possibleLocations.map((location) => ImportPathConverter.buildFullVersePath(projectVersePath, location, modulePath));
@@ -494,6 +502,7 @@ export class ImportPathConverter {
                 moduleName,
                 isAmbiguous: true,
                 possiblePaths,
+                line,
             };
         }
     }
@@ -506,8 +515,8 @@ export class ImportPathConverter {
         const text = document.getText();
         const lines = text.split("\n");
 
-        for (const { statement } of scanConvertibleImports(lines)) {
-            const result = await this.convertToFullPath(statement, document.uri);
+        for (const { statement, line } of scanConvertibleImports(lines)) {
+            const result = await this.convertToFullPath(statement, document.uri, line);
             if (result) {
                 results.push(result);
             }
@@ -517,18 +526,39 @@ export class ImportPathConverter {
     }
 
     /**
+     * The line a conversion must land on.
+     *
+     * The line the caller recorded wins, because statement text is not unique in
+     * a document: an identical `using` can sit in a `<# ... #>` block comment or
+     * be plainly repeated above the one the user acted on, and the first textual
+     * match is then the wrong line. Only that recorded line is checked against
+     * the statement, never searched for, so a duplicate above it cannot win.
+     *
+     * The text search remains for a caller with no line to give, and for a line
+     * that no longer holds the statement because the document changed while the
+     * conversion was being resolved.
+     *
+     * Comparison is by trimmed text, which also absorbs the trailing `\r` a CRLF
+     * document leaves on every element of a `"\n"` split.
+     */
+    private static findConversionLine(lines: string[], conversion: ImportConversionResult): number {
+        const original = conversion.originalImport.trim();
+        const recorded = conversion.line;
+
+        if (recorded !== undefined && recorded >= 0 && recorded < lines.length && lines[recorded].trim() === original) {
+            return recorded;
+        }
+
+        return lines.findIndex((line) => line.trim() === original);
+    }
+
+    /**
      * Applies a conversion result to the document
      */
     async applyConversion(document: vscode.TextDocument, conversion: ImportConversionResult, selectedPath?: string): Promise<boolean> {
         const text = document.getText();
         const lines = text.split("\n");
-        let lineIndex = -1;
-        for (let i = 0; i < lines.length; i++) {
-            if (lines[i].trim() === conversion.originalImport.trim()) {
-                lineIndex = i;
-                break;
-            }
-        }
+        const lineIndex = ImportPathConverter.findConversionLine(lines, conversion);
 
         if (lineIndex === -1) {
             logger.debug("ImportPathConverter", `Could not find import line: ${conversion.originalImport}`);

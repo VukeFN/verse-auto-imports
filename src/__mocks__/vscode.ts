@@ -160,8 +160,10 @@ const workspace = {
     openTextDocument: jest.fn().mockResolvedValue({ getText: () => "" }),
     /**
      * Renders a path relative to the first workspace folder, forward-slashed, as
-     * the scanner and the cache watchers expect. Anything outside that folder
-     * comes back unchanged, matching what real VS Code does.
+     * the scanner and the cache watchers expect; anything outside it comes back
+     * unchanged. Real VS Code relativizes against whichever folder contains the
+     * path and honours the includeWorkspaceFolder argument, so a test covering
+     * the multi-root UEFN workspace needs more than this.
      */
     asRelativePath: jest.fn().mockImplementation((target: { fsPath: string } | string) => {
         const fsPath = typeof target === "string" ? target : target.fsPath;

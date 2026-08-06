@@ -60,7 +60,14 @@ describe("ProjectPathCache.invalidateFiles when the cache changes mid-parse", ()
 
     type CacheParams = ConstructorParameters<typeof ProjectPathCache>;
 
+    /** ProjectPathCache's own storage key; kept in sync with its private static. */
+    const CACHE_KEY = "projectPathTree";
+
     let cache: ProjectPathCache;
+    let storage: FakeMemento;
+
+    /** The node count in the payload workspace storage currently holds. */
+    const persistedNodeCount = (): number => storage.get<{ nodes: unknown[] }>(CACHE_KEY)?.nodes.length ?? -1;
 
     /** Drains the microtask queue so an in-flight parse reaches its await. */
     const flushAsync = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
@@ -92,8 +99,9 @@ describe("ProjectPathCache.invalidateFiles when the cache changes mid-parse", ()
 
         setWorkspaceFolders([{ uri: { fsPath: "C:\\Project\\Content" }, name: "Content", index: 0 }]);
 
+        storage = new FakeMemento();
         cache = new ProjectPathCache(
-            { workspaceState: new FakeMemento() } as unknown as CacheParams[0],
+            { workspaceState: storage } as unknown as CacheParams[0],
             { appendLine: jest.fn() } as unknown as CacheParams[1],
             new FakeProjectPathHandler() as unknown as CacheParams[2],
         );
@@ -136,6 +144,9 @@ describe("ProjectPathCache.invalidateFiles when the cache changes mid-parse", ()
 
         expect(cache.getStats().loaded).toBe(true);
         expect(cache.getStats().files).toBe(0);
+        // Workspace storage holds the rebuild's payload, not one carrying the
+        // stale node - the next session loads what the rebuild found.
+        expect(persistedNodeCount()).toBe(0);
     });
 
     it("still commits the parsed nodes when nothing disturbs the cache", async () => {
@@ -143,6 +154,7 @@ describe("ProjectPathCache.invalidateFiles when the cache changes mid-parse", ()
 
         expect(cache.getStats().files).toBe(1);
         expect(cache.getStats().identifiers).toBe(1);
+        expect(persistedNodeCount()).toBe(1);
     });
 
     it("logs a failed invalidation from the debounce timer instead of leaving it unhandled", async () => {
@@ -165,6 +177,9 @@ describe("ProjectPathCache.invalidateFiles when the cache changes mid-parse", ()
 
             expect(errors).toHaveBeenCalledWith("ProjectPathCache", "Failed to invalidate changed files", failure);
         } finally {
+            // The logger is a singleton, so leaving the stub installed would
+            // silently swallow errors in any test added after this one.
+            jest.restoreAllMocks();
             jest.useRealTimers();
         }
     });

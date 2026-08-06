@@ -107,6 +107,13 @@ describe("scanModuleImports", () => {
         expect(scanModuleImports(["using { /A } <#"])).toEqual([{ path: "/A", startLine: 0, endLine: 0, opensBlockComment: false }]);
     });
 
+    it("flags that same opener once a trailing newline gives it a line below", () => {
+        // A real file ends with a newline, so splitting it yields a trailing
+        // empty element and the carve-out above stops applying. Both outcomes
+        // are safe, but which one a file gets turns on an invisible byte.
+        expect(scanModuleImports(["using { /A } <#", ""])).toEqual([{ path: "/A", startLine: 0, endLine: 0, opensBlockComment: true }]);
+    });
+
     it("treats block comments as nesting, so an inner close does not resume scanning", () => {
         const lines = ["<#", "<#", "using { /Inner }", "#>", "using { /Outer }", "#>", "using { /Live }"];
         expect(scanModuleImports(lines)).toEqual([{ path: "/Live", startLine: 6, endLine: 6, opensBlockComment: false }]);

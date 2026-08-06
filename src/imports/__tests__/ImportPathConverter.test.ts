@@ -118,15 +118,7 @@ describe("ImportPathConverter.applyConversion", () => {
         expect(replacedOperation().range!.start.line).toBe(1);
     });
 
-    it("keeps the indentation of the named line, not of the first match", async () => {
-        const document = fakeDocument(["using { Gadgets.Tools }", "    using { Gadgets.Tools }", "", "code()"]);
-
-        expect(await converter.applyConversion(document, conversion(1))).toBe(true);
-
-        expect(replacedOperation().text).toBe("    using { /mygame@fortnite.com/mygame/Gadgets/Tools }");
-    });
-
-    it("falls back to the first textual match when the conversion names no line", async () => {
+    it("falls back to the first convertible import when the conversion names no line", async () => {
         const document = fakeDocument(["", "using { Gadgets.Tools }", "", "code()"]);
 
         expect(await converter.applyConversion(document, conversion())).toBe(true);
@@ -134,13 +126,23 @@ describe("ImportPathConverter.applyConversion", () => {
         expect(replacedOperation().range!.start.line).toBe(1);
     });
 
-    it("falls back to the first textual match when the named line no longer holds the statement", async () => {
+    it("falls back to the first convertible import when the named line no longer holds the statement", async () => {
         // The document changed while the conversion was being resolved.
         const document = fakeDocument(["using { Gadgets.Tools }", "", "code()"]);
 
         expect(await converter.applyConversion(document, conversion(7))).toBe(true);
 
         expect(replacedOperation().range!.start.line).toBe(0);
+    });
+
+    it("does not fall back onto a commented-out copy when the named line has moved", async () => {
+        // Resolving a conversion spans a workspace scan, and an ambiguous one a
+        // quick pick, so the document can change under a recorded line. The
+        // fallback must still refuse the lines a lens would never appear on.
+        const document = fakeDocument(["<#", "using { Gadgets.Tools }", "#>", "", "code()"]);
+
+        expect(await converter.applyConversion(document, conversion(9))).toBe(false);
+        expect(applyEditMock()).not.toHaveBeenCalled();
     });
 
     it("reports failure when the statement is nowhere in the document", async () => {

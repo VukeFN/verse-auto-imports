@@ -534,9 +534,13 @@ export class ImportPathConverter {
      * match is then the wrong line. Only that recorded line is checked against
      * the statement, never searched for, so a duplicate above it cannot win.
      *
-     * The text search remains for a caller with no line to give, and for a line
-     * that no longer holds the statement because the document changed while the
-     * conversion was being resolved.
+     * A search remains for a caller with no line to give, and for a line that no
+     * longer holds the statement because the document changed while the
+     * conversion was being resolved - resolving one spans a workspace scan, and
+     * an ambiguous one also spans a quick pick. That search goes through the
+     * shared scanner rather than every line, so a fallback cannot land somewhere
+     * a lens would never have appeared: searching the raw lines is what let the
+     * commented-out copy absorb the edit in the first place.
      *
      * Comparison is by trimmed text, which also absorbs the trailing `\r` a CRLF
      * document leaves on every element of a `"\n"` split.
@@ -549,7 +553,7 @@ export class ImportPathConverter {
             return recorded;
         }
 
-        return lines.findIndex((line) => line.trim() === original);
+        return scanConvertibleImports(lines).find(({ statement }) => statement === original)?.line ?? -1;
     }
 
     /**

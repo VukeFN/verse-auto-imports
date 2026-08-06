@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { logger } from "../utils";
-import { ImportFormatter } from "./ImportFormatter";
 import { ImportPathConverter } from "./ImportPathConverter";
+import { scanConvertibleImports } from "./ImportScanner";
 
 /** Tracks hover state for a document's imports. */
 interface HoverState {
@@ -145,82 +145,71 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
         const text = document.getText();
         const lines = text.split("\n");
 
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            const trimmedLine = line.trim();
+        // Membership is the shared scanner's call, not this provider's: a lens
+        // must appear on exactly the lines a conversion would act on, which
+        // excludes a `using` inside a block comment or a module body.
+        const convertibleImports = scanConvertibleImports(lines);
 
-            // Check if this is a module import line (skip local-scope using)
-            const nextLine = i + 1 < lines.length ? lines[i + 1] : undefined;
-            if (ImportFormatter.isModuleImport(trimmedLine, nextLine)) {
-                const range = new vscode.Range(new vscode.Position(i, 0), new vscode.Position(i, line.length));
+        // Whether a "for all" lens is worth offering is a property of the file,
+        // not of the import the lens hangs off, so both counts are taken once.
+        const hasMultipleFullPathImports =
+            convertibleImports.filter(({ statement }) => this.importPathConverter.isFullPathImport(statement) && !this.importPathConverter.isBuiltinModule(statement)).length > 1;
+        const hasMultipleRelativeImports = convertibleImports.filter(({ statement }) => !this.importPathConverter.isFullPathImport(statement)).length > 1;
 
-                // Check if it's a full path import that can be converted to relative
-                if (this.importPathConverter.isFullPathImport(trimmedLine)) {
-                    // Only show relative conversion for non-built-in modules
-                    if (!this.importPathConverter.isBuiltinModule(trimmedLine)) {
-                        const moduleName = this.importPathConverter.extractModuleName(trimmedLine);
+        for (const { statement: trimmedLine, line: i } of convertibleImports) {
+            const range = new vscode.Range(new vscode.Position(i, 0), new vscode.Position(i, lines[i].length));
 
-                        if (moduleName) {
-                            // Create CodeLens for converting to relative path
-                            const convertToRelativeLens = new vscode.CodeLens(range, {
-                                title: `$(arrow-both)  Use relative path`,
-                                tooltip: `Use relative path for '${moduleName}'`,
-                                command: "verseAutoImports.convertToRelativePath",
-                                arguments: [document, trimmedLine, i],
-                            });
-                            codeLenses.push(convertToRelativeLens);
-
-                            // Check if there are multiple full path imports (non-builtin) in the file
-                            const hasMultipleFullPathImports =
-                                lines.filter((l, idx) => {
-                                    const trimmed = l.trim();
-                                    const next = idx + 1 < lines.length ? lines[idx + 1] : undefined;
-                                    return ImportFormatter.isModuleImport(trimmed, next) && this.importPathConverter.isFullPathImport(trimmed) && !this.importPathConverter.isBuiltinModule(trimmed);
-                                }).length > 1;
-
-                            // Add "Use relative paths for all" option if there are multiple full path imports
-                            if (hasMultipleFullPathImports) {
-                                const convertAllRelativeLens = new vscode.CodeLens(range, {
-                                    title: `$(arrow-swap)  Use relative paths for all`,
-                                    tooltip: "Use relative paths for all imports in this file",
-                                    command: "verseAutoImports.convertAllToRelativePath",
-                                    arguments: [document],
-                                });
-                                codeLenses.push(convertAllRelativeLens);
-                            }
-                        }
-                    }
-                } else {
-                    // It's a relative import - show option to convert to absolute path
+            // Check if it's a full path import that can be converted to relative
+            if (this.importPathConverter.isFullPathImport(trimmedLine)) {
+                // Only show relative conversion for non-built-in modules
+                if (!this.importPathConverter.isBuiltinModule(trimmedLine)) {
                     const moduleName = this.importPathConverter.extractModuleName(trimmedLine);
 
                     if (moduleName) {
-                        // Create CodeLens for converting to absolute path
-                        const convertSingleLens = new vscode.CodeLens(range, {
-                            title: `$(arrow-both)  Use absolute path`,
-                            tooltip: `Use absolute path for '${moduleName}'`,
-                            command: "verseAutoImports.convertToFullPath",
+                        // Create CodeLens for converting to relative path
+                        const convertToRelativeLens = new vscode.CodeLens(range, {
+                            title: `$(arrow-both)  Use relative path`,
+                            tooltip: `Use relative path for '${moduleName}'`,
+                            command: "verseAutoImports.convertToRelativePath",
                             arguments: [document, trimmedLine, i],
                         });
-                        codeLenses.push(convertSingleLens);
+                        codeLenses.push(convertToRelativeLens);
 
-                        // Check if there are multiple relative imports in the file
-                        const hasMultipleRelativeImports =
-                            lines.filter((l, idx) => {
-                                const next = idx + 1 < lines.length ? lines[idx + 1] : undefined;
-                                return ImportFormatter.isModuleImport(l.trim(), next) && !this.importPathConverter.isFullPathImport(l.trim());
-                            }).length > 1;
-
-                        // Add "Use absolute paths for all" option if there are multiple relative imports
-                        if (hasMultipleRelativeImports) {
-                            const convertAllLens = new vscode.CodeLens(range, {
-                                title: `$(arrow-swap)  Use absolute paths for all`,
-                                tooltip: "Use absolute paths for all imports in this file",
-                                command: "verseAutoImports.convertAllToFullPath",
+                        // Add "Use relative paths for all" option if there are multiple full path imports
+                        if (hasMultipleFullPathImports) {
+                            const convertAllRelativeLens = new vscode.CodeLens(range, {
+                                title: `$(arrow-swap)  Use relative paths for all`,
+                                tooltip: "Use relative paths for all imports in this file",
+                                command: "verseAutoImports.convertAllToRelativePath",
                                 arguments: [document],
                             });
-                            codeLenses.push(convertAllLens);
+                            codeLenses.push(convertAllRelativeLens);
                         }
+                    }
+                }
+            } else {
+                // It's a relative import - show option to convert to absolute path
+                const moduleName = this.importPathConverter.extractModuleName(trimmedLine);
+
+                if (moduleName) {
+                    // Create CodeLens for converting to absolute path
+                    const convertSingleLens = new vscode.CodeLens(range, {
+                        title: `$(arrow-both)  Use absolute path`,
+                        tooltip: `Use absolute path for '${moduleName}'`,
+                        command: "verseAutoImports.convertToFullPath",
+                        arguments: [document, trimmedLine, i],
+                    });
+                    codeLenses.push(convertSingleLens);
+
+                    // Add "Use absolute paths for all" option if there are multiple relative imports
+                    if (hasMultipleRelativeImports) {
+                        const convertAllLens = new vscode.CodeLens(range, {
+                            title: `$(arrow-swap)  Use absolute paths for all`,
+                            tooltip: "Use absolute paths for all imports in this file",
+                            command: "verseAutoImports.convertAllToFullPath",
+                            arguments: [document],
+                        });
+                        codeLenses.push(convertAllLens);
                     }
                 }
             }

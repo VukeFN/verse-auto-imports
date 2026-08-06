@@ -12,6 +12,43 @@ class Range {
     ) {}
 }
 
+interface Command {
+    title: string;
+    command: string;
+    tooltip?: string;
+    arguments?: unknown[];
+}
+
+class CodeLens {
+    constructor(
+        public readonly range: Range,
+        public readonly command?: Command,
+    ) {}
+}
+
+/** Registers listeners and fires them synchronously, as VS Code's own does. */
+class EventEmitter<T> {
+    private readonly listeners: ((value: T) => void)[] = [];
+
+    readonly event = (listener: (value: T) => void): { dispose: () => void } => {
+        this.listeners.push(listener);
+        return {
+            dispose: () => {
+                const index = this.listeners.indexOf(listener);
+                if (index !== -1) this.listeners.splice(index, 1);
+            },
+        };
+    };
+
+    fire(value: T): void {
+        this.listeners.forEach((listener) => listener(value));
+    }
+
+    dispose(): void {
+        this.listeners.length = 0;
+    }
+}
+
 interface RecordedEditOperation {
     kind: "insert" | "delete" | "replace";
     uri: unknown;
@@ -151,6 +188,7 @@ const workspace = {
         update: jest.fn().mockResolvedValue(undefined),
     }),
     onDidChangeConfiguration: jest.fn().mockReturnValue({ dispose: jest.fn() }),
+    onDidChangeTextDocument: jest.fn().mockReturnValue({ dispose: jest.fn() }),
     applyEdit: jest.fn().mockResolvedValue(true),
     workspaceFolders: undefined as { uri: { fsPath: string }; name: string; index: number }[] | undefined,
     findFiles: jest.fn().mockResolvedValue([]),
@@ -228,4 +266,21 @@ const EndOfLine = {
     CRLF: 2,
 };
 
-export { workspace, window, languages, DiagnosticSeverity, StatusBarAlignment, ConfigurationTarget, EndOfLine, Position, Range, WorkspaceEdit, Uri, RelativePattern, Disposable, FileSystemWatcher };
+export {
+    workspace,
+    window,
+    languages,
+    DiagnosticSeverity,
+    StatusBarAlignment,
+    ConfigurationTarget,
+    EndOfLine,
+    Position,
+    Range,
+    WorkspaceEdit,
+    Uri,
+    RelativePattern,
+    Disposable,
+    FileSystemWatcher,
+    CodeLens,
+    EventEmitter,
+};

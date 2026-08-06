@@ -181,3 +181,54 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
 
     return imports;
 }
+
+/**
+ * The subset of scanned imports a writer is allowed to rebuild or move.
+ *
+ * Every writer reconstructs an import line from its path alone, so an import
+ * whose line also opens a block comment has to be excluded from both halves of
+ * that: its lines never enter a range a writer replaces, and its path is never
+ * re-emitted somewhere else. Anything else either drops the opener -
+ * resurrecting the region below it - or relocates the opener so the comment
+ * swallows different lines than the author wrote it around. See
+ * ScannedImport.opensBlockComment.
+ *
+ * Such an import is still present for existence and deduplication purposes;
+ * only rewriting is off limits. Callers wanting "is this path imported" must
+ * read the unfiltered scan.
+ */
+export function rewritableImports(scannedImports: ScannedImport[]): ScannedImport[] {
+    return scannedImports.filter((imp) => !imp.opensBlockComment);
+}
+
+/** An import statement a path conversion may act on, with the line it occupies. */
+export interface ConvertibleImport {
+    /** The statement text, trimmed, exactly as it appears on its line. */
+    statement: string;
+    /** The line the statement occupies. */
+    line: number;
+}
+
+/**
+ * The import statements a path conversion may act on, so the CodeLens provider
+ * and the converter cannot disagree about which lines those are.
+ *
+ * Conversion reads a statement's path, rewrites the whole line around it, and
+ * offers a lens on it, so the set is narrower than the full scan in three ways:
+ *
+ * - It comes from scanModuleImports, which already rejects a `using` inside a
+ *   `<# ... #>` block comment and one indented inside a module body. Deriving
+ *   membership line by line instead is what let a lens appear on inert text and
+ *   on a module-scoped import, and acting on that lens edited a line inside a
+ *   comment.
+ * - An import that opens a block comment is excluded: rebuilding its line drops
+ *   the opener and resurrects the region below it.
+ * - The indented style (`using:` with the path on the following line) is
+ *   excluded, because every conversion path identifies an import by a single
+ *   line of statement text and replaces that one line.
+ */
+export function scanConvertibleImports(lines: string[]): ConvertibleImport[] {
+    return rewritableImports(scanModuleImports(lines))
+        .filter((imp) => imp.startLine === imp.endLine)
+        .map((imp) => ({ statement: lines[imp.startLine].trim(), line: imp.startLine }));
+}

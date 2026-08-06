@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { logger } from "../utils";
 import { ImportFormatter } from "./ImportFormatter";
-import { scanModuleImports, ScannedImport } from "./ImportScanner";
+import { rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
 
 /** Represents a contiguous block of import statements in the document. */
 interface ImportBlock {
@@ -49,25 +49,6 @@ function documentEol(document: vscode.TextDocument): LineEnding {
  */
 function resolveEol(document: vscode.TextDocument, text: string): LineEnding {
     return detectEol(text) ?? documentEol(document);
-}
-
-/**
- * The subset of scanned imports a writer is allowed to rebuild or move.
- *
- * Every writer here reconstructs an import line from its path alone, so an
- * import whose line also opens a block comment has to be excluded from both
- * halves of that: its lines never enter a range a writer replaces, and its
- * path is never re-emitted somewhere else. Anything else either drops the
- * opener - resurrecting the region below it - or relocates the opener so the
- * comment swallows different lines than the author wrote it around. See
- * ScannedImport.opensBlockComment.
- *
- * Such an import is still present for existence and deduplication purposes;
- * only rewriting is off limits. Callers wanting "is this path imported"
- * must read the unfiltered scan.
- */
-function rewritableImports(scannedImports: ScannedImport[]): ScannedImport[] {
-    return scannedImports.filter((imp) => !imp.opensBlockComment);
 }
 
 /**

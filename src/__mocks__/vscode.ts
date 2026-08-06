@@ -55,6 +55,17 @@ class Uri {
     }
 
     /**
+     * Joins path segments onto a base URI the way ProjectPathCache does when it
+     * resolves a workspace-relative path back to a file. Segments are appended
+     * with the platform separator; ".." is not resolved, which real VS Code does.
+     */
+    static joinPath(base: { fsPath: string }, ...segments: string[]): Uri {
+        const separator = base.fsPath.includes("\\") ? "\\" : "/";
+        const joined = segments.map((segment) => segment.replace(/[\\/]/g, separator)).join(separator);
+        return new Uri(`${base.fsPath.replace(/[\\/]+$/, "")}${separator}${joined}`);
+    }
+
+    /**
      * Renders the file URI the way VS Code does for the path shapes these tests
      * use: backslashes become forward slashes, and a Windows drive letter is
      * lowercased with its colon percent-encoded, so "C:\\a\\b.verse" becomes
@@ -144,6 +155,24 @@ const workspace = {
     workspaceFolders: undefined as { uri: { fsPath: string }; name: string; index: number }[] | undefined,
     findFiles: jest.fn().mockResolvedValue([]),
     createFileSystemWatcher: jest.fn().mockImplementation((globPattern: unknown) => new FileSystemWatcher(globPattern)),
+    // Empty by default so a test that only needs the scan to complete does not
+    // have to stub it; tests that care about parse timing replace it.
+    openTextDocument: jest.fn().mockResolvedValue({ getText: () => "" }),
+    /**
+     * Renders a path relative to the first workspace folder, forward-slashed, as
+     * the scanner and the cache watchers expect. Anything outside that folder
+     * comes back unchanged, matching what real VS Code does.
+     */
+    asRelativePath: jest.fn().mockImplementation((target: { fsPath: string } | string) => {
+        const fsPath = typeof target === "string" ? target : target.fsPath;
+        const root = workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const normalized = fsPath.replace(/\\/g, "/");
+        if (!root) {
+            return normalized;
+        }
+        const normalizedRoot = root.replace(/\\/g, "/").replace(/\/+$/, "");
+        return normalized.startsWith(`${normalizedRoot}/`) ? normalized.slice(normalizedRoot.length + 1) : normalized;
+    }),
 };
 
 const window = {

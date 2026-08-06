@@ -63,13 +63,24 @@ function resolveEol(document: vscode.TextDocument, text: string): LineEnding {
  * header, whether that line is an import or anything else. A header therefore
  * stays put even in a file whose imports sit further down among code, where
  * everything else is hoisted past it.
+ *
+ * A run of nothing but blank lines is not a header: it describes nothing, and
+ * it is dropped here as it always was.
+ *
+ * The opening run wins over the annotation rule below, so a comment on line 0
+ * written against the first import stays at the top of the block rather than
+ * following that import down through a sort. Line 0 is ambiguous - a file
+ * header and a first-import annotation are written identically - and of the
+ * two readings only this one leaves the comment where the author put it. The
+ * other relocates a licence into the middle of the import block, which is the
+ * defect this whole change exists to remove.
  */
 function headerLineCount(classifications: LineClassification[]): number {
     let end = 0;
     while (end < classifications.length && classifications[end].kind !== "code") {
         end++;
     }
-    return end;
+    return classifications.slice(0, end).some((classification) => classification.kind === "comment") ? end : 0;
 }
 
 /**
@@ -78,10 +89,10 @@ function headerLineCount(classifications: LineClassification[]): number {
  * import's own start line when nothing is attached.
  *
  * A blank line ends the run: a comment separated from an import by one is
- * loose prose about the region, not a label for the statement below it. So is
- * `firstAttachableLine`, the end of the header - a header explains the file
- * and stays where the file starts, even where no blank line divides it from
- * the first import.
+ * loose prose about the region, not a label for the statement below it. So
+ * does `firstAttachableLine`, the end of the header - see headerLineCount for
+ * why the file's opening comment run is read as a header rather than as the
+ * first import's annotation.
  */
 function attachedCommentStart(importStartLine: number, classifications: LineClassification[], firstAttachableLine: number): number {
     let start = importStartLine;
@@ -89,11 +100,12 @@ function attachedCommentStart(importStartLine: number, classifications: LineClas
         start--;
     }
 
-    // Never carry away half a block comment. Where the run begins inside a
-    // `<# ... #>` opened above it - most often by an import line that itself
-    // opens one, which cannot move - moving those lines would leave the opener
-    // behind to swallow whatever followed it and strand the `#>` elsewhere.
-    while (start < importStartLine && classifications[start].insideBlockComment) {
+    // Never carry away half a comment. Where the run begins inside one opened
+    // above it - a `<# ... #>` whose opener is an import line that cannot
+    // move, or the indented body of a `<#>` marker the run does not reach -
+    // moving those lines would leave the opener behind to swallow whatever
+    // followed it and strand the rest somewhere it no longer reads as comment.
+    while (start < importStartLine && classifications[start].continuesCommentAbove) {
         start++;
     }
 
@@ -417,7 +429,17 @@ export class ImportDocumentEditor {
                             // import above the header and left two disconnected
                             // import regions behind.
                             const lastBlock = importBlocks[importBlocks.length - 1];
-                            edit.insert(document.uri, new vscode.Position(lastBlock.end + 1, 0), newImports.join(eol) + eol);
+                            if (lastBlock.end + 1 < document.lineCount) {
+                                edit.insert(document.uri, new vscode.Position(lastBlock.end + 1, 0), newImports.join(eol) + eol);
+                            } else {
+                                // The block ends a document with no trailing
+                                // newline, so the line after it does not exist.
+                                // VS Code clamps a position past the end onto
+                                // the end of the last line, which would splice
+                                // the new statement onto the last import and
+                                // leave one unreadable line where two belong.
+                                edit.insert(document.uri, document.lineAt(lastBlock.end).range.end, eol + newImports.join(eol));
+                            }
                         } else {
                             edit.insert(document.uri, new vscode.Position(0, 0), newImports.join(eol) + eol + eol);
                         }

@@ -241,4 +241,32 @@ describe("classifyLines", () => {
     it("marks only the lines a block comment was opened above", () => {
         expect(classifyLines(["<#", "note", "#>", "code()"]).map((classification) => classification.insideBlockComment)).toEqual([false, true, true, false]);
     });
+
+    // "Indented comments begin with a `<#>` on its own line; everything
+    // indented by four spaces on subsequent lines becomes part of the comment."
+    it("reads the indented body of a marker as part of its comment", () => {
+        expect(kinds(["<#> Copyright 2026 MyGame", "    all rights reserved", "using { /A }"])).toEqual(["comment", "comment", "code"]);
+    });
+
+    it("keeps an indented comment open across a blank line inside it", () => {
+        expect(kinds(["<#> Notes", "    the first paragraph", "", "    the second paragraph", "using { /A }"])).toEqual(["comment", "comment", "blank", "comment", "code"]);
+    });
+
+    it("ends an indented comment at the first line not indented past its marker", () => {
+        expect(kinds(["<#> Notes", "    the body", "code()", "    indented code"])).toEqual(["comment", "comment", "code", "code"]);
+    });
+
+    it("does not read a same-indent sibling as the body of a marker inside a module", () => {
+        expect(kinds(["M := module:", "    <#> doc", "    using { /Verse.org/Random }"])).toEqual(["code", "comment", "code"]);
+    });
+
+    it("marks an indented comment body as continuing the comment above it", () => {
+        expect(classifyLines(["<#> Notes", "    the body", "using { /A }"]).map((classification) => classification.continuesCommentAbove)).toEqual([false, true, false]);
+    });
+
+    it("leaves block-comment depth tracking unchanged across an indented comment body", () => {
+        // The body affects `kind` only: what the import scanner sees through
+        // insideBlockComment has to stay exactly what it saw before.
+        expect(classifyLines(["<#> Notes", "    opens <#", "code()", "#>", "code()"]).map((classification) => classification.insideBlockComment)).toEqual([false, false, true, true, false]);
+    });
 });

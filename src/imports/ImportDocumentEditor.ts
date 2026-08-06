@@ -92,6 +92,54 @@ export class ImportDocumentEditor {
     }
 
     /**
+     * Chooses which existing import block a new path must be merged into so the
+     * rank ordering holds across the whole file rather than only inside one
+     * block.
+     *
+     * createBlockReplacementEdit rank-sorts the block it rewrites, so it orders
+     * a provider above its consumer only while both sit in that same block. Any
+     * blank line between imports starts a second block, so always merging into
+     * `importBlocks[0]` could place a new `using { Economy.Shop }` above the
+     * `using { Features }` that brings `Economy` into scope - the breakage the
+     * rank sort exists to prevent.
+     *
+     * Two bounds decide the block, read from the same ranks sortImportsByRank
+     * compares:
+     * - the last block holding an import that belongs above the new one: a
+     *   lower rank, or another bare reference, whose relative order is semantic
+     *   and which the sort likewise keeps ahead of a newly added one.
+     * - the first block holding an import the new one belongs above: a higher
+     *   rank. This is what keeps a bare provider above the dotted consumer it
+     *   was added for, even when that consumer is in an earlier block.
+     *
+     * The lower bound wins where both apply, keeping the new import as high in
+     * the file as is safe, and the upper bound caps it where the two disagree.
+     * With no lower bound the first block is used, which is also where an
+     * absolute path belongs: it needs nothing in scope, so no import has to
+     * precede it.
+     */
+    private selectTargetBlockIndex(importBlocks: ImportBlock[], path: string): number {
+        const rank = this.formatter.importRank(path);
+
+        let lowerBound = -1;
+        let upperBound = -1;
+        importBlocks.forEach((block, index) => {
+            const ranks = block.imports.map((imp) => this.formatter.importRank(imp.path));
+            if (ranks.some((existing) => existing < rank || (existing === rank && rank === 1))) {
+                lowerBound = index;
+            }
+            if (upperBound === -1 && ranks.some((existing) => existing > rank)) {
+                upperBound = index;
+            }
+        });
+
+        if (lowerBound === -1) {
+            return 0;
+        }
+        return upperBound !== -1 && upperBound < lowerBound ? upperBound : lowerBound;
+    }
+
+    /**
      * Extracts existing import statements from a document. Indented pairs
      * (`using:` plus the path line) are returned joined as a single statement.
      */
@@ -266,15 +314,35 @@ export class ImportDocumentEditor {
                     const newImportPathsArray = Array.from(newImportPaths);
 
                     if (sortAlphabetically && importBlocks.length > 0) {
-                        // Merge the new imports into the first existing block in
-                        // place so the combined block is rank-ordered (bare
-                        // module providers before the dotted consumers that
-                        // depend on them). Appending the new imports after the
-                        // block instead could place a provider such as
+                        // Merge each new import into an existing block in place
+                        // so the combined block is rank-ordered (bare module
+                        // providers before the dotted consumers that depend on
+                        // them). Appending the new imports after the block
+                        // instead could place a provider such as
                         // `using { Features }` below a consumer such as
                         // `using { Economy.Shop }`, which breaks Verse's
                         // top-down using resolution.
-                        this.createBlockReplacementEdit(edit, document, importBlocks[0], newImportPathsArray, preferDotSyntax, true, eol);
+                        //
+                        // Which block each import joins is a whole-file
+                        // decision, not always the first one: rank-sorting one
+                        // block orders the new import against that block alone,
+                        // which is how a consumer ended up above its provider in
+                        // another block (see selectTargetBlockIndex).
+                        const pathsByBlock = new Map<number, string[]>();
+                        for (const path of newImportPathsArray) {
+                            const index = this.selectTargetBlockIndex(importBlocks, path);
+                            const targetPaths = pathsByBlock.get(index);
+                            if (targetPaths) {
+                                targetPaths.push(path);
+                            } else {
+                                pathsByBlock.set(index, [path]);
+                            }
+                        }
+
+                        // Blocks are disjoint, so the replacements never overlap.
+                        for (const index of [...pathsByBlock.keys()].sort((a, b) => a - b)) {
+                            this.createBlockReplacementEdit(edit, document, importBlocks[index], pathsByBlock.get(index)!, preferDotSyntax, true, eol);
+                        }
                     } else {
                         // Sorting off or no existing block: keep the original
                         // append-in-place behavior and leave existing lines
@@ -282,7 +350,12 @@ export class ImportDocumentEditor {
                         const newImports = this.formatter.groupAndFormatImports(newImportPathsArray, preferDotSyntax, sortAlphabetically, importGrouping);
 
                         if (importBlocks.length > 0 && importBlocks[0].start === 0) {
-                            edit.insert(document.uri, new vscode.Position(importBlocks[0].end + 1, 0), newImports.join(eol) + eol);
+                            // After the last import block, not the first: with
+                            // sorting off nothing reorders a block afterwards,
+                            // so any earlier position could leave a new import
+                            // above one that has to stay above it.
+                            const lastBlock = importBlocks[importBlocks.length - 1];
+                            edit.insert(document.uri, new vscode.Position(lastBlock.end + 1, 0), newImports.join(eol) + eol);
                         } else {
                             edit.insert(document.uri, new vscode.Position(0, 0), newImports.join(eol) + eol + eol);
                         }

@@ -58,8 +58,9 @@ class Uri {
      * Renders the file URI the way VS Code does for the path shapes these tests
      * use: backslashes become forward slashes, and a Windows drive letter is
      * lowercased with its colon percent-encoded, so "C:\\a\\b.verse" becomes
-     * "file:///c%3A/a/b.verse". It is not a general URI encoder - a path holding
-     * "#", "?", a space or non-ASCII would not match real VS Code output.
+     * "file:///c%3A/a/b.verse". It is not a general URI encoder - a UNC path, or
+     * one holding "#", "?", a space or non-ASCII, would not match real VS Code
+     * output.
      */
     toString(): string {
         const forwardSlashed = this.fsPath.replace(/\\/g, "/");

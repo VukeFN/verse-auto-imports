@@ -81,3 +81,60 @@ describe("ImportCodeLensProvider.provideCodeLenses", () => {
         ]);
     });
 });
+
+// Regression for #142: the provider discarded both listener Disposables and had
+// no dispose() at all, and extension.ts registered only the CodeLens
+// registration, which disposes the registration and not the provider. After
+// deactivation onDidChangeTextDocument - which fires on every keystroke in
+// every document in the window - kept calling in, and a hide timer (delay
+// configurable up to 10000 ms) could still fire seconds later.
+describe("ImportCodeLensProvider teardown", () => {
+    beforeEach(() => {
+        jest.useFakeTimers();
+        jest.clearAllMocks();
+        // "hover" visibility, so setHoverState arms a real hide timer; in
+        // "always" mode it returns before scheduling anything.
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+            get: (key: string, defaultValue?: unknown) => (key === "pathConversion.codeLensVisibility" ? "hover" : defaultValue),
+            update: jest.fn(),
+        });
+    });
+
+    afterEach(() => {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+        jest.clearAllMocks();
+    });
+
+    /** The dispose function of every listener registered since the last clear. */
+    function registeredDisposals(): jest.Mock[] {
+        const registrars = [vscode.workspace.onDidChangeConfiguration, vscode.workspace.onDidChangeTextDocument];
+        return registrars.flatMap((registrar) => (registrar as jest.Mock).mock.results.map((result) => result.value.dispose as jest.Mock));
+    }
+
+    it("disposes every listener it registered", () => {
+        const provider = new ImportCodeLensProvider(vscode.window.createOutputChannel("test"));
+
+        const disposals = registeredDisposals();
+        expect(disposals).toHaveLength(2);
+
+        provider.dispose();
+
+        for (const dispose of disposals) {
+            expect(dispose).toHaveBeenCalledTimes(1);
+        }
+    });
+
+    it("clears a pending hide timer on dispose", () => {
+        const provider = new ImportCodeLensProvider(vscode.window.createOutputChannel("test"));
+        const documentUri = vscode.Uri.file("C:\\project\\Content\\Main.verse").toString();
+
+        provider.setHoverState(documentUri, true, 0);
+        provider.setHoverState(documentUri, false);
+        expect(jest.getTimerCount()).toBe(1);
+
+        provider.dispose();
+
+        expect(jest.getTimerCount()).toBe(0);
+    });
+});

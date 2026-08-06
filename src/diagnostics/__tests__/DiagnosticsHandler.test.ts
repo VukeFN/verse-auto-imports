@@ -207,3 +207,61 @@ describe("DiagnosticsHandler auto-import failure reporting", () => {
         expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
     });
 });
+
+// Regression for #142: the handler had no dispose() and was never added to
+// context.subscriptions, so a debounce timer armed by the last keystroke before
+// a reload still fired and edited a document belonging to a torn-down
+// extension. The debounce delay is user-configurable, 3000 ms by default.
+describe("DiagnosticsHandler teardown", () => {
+    beforeEach(() => {
+        jest.useFakeTimers();
+        (vscode.languages.getDiagnostics as jest.Mock).mockReturnValue([{ message: "Unknown identifier `button_device`." }]);
+    });
+
+    afterEach(() => {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+        jest.clearAllMocks();
+    });
+
+    it("cancels a pending debounce timer on dispose", async () => {
+        const importHandler = makeImportHandler();
+        const handler = new DiagnosticsHandler(vscode.window.createOutputChannel("test"), importHandler, () => false);
+        handler.setDelay(DELAY_MS);
+
+        await handler.handle(makeDocument());
+        expect(jest.getTimerCount()).toBe(1);
+
+        handler.dispose();
+        expect(jest.getTimerCount()).toBe(0);
+
+        await jest.advanceTimersByTimeAsync(DELAY_MS);
+        expect(importHandler.addImportsToDocument).not.toHaveBeenCalled();
+    });
+
+    it("does not apply an edit when teardown lands mid-callback", async () => {
+        // clearTimeout cannot reach a callback that has already started, and
+        // the callback awaits suggestion extraction before it edits. Park it
+        // there, tear down, then let it continue.
+        const importHandler = makeImportHandler();
+        let releaseSuggestions: () => void = () => {};
+        (importHandler.extractImportSuggestions as jest.Mock).mockImplementationOnce(
+            () =>
+                new Promise((resolve) => {
+                    releaseSuggestions = () => resolve([{ importStatement: "using { /Fortnite.com/Devices }", confidence: "high" }]);
+                }),
+        );
+
+        const handler = new DiagnosticsHandler(vscode.window.createOutputChannel("test"), importHandler, () => false);
+        handler.setDelay(DELAY_MS);
+
+        await handler.handle(makeDocument());
+        await jest.advanceTimersByTimeAsync(DELAY_MS);
+
+        handler.dispose();
+        releaseSuggestions();
+        await jest.advanceTimersByTimeAsync(0);
+
+        expect(importHandler.addImportsToDocument).not.toHaveBeenCalled();
+    });
+});

@@ -89,11 +89,19 @@ export function activate(context: vscode.ExtensionContext) {
     diagnosticsHandler.setDelay(delayMs);
     logger.info("Extension", `Initial debounce delay set to ${delayMs}ms`);
 
-    // Register providers
+    // Register providers. The CodeLens provider is pushed alongside its
+    // registration, not instead of it: registerCodeLensProvider disposes the
+    // registration only, leaving the provider's own listeners and hide timers
+    // live after deactivation.
     context.subscriptions.push(
         vscode.languages.registerCodeActionsProvider({ language: "verse" }, new ImportCodeActionProvider(outputChannel, importHandler)),
         vscode.languages.registerCodeLensProvider({ language: "verse" }, importCodeLensProvider),
+        importCodeLensProvider,
     );
+
+    // Cancels any armed debounce timer on deactivation, so a pending
+    // auto-import cannot edit a document after the extension is torn down.
+    context.subscriptions.push(diagnosticsHandler);
 
     // Set up file watchers
     context.subscriptions.push(projectPathHandler.setupFileWatcher());

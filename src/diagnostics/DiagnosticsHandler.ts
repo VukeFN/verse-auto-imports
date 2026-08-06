@@ -9,6 +9,7 @@ export class DiagnosticsHandler {
     private processingDocuments: Set<string> = new Set();
     private pendingTimers: Map<string, NodeJS.Timeout> = new Map();
     private delayMs: number = 1000;
+    private disposed = false;
 
     constructor(
         private outputChannel: vscode.OutputChannel,
@@ -122,6 +123,15 @@ export class DiagnosticsHandler {
                     }
                 }
 
+                // Teardown can land between the timer firing and here, because
+                // extracting suggestions is awaited. clearTimeout in dispose()
+                // cannot cancel a callback that has already started, so the
+                // edit is the point that has to re-check.
+                if (this.disposed) {
+                    logger.debug("DiagnosticsHandler", `Discarding diagnostics for ${displayName}: handler disposed`);
+                    return;
+                }
+
                 // Apply auto-imports if any were collected
                 if (autoImportSuggestions.size > 0) {
                     logger.info("DiagnosticsHandler", `Auto-importing ${autoImportSuggestions.size} statements`);
@@ -177,5 +187,20 @@ export class DiagnosticsHandler {
     setDelay(delayMs: number) {
         this.delayMs = delayMs;
         logger.info("DiagnosticsHandler", `Diagnostic processing delay set to ${delayMs}ms`);
+    }
+
+    /**
+     * Cancels every armed debounce timer so none can fire after deactivation.
+     * The delay is user-configurable, so a timer armed by the last keystroke
+     * before a reload would otherwise apply an edit to a document belonging to
+     * a torn-down extension.
+     */
+    dispose(): void {
+        this.disposed = true;
+        for (const timer of this.pendingTimers.values()) {
+            clearTimeout(timer);
+        }
+        this.pendingTimers.clear();
+        logger.debug("DiagnosticsHandler", "Disposed: pending debounce timers cancelled");
     }
 }

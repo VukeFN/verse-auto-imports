@@ -17,31 +17,37 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
     private readonly hoverState = new Map<string, HoverState>();
     private readonly isHoveringImport = new Map<string, boolean>();
     private refreshTimeout: NodeJS.Timeout | null = null;
+    private readonly disposables: vscode.Disposable[] = [];
 
     constructor(private outputChannel: vscode.OutputChannel) {
         this.importPathConverter = new ImportPathConverter(outputChannel);
 
-        // Watch for configuration changes
-        vscode.workspace.onDidChangeConfiguration((e) => {
-            if (e.affectsConfiguration("verseAutoImports.pathConversion")) {
-                this._onDidChangeCodeLenses.fire();
-            }
-        });
-
-        // Watch for document changes to refresh CodeLens immediately
-        vscode.workspace.onDidChangeTextDocument((e) => {
-            // Only refresh for Verse files that are currently showing CodeLens
-            if (e.document.languageId === "verse" && this.isHoveringImport.get(e.document.uri.toString())) {
-                // Clear any pending refresh
-                if (this.refreshTimeout) {
-                    clearTimeout(this.refreshTimeout);
-                    this.refreshTimeout = null;
+        // Both listeners are kept rather than discarded: onDidChangeTextDocument
+        // fires on every keystroke in every document in the window, so one left
+        // registered past deactivation keeps calling into a dead provider.
+        this.disposables.push(
+            // Watch for configuration changes
+            vscode.workspace.onDidChangeConfiguration((e) => {
+                if (e.affectsConfiguration("verseAutoImports.pathConversion")) {
+                    this._onDidChangeCodeLenses.fire();
                 }
+            }),
 
-                // Single immediate refresh
-                this._onDidChangeCodeLenses.fire();
-            }
-        });
+            // Watch for document changes to refresh CodeLens immediately
+            vscode.workspace.onDidChangeTextDocument((e) => {
+                // Only refresh for Verse files that are currently showing CodeLens
+                if (e.document.languageId === "verse" && this.isHoveringImport.get(e.document.uri.toString())) {
+                    // Clear any pending refresh
+                    if (this.refreshTimeout) {
+                        clearTimeout(this.refreshTimeout);
+                        this.refreshTimeout = null;
+                    }
+
+                    // Single immediate refresh
+                    this._onDidChangeCodeLenses.fire();
+                }
+            }),
+        );
     }
 
     /** Gets the configured hide delay in milliseconds */
@@ -240,5 +246,33 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
 
         // Single immediate refresh - VS Code handles the timing
         this._onDidChangeCodeLenses.fire();
+    }
+
+    /**
+     * Releases the listeners, the event emitter and every pending timer. The
+     * hide timers matter most: the delay is user-configurable up to 10000 ms,
+     * so one armed just before teardown would otherwise fire seconds later and
+     * push an event into a disposed emitter.
+     */
+    dispose(): void {
+        for (const disposable of this.disposables) {
+            disposable.dispose();
+        }
+        this.disposables.length = 0;
+
+        if (this.refreshTimeout) {
+            clearTimeout(this.refreshTimeout);
+            this.refreshTimeout = null;
+        }
+
+        for (const state of this.hoverState.values()) {
+            if (state.timeout) {
+                clearTimeout(state.timeout);
+            }
+        }
+        this.hoverState.clear();
+        this.isHoveringImport.clear();
+
+        this._onDidChangeCodeLenses.dispose();
     }
 }

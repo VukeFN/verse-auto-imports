@@ -174,6 +174,30 @@ export class ImportFormatter {
     }
 
     /**
+     * The ordering rank of an import path: 0 for an absolute path, 1 for a bare
+     * module reference, 2 for anything else (a dotted reference such as
+     * `Economy.Shop`). A lower rank belongs above a higher one, because a
+     * `using` can only see identifiers brought into scope above it. See
+     * sortImportsByRank for what each rank means and why.
+     *
+     * Placement reads the same ranks the sort compares, so a new import can be
+     * ranked against the whole file rather than only against the block it is
+     * merged into.
+     *
+     * @param path The import path to rank
+     * @returns 0, 1 or 2
+     */
+    importRank(path: string): number {
+        if (path.startsWith("/")) {
+            return 0;
+        }
+        if (!path.includes(".") && !path.includes("/")) {
+            return 1;
+        }
+        return 2;
+    }
+
+    /**
      * Sorts import paths for a `using` block using rank-based ordering rather
      * than plain alphabetical order.
      *
@@ -207,15 +231,7 @@ export class ImportFormatter {
      * @returns A new array with paths ordered by rank, then alphabetically within rank 0 and rank 2
      */
     sortImportsByRank(paths: string[]): string[] {
-        const rankOf = (path: string): number => {
-            if (path.startsWith("/")) {
-                return 0;
-            }
-            if (!path.includes(".") && !path.includes("/")) {
-                return 1;
-            }
-            return 2;
-        };
+        const rankOf = (path: string): number => this.importRank(path);
 
         return [...paths].sort((a, b) => {
             const rankDifference = rankOf(a) - rankOf(b);

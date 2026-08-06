@@ -414,6 +414,105 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         expect(insert!.text).toBe("using { Features }\n");
     });
 
+    // A blank line between imports starts a second block, and rank-sorting only
+    // the first block ordered a new import against that block alone - which put
+    // a dotted consumer above the bare provider it needs in the block below.
+    it("preserve + grouping none + sort on: a new dotted consumer joins the block holding its bare provider, not the first block", async () => {
+        mockConfig({
+            "behavior.preserveImportLocations": true,
+            "behavior.importGrouping": "none",
+            "behavior.sortImportsAlphabetically": true,
+        });
+        const input = ["using { /Verse.org/Simulation }", "", "using { Features }", "", "hello := 1"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
+
+        expect(success).toBe(true);
+        const replaces = appliedOperations(0).filter((op) => op.kind === "replace");
+        expect(replaces).toHaveLength(1);
+        expect(replaces[0].range!.start.line).toBe(2);
+        expect(replaces[0].text).toBe("using { Features }\nusing { Economy.Shop }\n");
+    });
+
+    it("preserve + grouping none + sort on: a new bare provider joins the earlier block holding the dotted consumer it provides for", async () => {
+        mockConfig({
+            "behavior.preserveImportLocations": true,
+            "behavior.importGrouping": "none",
+            "behavior.sortImportsAlphabetically": true,
+        });
+        const input = ["using { Economy.Shop }", "", "using { /Verse.org/Simulation }", "", "hello := 1"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
+
+        expect(success).toBe(true);
+        const replaces = appliedOperations(0).filter((op) => op.kind === "replace");
+        expect(replaces).toHaveLength(1);
+        expect(replaces[0].range!.start.line).toBe(0);
+        expect(replaces[0].text).toBe("using { Features }\nusing { Economy.Shop }\n");
+    });
+
+    it("preserve + grouping none + sort on: a new absolute import still joins the first block", async () => {
+        mockConfig({
+            "behavior.preserveImportLocations": true,
+            "behavior.importGrouping": "none",
+            "behavior.sortImportsAlphabetically": true,
+        });
+        const input = ["using { /Verse.org/Simulation }", "", "using { /Fortnite.com/Devices }", "", "hello := 1"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Random }"]);
+
+        expect(success).toBe(true);
+        const replaces = appliedOperations(0).filter((op) => op.kind === "replace");
+        expect(replaces).toHaveLength(1);
+        expect(replaces[0].range!.start.line).toBe(0);
+        expect(replaces[0].text).toBe("using { /Fortnite.com/Random }\nusing { /Verse.org/Simulation }\n");
+    });
+
+    it("preserve + grouping none + sort on: imports whose ranks want different blocks are merged into each block separately", async () => {
+        mockConfig({
+            "behavior.preserveImportLocations": true,
+            "behavior.importGrouping": "none",
+            "behavior.sortImportsAlphabetically": true,
+        });
+        const input = ["using { /Verse.org/Simulation }", "", "using { Features }", "", "hello := 1"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Random }", "using { Economy.Shop }"]);
+
+        expect(success).toBe(true);
+        const replaces = appliedOperations(0).filter((op) => op.kind === "replace");
+        expect(replaces).toHaveLength(2);
+
+        // The absolute path joins the block of absolute paths, the dotted
+        // reference the block holding its provider.
+        expect(replaces[0].range!.start.line).toBe(0);
+        expect(replaces[0].text).toBe("using { /Fortnite.com/Random }\nusing { /Verse.org/Simulation }\n");
+        expect(replaces[1].range!.start.line).toBe(2);
+        expect(replaces[1].text).toBe("using { Features }\nusing { Economy.Shop }\n");
+
+        // Blocks are disjoint, so the two replacements cannot overlap.
+        expect(replaces[0].range!.end.line).toBeLessThanOrEqual(replaces[1].range!.start.line);
+    });
+
+    it("preserve + grouping none + sort OFF: appends after the last import block, not the first", async () => {
+        mockConfig({
+            "behavior.preserveImportLocations": true,
+            "behavior.importGrouping": "none",
+            "behavior.sortImportsAlphabetically": false,
+        });
+        const input = ["using { /Verse.org/Simulation }", "", "using { Features }", "", "hello := 1"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
+
+        expect(success).toBe(true);
+        const operations = appliedOperations(0);
+        expect(operations.some((op) => op.kind === "replace")).toBe(false);
+
+        const insert = operations.find((op) => op.kind === "insert");
+        expect(insert).toBeDefined();
+        expect(insert!.position!.line).toBe(3);
+        expect(insert!.text).toBe("using { Economy.Shop }\n");
+    });
+
     it("writes CRLF endings into a CRLF document when merging into an existing block", async () => {
         mockConfig({
             "behavior.preserveImportLocations": true,

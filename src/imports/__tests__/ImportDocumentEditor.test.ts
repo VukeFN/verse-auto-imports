@@ -73,6 +73,35 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent("<#\nusing { /Old/Path }\n#>\n\ncode()", [], curlyNoSort)).toBeNull();
     });
 
+    // Rebuilding an import line from its path alone drops everything trailing
+    // on it. Where that trailing text is a `<#` opening the block below, the
+    // drop turns a deliberately disabled import back into live code and leaves
+    // its `#>` orphaned, so the line has to be left alone and organized around.
+    it("leaves an import whose line opens a block comment where it is", () => {
+        const input = ["using { /A } <# disabled below", "using { /Old/Path }", "#>", "using { /B }", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /B }", "", "using { /A } <# disabled below", "using { /Old/Path }", "#>", "", "code()"].join("\n"));
+    });
+
+    it("reproduces a document with an anchored import exactly, so organize can skip the edit", () => {
+        const input = ["using { /B }", "", "using { /A } <# disabled below", "using { /Old/Path }", "#>", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(input);
+    });
+
+    it("returns null when the only import is anchored and nothing is added", () => {
+        const input = ["using { /A } <# disabled below", "using { /Old/Path }", "#>", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBeNull();
+    });
+
+    it("does not write a second copy of a path an anchored import already provides", () => {
+        const input = ["using { /A } <# disabled below", "using { /Old/Path }", "#>", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["/A"], curlySorted)).toBeNull();
+    });
+
+    it("keeps an anchored indented pair intact instead of normalizing it to one line", () => {
+        const input = ["using:", "    /A <# disabled below", "using { /Old/Path }", "#>", "using { /B }", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /B }", "", "using:", "    /A <# disabled below", "using { /Old/Path }", "#>", "", "code()"].join("\n"));
+    });
+
     it("writes the preferred dot syntax", () => {
         const input = "using { /A }\ncode()";
         expect(
@@ -254,6 +283,30 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         expect(operations[0].kind).toBe("insert");
         expect(operations[0].position).toEqual({ line: 0, character: 0 });
         expect(operations[0].text).toBe("using { /Fortnite.com/Devices }\n\n");
+    });
+
+    it("adds a new import without rebuilding an import line that opens a block comment", async () => {
+        // Merging into that line would rewrite it from its path alone and drop
+        // the `<#`, making the disabled import below it live again.
+        const input = ["using { /A } <# disabled below", "using { /Old/Path }", "#>", "", "code()"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
+
+        expect(success).toBe(true);
+        const operations = appliedOperations(0);
+        expect(operations).toHaveLength(1);
+        expect(operations[0].kind).toBe("insert");
+        expect(operations[0].position).toEqual({ line: 0, character: 0 });
+        expect(operations[0].text).toBe("using { /Fortnite.com/Devices }\n\n");
+    });
+
+    it("still counts an import whose line opens a block comment as already present", async () => {
+        const input = ["using { /A } <# disabled below", "using { /Old/Path }", "#>", "", "code()"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /A }"]);
+
+        expect(success).toBe(true);
+        expect(applyEditMock()).not.toHaveBeenCalled();
     });
 
     it("dedupes a bare folder import that already exists at column 0 and makes no edit", async () => {

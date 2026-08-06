@@ -8,6 +8,18 @@ export interface ScannedImport {
     startLine: number;
     /** Last line of the statement: equal to startLine, or startLine + 1 for the indented pair. */
     endLine: number;
+    /**
+     * Whether the statement's own text leaves a `<#` block comment open, so
+     * the lines below it are that comment's body.
+     *
+     * Writers rebuild an import line from `path` alone, which discards
+     * everything trailing on it. For an ordinary trailing comment that only
+     * loses annotation text, but dropping a block-comment opener turns the
+     * commented-out region below it back into live code and orphans its `#>`.
+     * Such a statement cannot be rewritten or moved: it has to stay on its
+     * own line, with everything else organized around it.
+     */
+    opensBlockComment: boolean;
 }
 
 /**
@@ -104,11 +116,21 @@ function blockCommentMask(lines: string[]): boolean[] {
  *   a module import (a same-directory folder-module import): module `using`
  *   is only legal at file level or module-definition body level, so a bare
  *   `using` at column 0 can never be a legal local-scope using.
+ * - A collected import that itself opens a block comment spanning the lines
+ *   below it is flagged with `opensBlockComment`. It is a real import and
+ *   still counts as present, but no writer may rebuild its line, because the
+ *   opener lives in the trailing text a rebuild discards.
  */
 export function scanModuleImports(lines: string[]): ScannedImport[] {
     const formatter = new ImportFormatter();
     const imports: ScannedImport[] = [];
     const insideBlockComment = blockCommentMask(lines);
+
+    // A statement left a block comment open exactly when the line after it
+    // starts inside one: every candidate below begins at depth 0, so any depth
+    // the next line inherits was opened by the statement's own text. The mask
+    // already holds that answer, so nothing has to be re-scanned here.
+    const opensBlockComment = (endLine: number): boolean => endLine + 1 < lines.length && insideBlockComment[endLine + 1];
 
     let i = 0;
     while (i < lines.length) {
@@ -140,7 +162,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
             if (nextLine !== undefined && /^\s+\S/.test(nextLine)) {
                 const indentedPath = ImportFormatter.stripTrailingComment(nextLine);
                 if (indentedPath) {
-                    imports.push({ path: indentedPath, startLine: i, endLine: i + 1 });
+                    imports.push({ path: indentedPath, startLine: i, endLine: i + 1, opensBlockComment: opensBlockComment(i + 1) });
                     i += 2;
                     continue;
                 }
@@ -152,7 +174,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
 
         const path = formatter.extractPathFromImport(trimmed);
         if (path) {
-            imports.push({ path, startLine: i, endLine: i });
+            imports.push({ path, startLine: i, endLine: i, opensBlockComment: opensBlockComment(i) });
         }
         i += 1;
     }

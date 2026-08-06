@@ -88,7 +88,10 @@ describe("ImportCodeLensProvider.provideCodeLenses", () => {
 // deactivation onDidChangeTextDocument - which fires on every keystroke in
 // every document in the window - kept calling in, and a hide timer (delay
 // configurable up to 10000 ms) could still fire seconds later.
-describe("ImportCodeLensProvider teardown", () => {
+describe("ImportCodeLensProvider hide timers and teardown", () => {
+    /** The registered default for pathConversion.codeLensHideDelay. */
+    const DEFAULT_HIDE_DELAY_MS = 1000;
+
     beforeEach(() => {
         jest.useFakeTimers();
         jest.clearAllMocks();
@@ -136,6 +139,22 @@ describe("ImportCodeLensProvider teardown", () => {
         provider.dispose();
 
         expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it("does not let an untracked hide timer blank the lens out from under the cursor", async () => {
+        // Hovering a non-import line and then moving onto an import within the
+        // hide delay. The orphaned hide timer used to survive the move and fire
+        // anyway, hiding a lens the user had just hovered.
+        const provider = new ImportCodeLensProvider(vscode.window.createOutputChannel("test"));
+        const document = documentWith("using { Gadgets.Tools }\n\ncode()");
+        const documentUri = document.uri.toString();
+
+        provider.setHoverState(documentUri, false);
+        provider.setHoverState(documentUri, true, 0);
+        jest.advanceTimersByTime(DEFAULT_HIDE_DELAY_MS);
+
+        const lenses = await provider.provideCodeLenses(document, {} as vscode.CancellationToken);
+        expect(lenses).toHaveLength(1);
     });
 
     it("clears a hide timer armed without a preceding hover", () => {

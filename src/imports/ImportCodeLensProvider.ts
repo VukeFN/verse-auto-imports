@@ -122,9 +122,12 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
     keepHoverStateActive(documentUri: string): void {
         const currentState = this.hoverState.get(documentUri);
 
-        // Clear any pending timeout
+        // Clear any pending timeout, and record that it is gone: leaving the
+        // spent handle in the map makes the stored state contradict the real
+        // timer state, and entries now exist on paths where they did not.
         if (currentState?.timeout) {
             clearTimeout(currentState.timeout);
+            this.hoverState.set(documentUri, { ...currentState, timeout: null });
         }
 
         // Keep the hover state active

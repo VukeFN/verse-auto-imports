@@ -3,9 +3,15 @@ import { logger } from "../utils";
 import { ImportPathConverter } from "./ImportPathConverter";
 import { scanConvertibleImports } from "./ImportScanner";
 
-/** Tracks hover state for a document's imports. */
+/**
+ * Tracks hover state for a document's imports. An entry can exist purely to
+ * hold a pending hide timer, with no line hovered, so lineNumber is optional:
+ * a hide can be scheduled for a document that was never entered through the
+ * hovering branch - after a conversion, for instance, which sets
+ * isHoveringImport directly.
+ */
 interface HoverState {
-    lineNumber: number;
+    lineNumber?: number;
     timeout: NodeJS.Timeout | null;
 }
 
@@ -98,12 +104,15 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
                 this._onDidChangeCodeLenses.fire();
             }, hideDelay);
 
-            if (currentState) {
-                this.hoverState.set(documentUri, {
-                    ...currentState,
-                    timeout,
-                });
-            }
+            // Recorded whether or not a state already existed. The commonest
+            // caller is the hover provider reporting a non-import line, which
+            // reaches here with nothing stored; the timer used to be dropped
+            // on the floor there, leaving nothing able to clear it - not
+            // keepHoverStateActive, and not dispose.
+            this.hoverState.set(documentUri, {
+                ...currentState,
+                timeout,
+            });
         }
     }
 

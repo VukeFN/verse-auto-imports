@@ -43,6 +43,13 @@ export class DiagnosticsHandler {
     }
 
     async handle(document: vscode.TextDocument) {
+        // The diagnostics listener awaits openTextDocument before calling in,
+        // so a continuation can resume after teardown. Arming a timer here
+        // would put back exactly what dispose() just cancelled.
+        if (this.disposed) {
+            return;
+        }
+
         // Key the debounce state by the full URI, never by the basename: UEFN
         // projects routinely hold same-named files in different module folders
         // (Weapons/utils.verse and UI/utils.verse), and a shared key makes one

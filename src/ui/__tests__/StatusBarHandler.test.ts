@@ -145,6 +145,12 @@ describe("StatusBarHandler snooze state", () => {
 // onto context.subscriptions - full teardown was clearly the intent, and the
 // one listener was the hole in it.
 describe("StatusBarHandler teardown", () => {
+    // Cleared before, not only after: the registration count below would
+    // otherwise depend on every earlier block in the file clearing its own.
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
     afterEach(() => {
         jest.clearAllMocks();
     });

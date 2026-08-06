@@ -264,4 +264,21 @@ describe("DiagnosticsHandler teardown", () => {
 
         expect(importHandler.addImportsToDocument).not.toHaveBeenCalled();
     });
+
+    it("arms no new timer for diagnostics that arrive after dispose", async () => {
+        // The diagnostics listener awaits openTextDocument before calling
+        // handle, so a continuation can resume after teardown and put back
+        // the very timer dispose just cancelled.
+        const importHandler = makeImportHandler();
+        const handler = new DiagnosticsHandler(vscode.window.createOutputChannel("test"), importHandler, () => false);
+        handler.setDelay(DELAY_MS);
+
+        handler.dispose();
+        await handler.handle(makeDocument());
+
+        expect(jest.getTimerCount()).toBe(0);
+
+        await jest.advanceTimersByTimeAsync(DELAY_MS);
+        expect(importHandler.extractImportSuggestions).not.toHaveBeenCalled();
+    });
 });

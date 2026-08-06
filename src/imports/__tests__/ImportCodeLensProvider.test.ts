@@ -137,4 +137,20 @@ describe("ImportCodeLensProvider teardown", () => {
 
         expect(jest.getTimerCount()).toBe(0);
     });
+
+    it("clears a hide timer armed without a preceding hover", () => {
+        // The hover provider reports every non-import line as hovering=false,
+        // so this is the path the extension takes most. The timer used to be
+        // created and never stored, which put it beyond the reach of dispose
+        // and of keepHoverStateActive alike.
+        const provider = new ImportCodeLensProvider(vscode.window.createOutputChannel("test"));
+        const documentUri = vscode.Uri.file("C:\\project\\Content\\Main.verse").toString();
+
+        provider.setHoverState(documentUri, false);
+        expect(jest.getTimerCount()).toBe(1);
+
+        provider.dispose();
+
+        expect(jest.getTimerCount()).toBe(0);
+    });
 });

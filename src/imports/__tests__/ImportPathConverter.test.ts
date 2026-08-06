@@ -118,6 +118,17 @@ describe("ImportPathConverter.applyConversion", () => {
         expect(replacedOperation().range!.start.line).toBe(1);
     });
 
+    it("keeps the indentation of the line it edits", async () => {
+        // The named line wins on trimmed text, so it survives the user indenting
+        // the import while the conversion resolves - and the rewrite has to keep
+        // that indent rather than flatten the line.
+        const document = fakeDocument(["    using { Gadgets.Tools }", "", "code()"]);
+
+        expect(await converter.applyConversion(document, conversion(0))).toBe(true);
+
+        expect(replacedOperation().text).toBe("    using { /mygame@fortnite.com/mygame/Gadgets/Tools }");
+    });
+
     it("falls back to the first convertible import when the conversion names no line", async () => {
         const document = fakeDocument(["", "using { Gadgets.Tools }", "", "code()"]);
 

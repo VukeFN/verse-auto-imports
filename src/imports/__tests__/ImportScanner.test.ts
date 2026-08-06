@@ -163,6 +163,13 @@ describe("scanConvertibleImports", () => {
         expect(scanConvertibleImports(["using. /Old/Path"])).toEqual([{ statement: "using. /Old/Path", line: 0 }]);
     });
 
+    it("keeps a bare-identifier import, which is a folder module at file scope", () => {
+        // The line-by-line detection this replaces classified a bare identifier
+        // as a local-scope using and skipped it, so a real same-directory import
+        // got no lens. At column 0 it can only be a module import.
+        expect(scanConvertibleImports(["using { Features }", "", "code()"])).toEqual([{ statement: "using { Features }", line: 0 }]);
+    });
+
     it("excludes an import inside a block comment", () => {
         // The lens used to appear here, and acting on it edited a line inside
         // the comment.

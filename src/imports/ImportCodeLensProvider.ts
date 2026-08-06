@@ -150,6 +150,12 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
         // excludes a `using` inside a block comment or a module body.
         const convertibleImports = scanConvertibleImports(lines);
 
+        // Whether a "for all" lens is worth offering is a property of the file,
+        // not of the import the lens hangs off, so both counts are taken once.
+        const hasMultipleFullPathImports =
+            convertibleImports.filter(({ statement }) => this.importPathConverter.isFullPathImport(statement) && !this.importPathConverter.isBuiltinModule(statement)).length > 1;
+        const hasMultipleRelativeImports = convertibleImports.filter(({ statement }) => !this.importPathConverter.isFullPathImport(statement)).length > 1;
+
         for (const { statement: trimmedLine, line: i } of convertibleImports) {
             const range = new vscode.Range(new vscode.Position(i, 0), new vscode.Position(i, lines[i].length));
 
@@ -168,10 +174,6 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
                             arguments: [document, trimmedLine, i],
                         });
                         codeLenses.push(convertToRelativeLens);
-
-                        // Check if there are multiple full path imports (non-builtin) in the file
-                        const hasMultipleFullPathImports =
-                            convertibleImports.filter(({ statement }) => this.importPathConverter.isFullPathImport(statement) && !this.importPathConverter.isBuiltinModule(statement)).length > 1;
 
                         // Add "Use relative paths for all" option if there are multiple full path imports
                         if (hasMultipleFullPathImports) {
@@ -198,9 +200,6 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
                         arguments: [document, trimmedLine, i],
                     });
                     codeLenses.push(convertSingleLens);
-
-                    // Check if there are multiple relative imports in the file
-                    const hasMultipleRelativeImports = convertibleImports.filter(({ statement }) => !this.importPathConverter.isFullPathImport(statement)).length > 1;
 
                     // Add "Use absolute paths for all" option if there are multiple relative imports
                     if (hasMultipleRelativeImports) {

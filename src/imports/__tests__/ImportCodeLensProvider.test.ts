@@ -39,6 +39,13 @@ describe("ImportCodeLensProvider.provideCodeLenses", () => {
         return expect(lensTitlesFor("using { /mygame@fortnite.com/mygame/Gadgets }\n\ncode()")).resolves.toEqual(["$(arrow-both)  Use relative path"]);
     });
 
+    it("offers an absolute-path lens on a bare-identifier folder import", () => {
+        // A file-level `using { Features }` is a same-directory folder module,
+        // and the shared scanner says so. The per-line detection this replaced
+        // read the bare identifier as a local-scope using and offered nothing.
+        return expect(lensTitlesFor("using { Features }\n\ncode()")).resolves.toEqual(["$(arrow-both)  Use absolute path"]);
+    });
+
     it("offers nothing on a built-in module", () => {
         return expect(lensTitlesFor("using { /Verse.org/Simulation }\n\ncode()")).resolves.toEqual([]);
     });

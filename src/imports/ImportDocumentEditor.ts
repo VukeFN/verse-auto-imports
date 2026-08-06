@@ -52,6 +52,25 @@ function resolveEol(document: vscode.TextDocument, text: string): LineEnding {
 }
 
 /**
+ * The subset of scanned imports a writer is allowed to rebuild or move.
+ *
+ * Every writer here reconstructs an import line from its path alone, so an
+ * import whose line also opens a block comment has to be excluded from both
+ * halves of that: its lines never enter a range a writer replaces, and its
+ * path is never re-emitted somewhere else. Anything else either drops the
+ * opener - resurrecting the region below it - or relocates the opener so the
+ * comment swallows different lines than the author wrote it around. See
+ * ScannedImport.opensBlockComment.
+ *
+ * Such an import is still present for existence and deduplication purposes;
+ * only rewriting is off limits. Callers wanting "is this path imported"
+ * must read the unfiltered scan.
+ */
+function rewritableImports(scannedImports: ScannedImport[]): ScannedImport[] {
+    return scannedImports.filter((imp) => !imp.opensBlockComment);
+}
+
+/**
  * Handles all document modifications for imports.
  */
 export class ImportDocumentEditor {
@@ -184,7 +203,7 @@ export class ImportDocumentEditor {
         const scannedImports = scanModuleImports(lines);
 
         const importBlocks: ImportBlock[] = [];
-        for (const imp of scannedImports) {
+        for (const imp of rewritableImports(scannedImports)) {
             logger.debug("ImportDocumentEditor", `Found existing import at line ${imp.startLine}: ${imp.path}`);
 
             const lastBlock = importBlocks[importBlocks.length - 1];
@@ -200,7 +219,13 @@ export class ImportDocumentEditor {
 
         logger.debug("ImportDocumentEditor", `Found ${scannedImports.length} existing imports in ${importBlocks.length} blocks`);
 
+        // Existence is judged from every import, including one anchored by a
+        // block-comment opener: it is imported, so nothing needs adding for it.
         const existingPaths = new Set<string>(scannedImports.map((imp) => imp.path));
+        // Relocation is judged only from the movable ones. Re-emitting an
+        // anchored path at the top while its own line necessarily stays put
+        // would duplicate the import rather than move it.
+        const relocatablePaths = new Set<string>(rewritableImports(scannedImports).map((imp) => imp.path));
 
         const newImportPaths = new Set<string>();
         importStatements.forEach((imp) => {
@@ -288,7 +313,7 @@ export class ImportDocumentEditor {
                 // Either no existing grouping or need to create initial groups
                 if (importGrouping !== "none" && existingPaths.size > 0) {
                     // We have existing imports but no grouping - reorganize everything into groups
-                    const allPaths = new Set<string>([...existingPaths, ...newImportPaths]);
+                    const allPaths = new Set<string>([...relocatablePaths, ...newImportPaths]);
                     const allImportsArray = Array.from(allPaths);
                     const groupedImports = this.formatter.groupAndFormatImports(allImportsArray, preferDotSyntax, sortAlphabetically, importGrouping);
 
@@ -364,7 +389,7 @@ export class ImportDocumentEditor {
             }
         } else {
             // Consolidate all imports at the top
-            const allPaths = new Set<string>([...existingPaths, ...newImportPaths]);
+            const allPaths = new Set<string>([...relocatablePaths, ...newImportPaths]);
             const allImportsArray = Array.from(allPaths);
 
             // Use the new grouping method for all imports
@@ -423,7 +448,14 @@ export class ImportDocumentEditor {
     ): string | null {
         const eol = detectEol(text) ?? options.fallbackEol ?? "\n";
         const lines = text.split(LINE_SPLIT);
-        const scannedImports = scanModuleImports(lines);
+        // An import anchored by a block-comment opener is neither hoisted nor
+        // removed from the body: its line stays exactly where it is, and the
+        // rest of the file is organized around it. It is still an import,
+        // though, so an additional path it already covers must not be written
+        // out a second time - that would duplicate it rather than move it.
+        const allImports = scanModuleImports(lines);
+        const scannedImports = rewritableImports(allImports);
+        const anchoredPaths = new Set(allImports.filter((imp) => imp.opensBlockComment).map((imp) => imp.path));
 
         const paths = scannedImports.map((imp) => imp.path);
         const importLines = new Set<number>();
@@ -434,7 +466,7 @@ export class ImportDocumentEditor {
         }
         const body = lines.filter((_, index) => !importLines.has(index));
 
-        const extraPaths = additionalPaths.map((p) => p.trim()).filter((p) => p.length > 0);
+        const extraPaths = additionalPaths.map((p) => p.trim()).filter((p) => p.length > 0 && !anchoredPaths.has(p));
         if (paths.length === 0 && extraPaths.length === 0) {
             return null;
         }
@@ -516,8 +548,11 @@ export class ImportDocumentEditor {
         const lines = text.split(LINE_SPLIT);
 
         // Find the last file-level import (module imports only: not local-scope
-        // using, and not module-scoped imports inside module bodies)
-        const scannedImports = scanModuleImports(lines);
+        // using, and not module-scoped imports inside module bodies). An import
+        // that opens a block comment is skipped as well: the lines after it are
+        // that comment's body, so adjusting spacing there would insert or remove
+        // lines inside the user's comment rather than after the import block.
+        const scannedImports = rewritableImports(scanModuleImports(lines));
         const lastImportLine = scannedImports.length > 0 ? scannedImports[scannedImports.length - 1].endLine : -1;
 
         // If no imports found or file only has imports, nothing to do

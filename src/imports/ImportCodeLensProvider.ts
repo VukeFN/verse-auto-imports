@@ -3,9 +3,15 @@ import { logger } from "../utils";
 import { ImportPathConverter } from "./ImportPathConverter";
 import { scanConvertibleImports } from "./ImportScanner";
 
-/** Tracks hover state for a document's imports. */
+/**
+ * Tracks hover state for a document's imports. An entry can exist purely to
+ * hold a pending hide timer, with no line hovered, so lineNumber is optional:
+ * a hide can be scheduled for a document that was never entered through the
+ * hovering branch - after a conversion, for instance, which sets
+ * isHoveringImport directly.
+ */
 interface HoverState {
-    lineNumber: number;
+    lineNumber?: number;
     timeout: NodeJS.Timeout | null;
 }
 
@@ -17,31 +23,37 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
     private readonly hoverState = new Map<string, HoverState>();
     private readonly isHoveringImport = new Map<string, boolean>();
     private refreshTimeout: NodeJS.Timeout | null = null;
+    private readonly disposables: vscode.Disposable[] = [];
 
     constructor(private outputChannel: vscode.OutputChannel) {
         this.importPathConverter = new ImportPathConverter(outputChannel);
 
-        // Watch for configuration changes
-        vscode.workspace.onDidChangeConfiguration((e) => {
-            if (e.affectsConfiguration("verseAutoImports.pathConversion")) {
-                this._onDidChangeCodeLenses.fire();
-            }
-        });
-
-        // Watch for document changes to refresh CodeLens immediately
-        vscode.workspace.onDidChangeTextDocument((e) => {
-            // Only refresh for Verse files that are currently showing CodeLens
-            if (e.document.languageId === "verse" && this.isHoveringImport.get(e.document.uri.toString())) {
-                // Clear any pending refresh
-                if (this.refreshTimeout) {
-                    clearTimeout(this.refreshTimeout);
-                    this.refreshTimeout = null;
+        // Both listeners are kept rather than discarded: onDidChangeTextDocument
+        // fires on every keystroke in every document in the window, so one left
+        // registered past deactivation keeps calling into a dead provider.
+        this.disposables.push(
+            // Watch for configuration changes
+            vscode.workspace.onDidChangeConfiguration((e) => {
+                if (e.affectsConfiguration("verseAutoImports.pathConversion")) {
+                    this._onDidChangeCodeLenses.fire();
                 }
+            }),
 
-                // Single immediate refresh
-                this._onDidChangeCodeLenses.fire();
-            }
-        });
+            // Watch for document changes to refresh CodeLens immediately
+            vscode.workspace.onDidChangeTextDocument((e) => {
+                // Only refresh for Verse files that are currently showing CodeLens
+                if (e.document.languageId === "verse" && this.isHoveringImport.get(e.document.uri.toString())) {
+                    // Clear any pending refresh
+                    if (this.refreshTimeout) {
+                        clearTimeout(this.refreshTimeout);
+                        this.refreshTimeout = null;
+                    }
+
+                    // Single immediate refresh
+                    this._onDidChangeCodeLenses.fire();
+                }
+            }),
+        );
     }
 
     /** Gets the configured hide delay in milliseconds */
@@ -92,12 +104,15 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
                 this._onDidChangeCodeLenses.fire();
             }, hideDelay);
 
-            if (currentState) {
-                this.hoverState.set(documentUri, {
-                    ...currentState,
-                    timeout,
-                });
-            }
+            // Recorded whether or not a state already existed. The commonest
+            // caller is the hover provider reporting a non-import line, which
+            // reaches here with nothing stored; the timer used to be dropped
+            // on the floor there, leaving nothing able to clear it - not
+            // keepHoverStateActive, and not dispose.
+            this.hoverState.set(documentUri, {
+                ...currentState,
+                timeout,
+            });
         }
     }
 
@@ -107,9 +122,12 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
     keepHoverStateActive(documentUri: string): void {
         const currentState = this.hoverState.get(documentUri);
 
-        // Clear any pending timeout
+        // Clear any pending timeout, and record that it is gone: leaving the
+        // spent handle in the map makes the stored state contradict the real
+        // timer state, and entries now exist on paths where they did not.
         if (currentState?.timeout) {
             clearTimeout(currentState.timeout);
+            this.hoverState.set(documentUri, { ...currentState, timeout: null });
         }
 
         // Keep the hover state active
@@ -240,5 +258,33 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
 
         // Single immediate refresh - VS Code handles the timing
         this._onDidChangeCodeLenses.fire();
+    }
+
+    /**
+     * Releases the listeners, the event emitter and every pending timer. The
+     * hide timers matter most: the delay is user-configurable up to 10000 ms,
+     * so one armed just before teardown would otherwise fire seconds later and
+     * push an event into a disposed emitter.
+     */
+    dispose(): void {
+        for (const disposable of this.disposables) {
+            disposable.dispose();
+        }
+        this.disposables.length = 0;
+
+        if (this.refreshTimeout) {
+            clearTimeout(this.refreshTimeout);
+            this.refreshTimeout = null;
+        }
+
+        for (const state of this.hoverState.values()) {
+            if (state.timeout) {
+                clearTimeout(state.timeout);
+            }
+        }
+        this.hoverState.clear();
+        this.isHoveringImport.clear();
+
+        this._onDidChangeCodeLenses.dispose();
     }
 }

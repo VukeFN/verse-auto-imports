@@ -187,8 +187,11 @@ const workspace = {
         get: jest.fn().mockImplementation((_key: string, defaultValue?: unknown) => defaultValue),
         update: jest.fn().mockResolvedValue(undefined),
     }),
-    onDidChangeConfiguration: jest.fn().mockReturnValue({ dispose: jest.fn() }),
-    onDidChangeTextDocument: jest.fn().mockReturnValue({ dispose: jest.fn() }),
+    // A fresh disposable per registration, as real VS Code returns. A single
+    // shared one would make "every listener this class registered was
+    // disposed" unassertable: one dispose() call would satisfy all of them.
+    onDidChangeConfiguration: jest.fn().mockImplementation(() => ({ dispose: jest.fn() })),
+    onDidChangeTextDocument: jest.fn().mockImplementation(() => ({ dispose: jest.fn() })),
     applyEdit: jest.fn().mockResolvedValue(true),
     workspaceFolders: undefined as { uri: { fsPath: string }; name: string; index: number }[] | undefined,
     findFiles: jest.fn().mockResolvedValue([]),

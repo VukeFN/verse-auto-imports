@@ -139,3 +139,31 @@ describe("StatusBarHandler snooze state", () => {
         expect(makeHandler().isSnoozeActive()).toBe(false);
     });
 });
+
+// Regression for #142: the constructor discarded the configuration listener's
+// Disposable, so the listener outlived a handler that extension.ts does push
+// onto context.subscriptions - full teardown was clearly the intent, and the
+// one listener was the hole in it.
+describe("StatusBarHandler teardown", () => {
+    // Cleared before, not only after: the registration count below would
+    // otherwise depend on every earlier block in the file clearing its own.
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
+    afterEach(() => {
+        jest.clearAllMocks();
+    });
+
+    it("disposes the configuration listener", () => {
+        const handler = new StatusBarHandler(vscode.window.createOutputChannel("test"));
+
+        const registrations = (vscode.workspace.onDidChangeConfiguration as jest.Mock).mock.results;
+        expect(registrations).toHaveLength(1);
+        const listener = registrations[0].value as { dispose: jest.Mock };
+
+        handler.dispose();
+
+        expect(listener.dispose).toHaveBeenCalledTimes(1);
+    });
+});

@@ -17,6 +17,7 @@ export class StatusBarHandler {
     private statusBarItem: vscode.StatusBarItem;
     private snoozeEndTime: number | null = null;
     private snoozeInterval: NodeJS.Timeout | null = null;
+    private readonly configListener: vscode.Disposable;
 
     constructor(private outputChannel: vscode.OutputChannel) {
         this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, STATUS_BAR_PRIORITY);
@@ -27,7 +28,7 @@ export class StatusBarHandler {
         this.statusBarItem.show();
 
         // Listen for configuration changes to update status bar
-        vscode.workspace.onDidChangeConfiguration((event) => {
+        this.configListener = vscode.workspace.onDidChangeConfiguration((event) => {
             if (event.affectsConfiguration("verseAutoImports")) {
                 // A snooze does not touch the setting, so this only fires when
                 // the user turns auto import on themselves mid-snooze. Take
@@ -519,6 +520,7 @@ export class StatusBarHandler {
         if (this.snoozeInterval) {
             clearInterval(this.snoozeInterval);
         }
+        this.configListener.dispose();
         this.statusBarItem.dispose();
     }
 }

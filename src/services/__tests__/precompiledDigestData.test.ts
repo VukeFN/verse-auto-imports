@@ -67,6 +67,7 @@ describe("precompiled digest data (41.30)", () => {
         for (const gone of ["llm_session", "llm_prompt_error", "llm_description", "lily_voice"]) {
             expect(unrealEngine.entries[gone]).toBeUndefined();
         }
+        expect(unrealEngine.entries["peely_voice"]).toBeDefined();
         expect(unrealEngine.entries["peely_voice"].modulePath).toBe("/UnrealEngine.com/Conversations");
     });
 

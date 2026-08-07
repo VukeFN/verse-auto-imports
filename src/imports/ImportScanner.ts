@@ -348,6 +348,68 @@ export function rewritableImports(scannedImports: ScannedImport[]): ScannedImpor
     return scannedImports.filter((imp) => !imp.anchorsCommentBelow);
 }
 
+/**
+ * The path of every `using` the file writes, at any indentation, module import
+ * and local-scope using alike.
+ *
+ * scanModuleImports skips indented lines on purpose: only a column-0 statement
+ * belongs to the file-level import block a writer rebuilds. A caller asking the
+ * different question "could anything in this file be resolving against an import
+ * I am about to stop writing at the top" needs the indented ones too, because a
+ * `using` in a module-definition body is a real import that resolves its own
+ * path against what is in scope above it.
+ *
+ * Deliberately no module-import classification. ImportFormatter.isModuleImport
+ * separates the two meanings of `using` by content plus position, and its
+ * atFileScope means column 0 *or* directly inside a module-definition body -
+ * which indentation alone cannot tell apart from a function body, so reading it
+ * off the leading whitespace silently drops a bare module import written inside
+ * a module. A caller weighing whether removing an import is safe does not need
+ * the distinction anyway: an absolute path is always a module import, and any
+ * other `using`, of either meaning, is reason enough not to remove anything. So
+ * every `using` is reported and the caller judges by rank.
+ *
+ * Only whole comment lines are skipped - a `<# ... #>` body and the indented
+ * body of a `<#>` marker - so a commented-out `using` does not count while one
+ * sharing a line with comment trivia still does. A missed `using` is the one
+ * error this must not make: the caller reads an empty answer as permission to
+ * remove an import, so anything unrecognised has to fail towards reporting a
+ * path rather than away from it. That is also why the statement is not required
+ * to open its line, and why extractPathFromImport decides rather than a prefix
+ * test - a line closing a block comment can carry a live `using` after the `#>`.
+ * The cost is that trivia naming a path, such as a trailing `# see using { /B }`,
+ * reports it; that only makes the caller more cautious.
+ *
+ * Positions are not reported; a caller that needs them wants scanModuleImports.
+ */
+export function allUsingPaths(lines: string[]): string[] {
+    const formatter = new ImportFormatter();
+    const classifications = classifyLines(lines);
+    const paths: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+        if (classifications[i].kind === "comment") {
+            continue;
+        }
+
+        // The indented half of a `using:` pair is read here from nextLine, and
+        // holds no `using` of its own, so the loop reaching it finds nothing and
+        // the pair is counted once - as scanModuleImports consumes both at once.
+        const trimmed = lines[i].trim();
+        const nextLine = i + 1 < lines.length ? lines[i + 1] : undefined;
+        const path = /^using\s*:\s*$/.test(trimmed)
+            ? nextLine !== undefined && /^\s+\S/.test(nextLine)
+                ? ImportFormatter.stripTrailingComment(nextLine)
+                : ""
+            : formatter.extractPathFromImport(trimmed);
+        if (path) {
+            paths.push(path);
+        }
+    }
+
+    return paths;
+}
+
 /** An import statement a path conversion may act on, with the line it occupies. */
 export interface ConvertibleImport {
     /** The statement text, trimmed, exactly as it appears on its line. */

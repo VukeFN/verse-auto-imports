@@ -1,4 +1,76 @@
-import { classifyLines, scanConvertibleImports, scanModuleImports } from "../ImportScanner";
+import { allUsingPaths, classifyLines, scanConvertibleImports, scanModuleImports } from "../ImportScanner";
+
+describe("allUsingPaths", () => {
+    it("collects a file-scope import the same way scanModuleImports does", () => {
+        expect(allUsingPaths(["using { /A }", "using { Features }", "using { Economy.Shop }", "code()"])).toEqual(["/A", "Features", "Economy.Shop"]);
+    });
+
+    // The whole reason this exists: scanModuleImports skips indented lines, so
+    // an import in a module body is invisible to it.
+    it("collects a dotted import indented inside a module body, which scanModuleImports skips", () => {
+        const lines = ["using { /A }", "MyModule := module:", "    using { Economy.Shop }", "code()"];
+        expect(allUsingPaths(lines)).toEqual(["/A", "Economy.Shop"]);
+        expect(scanModuleImports(lines).map((imp) => imp.path)).toEqual(["/A"]);
+    });
+
+    // A bare `using` inside a module body is a module import, but only the
+    // enclosing construct says so - indentation alone cannot tell it from a
+    // function body. Reporting it regardless is what stops a caller reading the
+    // file as import-free above that line.
+    it("collects a bare import indented inside a module body", () => {
+        expect(allUsingPaths(["using { /A }", "MyModule := module:", "    using { Features }", "code()"])).toEqual(["/A", "Features"]);
+    });
+
+    it("collects a bare indented pair inside a module body", () => {
+        expect(allUsingPaths(["using { /A }", "MyModule := module:", "    using:", "        Features", "code()"])).toEqual(["/A", "Features"]);
+    });
+
+    // No module-import classification, so a local-scope using is reported too.
+    // The caller judges by rank, and a bare path counts against it either way.
+    it("collects a local-scope using in a function body", () => {
+        expect(allUsingPaths(["using { /A }", "F():void =", "    using { LocalVar }", "    code()"])).toEqual(["/A", "LocalVar"]);
+    });
+
+    it("reads an indented pair once, from the path line", () => {
+        expect(allUsingPaths(["using:", "    /A", "code()"])).toEqual(["/A"]);
+    });
+
+    it("ignores an import inside a block comment", () => {
+        expect(allUsingPaths(["<#", "using { /Old }", "#>", "using { /A }", "code()"])).toEqual(["/A"]);
+    });
+
+    it("ignores an import inside the indented body of a marker", () => {
+        expect(allUsingPaths(["using { /A } <#> disabled", "    using { Economy.Shop }", "code()"])).toEqual(["/A"]);
+    });
+
+    // A missed `using` is the one error this must not make: the caller reads an
+    // empty answer as permission to remove an import. So a statement is not
+    // required to open its line - a line closing a block comment can carry a
+    // live one after the `#>`, and so can one behind closed inline trivia.
+    it("collects a using written after the #> that closes a block comment", () => {
+        expect(allUsingPaths(["<#", "note", "#> using { Economy.Shop }", "using { /A }", "code()"])).toEqual(["Economy.Shop", "/A"]);
+    });
+
+    it("collects a using written after a closed inline comment", () => {
+        expect(allUsingPaths(["<# note #> using { Economy.Shop }", "using { /A }", "code()"])).toEqual(["Economy.Shop", "/A"]);
+    });
+
+    it("does not read an identifier that merely starts with using", () => {
+        expect(allUsingPaths(["usingFoo := 1", "usings := 3", "usingMap := map{Economy.Shop => 1}", "using { /A }", "code()"])).toEqual(["/A"]);
+    });
+
+    it("collects an import whose line opens a comment over the lines below it", () => {
+        expect(allUsingPaths(["using { /A } <#> note", "    body", "code()"])).toEqual(["/A"]);
+    });
+
+    it("reads the dot syntax", () => {
+        expect(allUsingPaths(["using. /A", "code()"])).toEqual(["/A"]);
+    });
+
+    it("strips a trailing comment from the path", () => {
+        expect(allUsingPaths(["using { /A } # why", "code()"])).toEqual(["/A"]);
+    });
+});
 
 describe("scanModuleImports", () => {
     it("collects a braced import at column 0 with a single-line span", () => {

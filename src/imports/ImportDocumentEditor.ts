@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { logger } from "../utils";
 import { ImportFormatter } from "./ImportFormatter";
-import { classifyLines, LineClassification, rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
+import { allUsingPaths, classifyLines, LineClassification, rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
 
 /** Represents a contiguous block of import statements in the document. */
 interface ImportBlock {
@@ -553,6 +553,15 @@ export class ImportDocumentEditor {
      * headerLineCount), and a comment written directly above an import travels
      * with that import wherever the sort puts it (see attachedCommentStart).
      *
+     * A path an anchored import already provides is not written into the block
+     * a second time, whether it arrives as an additional path or as a second
+     * live import in the file. The live one is removed, together with the
+     * comments written for it - they annotate a statement that no longer
+     * exists. That removal happens only in a file whose every module import is
+     * an absolute path, because any other import could be resolving its own
+     * first segment against the copy being removed; see the withholdIsSafe
+     * check.
+     *
      * The result keeps the text's own line ending, so rebuilding an already
      * organized document reproduces it byte for byte and organizeImports can
      * skip the edit.
@@ -576,12 +585,55 @@ export class ImportDocumentEditor {
         // though, so an additional path it already covers must not be written
         // out a second time - that would duplicate it rather than move it.
         const allImports = scanModuleImports(lines);
-        const scannedImports = rewritableImports(allImports);
+        const movableImports = rewritableImports(allImports);
         const anchoredPaths = new Set(allImports.filter((imp) => imp.anchorsCommentBelow).map((imp) => imp.path));
 
-        const paths = scannedImports.map((imp) => imp.path);
         const extraPaths = additionalPaths.map((p) => p.trim()).filter((p) => p.length > 0 && !anchoredPaths.has(p));
-        if (paths.length === 0 && extraPaths.length === 0) {
+
+        // Module imports have file scope, so the names an anchored import brings
+        // in are available to code anywhere in the file, however far down its
+        // line sits. A live import of the same path is therefore redundant for
+        // code, and writing it into the block would leave the file importing the
+        // path twice rather than moving it. The live one is still hoisted below,
+        // which is what removes it from the body - only its statement is
+        // withheld, along with the comments written for it, which annotate a
+        // statement that no longer exists.
+        //
+        // Withholding it is only safe when no `using` in the file could resolve
+        // against it. File scope governs what code can see, but a `using`
+        // resolves its own path top-down: a path that is not absolute needs its
+        // first segment already in scope above it, which is why sorting ranks
+        // them (see ImportFormatter.sortImportsByRank, and the defects behind
+        // it). The anchored line ends up below the rebuilt block, so withholding
+        // the copy above it can strand such a path - in the block, or further
+        // down the body where scanModuleImports does not even look, as in a
+        // module-definition body.
+        //
+        // So this asks the whole file, every `using` at every indentation, and
+        // withholds only where all of them are absolute. An absolute path needs
+        // nothing in scope, so nothing anywhere can be resolving against the
+        // copy being removed. A `using` that is not absolute blocks it whichever
+        // meaning it carries - judging that needs the enclosing construct, and
+        // guessing wrong is what deletes a provider. So the question asked is
+        // just the rank.
+        //
+        // extraPaths joins the question because those paths are written into the
+        // block too. They keep their own unconditional filter above: suppressing
+        // one only declines to add an import the file already has, which cannot
+        // strand anything, while withholding a line the file already holds can.
+        //
+        // The cost is declining to tidy any file that holds a bare or dotted
+        // `using` anywhere, a local-scope one included. That is the safe
+        // direction: the duplicate left behind is legal Verse, and a stranded
+        // provider is a file that stops compiling.
+        const withholdIsSafe = [...allUsingPaths(lines), ...extraPaths].every((path) => this.formatter.importRank(path) === 0);
+        const blockImports = withholdIsSafe ? movableImports.filter((imp) => !anchoredPaths.has(imp.path)) : movableImports;
+
+        const paths = blockImports.map((imp) => imp.path);
+        // Keyed on the unfiltered set: a file whose only rewritable import is
+        // such a duplicate still has work to do, and returning null here would
+        // leave the document - and the duplicate - untouched.
+        if (movableImports.length === 0 && extraPaths.length === 0) {
             return null;
         }
 
@@ -593,7 +645,7 @@ export class ImportDocumentEditor {
         // of the statement they annotate rather than of the body.
         const hoistedLines = new Set<number>();
         const commentsByPath = new Map<string, string[]>();
-        for (const imp of scannedImports) {
+        for (const imp of movableImports) {
             for (let line = imp.startLine; line <= imp.endLine; line++) {
                 hoistedLines.add(line);
             }
@@ -628,7 +680,7 @@ export class ImportDocumentEditor {
         }
         // Both lookups key on the bare statement, so the trailing comment goes
         // on only once both have been read.
-        const trailingByStatement = this.trailingCommentsByStatement(scannedImports, options.preferDotSyntax);
+        const trailingByStatement = this.trailingCommentsByStatement(blockImports, options.preferDotSyntax);
         const block = formatted.flatMap((statement) => {
             const comments = commentsByStatement.get(statement);
             const line = this.withTrailingComment(statement, trailingByStatement);
@@ -645,6 +697,13 @@ export class ImportDocumentEditor {
 
         if (remainingBody.length === 0) {
             return [...header, ...block].join(eol) + eol;
+        }
+
+        // Every path was withheld, so there is no block to separate from the
+        // body. Writing the separator anyway would put a blank line where the
+        // block would have been.
+        if (block.length === 0) {
+            return [...header, ...remainingBody].join(eol);
         }
 
         return [...header, ...block, "", ...remainingBody].join(eol);

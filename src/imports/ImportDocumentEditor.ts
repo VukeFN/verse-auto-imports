@@ -142,7 +142,13 @@ export class ImportDocumentEditor {
     private trailingCommentsByStatement(scannedImports: ScannedImport[], preferDotSyntax: boolean): Map<string, string> {
         const byStatement = new Map<string, string>();
         for (const imp of scannedImports) {
-            if (!imp.trailingComment) {
+            // An anchored import has a trailing comment like any other, and its
+            // is the marker that anchors it. Restoring that onto a rebuilt line
+            // is what puts the marker somewhere it was not written, so it is
+            // refused here rather than only by every caller passing a filtered
+            // list. Every caller does today; one that forgot would resurrect a
+            // defect this branch has already shipped once.
+            if (!imp.trailingComment || imp.anchorsCommentBelow) {
                 continue;
             }
             const statement = this.formatter.formatImportStatement(imp.path, preferDotSyntax);

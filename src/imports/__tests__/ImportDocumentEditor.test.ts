@@ -551,8 +551,14 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /B }"]);
 
         expect(success).toBe(true);
+        // Pinned to the exact edit rather than to "no `<#` anywhere": a delete
+        // operation carries no text, so an assertion over every operation's
+        // text passes vacuously and would hold for an edit that writes nothing.
         const operations = appliedOperations(0);
-        expect(operations.every((op) => !op.text?.includes("<#"))).toBe(true);
+        expect(operations).toHaveLength(1);
+        expect(operations[0].kind).toBe("insert");
+        expect(operations[0].text).toBe("using { /B }\n\n");
+        expect(operations[0].position!.line).toBe(0);
     });
 
     function mockConfig(overrides: Record<string, unknown>): void {

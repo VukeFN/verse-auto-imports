@@ -241,31 +241,31 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
     const imports: ScannedImport[] = [];
     const insideBlockComment = blockCommentMask(lines);
 
-    // A statement left a block comment open exactly when the line after it
-    // starts inside one: every candidate below begins at depth 0, so any depth
-    // the next line inherits was opened by the statement's own text. The mask
-    // already holds that answer, so nothing has to be re-scanned here.
-    const opensBlockComment = (endLine: number): boolean => endLine + 1 < lines.length && insideBlockComment[endLine + 1];
-
-    // A `<#>` anchors its statement whether or not a body follows it today.
-    // The carve-out above - an unclosed `<#` on the last line anchors nothing,
-    // having no line below to swallow - cannot be extended to this marker: a
-    // `<#` on the last line of a file can never gain a body, while a `<#>`
-    // gains one the moment a rebuild moves it above an indented line.
+    // Whether the statement's own text opens a comment over the lines below it,
+    // read from that text alone rather than from what currently sits under it.
     //
-    // Every line of a statement's span starts at depth 0: lines inside a block
-    // comment are skipped above, and the `using:` opening an indented pair
-    // holds no `#` to open one on the path line.
-    const opensIndentedComment = (startLine: number, endLine: number): boolean => {
+    // Both markers are decided the same way: a `<#>` anywhere on the span, or a
+    // `<#` the span never closes. Neither depends on there being a body today,
+    // because a rebuild is free to move the line and hand it one - sorting an
+    // unclosed opener above another import makes it swallow that import, and
+    // moving a `<#>` above an indented line makes it swallow that line. The
+    // statement is what carries the marker, so the statement is what is asked.
+    //
+    // A span always starts at depth 0: lines inside a block comment are skipped
+    // below, and the `using:` opening an indented pair holds no `#` to open one
+    // on the path line. Only depth 0 yields opensIndentedComment, so a `<#>`
+    // inside a block comment on the same span cannot be mistaken for a marker.
+    const anchorsCommentBelow = (startLine: number, endLine: number): boolean => {
+        let depth = 0;
         for (let line = startLine; line <= endLine; line++) {
-            if (scanLine(lines[line], 0).opensIndentedComment) {
+            const scan = scanLine(lines[line], depth);
+            if (scan.opensIndentedComment) {
                 return true;
             }
+            depth = scan.depth;
         }
-        return false;
+        return depth > 0;
     };
-
-    const anchorsCommentBelow = (startLine: number, endLine: number): boolean => opensBlockComment(endLine) || opensIndentedComment(startLine, endLine);
 
     let i = 0;
     while (i < lines.length) {

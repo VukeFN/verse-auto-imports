@@ -308,7 +308,7 @@ export class ImportDocumentEditor {
         logger.debug("ImportDocumentEditor", `Found ${scannedImports.length} existing imports in ${importBlocks.length} blocks`);
 
         // Existence is judged from every import, including one anchored by a
-        // block-comment opener: it is imported, so nothing needs adding for it.
+        // comment marker: it is imported, so nothing needs adding for it.
         const existingPaths = new Set<string>(scannedImports.map((imp) => imp.path));
         // Relocation is judged only from the movable ones. Re-emitting an
         // anchored path at the top while its own line necessarily stays put
@@ -704,9 +704,10 @@ export class ImportDocumentEditor {
 
         // Find the last file-level import (module imports only: not local-scope
         // using, and not module-scoped imports inside module bodies). An import
-        // that opens a block comment is skipped as well: the lines after it are
-        // that comment's body, so adjusting spacing there would insert or remove
-        // lines inside the user's comment rather than after the import block.
+        // that opens a comment over the lines below it - a `<#` block opener or
+        // a `<#>` marker - is skipped as well: those lines are that comment's
+        // body, so adjusting spacing there would insert or remove lines inside
+        // the user's comment rather than after the import block.
         const scannedImports = rewritableImports(scanModuleImports(lines));
         const lastImportLine = scannedImports.length > 0 ? scannedImports[scannedImports.length - 1].endLine : -1;
 

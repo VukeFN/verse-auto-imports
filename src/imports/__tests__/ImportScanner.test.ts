@@ -114,17 +114,20 @@ describe("scanModuleImports", () => {
         ]);
     });
 
-    it("does not flag an unclosed opener on the last line, which has nothing below it", () => {
-        // The flag exists to protect the lines a comment swallows. With no line
-        // after the statement there are none, so the import stays rewritable.
-        expect(scanModuleImports(["using { /A } <#"])).toEqual([{ path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, trailingComment: "<#" }]);
+    it("flags an unclosed opener whether or not a line sits below it today", () => {
+        // The flag used to be read off the line below, so an opener ending the
+        // buffer was left rewritable as swallowing nothing - and which a file
+        // got turned on whether it ended with a newline. Now that a rebuild
+        // carries the opener through rather than dropping it, "swallows nothing
+        // today" stops being safe: sorted above another import, it swallows it.
+        expect(scanModuleImports(["using { /A } <#"])).toEqual([{ path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, trailingComment: "<#" }]);
+        expect(scanModuleImports(["using { /A } <#", ""])).toEqual([{ path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, trailingComment: "<#" }]);
     });
 
-    it("flags that same opener once a trailing newline gives it a line below", () => {
-        // A real file ends with a newline, so splitting it yields a trailing
-        // empty element and the carve-out above stops applying. Both outcomes
-        // are safe, but which one a file gets turns on an invisible byte.
-        expect(scanModuleImports(["using { /A } <#", ""])).toEqual([{ path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, trailingComment: "<#" }]);
+    it("does not flag a statement whose own text closes every block it opens", () => {
+        // Depth returns to 0 on the line, so nothing below it is comment body
+        // and the trailing text travels with the statement safely.
+        expect(scanModuleImports(["using { /A } <# note #>", "code()"])).toEqual([{ path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, trailingComment: "<# note #>" }]);
     });
 
     it("flags an import whose line carries an indented comment marker", () => {

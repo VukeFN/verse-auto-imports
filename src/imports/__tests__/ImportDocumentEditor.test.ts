@@ -160,6 +160,20 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A } # first # second", "", "code()"].join("\n"));
     });
 
+    // Restoring trailing text is what makes an unbalanced opener dangerous
+    // wherever it sits. On the last line of a buffer it swallowed nothing while
+    // a rebuild discarded it; carried through the rebuild and sorted upward, it
+    // swallows every import written below it.
+    it("does not sort an unclosed block opener up over the imports it would swallow", () => {
+        const input = ["using { /Zebra }", "using { /Apple } <#"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /Zebra }", "", "using { /Apple } <#"].join("\n"));
+    });
+
+    it("does not write a newly added import under an unclosed opener that ends the buffer", () => {
+        const input = ["code()", "using { /A } <#"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["/B"], curlySorted)).toBe(["using { /B }", "", "code()", "using { /A } <#"].join("\n"));
+    });
+
     // A rebuild that emits the import block at line 0 and everything else
     // under it moves the file's header into the middle of the file and tears
     // an explanatory comment off the import it explains. Both are text the
@@ -495,6 +509,50 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         expect(deletes).toHaveLength(1);
         expect(deletes[0].range!.start.line).toBe(0);
         expect(deletes[0].range!.end.line).toBe(1);
+    });
+
+    // The auto-import path, which users reach without invoking a command. It
+    // rebuilds a block through createBlockReplacementEdit rather than through
+    // buildOrganizedContent, and reads trailing comments off that block alone.
+    it("keeps the comment trailing an existing import when a new one joins its block", async () => {
+        const input = ["using { /Zebra } # network only", "", "hello := 1"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Apple }"]);
+
+        expect(success).toBe(true);
+        const replace = appliedOperations(0).find((op) => op.kind === "replace");
+        expect(replace!.text).toBe("using { /Apple }\nusing { /Zebra } # network only\n");
+    });
+
+    it("keeps that comment when consolidating every import at the top", async () => {
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValueOnce({
+            get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => {
+                if (key === "behavior.preserveImportLocations") {
+                    return false;
+                }
+                return defaultValue;
+            }),
+            update: jest.fn().mockResolvedValue(undefined),
+        });
+        const input = ["using { /Zebra } # network only", "", "hello := 1"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Apple }"]);
+
+        expect(success).toBe(true);
+        const insert = appliedOperations(0).find((op) => op.kind === "insert");
+        expect(insert!.text).toContain("using { /Zebra } # network only");
+    });
+
+    it("does not add an import under an unclosed opener that ends the buffer", async () => {
+        // The opener is anchored, so the new import is written above it rather
+        // than into the comment it would otherwise open over that import.
+        const input = ["hello := 1", "using { /A } <#"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /B }"]);
+
+        expect(success).toBe(true);
+        const operations = appliedOperations(0);
+        expect(operations.every((op) => !op.text?.includes("<#"))).toBe(true);
     });
 
     function mockConfig(overrides: Record<string, unknown>): void {

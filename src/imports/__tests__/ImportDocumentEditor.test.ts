@@ -105,6 +105,59 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, ["/A"], curlySorted)).toBeNull();
     });
 
+    // An anchored import is a real import, and module imports have file scope,
+    // so the path it names is in scope for the whole file however far down the
+    // anchored line sits. A live import of that same path is therefore
+    // redundant: hoisting it into the block leaves the file importing the path
+    // twice, which is what these cover.
+    it("drops a live import of a path an anchored <#> import already provides", () => {
+        const input = ["using { /A } <#> why this is here", "    it brings the module into scope", "using { /A }", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A } <#> why this is here", "    it brings the module into scope", "code()"].join("\n"));
+    });
+
+    it("drops a live import of a path an anchored <# import already provides", () => {
+        const input = ["using { /A } <# disabled below", "using { /Old/Path }", "#>", "using { /A }", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A } <# disabled below", "using { /Old/Path }", "#>", "code()"].join("\n"));
+    });
+
+    it("still organizes the other imports when one of them duplicates an anchored path", () => {
+        const input = ["using { /A } <#> why this is here", "    it brings the module into scope", "using { /A }", "using { /B }", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /B }", "", "using { /A } <#> why this is here", "    it brings the module into scope", "code()"].join("\n"));
+    });
+
+    // The anchored line ends up below the block, so withholding a duplicate is
+    // only safe while nothing left in the block could resolve against it. A
+    // bare provider is exactly what a dotted path needs above it, so here the
+    // duplicate is kept rather than leaving `Economy.Shop` above the
+    // `Features` that provides `Economy` - the ordering #91 and #129 fixed.
+    it("keeps a duplicate of a bare anchored path when a dotted import could depend on it", () => {
+        const input = ["using { Features }", "using { Economy.Shop }", "using { Features } <#> note", "    body", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { Features }", "using { Economy.Shop }", "", "using { Features } <#> note", "    body", "code()"].join("\n"));
+    });
+
+    it("keeps a duplicate of an absolute anchored path when a dotted import could depend on it", () => {
+        const input = ["using { /A } <#> note", "    body", "using { /A }", "using { Economy.Shop }", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A }", "using { Economy.Shop }", "", "using { /A } <#> note", "    body", "code()"].join("\n"));
+    });
+
+    it("drops a duplicate of a bare anchored path when every other import is absolute", () => {
+        const input = ["using { Features } <#> note", "    body", "using { Features }", "using { /A }", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A }", "", "using { Features } <#> note", "    body", "code()"].join("\n"));
+    });
+
+    // The dropped statement's own comments go with it. They annotate a
+    // statement that no longer exists, and leaving them behind would strand
+    // them above whatever code now follows.
+    it("drops the comments written for a duplicate along with the duplicate", () => {
+        const input = ["using { /A } <#> why this is here", "    it brings the module into scope", "# needed for the timer", "using { /A } # and here too", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A } <#> why this is here", "    it brings the module into scope", "code()"].join("\n"));
+    });
+
+    it("drops a whole comment run written for a duplicate, not just its last line", () => {
+        const input = ["using { /A } <#> why this is here", "    it brings the module into scope", "# the first line", "# the second line", "using { /A }", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A } <#> why this is here", "    it brings the module into scope", "code()"].join("\n"));
+    });
+
     it("keeps an anchored indented pair intact instead of normalizing it to one line", () => {
         const input = ["using:", "    /A <# disabled below", "using { /Old/Path }", "#>", "using { /B }", "", "code()"].join("\n");
         expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /B }", "", "using:", "    /A <# disabled below", "using { /Old/Path }", "#>", "", "code()"].join("\n"));

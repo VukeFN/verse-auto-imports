@@ -60,6 +60,29 @@ describe("ImportFormatter.stripTrailingComment", () => {
     });
 });
 
+describe("ImportFormatter.extractTrailingComment", () => {
+    it("returns a line comment without the whitespace ahead of it", () => {
+        expect(ImportFormatter.extractTrailingComment("using { /Verse.org/Simulation } # network only")).toBe("# network only");
+    });
+
+    it("returns a block comment from its opening angle bracket", () => {
+        expect(ImportFormatter.extractTrailingComment("using { /A } <# keep me #>")).toBe("<# keep me #>");
+    });
+
+    it("returns an indented comment marker with the text after it", () => {
+        expect(ImportFormatter.extractTrailingComment("using { /A } <#> why this is here")).toBe("<#> why this is here");
+    });
+
+    it("returns an empty string when there is no comment", () => {
+        expect(ImportFormatter.extractTrailingComment("using { /A }")).toBe("");
+    });
+
+    it("recomposes the original with stripTrailingComment, which splits at the same point", () => {
+        const content = "/Verse.org/Simulation # keep me";
+        expect(`${ImportFormatter.stripTrailingComment(content)} ${ImportFormatter.extractTrailingComment(content)}`).toBe(content);
+    });
+});
+
 describe("ImportFormatter trailing comments on import statements", () => {
     let formatter: ImportFormatter;
 

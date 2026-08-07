@@ -9,17 +9,36 @@ export interface ScannedImport {
     /** Last line of the statement: equal to startLine, or startLine + 1 for the indented pair. */
     endLine: number;
     /**
-     * Whether the statement's own text leaves a `<#` block comment open, so
-     * the lines below it are that comment's body.
+     * Whether the statement's own text opens a comment whose body is the lines
+     * below it, which pins the statement to the position it was written at.
      *
-     * Writers rebuild an import line from `path` alone, which discards
-     * everything trailing on it. For an ordinary trailing comment that only
-     * loses annotation text, but dropping a block-comment opener turns the
-     * commented-out region below it back into live code and orphans its `#>`.
-     * Such a statement cannot be rewritten or moved: it has to stay on its
-     * own line, with everything else organized around it.
+     * Two markers do this, and their consequences are identical, so they are
+     * one flag rather than two:
+     *
+     * - `<#` leaves a block comment open, making every line below it comment
+     *   body until a matching `#>`.
+     * - `<#>` opens an indented comment, making every line below it indented
+     *   past it comment body.
+     *
+     * Writers rebuild an import line from `path` alone, so trailing text is
+     * restored from `trailingComment` rather than preserved in place. That is
+     * enough for an annotation, but not for either marker: what a marker
+     * comments out is decided by where it sits, so re-emitting it at a
+     * different line makes it swallow lines the author never wrote it around.
+     * Such a statement cannot be rewritten or moved: it stays on its own line,
+     * with everything else organized around it.
      */
-    opensBlockComment: boolean;
+    anchorsCommentBelow: boolean;
+    /**
+     * The comment trailing the statement on its own line, or "" when it has
+     * none. For the indented pair this is the comment on the path line, the
+     * only one of the two lines that can carry a path and therefore a comment
+     * after it.
+     *
+     * Held here because a rebuild reconstructs the line from `path` and would
+     * otherwise discard it, deleting text the author wrote.
+     */
+    trailingComment: string;
 }
 
 /** What one line of a document leaves behind for the line below it. */
@@ -210,10 +229,12 @@ function blockCommentMask(lines: string[]): boolean[] {
  *   a module import (a same-directory folder-module import): module `using`
  *   is only legal at file level or module-definition body level, so a bare
  *   `using` at column 0 can never be a legal local-scope using.
- * - A collected import that itself opens a block comment spanning the lines
- *   below it is flagged with `opensBlockComment`. It is a real import and
- *   still counts as present, but no writer may rebuild its line, because the
- *   opener lives in the trailing text a rebuild discards.
+ * - A collected import that itself opens a comment over the lines below it is
+ *   flagged with `anchorsCommentBelow`. It is a real import and still counts
+ *   as present, but no writer may rebuild or move its line, because where the
+ *   marker sits is what decides which lines it comments out.
+ * - The comment trailing a statement is kept in `trailingComment` so a writer
+ *   that rebuilds the line from `path` can put it back rather than delete it.
  */
 export function scanModuleImports(lines: string[]): ScannedImport[] {
     const formatter = new ImportFormatter();
@@ -225,6 +246,26 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
     // the next line inherits was opened by the statement's own text. The mask
     // already holds that answer, so nothing has to be re-scanned here.
     const opensBlockComment = (endLine: number): boolean => endLine + 1 < lines.length && insideBlockComment[endLine + 1];
+
+    // A `<#>` anchors its statement whether or not a body follows it today.
+    // The carve-out above - an unclosed `<#` on the last line anchors nothing,
+    // having no line below to swallow - cannot be extended to this marker: a
+    // `<#` on the last line of a file can never gain a body, while a `<#>`
+    // gains one the moment a rebuild moves it above an indented line.
+    //
+    // Every line of a statement's span starts at depth 0: lines inside a block
+    // comment are skipped above, and the `using:` opening an indented pair
+    // holds no `#` to open one on the path line.
+    const opensIndentedComment = (startLine: number, endLine: number): boolean => {
+        for (let line = startLine; line <= endLine; line++) {
+            if (scanLine(lines[line], 0).opensIndentedComment) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    const anchorsCommentBelow = (startLine: number, endLine: number): boolean => opensBlockComment(endLine) || opensIndentedComment(startLine, endLine);
 
     let i = 0;
     while (i < lines.length) {
@@ -256,7 +297,13 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
             if (nextLine !== undefined && /^\s+\S/.test(nextLine)) {
                 const indentedPath = ImportFormatter.stripTrailingComment(nextLine);
                 if (indentedPath) {
-                    imports.push({ path: indentedPath, startLine: i, endLine: i + 1, opensBlockComment: opensBlockComment(i + 1) });
+                    imports.push({
+                        path: indentedPath,
+                        startLine: i,
+                        endLine: i + 1,
+                        anchorsCommentBelow: anchorsCommentBelow(i, i + 1),
+                        trailingComment: ImportFormatter.extractTrailingComment(nextLine),
+                    });
                     i += 2;
                     continue;
                 }
@@ -268,7 +315,13 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
 
         const path = formatter.extractPathFromImport(trimmed);
         if (path) {
-            imports.push({ path, startLine: i, endLine: i, opensBlockComment: opensBlockComment(i) });
+            imports.push({
+                path,
+                startLine: i,
+                endLine: i,
+                anchorsCommentBelow: anchorsCommentBelow(i, i),
+                trailingComment: ImportFormatter.extractTrailingComment(trimmed),
+            });
         }
         i += 1;
     }
@@ -280,19 +333,19 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
  * The subset of scanned imports a writer is allowed to rebuild or move.
  *
  * Every writer reconstructs an import line from its path alone, so an import
- * whose line also opens a block comment has to be excluded from both halves of
- * that: its lines never enter a range a writer replaces, and its path is never
- * re-emitted somewhere else. Anything else either drops the opener -
- * resurrecting the region below it - or relocates the opener so the comment
- * swallows different lines than the author wrote it around. See
- * ScannedImport.opensBlockComment.
+ * whose line also opens a comment over the lines below it has to be excluded
+ * from both halves of that: its lines never enter a range a writer replaces,
+ * and its path is never re-emitted somewhere else. Anything else relocates the
+ * marker so the comment swallows different lines than the author wrote it
+ * around, or - for a `<#` - drops it and resurrects the region below. See
+ * ScannedImport.anchorsCommentBelow.
  *
  * Such an import is still present for existence and deduplication purposes;
  * only rewriting is off limits. Callers wanting "is this path imported" must
  * read the unfiltered scan.
  */
 export function rewritableImports(scannedImports: ScannedImport[]): ScannedImport[] {
-    return scannedImports.filter((imp) => !imp.opensBlockComment);
+    return scannedImports.filter((imp) => !imp.anchorsCommentBelow);
 }
 
 /** An import statement a path conversion may act on, with the line it occupies. */
@@ -315,8 +368,9 @@ export interface ConvertibleImport {
  *   membership line by line instead is what let a lens appear on inert text and
  *   on a module-scoped import, and acting on that lens edited a line inside a
  *   comment.
- * - An import that opens a block comment is excluded: rebuilding its line drops
- *   the opener and resurrects the region below it.
+ * - An import that opens a comment over the lines below it is excluded:
+ *   rebuilding its line moves the marker away from the lines it was written
+ *   around, and for a `<#` drops the opener and resurrects the region below.
  * - The indented style (`using:` with the path on the following line) is
  *   excluded, because every conversion path identifies an import by a single
  *   line of statement text and replaces that one line.

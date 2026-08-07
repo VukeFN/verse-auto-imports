@@ -110,6 +110,56 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /B }", "", "using:", "    /A <# disabled below", "using { /Old/Path }", "#>", "", "code()"].join("\n"));
     });
 
+    // A `<#>` marker is the same hazard with a different marker: its body is
+    // the lines below it indented past it, so a rebuild that moves the line
+    // strands that body as indented lines at file scope, where the file stops
+    // parsing.
+    it("leaves an import whose line carries an indented comment marker where it is", () => {
+        const input = ["using { /A } <#> why this is here", "    it brings the module into scope", "using { /B }", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /B }", "", "using { /A } <#> why this is here", "    it brings the module into scope", "code()"].join("\n"));
+    });
+
+    it("returns null when the only import carries an indented comment marker", () => {
+        const input = ["using { /A } <#> why this is here", "    it brings the module into scope", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBeNull();
+    });
+
+    // Excluding an import with an ordinary trailing comment from rewriting
+    // would stop it being sorted at all, so the comment travels through the
+    // rebuild instead.
+    it("keeps the comment trailing an import when the block is rebuilt around it", () => {
+        const input = ["using { /Zebra } # network only", "using { /Apple }", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /Apple }", "using { /Zebra } # network only", "", "code()"].join("\n"));
+    });
+
+    it("keeps the trailing comment of an import written in any of the three styles", () => {
+        expect(editor.buildOrganizedContent("using { /B } # braced\nusing { /A }\ncode()", [], curlySorted)).toBe(["using { /A }", "using { /B } # braced", "", "code()"].join("\n"));
+        expect(editor.buildOrganizedContent("using. /B # dotted\nusing { /A }\ncode()", [], curlySorted)).toBe(["using { /A }", "using { /B } # dotted", "", "code()"].join("\n"));
+        expect(editor.buildOrganizedContent("using:\n    /B # indented\nusing { /A }\ncode()", [], curlySorted)).toBe(["using { /A }", "using { /B } # indented", "", "code()"].join("\n"));
+    });
+
+    it("keeps a trailing block comment that closes on its own line", () => {
+        const input = ["using { /Zebra } <# network only #>", "using { /Apple }", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /Apple }", "using { /Zebra } <# network only #>", "", "code()"].join("\n"));
+    });
+
+    it("reproduces a document whose imports carry trailing comments, so organize can skip the edit", () => {
+        const input = ["using { /Apple }", "using { /Zebra } # network only", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(input);
+    });
+
+    it("keeps the trailing comment with its own import when another is added above it", () => {
+        const input = ["using { /Zebra } # network only", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["/Apple"], curlySorted)).toBe(["using { /Apple }", "using { /Zebra } # network only", "", "code()"].join("\n"));
+    });
+
+    it("keeps both comments when a duplicated path is deduplicated to one statement", () => {
+        // Dropping either would delete text the author wrote, and a `#` comment
+        // runs to the end of the line, so the pair still reads as one comment.
+        const input = ["using { /A } # first", "using { /A } # second", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A } # first # second", "", "code()"].join("\n"));
+    });
+
     // A rebuild that emits the import block at line 0 and everything else
     // under it moves the file's header into the middle of the file and tears
     // an explanatory comment off the import it explains. Both are text the

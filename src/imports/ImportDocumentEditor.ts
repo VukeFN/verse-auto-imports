@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { logger } from "../utils";
 import { ImportFormatter } from "./ImportFormatter";
-import { classifyLines, LineClassification, rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
+import { allModuleImportPaths, classifyLines, LineClassification, rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
 
 /** Represents a contiguous block of import statements in the document. */
 interface ImportBlock {
@@ -557,9 +557,10 @@ export class ImportDocumentEditor {
      * a second time, whether it arrives as an additional path or as a second
      * live import in the file. The live one is removed, together with the
      * comments written for it - they annotate a statement that no longer
-     * exists. That removal is withheld where another path in the block could
-     * resolve against the one being removed; see the rank reasoning at the
-     * withholdIsSafe check.
+     * exists. That removal happens only in a file whose every module import is
+     * an absolute path, because any other import could be resolving its own
+     * first segment against the copy being removed; see the withholdIsSafe
+     * check.
      *
      * The result keeps the text's own line ending, so rebuilding an already
      * organized document reproduces it byte for byte and organizeImports can
@@ -589,25 +590,33 @@ export class ImportDocumentEditor {
 
         const extraPaths = additionalPaths.map((p) => p.trim()).filter((p) => p.length > 0 && !anchoredPaths.has(p));
 
-        // Module imports have file scope, so an anchored import brings its path
-        // into scope for the whole file however far down its line sits. A live
-        // import of that same path is therefore redundant, and writing it into
-        // the block would leave the file importing the path twice rather than
-        // moving it. The live one is still hoisted below, which is what removes
-        // it from the body - only its statement is withheld, along with the
-        // comments written for it, which annotate a statement that no longer
-        // exists.
+        // Module imports have file scope, so the names an anchored import brings
+        // in are available to code anywhere in the file, however far down its
+        // line sits. A live import of the same path is therefore redundant for
+        // code, and writing it into the block would leave the file importing the
+        // path twice rather than moving it. The live one is still hoisted below,
+        // which is what removes it from the body - only its statement is
+        // withheld, along with the comments written for it, which annotate a
+        // statement that no longer exists.
         //
-        // Withholding it is only safe while nothing left in the block could
-        // depend on it. The anchored line always ends up below the block, and
-        // any path that is not absolute resolves its first segment against what
-        // is in scope above it (see ImportFormatter.importRank), so withholding
-        // a provider would put it below its consumers and break the file the
-        // way rank ordering exists to prevent. An absolute path needs nothing
-        // in scope, so a block of those alone can never be the consumer.
-        const kept = movableImports.filter((imp) => !anchoredPaths.has(imp.path));
-        const withholdIsSafe = [...kept.map((imp) => imp.path), ...extraPaths].every((path) => this.formatter.importRank(path) === 0);
-        const blockImports = withholdIsSafe ? kept : movableImports;
+        // Withholding it is only safe when no `using` in the file could resolve
+        // against it. File scope governs what code can see, but a `using`
+        // resolves its own path top-down: a path that is not absolute needs its
+        // first segment already in scope above it, which is why sorting ranks
+        // them (see ImportFormatter.sortImportsByRank, and the defects behind
+        // it). The anchored line ends up below the rebuilt block, so withholding
+        // the copy above it can strand such a path - in the block, or further
+        // down the body where scanModuleImports does not even look, as in a
+        // module-definition body.
+        //
+        // So this asks the whole file, at every indentation, and withholds only
+        // where every module import in it is absolute. An absolute path needs
+        // nothing in scope, so no import anywhere can be depending on the copy
+        // being removed. That declines to tidy a file mixing bare or dotted
+        // imports, which is the safe direction: the duplicate it leaves is legal
+        // Verse, and a stranded provider is a file that stops compiling.
+        const withholdIsSafe = [...allModuleImportPaths(lines), ...extraPaths].every((path) => this.formatter.importRank(path) === 0);
+        const blockImports = withholdIsSafe ? movableImports.filter((imp) => !anchoredPaths.has(imp.path)) : movableImports;
 
         const paths = blockImports.map((imp) => imp.path);
         // Keyed on the unfiltered set: a file whose only rewritable import is

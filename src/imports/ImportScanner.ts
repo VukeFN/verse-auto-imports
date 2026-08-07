@@ -348,6 +348,54 @@ export function rewritableImports(scannedImports: ScannedImport[]): ScannedImpor
     return scannedImports.filter((imp) => !imp.anchorsCommentBelow);
 }
 
+/**
+ * Every module import path the file mentions, at any indentation.
+ *
+ * scanModuleImports skips indented lines on purpose: only a column-0 statement
+ * belongs to the file-level import block a writer rebuilds. A module `using` in
+ * a module-definition body is a real import even so, and it resolves its own
+ * path against what is in scope above it, so a caller asking "could anything in
+ * this file depend on an import I am about to stop writing at the top" has to
+ * see those too - scanModuleImports alone cannot answer that.
+ *
+ * Classification passes atFileScope only for column-0 lines, the same rule
+ * scanModuleImports applies, so a bare identifier counts as a module import
+ * there and as a local-scope using when indented. Lines inside a block comment
+ * are skipped; positions are not reported, because a caller that needs them
+ * wants scanModuleImports instead.
+ */
+export function allModuleImportPaths(lines: string[]): string[] {
+    const formatter = new ImportFormatter();
+    const insideBlockComment = blockCommentMask(lines);
+    const paths: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+        const trimmed = lines[i].trim();
+        if (insideBlockComment[i] || trimmed.length === 0) {
+            continue;
+        }
+
+        const nextLine = i + 1 < lines.length ? lines[i + 1] : undefined;
+        // A bare path on its own line never starts with `using`, so the indented
+        // half of a `using:` pair is read here from nextLine and ignored when
+        // the loop reaches it, exactly as scanModuleImports consumes both.
+        if (!ImportFormatter.isModuleImport(trimmed, nextLine, { atFileScope: !/^\s/.test(lines[i]) })) {
+            continue;
+        }
+
+        const path = /^using\s*:\s*$/.test(trimmed)
+            ? nextLine !== undefined && /^\s+\S/.test(nextLine)
+                ? ImportFormatter.stripTrailingComment(nextLine)
+                : ""
+            : formatter.extractPathFromImport(trimmed);
+        if (path) {
+            paths.push(path);
+        }
+    }
+
+    return paths;
+}
+
 /** An import statement a path conversion may act on, with the line it occupies. */
 export interface ConvertibleImport {
     /** The statement text, trimmed, exactly as it appears on its line. */

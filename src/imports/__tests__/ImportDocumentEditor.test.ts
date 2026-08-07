@@ -125,24 +125,44 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /B }", "", "using { /A } <#> why this is here", "    it brings the module into scope", "code()"].join("\n"));
     });
 
-    // The anchored line ends up below the block, so withholding a duplicate is
-    // only safe while nothing left in the block could resolve against it. A
-    // bare provider is exactly what a dotted path needs above it, so here the
-    // duplicate is kept rather than leaving `Economy.Shop` above the
-    // `Features` that provides `Economy` - the ordering #91 and #129 fixed.
-    it("keeps a duplicate of a bare anchored path when a dotted import could depend on it", () => {
-        const input = ["using { Features }", "using { Economy.Shop }", "using { Features } <#> note", "    body", "code()"].join("\n");
-        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { Features }", "using { Economy.Shop }", "", "using { Features } <#> note", "    body", "code()"].join("\n"));
-    });
-
-    it("keeps a duplicate of an absolute anchored path when a dotted import could depend on it", () => {
+    // The anchored line ends up below the rebuilt block, so dropping the copy
+    // above it can leave a `using` without the import that brings its first
+    // segment into scope - the ordering #91 and #129 fixed. Only an absolute
+    // path needs nothing above it, so the duplicate is kept in any file that
+    // holds a bare or dotted import anywhere.
+    it("keeps a duplicate when a dotted import could resolve against it", () => {
         const input = ["using { /A } <#> note", "    body", "using { /A }", "using { Economy.Shop }", "code()"].join("\n");
         expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A }", "using { Economy.Shop }", "", "using { /A } <#> note", "    body", "code()"].join("\n"));
     });
 
-    it("drops a duplicate of a bare anchored path when every other import is absolute", () => {
+    it("keeps a duplicate when the consumer is itself anchored above the provider", () => {
+        const input = ["using { Features }", "using { Economy.Shop } <#> note", "    body", "using { Features } <#> other", "    other body", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(
+            ["using { Features }", "", "using { Economy.Shop } <#> note", "    body", "using { Features } <#> other", "    other body", "code()"].join("\n"),
+        );
+    });
+
+    // scanModuleImports skips indented lines, so a module-body `using` is
+    // invisible to it - a guard reading only the scanned imports would drop the
+    // provider and leave this file with its consumer above it.
+    it("keeps a duplicate when only a module-body import could resolve against it", () => {
+        const input = ["using { /A }", "MyModule := module:", "    using { Economy.Shop }", "using { /A } <#> note", "    body", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(
+            ["using { /A }", "", "MyModule := module:", "    using { Economy.Shop }", "using { /A } <#> note", "    body", "code()"].join("\n"),
+        );
+    });
+
+    // A bare path is not absolute either, so it is never the one withheld.
+    it("keeps a duplicate of a bare anchored path even when every other import is absolute", () => {
         const input = ["using { Features } <#> note", "    body", "using { Features }", "using { /A }", "code()"].join("\n");
-        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A }", "", "using { Features } <#> note", "    body", "code()"].join("\n"));
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A }", "using { Features }", "", "using { Features } <#> note", "    body", "code()"].join("\n"));
+    });
+
+    // A local-scope `using` inside a function body is not a module import, so it
+    // does not count against withholding.
+    it("drops a duplicate even when a function body holds a local-scope using", () => {
+        const input = ["using { /A } <#> note", "    body", "using { /A }", "F():void =", "    using { LocalVar }", "    code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A } <#> note", "    body", "F():void =", "    using { LocalVar }", "    code()"].join("\n"));
     });
 
     // The dropped statement's own comments go with it. They annotate a

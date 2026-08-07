@@ -1,4 +1,38 @@
-import { classifyLines, scanConvertibleImports, scanModuleImports } from "../ImportScanner";
+import { allModuleImportPaths, classifyLines, scanConvertibleImports, scanModuleImports } from "../ImportScanner";
+
+describe("allModuleImportPaths", () => {
+    it("collects a file-scope import the same way scanModuleImports does", () => {
+        expect(allModuleImportPaths(["using { /A }", "using { Features }", "using { Economy.Shop }", "code()"])).toEqual(["/A", "Features", "Economy.Shop"]);
+    });
+
+    // The whole reason this exists: scanModuleImports skips indented lines, so
+    // a module-body import is invisible to it.
+    it("collects an import indented inside a module body, which scanModuleImports skips", () => {
+        const lines = ["using { /A }", "MyModule := module:", "    using { Economy.Shop }", "code()"];
+        expect(allModuleImportPaths(lines)).toEqual(["/A", "Economy.Shop"]);
+        expect(scanModuleImports(lines).map((imp) => imp.path)).toEqual(["/A"]);
+    });
+
+    it("ignores a local-scope using in a function body, which is not a module import", () => {
+        expect(allModuleImportPaths(["using { /A }", "F():void =", "    using { LocalVar }", "    code()"])).toEqual(["/A"]);
+    });
+
+    it("reads an indented pair once, from the path line", () => {
+        expect(allModuleImportPaths(["using:", "    /A", "code()"])).toEqual(["/A"]);
+    });
+
+    it("ignores an import inside a block comment", () => {
+        expect(allModuleImportPaths(["<#", "using { /Old }", "#>", "using { /A }", "code()"])).toEqual(["/A"]);
+    });
+
+    it("collects an import whose line opens a comment over the lines below it", () => {
+        expect(allModuleImportPaths(["using { /A } <#> note", "    body", "code()"])).toEqual(["/A"]);
+    });
+
+    it("strips a trailing comment from the path", () => {
+        expect(allModuleImportPaths(["using { /A } # why", "code()"])).toEqual(["/A"]);
+    });
+});
 
 describe("scanModuleImports", () => {
     it("collects a braced import at column 0 with a single-line span", () => {

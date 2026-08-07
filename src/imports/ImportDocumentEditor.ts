@@ -126,6 +126,54 @@ export class ImportDocumentEditor {
     }
 
     /**
+     * The comment trailing each import, keyed on the statement a rebuild emits
+     * for its path.
+     *
+     * Keyed on the formatted statement rather than on a line, because that is
+     * the only handle a writer still has once it has sorted and grouped a list
+     * of paths - the same reason buildOrganizedContent keys the comments
+     * written *above* an import that way.
+     *
+     * Deduplication keeps one statement for a repeated path, so the comments of
+     * its several occurrences are concatenated rather than replaced: keeping
+     * only the last would delete text the author wrote. They stay on one line,
+     * which is where they were, and a `#` comment runs to the end of it.
+     */
+    private trailingCommentsByStatement(scannedImports: ScannedImport[], preferDotSyntax: boolean): Map<string, string> {
+        const byStatement = new Map<string, string>();
+        for (const imp of scannedImports) {
+            // An anchored import has a trailing comment like any other, and its
+            // is the marker that anchors it. Restoring that onto a rebuilt line
+            // is what puts the marker somewhere it was not written, so it is
+            // refused here rather than only by every caller passing a filtered
+            // list. Every caller does today; one that forgot would resurrect a
+            // defect this branch has already shipped once.
+            if (!imp.trailingComment || imp.anchorsCommentBelow) {
+                continue;
+            }
+            const statement = this.formatter.formatImportStatement(imp.path, preferDotSyntax);
+            const existing = byStatement.get(statement);
+            byStatement.set(statement, existing ? `${existing} ${imp.trailingComment}` : imp.trailingComment);
+        }
+        return byStatement;
+    }
+
+    /**
+     * Puts an import's trailing comment back on the statement rebuilt from its
+     * path. A group separator groupAndFormatImports emits is left alone: no
+     * path formats to one, so none is ever a key.
+     */
+    private withTrailingComment(statement: string, trailingByStatement: Map<string, string>): string {
+        const trailing = trailingByStatement.get(statement);
+        return trailing ? `${statement} ${trailing}` : statement;
+    }
+
+    /** withTrailingComment over a whole rebuilt block. */
+    private withTrailingComments(statements: string[], trailingByStatement: Map<string, string>): string[] {
+        return statements.map((statement) => this.withTrailingComment(statement, trailingByStatement));
+    }
+
+    /**
      * Creates an edit to replace an import block with combined and formatted imports.
      */
     private createBlockReplacementEdit(
@@ -145,8 +193,12 @@ export class ImportDocumentEditor {
             combinedPaths = this.formatter.sortImportsByRank(combinedPaths);
         }
 
-        // Format all imports for this block
-        const formattedImports = combinedPaths.map((path) => this.formatter.formatImportStatement(path, preferDotSyntax));
+        // Format all imports for this block, restoring the comment each
+        // existing one trailed its line with.
+        const formattedImports = this.withTrailingComments(
+            combinedPaths.map((path) => this.formatter.formatImportStatement(path, preferDotSyntax)),
+            this.trailingCommentsByStatement(block.imports, preferDotSyntax),
+        );
 
         // Replace the entire block
         edit.replace(document.uri, new vscode.Range(new vscode.Position(block.start, 0), new vscode.Position(block.end + 1, 0)), formattedImports.join(eol) + eol);
@@ -262,7 +314,7 @@ export class ImportDocumentEditor {
         logger.debug("ImportDocumentEditor", `Found ${scannedImports.length} existing imports in ${importBlocks.length} blocks`);
 
         // Existence is judged from every import, including one anchored by a
-        // block-comment opener: it is imported, so nothing needs adding for it.
+        // comment marker: it is imported, so nothing needs adding for it.
         const existingPaths = new Set<string>(scannedImports.map((imp) => imp.path));
         // Relocation is judged only from the movable ones. Re-emitting an
         // anchored path at the top while its own line necessarily stays put
@@ -357,7 +409,10 @@ export class ImportDocumentEditor {
                     // We have existing imports but no grouping - reorganize everything into groups
                     const allPaths = new Set<string>([...relocatablePaths, ...newImportPaths]);
                     const allImportsArray = Array.from(allPaths);
-                    const groupedImports = this.formatter.groupAndFormatImports(allImportsArray, preferDotSyntax, sortAlphabetically, importGrouping);
+                    const groupedImports = this.withTrailingComments(
+                        this.formatter.groupAndFormatImports(allImportsArray, preferDotSyntax, sortAlphabetically, importGrouping),
+                        this.trailingCommentsByStatement(rewritableImports(scannedImports), preferDotSyntax),
+                    );
 
                     if (importBlocks.length > 0) {
                         // Replace the first existing block in place so it stays at its
@@ -452,7 +507,10 @@ export class ImportDocumentEditor {
             const allImportsArray = Array.from(allPaths);
 
             // Use the new grouping method for all imports
-            const formattedImports = this.formatter.groupAndFormatImports(allImportsArray, preferDotSyntax, sortAlphabetically, importGrouping);
+            const formattedImports = this.withTrailingComments(
+                this.formatter.groupAndFormatImports(allImportsArray, preferDotSyntax, sortAlphabetically, importGrouping),
+                this.trailingCommentsByStatement(rewritableImports(scannedImports), preferDotSyntax),
+            );
 
             // Insert imports at top with minimal spacing (will be fixed by ensureEmptyLinesAfterImports)
             const importsText = formattedImports.join(eol) + eol;
@@ -512,14 +570,14 @@ export class ImportDocumentEditor {
     ): string | null {
         const eol = detectEol(text) ?? options.fallbackEol ?? "\n";
         const lines = text.split(LINE_SPLIT);
-        // An import anchored by a block-comment opener is neither hoisted nor
+        // An import anchored by a comment marker is neither hoisted nor
         // removed from the body: its line stays exactly where it is, and the
         // rest of the file is organized around it. It is still an import,
         // though, so an additional path it already covers must not be written
         // out a second time - that would duplicate it rather than move it.
         const allImports = scanModuleImports(lines);
         const scannedImports = rewritableImports(allImports);
-        const anchoredPaths = new Set(allImports.filter((imp) => imp.opensBlockComment).map((imp) => imp.path));
+        const anchoredPaths = new Set(allImports.filter((imp) => imp.anchorsCommentBelow).map((imp) => imp.path));
 
         const paths = scannedImports.map((imp) => imp.path);
         const extraPaths = additionalPaths.map((p) => p.trim()).filter((p) => p.length > 0 && !anchoredPaths.has(p));
@@ -568,9 +626,13 @@ export class ImportDocumentEditor {
         for (const [path, comments] of commentsByPath) {
             commentsByStatement.set(this.formatter.formatImportStatement(path, options.preferDotSyntax), comments);
         }
+        // Both lookups key on the bare statement, so the trailing comment goes
+        // on only once both have been read.
+        const trailingByStatement = this.trailingCommentsByStatement(scannedImports, options.preferDotSyntax);
         const block = formatted.flatMap((statement) => {
             const comments = commentsByStatement.get(statement);
-            return comments ? [...comments, statement] : [statement];
+            const line = this.withTrailingComment(statement, trailingByStatement);
+            return comments ? [...comments, line] : [line];
         });
 
         // Drop blank lines the removed imports left at the top; the gap after
@@ -648,9 +710,10 @@ export class ImportDocumentEditor {
 
         // Find the last file-level import (module imports only: not local-scope
         // using, and not module-scoped imports inside module bodies). An import
-        // that opens a block comment is skipped as well: the lines after it are
-        // that comment's body, so adjusting spacing there would insert or remove
-        // lines inside the user's comment rather than after the import block.
+        // that opens a comment over the lines below it - a `<#` block opener or
+        // a `<#>` marker - is skipped as well: those lines are that comment's
+        // body, so adjusting spacing there would insert or remove lines inside
+        // the user's comment rather than after the import block.
         const scannedImports = rewritableImports(scanModuleImports(lines));
         const lastImportLine = scannedImports.length > 0 ? scannedImports[scannedImports.length - 1].endLine : -1;
 

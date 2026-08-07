@@ -30,13 +30,42 @@ export class ImportFormatter {
      * @returns The content with any trailing comment removed, trimmed
      */
     static stripTrailingComment(content: string): string {
+        const commentStart = ImportFormatter.commentStartIndex(content);
+        return commentStart === -1 ? content.trim() : content.slice(0, commentStart).trim();
+    }
+
+    /**
+     * The trailing Verse comment of a `using` statement, or "" when it has none.
+     *
+     * The inverse of stripTrailingComment, splitting at the same point so the
+     * two halves always recompose the original. A writer rebuilds an import
+     * line from its path alone, which discards everything after that split;
+     * this is what it needs to put back so the annotation survives.
+     *
+     * @param content A `using` statement, or the indented path line of one
+     * @returns The comment, trimmed, or "" when the content carries none
+     */
+    static extractTrailingComment(content: string): string {
+        const commentStart = ImportFormatter.commentStartIndex(content);
+        return commentStart === -1 ? "" : content.slice(commentStart).trim();
+    }
+
+    /**
+     * Where the trailing comment of a `using` statement begins, or -1 when it
+     * has none. One home for the rule, so the two halves of the split cannot
+     * drift apart.
+     *
+     * `#` opens a line comment and `<#` opens a block comment. Neither
+     * character is legal in a module path, so the first `#` is always the
+     * start of trivia rather than of the path.
+     */
+    private static commentStartIndex(content: string): number {
         const hashIndex = content.indexOf("#");
         if (hashIndex === -1) {
-            return content.trim();
+            return -1;
         }
         // For a `<#` block comment the `<` opens the comment, not the path.
-        const commentStart = hashIndex > 0 && content[hashIndex - 1] === "<" ? hashIndex - 1 : hashIndex;
-        return content.slice(0, commentStart).trim();
+        return hashIndex > 0 && content[hashIndex - 1] === "<" ? hashIndex - 1 : hashIndex;
     }
 
     /**

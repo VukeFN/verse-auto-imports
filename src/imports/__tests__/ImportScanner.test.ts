@@ -43,6 +43,22 @@ describe("allUsingPaths", () => {
         expect(allUsingPaths(["using { /A } <#> disabled", "    using { Economy.Shop }", "code()"])).toEqual(["/A"]);
     });
 
+    // A missed `using` is the one error this must not make: the caller reads an
+    // empty answer as permission to remove an import. So a statement is not
+    // required to open its line - a line closing a block comment can carry a
+    // live one after the `#>`, and so can one behind closed inline trivia.
+    it("collects a using written after the #> that closes a block comment", () => {
+        expect(allUsingPaths(["<#", "note", "#> using { Economy.Shop }", "using { /A }", "code()"])).toEqual(["Economy.Shop", "/A"]);
+    });
+
+    it("collects a using written after a closed inline comment", () => {
+        expect(allUsingPaths(["<# note #> using { Economy.Shop }", "using { /A }", "code()"])).toEqual(["Economy.Shop", "/A"]);
+    });
+
+    it("does not read an identifier that merely starts with using", () => {
+        expect(allUsingPaths(["usingFoo := 1", "usings := 3", "usingMap := map{Economy.Shop => 1}", "using { /A }", "code()"])).toEqual(["/A"]);
+    });
+
     it("collects an import whose line opens a comment over the lines below it", () => {
         expect(allUsingPaths(["using { /A } <#> note", "    body", "code()"])).toEqual(["/A"]);
     });

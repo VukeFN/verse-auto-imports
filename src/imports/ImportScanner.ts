@@ -369,9 +369,18 @@ export function rewritableImports(scannedImports: ScannedImport[]): ScannedImpor
  * other `using`, of either meaning, is reason enough not to remove anything. So
  * every `using` is reported and the caller judges by rank.
  *
- * Comment lines are skipped, both a `<# ... #>` body and the indented body of a
- * `<#>` marker, so a commented-out `using` does not count. Positions are not
- * reported; a caller that needs them wants scanModuleImports.
+ * Only whole comment lines are skipped - a `<# ... #>` body and the indented
+ * body of a `<#>` marker - so a commented-out `using` does not count while one
+ * sharing a line with comment trivia still does. A missed `using` is the one
+ * error this must not make: the caller reads an empty answer as permission to
+ * remove an import, so anything unrecognised has to fail towards reporting a
+ * path rather than away from it. That is also why the statement is not required
+ * to open its line, and why extractPathFromImport decides rather than a prefix
+ * test - a line closing a block comment can carry a live `using` after the `#>`.
+ * The cost is that trivia naming a path, such as a trailing `# see using { /B }`,
+ * reports it; that only makes the caller more cautious.
+ *
+ * Positions are not reported; a caller that needs them wants scanModuleImports.
  */
 export function allUsingPaths(lines: string[]): string[] {
     const formatter = new ImportFormatter();
@@ -379,14 +388,14 @@ export function allUsingPaths(lines: string[]): string[] {
     const paths: string[] = [];
 
     for (let i = 0; i < lines.length; i++) {
-        // A bare path on its own line never starts with `using`, so the indented
-        // half of a `using:` pair is read below from nextLine and skipped here
-        // when the loop reaches it, as scanModuleImports consumes both at once.
-        const trimmed = lines[i].trim();
-        if (classifications[i].kind === "comment" || classifications[i].insideBlockComment || !trimmed.startsWith("using")) {
+        if (classifications[i].kind === "comment") {
             continue;
         }
 
+        // The indented half of a `using:` pair is read here from nextLine, and
+        // holds no `using` of its own, so the loop reaching it finds nothing and
+        // the pair is counted once - as scanModuleImports consumes both at once.
+        const trimmed = lines[i].trim();
         const nextLine = i + 1 < lines.length ? lines[i + 1] : undefined;
         const path = /^using\s*:\s*$/.test(trimmed)
             ? nextLine !== undefined && /^\s+\S/.test(nextLine)

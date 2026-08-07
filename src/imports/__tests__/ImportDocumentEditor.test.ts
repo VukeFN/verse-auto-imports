@@ -135,11 +135,24 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A }", "using { Economy.Shop }", "", "using { /A } <#> note", "    body", "code()"].join("\n"));
     });
 
+    it("keeps a duplicate of a bare anchored path when its dotted consumer is in the block", () => {
+        const input = ["using { Features }", "using { Economy.Shop }", "using { Features } <#> note", "    body", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { Features }", "using { Economy.Shop }", "", "using { Features } <#> note", "    body", "code()"].join("\n"));
+    });
+
     it("keeps a duplicate when the consumer is itself anchored above the provider", () => {
         const input = ["using { Features }", "using { Economy.Shop } <#> note", "    body", "using { Features } <#> other", "    other body", "code()"].join("\n");
         expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(
             ["using { Features }", "", "using { Economy.Shop } <#> note", "    body", "using { Features } <#> other", "    other body", "code()"].join("\n"),
         );
+    });
+
+    // A `using` sharing a line with comment trivia is invisible to the whole
+    // scanner, so the file is outside its contract either way - but the drop
+    // must not be what turns that into a deleted provider.
+    it("keeps a duplicate when a using behind comment trivia could resolve against it", () => {
+        const input = ["<# note #> using { Economy.Shop }", "using { /A }", "using { /A } <#> anchor", "    body", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A }", "", "<# note #> using { Economy.Shop }", "using { /A } <#> anchor", "    body", "code()"].join("\n"));
     });
 
     // scanModuleImports skips indented lines, so a module-body `using` is

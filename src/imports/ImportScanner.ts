@@ -349,40 +349,45 @@ export function rewritableImports(scannedImports: ScannedImport[]): ScannedImpor
 }
 
 /**
- * Every module import path the file mentions, at any indentation.
+ * The path of every `using` the file writes, at any indentation, module import
+ * and local-scope using alike.
  *
  * scanModuleImports skips indented lines on purpose: only a column-0 statement
- * belongs to the file-level import block a writer rebuilds. A module `using` in
- * a module-definition body is a real import even so, and it resolves its own
- * path against what is in scope above it, so a caller asking "could anything in
- * this file depend on an import I am about to stop writing at the top" has to
- * see those too - scanModuleImports alone cannot answer that.
+ * belongs to the file-level import block a writer rebuilds. A caller asking the
+ * different question "could anything in this file be resolving against an import
+ * I am about to stop writing at the top" needs the indented ones too, because a
+ * `using` in a module-definition body is a real import that resolves its own
+ * path against what is in scope above it.
  *
- * Classification passes atFileScope only for column-0 lines, the same rule
- * scanModuleImports applies, so a bare identifier counts as a module import
- * there and as a local-scope using when indented. Lines inside a block comment
- * are skipped; positions are not reported, because a caller that needs them
- * wants scanModuleImports instead.
+ * Deliberately no module-import classification. ImportFormatter.isModuleImport
+ * separates the two meanings of `using` by content plus position, and its
+ * atFileScope means column 0 *or* directly inside a module-definition body -
+ * which indentation alone cannot tell apart from a function body, so reading it
+ * off the leading whitespace silently drops a bare module import written inside
+ * a module. A caller weighing whether removing an import is safe does not need
+ * the distinction anyway: an absolute path is always a module import, and any
+ * other `using`, of either meaning, is reason enough not to remove anything. So
+ * every `using` is reported and the caller judges by rank.
+ *
+ * Comment lines are skipped, both a `<# ... #>` body and the indented body of a
+ * `<#>` marker, so a commented-out `using` does not count. Positions are not
+ * reported; a caller that needs them wants scanModuleImports.
  */
-export function allModuleImportPaths(lines: string[]): string[] {
+export function allUsingPaths(lines: string[]): string[] {
     const formatter = new ImportFormatter();
-    const insideBlockComment = blockCommentMask(lines);
+    const classifications = classifyLines(lines);
     const paths: string[] = [];
 
     for (let i = 0; i < lines.length; i++) {
+        // A bare path on its own line never starts with `using`, so the indented
+        // half of a `using:` pair is read below from nextLine and skipped here
+        // when the loop reaches it, as scanModuleImports consumes both at once.
         const trimmed = lines[i].trim();
-        if (insideBlockComment[i] || trimmed.length === 0) {
+        if (classifications[i].kind === "comment" || classifications[i].insideBlockComment || !trimmed.startsWith("using")) {
             continue;
         }
 
         const nextLine = i + 1 < lines.length ? lines[i + 1] : undefined;
-        // A bare path on its own line never starts with `using`, so the indented
-        // half of a `using:` pair is read here from nextLine and ignored when
-        // the loop reaches it, exactly as scanModuleImports consumes both.
-        if (!ImportFormatter.isModuleImport(trimmed, nextLine, { atFileScope: !/^\s/.test(lines[i]) })) {
-            continue;
-        }
-
         const path = /^using\s*:\s*$/.test(trimmed)
             ? nextLine !== undefined && /^\s+\S/.test(nextLine)
                 ? ImportFormatter.stripTrailingComment(nextLine)

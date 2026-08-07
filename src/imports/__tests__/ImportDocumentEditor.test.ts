@@ -145,10 +145,27 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
     // scanModuleImports skips indented lines, so a module-body `using` is
     // invisible to it - a guard reading only the scanned imports would drop the
     // provider and leave this file with its consumer above it.
-    it("keeps a duplicate when only a module-body import could resolve against it", () => {
+    it("keeps a duplicate when only a module-body dotted import could resolve against it", () => {
         const input = ["using { /A }", "MyModule := module:", "    using { Economy.Shop }", "using { /A } <#> note", "    body", "code()"].join("\n");
         expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(
             ["using { /A }", "", "MyModule := module:", "    using { Economy.Shop }", "using { /A } <#> note", "    body", "code()"].join("\n"),
+        );
+    });
+
+    // A bare `using` in a module body is a module import too, and only the
+    // enclosing construct says so. Classifying it by indentation read this file
+    // as import-free above the anchored line and deleted the provider.
+    it("keeps a duplicate when only a module-body bare import could resolve against it", () => {
+        const input = ["using { /A }", "MyModule := module:", "    using { Features }", "using { /A } <#> note", "    body", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(
+            ["using { /A }", "", "MyModule := module:", "    using { Features }", "using { /A } <#> note", "    body", "code()"].join("\n"),
+        );
+    });
+
+    it("keeps a duplicate when a module-body bare import is written as an indented pair", () => {
+        const input = ["using { /A }", "MyModule := module:", "    using:", "        Features", "using { /A } <#> note", "    body", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(
+            ["using { /A }", "", "MyModule := module:", "    using:", "        Features", "using { /A } <#> note", "    body", "code()"].join("\n"),
         );
     });
 
@@ -158,11 +175,18 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A }", "using { Features }", "", "using { Features } <#> note", "    body", "code()"].join("\n"));
     });
 
-    // A local-scope `using` inside a function body is not a module import, so it
-    // does not count against withholding.
-    it("drops a duplicate even when a function body holds a local-scope using", () => {
+    // Telling a module body from a function body needs the enclosing construct,
+    // and guessing wrong deletes a provider, so a local-scope using counts
+    // against withholding too rather than being classified.
+    it("keeps a duplicate when a function body holds a local-scope using", () => {
         const input = ["using { /A } <#> note", "    body", "using { /A }", "F():void =", "    using { LocalVar }", "    code()"].join("\n");
-        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A } <#> note", "    body", "F():void =", "    using { LocalVar }", "    code()"].join("\n"));
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A }", "", "using { /A } <#> note", "    body", "F():void =", "    using { LocalVar }", "    code()"].join("\n"));
+    });
+
+    // A commented-out import is not in scope, so it does not block withholding.
+    it("drops a duplicate when the only non-absolute import is commented out", () => {
+        const input = ["using { /A } <#> note", "    using { Economy.Shop }", "using { /A }", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A } <#> note", "    using { Economy.Shop }", "code()"].join("\n"));
     });
 
     // The dropped statement's own comments go with it. They annotate a

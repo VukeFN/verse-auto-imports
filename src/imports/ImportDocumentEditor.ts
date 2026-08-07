@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { logger } from "../utils";
 import { ImportFormatter } from "./ImportFormatter";
-import { allModuleImportPaths, classifyLines, LineClassification, rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
+import { allUsingPaths, classifyLines, LineClassification, rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
 
 /** Represents a contiguous block of import statements in the document. */
 interface ImportBlock {
@@ -609,13 +609,24 @@ export class ImportDocumentEditor {
         // down the body where scanModuleImports does not even look, as in a
         // module-definition body.
         //
-        // So this asks the whole file, at every indentation, and withholds only
-        // where every module import in it is absolute. An absolute path needs
-        // nothing in scope, so no import anywhere can be depending on the copy
-        // being removed. That declines to tidy a file mixing bare or dotted
-        // imports, which is the safe direction: the duplicate it leaves is legal
-        // Verse, and a stranded provider is a file that stops compiling.
-        const withholdIsSafe = [...allModuleImportPaths(lines), ...extraPaths].every((path) => this.formatter.importRank(path) === 0);
+        // So this asks the whole file, every `using` at every indentation, and
+        // withholds only where all of them are absolute. An absolute path needs
+        // nothing in scope, so nothing anywhere can be resolving against the
+        // copy being removed. A `using` that is not absolute blocks it whichever
+        // meaning it carries - judging that needs the enclosing construct, and
+        // guessing wrong is what deletes a provider. So the question asked is
+        // just the rank.
+        //
+        // extraPaths joins the question because those paths are written into the
+        // block too. They keep their own unconditional filter above: suppressing
+        // one only declines to add an import the file already has, which cannot
+        // strand anything, while withholding a line the file already holds can.
+        //
+        // The cost is declining to tidy any file that holds a bare or dotted
+        // `using` anywhere, a local-scope one included. That is the safe
+        // direction: the duplicate left behind is legal Verse, and a stranded
+        // provider is a file that stops compiling.
+        const withholdIsSafe = [...allUsingPaths(lines), ...extraPaths].every((path) => this.formatter.importRank(path) === 0);
         const blockImports = withholdIsSafe ? movableImports.filter((imp) => !anchoredPaths.has(imp.path)) : movableImports;
 
         const paths = blockImports.map((imp) => imp.path);

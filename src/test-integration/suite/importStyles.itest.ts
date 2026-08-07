@@ -15,8 +15,25 @@ describe("import styles matrix (playbook T6)", () => {
         await settings.restoreAll();
     });
 
-    function lineIndexContaining(text: string, fragment: string): number {
-        return text.split("\n").findIndex((line) => line.includes(fragment));
+    /**
+     * Where the import statement naming `fragment` sits, which is what every
+     * assertion below is really asking about.
+     *
+     * Import lines only. Matching any line that merely contains the fragment
+     * found the fixture's own header comment, which names `Gadgets.Tools` in
+     * prose to say which import is the local one: that comment sits above the
+     * block, so `digestFirst` read as violated while the output was correctly
+     * grouped. The collision was invisible until the header stopped being
+     * pushed below the imports, and any future fixture whose prose names a
+     * path would hit it again.
+     *
+     * Covers the braced and dotted styles, both of which this suite flips
+     * between. Not the indented `using:` pair, whose path is on the next line -
+     * nothing here writes one, and a test that needs it should locate it
+     * deliberately rather than lean on a substring match.
+     */
+    function importLineIndex(text: string, fragment: string): number {
+        return text.split("\n").findIndex((line) => line.startsWith("using") && line.includes(fragment));
     }
 
     it("importSyntax dot rewrites the block; flipping back restores curly", async () => {
@@ -34,15 +51,15 @@ describe("import styles matrix (playbook T6)", () => {
     it("importGrouping digestFirst puts digest imports before local ones; localFirst reverses", async () => {
         await settings.set("behavior.importGrouping", "digestFirst");
         let text = await runOptimizeImports(document);
-        let digestIndex = lineIndexContaining(text, "/Fortnite.com/Devices");
-        let localIndex = lineIndexContaining(text, "Gadgets.Tools");
+        let digestIndex = importLineIndex(text, "/Fortnite.com/Devices");
+        let localIndex = importLineIndex(text, "Gadgets.Tools");
         assert.ok(digestIndex !== -1 && localIndex !== -1, `imports missing after optimize:\n${text}`);
         assert.ok(digestIndex < localIndex, `digestFirst violated:\n${text}`);
 
         await settings.set("behavior.importGrouping", "localFirst");
         text = await runOptimizeImports(document);
-        digestIndex = lineIndexContaining(text, "/Fortnite.com/Devices");
-        localIndex = lineIndexContaining(text, "Gadgets.Tools");
+        digestIndex = importLineIndex(text, "/Fortnite.com/Devices");
+        localIndex = importLineIndex(text, "Gadgets.Tools");
         assert.ok(digestIndex !== -1 && localIndex !== -1, `imports missing after optimize:\n${text}`);
         assert.ok(localIndex < digestIndex, `localFirst violated:\n${text}`);
 
@@ -52,8 +69,8 @@ describe("import styles matrix (playbook T6)", () => {
     it("sortImportsAlphabetically orders the block", async () => {
         await settings.set("behavior.sortImportsAlphabetically", true);
         const text = await runOptimizeImports(document);
-        const devices = lineIndexContaining(text, "/Fortnite.com/Devices");
-        const simulation = lineIndexContaining(text, "/Verse.org/Simulation");
+        const devices = importLineIndex(text, "/Fortnite.com/Devices");
+        const simulation = importLineIndex(text, "/Verse.org/Simulation");
         assert.ok(devices !== -1 && simulation !== -1, `imports missing after optimize:\n${text}`);
         assert.ok(devices < simulation, `alphabetical sort violated (/Fortnite.com/Devices must precede /Verse.org/Simulation):\n${text}`);
     });

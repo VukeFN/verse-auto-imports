@@ -1,8 +1,8 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-07-12T23:09:31.023Z",
+  "generatedAt": "2026-08-07T14:31:23.562Z",
   "sourceFile": "Fortnite.digest.verse",
-  "sourceBuild": "++Fortnite+Release-41.10-CL-55335788",
+  "sourceBuild": "++Fortnite+Release-41.30-CL-56430492",
   "entries": {
     "UI": {
       "identifier": "UI",
@@ -610,12 +610,6 @@
       "type": "class",
       "isPublic": true
     },
-    "has_spire_functionality": {
-      "identifier": "has_spire_functionality",
-      "modulePath": "/Fortnite.com/Devices",
-      "type": "class",
-      "isPublic": true
-    },
     "analytics_device": {
       "identifier": "analytics_device",
       "modulePath": "/Fortnite.com/Devices",
@@ -624,6 +618,12 @@
     },
     "accolades_device": {
       "identifier": "accolades_device",
+      "modulePath": "/Fortnite.com/Devices",
+      "type": "class",
+      "isPublic": true
+    },
+    "has_spire_functionality": {
+      "identifier": "has_spire_functionality",
       "modulePath": "/Fortnite.com/Devices",
       "type": "class",
       "isPublic": true
@@ -640,14 +640,14 @@
       "type": "class",
       "isPublic": true
     },
-    "real_time_clock_device": {
-      "identifier": "real_time_clock_device",
+    "prop_mover_device": {
+      "identifier": "prop_mover_device",
       "modulePath": "/Fortnite.com/Devices",
       "type": "class",
       "isPublic": true
     },
-    "prop_mover_device": {
-      "identifier": "prop_mover_device",
+    "real_time_clock_device": {
+      "identifier": "real_time_clock_device",
       "modulePath": "/Fortnite.com/Devices",
       "type": "class",
       "isPublic": true
@@ -706,8 +706,14 @@
       "type": "class",
       "isPublic": true
     },
-    "customizable_light_device": {
-      "identifier": "customizable_light_device",
+    "race_checkpoint_device": {
+      "identifier": "race_checkpoint_device",
+      "modulePath": "/Fortnite.com/Devices",
+      "type": "class",
+      "isPublic": true
+    },
+    "race_manager_device": {
+      "identifier": "race_manager_device",
       "modulePath": "/Fortnite.com/Devices",
       "type": "class",
       "isPublic": true
@@ -718,20 +724,14 @@
       "type": "class",
       "isPublic": true
     },
+    "customizable_light_device": {
+      "identifier": "customizable_light_device",
+      "modulePath": "/Fortnite.com/Devices",
+      "type": "class",
+      "isPublic": true
+    },
     "prop_manipulator_device": {
       "identifier": "prop_manipulator_device",
-      "modulePath": "/Fortnite.com/Devices",
-      "type": "class",
-      "isPublic": true
-    },
-    "race_checkpoint_device": {
-      "identifier": "race_checkpoint_device",
-      "modulePath": "/Fortnite.com/Devices",
-      "type": "class",
-      "isPublic": true
-    },
-    "race_manager_device": {
-      "identifier": "race_manager_device",
       "modulePath": "/Fortnite.com/Devices",
       "type": "class",
       "isPublic": true
@@ -748,12 +748,6 @@
       "type": "class",
       "isPublic": true
     },
-    "map_controller_device": {
-      "identifier": "map_controller_device",
-      "modulePath": "/Fortnite.com/Devices",
-      "type": "class",
-      "isPublic": true
-    },
     "campfire_device": {
       "identifier": "campfire_device",
       "modulePath": "/Fortnite.com/Devices",
@@ -766,14 +760,8 @@
       "type": "class",
       "isPublic": true
     },
-    "video_player_device": {
-      "identifier": "video_player_device",
-      "modulePath": "/Fortnite.com/Devices",
-      "type": "class",
-      "isPublic": true
-    },
-    "volume_device": {
-      "identifier": "volume_device",
+    "map_controller_device": {
+      "identifier": "map_controller_device",
       "modulePath": "/Fortnite.com/Devices",
       "type": "class",
       "isPublic": true
@@ -796,38 +784,14 @@
       "type": "class",
       "isPublic": true
     },
-    "barrier_device": {
-      "identifier": "barrier_device",
+    "video_player_device": {
+      "identifier": "video_player_device",
       "modulePath": "/Fortnite.com/Devices",
       "type": "class",
       "isPublic": true
     },
-    "damage_volume_device": {
-      "identifier": "damage_volume_device",
-      "modulePath": "/Fortnite.com/Devices",
-      "type": "class",
-      "isPublic": true
-    },
-    "effect_volume_device": {
-      "identifier": "effect_volume_device",
-      "modulePath": "/Fortnite.com/Devices",
-      "type": "class",
-      "isPublic": true
-    },
-    "fire_volume_device": {
-      "identifier": "fire_volume_device",
-      "modulePath": "/Fortnite.com/Devices",
-      "type": "class",
-      "isPublic": true
-    },
-    "mutator_zone_device": {
-      "identifier": "mutator_zone_device",
-      "modulePath": "/Fortnite.com/Devices",
-      "type": "class",
-      "isPublic": true
-    },
-    "skydive_volume_device": {
-      "identifier": "skydive_volume_device",
+    "volume_device": {
+      "identifier": "volume_device",
       "modulePath": "/Fortnite.com/Devices",
       "type": "class",
       "isPublic": true
@@ -868,6 +832,12 @@
       "type": "class",
       "isPublic": true
     },
+    "bouncer_device": {
+      "identifier": "bouncer_device",
+      "modulePath": "/Fortnite.com/Devices",
+      "type": "class",
+      "isPublic": true
+    },
     "signal_remote_manager_device": {
       "identifier": "signal_remote_manager_device",
       "modulePath": "/Fortnite.com/Devices",
@@ -886,8 +856,80 @@
       "type": "class",
       "isPublic": true
     },
-    "bouncer_device": {
-      "identifier": "bouncer_device",
+    "barrier_device": {
+      "identifier": "barrier_device",
+      "modulePath": "/Fortnite.com/Devices",
+      "type": "class",
+      "isPublic": true
+    },
+    "damage_volume_device": {
+      "identifier": "damage_volume_device",
+      "modulePath": "/Fortnite.com/Devices",
+      "type": "class",
+      "isPublic": true
+    },
+    "effect_volume_device": {
+      "identifier": "effect_volume_device",
+      "modulePath": "/Fortnite.com/Devices",
+      "type": "class",
+      "isPublic": true
+    },
+    "fire_volume_device": {
+      "identifier": "fire_volume_device",
+      "modulePath": "/Fortnite.com/Devices",
+      "type": "class",
+      "isPublic": true
+    },
+    "mutator_zone_device": {
+      "identifier": "mutator_zone_device",
+      "modulePath": "/Fortnite.com/Devices",
+      "type": "class",
+      "isPublic": true
+    },
+    "skydive_volume_device": {
+      "identifier": "skydive_volume_device",
+      "modulePath": "/Fortnite.com/Devices",
+      "type": "class",
+      "isPublic": true
+    },
+    "service_station_device": {
+      "identifier": "service_station_device",
+      "modulePath": "/Fortnite.com/Devices",
+      "type": "class",
+      "isPublic": true
+    },
+    "spire_spike_device": {
+      "identifier": "spire_spike_device",
+      "modulePath": "/Fortnite.com/Devices",
+      "type": "class",
+      "isPublic": true
+    },
+    "dance_mannequin_device": {
+      "identifier": "dance_mannequin_device",
+      "modulePath": "/Fortnite.com/Devices",
+      "type": "class",
+      "isPublic": true
+    },
+    "creature_manager_device": {
+      "identifier": "creature_manager_device",
+      "modulePath": "/Fortnite.com/Devices",
+      "type": "class",
+      "isPublic": true
+    },
+    "creature_placer_device": {
+      "identifier": "creature_placer_device",
+      "modulePath": "/Fortnite.com/Devices",
+      "type": "class",
+      "isPublic": true
+    },
+    "creature_spawner_device": {
+      "identifier": "creature_spawner_device",
+      "modulePath": "/Fortnite.com/Devices",
+      "type": "class",
+      "isPublic": true
+    },
+    "ai_patrol_path_device": {
+      "identifier": "ai_patrol_path_device",
       "modulePath": "/Fortnite.com/Devices",
       "type": "class",
       "isPublic": true
@@ -940,12 +982,6 @@
       "type": "class",
       "isPublic": true
     },
-    "note_trigger_device": {
-      "identifier": "note_trigger_device",
-      "modulePath": "/Fortnite.com/Devices/Patchwork",
-      "type": "class",
-      "isPublic": true
-    },
     "instrument_player_device": {
       "identifier": "instrument_player_device",
       "modulePath": "/Fortnite.com/Devices/Patchwork",
@@ -958,14 +994,20 @@
       "type": "class",
       "isPublic": true
     },
+    "note_trigger_device": {
+      "identifier": "note_trigger_device",
+      "modulePath": "/Fortnite.com/Devices/Patchwork",
+      "type": "class",
+      "isPublic": true
+    },
     "step_modulator_device": {
       "identifier": "step_modulator_device",
       "modulePath": "/Fortnite.com/Devices/Patchwork",
       "type": "class",
       "isPublic": true
     },
-    "value_setter_device": {
-      "identifier": "value_setter_device",
+    "omega_synthesizer_device": {
+      "identifier": "omega_synthesizer_device",
       "modulePath": "/Fortnite.com/Devices/Patchwork",
       "type": "class",
       "isPublic": true
@@ -976,8 +1018,8 @@
       "type": "class",
       "isPublic": true
     },
-    "omega_synthesizer_device": {
-      "identifier": "omega_synthesizer_device",
+    "value_setter_device": {
+      "identifier": "value_setter_device",
       "modulePath": "/Fortnite.com/Devices/Patchwork",
       "type": "class",
       "isPublic": true
@@ -997,48 +1039,6 @@
     "note_sequencer_device": {
       "identifier": "note_sequencer_device",
       "modulePath": "/Fortnite.com/Devices/Patchwork",
-      "type": "class",
-      "isPublic": true
-    },
-    "spire_spike_device": {
-      "identifier": "spire_spike_device",
-      "modulePath": "/Fortnite.com/Devices",
-      "type": "class",
-      "isPublic": true
-    },
-    "dance_mannequin_device": {
-      "identifier": "dance_mannequin_device",
-      "modulePath": "/Fortnite.com/Devices",
-      "type": "class",
-      "isPublic": true
-    },
-    "creature_manager_device": {
-      "identifier": "creature_manager_device",
-      "modulePath": "/Fortnite.com/Devices",
-      "type": "class",
-      "isPublic": true
-    },
-    "creature_placer_device": {
-      "identifier": "creature_placer_device",
-      "modulePath": "/Fortnite.com/Devices",
-      "type": "class",
-      "isPublic": true
-    },
-    "creature_spawner_device": {
-      "identifier": "creature_spawner_device",
-      "modulePath": "/Fortnite.com/Devices",
-      "type": "class",
-      "isPublic": true
-    },
-    "ai_patrol_path_device": {
-      "identifier": "ai_patrol_path_device",
-      "modulePath": "/Fortnite.com/Devices",
-      "type": "class",
-      "isPublic": true
-    },
-    "service_station_device": {
-      "identifier": "service_station_device",
-      "modulePath": "/Fortnite.com/Devices",
       "type": "class",
       "isPublic": true
     },
@@ -1564,6 +1564,12 @@
       "type": "class",
       "isPublic": true
     },
+    "boost_pad_rocketracing_device": {
+      "identifier": "boost_pad_rocketracing_device",
+      "modulePath": "/Fortnite.com/Devices",
+      "type": "class",
+      "isPublic": true
+    },
     "player_movement_settings_device": {
       "identifier": "player_movement_settings_device",
       "modulePath": "/Fortnite.com/Devices",
@@ -1660,14 +1666,14 @@
       "type": "class",
       "isPublic": true
     },
-    "vehicle_spawner_siege_cannon_device": {
-      "identifier": "vehicle_spawner_siege_cannon_device",
+    "vehicle_spawner_heavy_turret_device": {
+      "identifier": "vehicle_spawner_heavy_turret_device",
       "modulePath": "/Fortnite.com/Devices",
       "type": "class",
       "isPublic": true
     },
-    "vehicle_spawner_heavy_turret_device": {
-      "identifier": "vehicle_spawner_heavy_turret_device",
+    "vehicle_spawner_siege_cannon_device": {
+      "identifier": "vehicle_spawner_siege_cannon_device",
       "modulePath": "/Fortnite.com/Devices",
       "type": "class",
       "isPublic": true
@@ -1834,14 +1840,20 @@
       "type": "class",
       "isPublic": true
     },
-    "npc_spawner_device": {
-      "identifier": "npc_spawner_device",
+    "healing_cactus_device": {
+      "identifier": "healing_cactus_device",
       "modulePath": "/Fortnite.com/Devices",
       "type": "class",
       "isPublic": true
     },
-    "healing_cactus_device": {
-      "identifier": "healing_cactus_device",
+    "emp_volume_hazard_rocketracing_device": {
+      "identifier": "emp_volume_hazard_rocketracing_device",
+      "modulePath": "/Fortnite.com/Devices",
+      "type": "class",
+      "isPublic": true
+    },
+    "npc_spawner_device": {
+      "identifier": "npc_spawner_device",
       "modulePath": "/Fortnite.com/Devices",
       "type": "class",
       "isPublic": true
@@ -1852,14 +1864,14 @@
       "type": "class",
       "isPublic": true
     },
-    "cinematic_sequence_device": {
-      "identifier": "cinematic_sequence_device",
+    "bank_vault_device": {
+      "identifier": "bank_vault_device",
       "modulePath": "/Fortnite.com/Devices",
       "type": "class",
       "isPublic": true
     },
-    "bank_vault_device": {
-      "identifier": "bank_vault_device",
+    "cinematic_sequence_device": {
+      "identifier": "cinematic_sequence_device",
       "modulePath": "/Fortnite.com/Devices",
       "type": "class",
       "isPublic": true
@@ -2884,14 +2896,20 @@
       "type": "class",
       "isPublic": true
     },
-    "CeilingZapper_BR_CH1S1_Rare": {
-      "identifier": "CeilingZapper_BR_CH1S1_Rare",
+    "CeilingZapper_OG_CH1S1_Rare": {
+      "identifier": "CeilingZapper_OG_CH1S1_Rare",
       "modulePath": "/Fortnite.com/Items",
       "type": "class",
       "isPublic": true
     },
     "CeilingZapper_BR_CH4MS1_Rare": {
       "identifier": "CeilingZapper_BR_CH4MS1_Rare",
+      "modulePath": "/Fortnite.com/Items",
+      "type": "class",
+      "isPublic": true
+    },
+    "CeilingZapper_BR_CH1S1_Rare": {
+      "identifier": "CeilingZapper_BR_CH1S1_Rare",
       "modulePath": "/Fortnite.com/Items",
       "type": "class",
       "isPublic": true
@@ -3304,6 +3322,12 @@
       "type": "class",
       "isPublic": true
     },
+    "FriendZoneBubble_BR_CH7S3_Exotic": {
+      "identifier": "FriendZoneBubble_BR_CH7S3_Exotic",
+      "modulePath": "/Fortnite.com/Items",
+      "type": "class",
+      "isPublic": true
+    },
     "FrozenIcecreamCone_BR_CH3S3_Common": {
       "identifier": "FrozenIcecreamCone_BR_CH3S3_Common",
       "modulePath": "/Fortnite.com/Items",
@@ -3358,14 +3382,20 @@
       "type": "class",
       "isPublic": true
     },
-    "Grenade_BR_CH4MS1_Common": {
-      "identifier": "Grenade_BR_CH4MS1_Common",
+    "Grenade_BR_CH7S1_Common": {
+      "identifier": "Grenade_BR_CH7S1_Common",
       "modulePath": "/Fortnite.com/Items",
       "type": "class",
       "isPublic": true
     },
-    "Grenade_BR_CH7S1_Common": {
-      "identifier": "Grenade_BR_CH7S1_Common",
+    "Grenade_OG_CH1S1_Common": {
+      "identifier": "Grenade_OG_CH1S1_Common",
+      "modulePath": "/Fortnite.com/Items",
+      "type": "class",
+      "isPublic": true
+    },
+    "Grenade_BR_CH4MS1_Common": {
+      "identifier": "Grenade_BR_CH4MS1_Common",
       "modulePath": "/Fortnite.com/Items",
       "type": "class",
       "isPublic": true
@@ -4078,6 +4108,12 @@
       "type": "class",
       "isPublic": true
     },
+    "ShockRock_BR_CH7S3_Epic": {
+      "identifier": "ShockRock_BR_CH7S3_Epic",
+      "modulePath": "/Fortnite.com/Items",
+      "type": "class",
+      "isPublic": true
+    },
     "ShockwaveGrenade_BR_CH1S5_Epic": {
       "identifier": "ShockwaveGrenade_BR_CH1S5_Epic",
       "modulePath": "/Fortnite.com/Items",
@@ -4206,6 +4242,12 @@
     },
     "SmallShieldPotion_BR_CH5S1_Uncommon": {
       "identifier": "SmallShieldPotion_BR_CH5S1_Uncommon",
+      "modulePath": "/Fortnite.com/Items",
+      "type": "class",
+      "isPublic": true
+    },
+    "SmokeCloud_BR_CH7S3_Common": {
+      "identifier": "SmokeCloud_BR_CH7S3_Common",
       "modulePath": "/Fortnite.com/Items",
       "type": "class",
       "isPublic": true
@@ -4432,14 +4474,20 @@
       "type": "class",
       "isPublic": true
     },
-    "WallDynamo_BR_CH1S1_Rare": {
-      "identifier": "WallDynamo_BR_CH1S1_Rare",
+    "WallDynamo_OG_CH1S1_Rare": {
+      "identifier": "WallDynamo_OG_CH1S1_Rare",
       "modulePath": "/Fortnite.com/Items",
       "type": "class",
       "isPublic": true
     },
     "WallDynamo_BR_CH4MS1_Rare": {
       "identifier": "WallDynamo_BR_CH4MS1_Rare",
+      "modulePath": "/Fortnite.com/Items",
+      "type": "class",
+      "isPublic": true
+    },
+    "WallDynamo_BR_CH1S1_Rare": {
+      "identifier": "WallDynamo_BR_CH1S1_Rare",
       "modulePath": "/Fortnite.com/Items",
       "type": "class",
       "isPublic": true
@@ -4684,6 +4732,36 @@
       "type": "class",
       "isPublic": true
     },
+    "BankShotPistol_BR_CH7S3_Uncommon": {
+      "identifier": "BankShotPistol_BR_CH7S3_Uncommon",
+      "modulePath": "/Fortnite.com/Weapons",
+      "type": "class",
+      "isPublic": true
+    },
+    "BankShotPistol_BR_CH7S3_Rare": {
+      "identifier": "BankShotPistol_BR_CH7S3_Rare",
+      "modulePath": "/Fortnite.com/Weapons",
+      "type": "class",
+      "isPublic": true
+    },
+    "BankShotPistol_BR_CH7S3_Epic": {
+      "identifier": "BankShotPistol_BR_CH7S3_Epic",
+      "modulePath": "/Fortnite.com/Weapons",
+      "type": "class",
+      "isPublic": true
+    },
+    "BankShotPistol_BR_CH7S3_Legendary": {
+      "identifier": "BankShotPistol_BR_CH7S3_Legendary",
+      "modulePath": "/Fortnite.com/Weapons",
+      "type": "class",
+      "isPublic": true
+    },
+    "BankShotPistol_BR_CH7S3_Mythic": {
+      "identifier": "BankShotPistol_BR_CH7S3_Mythic",
+      "modulePath": "/Fortnite.com/Weapons",
+      "type": "class",
+      "isPublic": true
+    },
     "BasicHammer_Creative_V1_Common": {
       "identifier": "BasicHammer_Creative_V1_Common",
       "modulePath": "/Fortnite.com/Weapons",
@@ -4846,8 +4924,20 @@
       "type": "class",
       "isPublic": true
     },
+    "BurstAssaultRifle_OG_CH1S1_Common": {
+      "identifier": "BurstAssaultRifle_OG_CH1S1_Common",
+      "modulePath": "/Fortnite.com/Weapons",
+      "type": "class",
+      "isPublic": true
+    },
     "BurstAssaultRifle_BR_CH4MS1_Common": {
       "identifier": "BurstAssaultRifle_BR_CH4MS1_Common",
+      "modulePath": "/Fortnite.com/Weapons",
+      "type": "class",
+      "isPublic": true
+    },
+    "BurstAssaultRifle_OG_CH1S1_Uncommon": {
+      "identifier": "BurstAssaultRifle_OG_CH1S1_Uncommon",
       "modulePath": "/Fortnite.com/Weapons",
       "type": "class",
       "isPublic": true
@@ -4858,14 +4948,32 @@
       "type": "class",
       "isPublic": true
     },
+    "BurstAssaultRifle_OG_CH1S1_Rare": {
+      "identifier": "BurstAssaultRifle_OG_CH1S1_Rare",
+      "modulePath": "/Fortnite.com/Weapons",
+      "type": "class",
+      "isPublic": true
+    },
     "BurstAssaultRifle_BR_CH4MS1_Rare": {
       "identifier": "BurstAssaultRifle_BR_CH4MS1_Rare",
       "modulePath": "/Fortnite.com/Weapons",
       "type": "class",
       "isPublic": true
     },
+    "BurstAssaultRifle_OG_CH1S1_Epic": {
+      "identifier": "BurstAssaultRifle_OG_CH1S1_Epic",
+      "modulePath": "/Fortnite.com/Weapons",
+      "type": "class",
+      "isPublic": true
+    },
     "BurstAssaultRifle_BR_CH4MS1_Epic": {
       "identifier": "BurstAssaultRifle_BR_CH4MS1_Epic",
+      "modulePath": "/Fortnite.com/Weapons",
+      "type": "class",
+      "isPublic": true
+    },
+    "BurstAssaultRifle_OG_CH1S1_Legendary": {
+      "identifier": "BurstAssaultRifle_OG_CH1S1_Legendary",
       "modulePath": "/Fortnite.com/Weapons",
       "type": "class",
       "isPublic": true
@@ -8524,8 +8632,20 @@
       "type": "class",
       "isPublic": true
     },
+    "PumpShotgun_OG_CH1S1_Common": {
+      "identifier": "PumpShotgun_OG_CH1S1_Common",
+      "modulePath": "/Fortnite.com/Weapons",
+      "type": "class",
+      "isPublic": true
+    },
     "PumpShotgun_BR_CH4MS1_Common": {
       "identifier": "PumpShotgun_BR_CH4MS1_Common",
+      "modulePath": "/Fortnite.com/Weapons",
+      "type": "class",
+      "isPublic": true
+    },
+    "PumpShotgun_OG_CH1S1_Uncommon": {
+      "identifier": "PumpShotgun_OG_CH1S1_Uncommon",
       "modulePath": "/Fortnite.com/Weapons",
       "type": "class",
       "isPublic": true
@@ -8536,14 +8656,32 @@
       "type": "class",
       "isPublic": true
     },
+    "PumpShotgun_OG_CH1S3_Rare": {
+      "identifier": "PumpShotgun_OG_CH1S3_Rare",
+      "modulePath": "/Fortnite.com/Weapons",
+      "type": "class",
+      "isPublic": true
+    },
     "PumpShotgun_BR_CH4MS1_Rare": {
       "identifier": "PumpShotgun_BR_CH4MS1_Rare",
       "modulePath": "/Fortnite.com/Weapons",
       "type": "class",
       "isPublic": true
     },
+    "PumpShotgun_OG_CH1S6_Epic": {
+      "identifier": "PumpShotgun_OG_CH1S6_Epic",
+      "modulePath": "/Fortnite.com/Weapons",
+      "type": "class",
+      "isPublic": true
+    },
     "PumpShotgun_BR_CH4MS1_Epic": {
       "identifier": "PumpShotgun_BR_CH4MS1_Epic",
+      "modulePath": "/Fortnite.com/Weapons",
+      "type": "class",
+      "isPublic": true
+    },
+    "PumpShotgun_OG_CH1S6_Legendary": {
+      "identifier": "PumpShotgun_OG_CH1S6_Legendary",
       "modulePath": "/Fortnite.com/Weapons",
       "type": "class",
       "isPublic": true
@@ -8760,6 +8898,12 @@
     },
     "ReaperSniperRifle_Ballistic_V1_Common": {
       "identifier": "ReaperSniperRifle_Ballistic_V1_Common",
+      "modulePath": "/Fortnite.com/Weapons",
+      "type": "class",
+      "isPublic": true
+    },
+    "ReconBow_BR_CH7S2_Exotic": {
+      "identifier": "ReconBow_BR_CH7S2_Exotic",
       "modulePath": "/Fortnite.com/Weapons",
       "type": "class",
       "isPublic": true
@@ -10042,8 +10186,20 @@
       "type": "class",
       "isPublic": true
     },
+    "SurgicalBurstRifle_BR_CH7S3_Common": {
+      "identifier": "SurgicalBurstRifle_BR_CH7S3_Common",
+      "modulePath": "/Fortnite.com/Weapons",
+      "type": "class",
+      "isPublic": true
+    },
     "VanguardBurstRifle_BR_CH7S3_Common": {
       "identifier": "VanguardBurstRifle_BR_CH7S3_Common",
+      "modulePath": "/Fortnite.com/Weapons",
+      "type": "class",
+      "isPublic": true
+    },
+    "SurgicalBurstRifle_BR_CH7S3_Uncommon": {
+      "identifier": "SurgicalBurstRifle_BR_CH7S3_Uncommon",
       "modulePath": "/Fortnite.com/Weapons",
       "type": "class",
       "isPublic": true
@@ -10054,14 +10210,32 @@
       "type": "class",
       "isPublic": true
     },
+    "SurgicalBurstRifle_BR_CH7S3_Rare": {
+      "identifier": "SurgicalBurstRifle_BR_CH7S3_Rare",
+      "modulePath": "/Fortnite.com/Weapons",
+      "type": "class",
+      "isPublic": true
+    },
     "VanguardBurstRifle_BR_CH7S3_Rare": {
       "identifier": "VanguardBurstRifle_BR_CH7S3_Rare",
       "modulePath": "/Fortnite.com/Weapons",
       "type": "class",
       "isPublic": true
     },
+    "SurgicalBurstRifle_BR_CH7S3_Epic": {
+      "identifier": "SurgicalBurstRifle_BR_CH7S3_Epic",
+      "modulePath": "/Fortnite.com/Weapons",
+      "type": "class",
+      "isPublic": true
+    },
     "VanguardBurstRifle_BR_CH7S3_Epic": {
       "identifier": "VanguardBurstRifle_BR_CH7S3_Epic",
+      "modulePath": "/Fortnite.com/Weapons",
+      "type": "class",
+      "isPublic": true
+    },
+    "SurgicalBurstRifle_BR_CH7S3_Legendary": {
+      "identifier": "SurgicalBurstRifle_BR_CH7S3_Legendary",
       "modulePath": "/Fortnite.com/Weapons",
       "type": "class",
       "isPublic": true
@@ -11074,13 +11248,13 @@
       "reboot_card_purchase_options",
       "reboot_van_interface",
       "post_process_device",
-      "has_spire_functionality",
       "analytics_device",
       "accolades_device",
+      "has_spire_functionality",
       "item_remover_device",
       "player_marker_device",
-      "real_time_clock_device",
       "prop_mover_device",
+      "real_time_clock_device",
       "switch_device",
       "audio_mixer_device",
       "audio_player_device",
@@ -11090,44 +11264,44 @@
       "input_trigger_device",
       "item_placer_device",
       "changing_booth_device",
-      "customizable_light_device",
-      "player_counter_device",
-      "prop_manipulator_device",
       "race_checkpoint_device",
       "race_manager_device",
+      "player_counter_device",
+      "customizable_light_device",
+      "prop_manipulator_device",
       "skydome_device",
       "vfx_creator_device",
-      "map_controller_device",
       "campfire_device",
       "sentry_device",
-      "video_player_device",
-      "volume_device",
+      "map_controller_device",
       "gameplay_controls_device",
       "gameplay_controls_side_scroller_device",
       "gameplay_controls_third_person_device",
-      "barrier_device",
-      "damage_volume_device",
-      "effect_volume_device",
-      "fire_volume_device",
-      "mutator_zone_device",
-      "skydive_volume_device",
+      "video_player_device",
+      "volume_device",
       "player_spawner_device",
       "player_reference_device",
       "crowd_volume_device",
       "disguise_device",
       "player_checkpoint_device",
       "hiding_prop_device",
+      "bouncer_device",
       "signal_remote_manager_device",
       "crash_pad_device",
       "fishing_zone_device",
-      "bouncer_device",
+      "barrier_device",
+      "damage_volume_device",
+      "effect_volume_device",
+      "fire_volume_device",
+      "mutator_zone_device",
+      "skydive_volume_device",
+      "service_station_device",
       "spire_spike_device",
       "dance_mannequin_device",
       "creature_manager_device",
       "creature_placer_device",
       "creature_spawner_device",
       "ai_patrol_path_device",
-      "service_station_device",
       "skilled_interaction_device",
       "gameplay_camera_device",
       "gameplay_camera_fixed_point_device",
@@ -11215,6 +11389,7 @@
       "vehicle_spawner_taxi_device",
       "vehicle_spawner_device",
       "vehicle_spawner_sports_car_device",
+      "boost_pad_rocketracing_device",
       "player_movement_settings_device",
       "class_selector_ui_device",
       "popup_dialog_device",
@@ -11231,8 +11406,8 @@
       "vehicle_spawner_octane_device",
       "vehicle_spawner_hammerhead_choppa_device",
       "vehicle_spawner_helicopter_device",
-      "vehicle_spawner_siege_cannon_device",
       "vehicle_spawner_heavy_turret_device",
+      "vehicle_spawner_siege_cannon_device",
       "vehicle_spawner_ufo_device",
       "vehicle_spawner_tank_device",
       "vehicle_spawner_armored_battle_bus_device",
@@ -11260,11 +11435,12 @@
       "vehicle_spawner_armored_assault_tank_device",
       "vehicle_spawner_turbolaser_device",
       "vehicle_spawner_df9_device",
-      "npc_spawner_device",
       "healing_cactus_device",
+      "emp_volume_hazard_rocketracing_device",
+      "npc_spawner_device",
       "scout_spire_device",
-      "cinematic_sequence_device",
       "bank_vault_device",
+      "cinematic_sequence_device",
       "vehicle_spawner_rocketracing_device",
       "overlord_spire_device",
       "wildlife_spawner_device",
@@ -11299,13 +11475,13 @@
       "speaker_device",
       "music_manager_device",
       "distortion_effect_device",
-      "note_trigger_device",
       "instrument_player_device",
       "song_sync_device",
+      "note_trigger_device",
       "step_modulator_device",
-      "value_setter_device",
-      "drum_player_device",
       "omega_synthesizer_device",
+      "drum_player_device",
+      "value_setter_device",
       "echo_effect_device",
       "note_progressor_device",
       "note_sequencer_device"
@@ -11489,8 +11665,9 @@
       "Cabbage_BR_CH2S3_Common",
       "CandyCorn_BR_CH2S4_Common",
       "CattyCornerKeycard_BR_CH2S3_Legendary",
-      "CeilingZapper_BR_CH1S1_Rare",
+      "CeilingZapper_OG_CH1S1_Rare",
       "CeilingZapper_BR_CH4MS1_Rare",
+      "CeilingZapper_BR_CH1S1_Rare",
       "ChiliChugSplash_BR_CH2S8_Exotic",
       "Chiller_BR_CH1S6_Common",
       "ChillerGrenade_BR_CH1S7_Common",
@@ -11559,6 +11736,7 @@
       "FlowerPetals_Creative_V1_Common",
       "FortillaKeycard_BR_CH2S3_Legendary",
       "FragGrenade_Ballistic_V1_Common",
+      "FriendZoneBubble_BR_CH7S3_Exotic",
       "FrozenIcecreamCone_BR_CH3S3_Common",
       "GasCan_BR_CH2S3_Common",
       "Gliders_BR_CH1S7_Rare",
@@ -11568,8 +11746,9 @@
       "GrappleGlove_BR_CH3S3_Epic",
       "Grappler_BR_CH1S5_Epic",
       "Grenade_BR_PreSeason_Common",
-      "Grenade_BR_CH4MS1_Common",
       "Grenade_BR_CH7S1_Common",
+      "Grenade_OG_CH1S1_Common",
+      "Grenade_BR_CH4MS1_Common",
       "GrottoKeycard_BR_CH2S2_Legendary",
       "Grub_Creative_V1_Common",
       "GuardianShield_BR_CH4S1_Rare",
@@ -11688,6 +11867,7 @@
       "ShieldMushroom_BR_CH1S4_Common",
       "ShieldPotion_BR_PreSeason_Rare",
       "ShieldPotion_BR_CH5S1_Rare",
+      "ShockRock_BR_CH7S3_Epic",
       "ShockwaveGrenade_BR_CH1S5_Epic",
       "Shove_Creative_V1_Common",
       "SignalRemote_Creative_V1_Common",
@@ -11710,6 +11890,7 @@
       "SmallFry_BR_CH2S1_Common",
       "SmallShieldPotion_BR_CH1S2_Uncommon",
       "SmallShieldPotion_BR_CH5S1_Uncommon",
+      "SmokeCloud_BR_CH7S3_Common",
       "SmokeGrenade_BR_CH1S1_Uncommon",
       "SmokeGrenade_Ballistic_V1_Common",
       "SneakySnowman_BR_CH2S1_Rare",
@@ -11747,8 +11928,9 @@
       "VendettaFlopper_BR_CH2S4_Legendary",
       "VoidOniMask_BR_CH6S1_Epic",
       "NightRosesVoidOniMask_BR_CH6S1_Mythic",
-      "WallDynamo_BR_CH1S1_Rare",
+      "WallDynamo_OG_CH1S1_Rare",
       "WallDynamo_BR_CH4MS1_Rare",
+      "WallDynamo_BR_CH1S1_Rare",
       "Wheat_Creative_V1_Common",
       "WildwaspJar_BR_CH4S3_Rare",
       "WingsOfIcarus_BR_CH5S2_Epic",
@@ -11791,6 +11973,11 @@
       "AutoShotgun_BR_CH3S1_Legendary",
       "AutoShotgun_BR_CH3S1_Mythic",
       "BallisticShield_BR_CH5S1_Epic",
+      "BankShotPistol_BR_CH7S3_Uncommon",
+      "BankShotPistol_BR_CH7S3_Rare",
+      "BankShotPistol_BR_CH7S3_Epic",
+      "BankShotPistol_BR_CH7S3_Legendary",
+      "BankShotPistol_BR_CH7S3_Mythic",
       "BasicHammer_Creative_V1_Common",
       "BasicSword_Creative_V1_Common",
       "BassBoost_BR_CH6S3_Rare",
@@ -11818,10 +12005,15 @@
       "BurstAssaultRifle_BR_CH1S4_Legendary",
       "OceansBurstAssaultRifle_BR_CH2S3_Mythic",
       "SlonesBurstAssaultRifle_BR_CH2S8_Mythic",
+      "BurstAssaultRifle_OG_CH1S1_Common",
       "BurstAssaultRifle_BR_CH4MS1_Common",
+      "BurstAssaultRifle_OG_CH1S1_Uncommon",
       "BurstAssaultRifle_BR_CH4MS1_Uncommon",
+      "BurstAssaultRifle_OG_CH1S1_Rare",
       "BurstAssaultRifle_BR_CH4MS1_Rare",
+      "BurstAssaultRifle_OG_CH1S1_Epic",
       "BurstAssaultRifle_BR_CH4MS1_Epic",
+      "BurstAssaultRifle_OG_CH1S1_Legendary",
       "BurstAssaultRifle_BR_CH4MS1_Legendary",
       "BurstQuadLauncher_BR_CH2S5_Exotic",
       "BurstSMG_BR_CH1S9_Common",
@@ -12431,10 +12623,15 @@
       "PumpShotgun_BR_CH1S6_Epic",
       "PumpShotgun_BR_CH1S6_Legendary",
       "PumpShotgun_BR_CH2S1_Common",
+      "PumpShotgun_OG_CH1S1_Common",
       "PumpShotgun_BR_CH4MS1_Common",
+      "PumpShotgun_OG_CH1S1_Uncommon",
       "PumpShotgun_BR_CH4MS1_Uncommon",
+      "PumpShotgun_OG_CH1S3_Rare",
       "PumpShotgun_BR_CH4MS1_Rare",
+      "PumpShotgun_OG_CH1S6_Epic",
       "PumpShotgun_BR_CH4MS1_Epic",
+      "PumpShotgun_OG_CH1S6_Legendary",
       "PumpShotgun_BR_CH4MS1_Legendary",
       "PurplePaintLauncher_BR_CH2S2_Rare",
       "QuadLauncher_BR_CH1S6_Epic",
@@ -12471,6 +12668,7 @@
       "ReaperModularSniperRifle_BR_CH5S1_Epic",
       "ReaperModularSniperRifle_BR_CH5S1_Legendary",
       "ReaperSniperRifle_Ballistic_V1_Common",
+      "ReconBow_BR_CH7S2_Exotic",
       "ExoticReconBow_BR_CH7S2_Exotic",
       "ReconScanner_BR_CH2S7_Rare",
       "Recycler_BR_CH2S6_Rare",
@@ -12684,10 +12882,15 @@
       "SurgefireSMG_BR_CH6S1_Epic",
       "SurgefireSMG_BR_CH6S1_Legendary",
       "EnhancedSurgefireSMG_BR_CH6S1_Mythic",
+      "SurgicalBurstRifle_BR_CH7S3_Common",
       "VanguardBurstRifle_BR_CH7S3_Common",
+      "SurgicalBurstRifle_BR_CH7S3_Uncommon",
       "VanguardBurstRifle_BR_CH7S3_Uncommon",
+      "SurgicalBurstRifle_BR_CH7S3_Rare",
       "VanguardBurstRifle_BR_CH7S3_Rare",
+      "SurgicalBurstRifle_BR_CH7S3_Epic",
       "VanguardBurstRifle_BR_CH7S3_Epic",
+      "SurgicalBurstRifle_BR_CH7S3_Legendary",
       "VanguardBurstRifle_BR_CH7S3_Legendary",
       "Swarmstrike_BR_CH6S4_Epic",
       "Swarmstrike_BR_CH6S4_Legendary",

@@ -3,7 +3,7 @@ import * as path from "path";
 
 /**
  * Ground-truth regression tests for the checked-in precompiled digest data
- * (`src/data/*.json`), regenerated from the 41.10 digests by `npm run parse-digest`.
+ * (`src/data/*.json`), regenerated from the 41.30 digests by `npm run parse-digest`.
  *
  * These read the build artifacts directly and assert that the identifiers from
  * issue #97 resolve to the correct module paths. If any assertion fails, the
@@ -17,7 +17,7 @@ interface PrecompiledDigest {
 }
 
 const DATA_DIR = path.resolve(__dirname, "..", "..", "data");
-const EXPECTED_BUILD = "++Fortnite+Release-41.10-CL-55335788";
+const EXPECTED_BUILD = "++Fortnite+Release-41.30-CL-56430492";
 
 function loadDigest(fileName: string): PrecompiledDigest {
     return JSON.parse(fs.readFileSync(path.join(DATA_DIR, fileName), "utf8"));
@@ -27,8 +27,8 @@ const fortnite = loadDigest("Fortnite.digest.json");
 const verse = loadDigest("Verse.digest.json");
 const unrealEngine = loadDigest("UnrealEngine.digest.json");
 
-describe("precompiled digest data (41.10)", () => {
-    it("was generated from the 41.10 build", () => {
+describe("precompiled digest data (41.30)", () => {
+    it("was generated from the 41.30 build", () => {
         expect(fortnite.sourceBuild).toBe(EXPECTED_BUILD);
         expect(verse.sourceBuild).toBe(EXPECTED_BUILD);
         expect(unrealEngine.sourceBuild).toBe(EXPECTED_BUILD);
@@ -54,6 +54,21 @@ describe("precompiled digest data (41.10)", () => {
         const members = fortnite.moduleIndex["/Fortnite.com/Devices"];
         expect(members).toBeDefined();
         expect(members).toContain("button_device");
+    });
+
+    it("carries the 41.30 rename of the LLM conversation API to AI", () => {
+        // 41.30 renamed the `llm_*` surface in /UnrealEngine.com/Conversations to
+        // `ai_*` and replaced the generic voice set with Fortnite character voices.
+        // Regenerating from an older digest would silently restore the old names.
+        for (const id of ["ai_session", "ai_error", "ai_description"]) {
+            expect(unrealEngine.entries[id]).toBeDefined();
+            expect(unrealEngine.entries[id].modulePath).toBe("/UnrealEngine.com/Conversations");
+        }
+        for (const gone of ["llm_session", "llm_prompt_error", "llm_description", "lily_voice"]) {
+            expect(unrealEngine.entries[gone]).toBeUndefined();
+        }
+        expect(unrealEngine.entries["peely_voice"]).toBeDefined();
+        expect(unrealEngine.entries["peely_voice"].modulePath).toBe("/UnrealEngine.com/Conversations");
     });
 
     it("records parametric types but not their members (no leak)", () => {

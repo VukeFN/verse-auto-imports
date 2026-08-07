@@ -2,7 +2,7 @@
 #################################################
 # Generated Digest of Verse API
 # DO NOT modify this manually!
-# Generated from build: ++Fortnite+Release-41.10-CL-55335788
+# Generated from build: ++Fortnite+Release-41.30-CL-56430492
 #################################################
 
 Conversations<public> := module:
@@ -11,41 +11,51 @@ Conversations<public> := module:
     using {/Verse.org/SceneGraph}
     using {/Verse.org/Native}
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
-    llm_prompt_error<native><public> := class:
+    ai_error<native><public> := class:
         Message<native><public>:message
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
-    llm_prompt_timeout_error<native><public> := class(llm_prompt_error):
+    ai_timeout_error<native><public> := class(ai_error):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
-    llm_prompt_throttled_error<native><public> := class(llm_prompt_error):
+    ai_throttled_error<native><public> := class(ai_error):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
-    llm_prompt_moderated_error<native><public> := class(llm_prompt_error):
+    ai_moderated_error<native><public> := class(ai_error):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
-    llm_prompt_character_limit_error<native><public> := class(llm_prompt_error):
+    ai_character_limit_error<native><public> := class(ai_error):
+
+    @available {MinUploadedAtFNVersion := 4120}
+    # Describes a capability registered on a session. The Name and Description are provided to the AI in the prompt.
+    prompt_binding_definition<native><public> := struct:
+        # Human-readable name the AI prompt sees when deciding which capability to call.
+        Name<native><public>:message
+
+        # Describes when/why the AI prompt should pick this capability.
+        Description<native><public>:message
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
-    # An abstraction around a recorded history of events and sending prompts with that history context included.
-    llm_session<native><public> := class<unique>:
-        # Removes all the history events from the session. Including conversation history.
+    # Manages AI session state: conversation history, pinned entries, and registered capabilities (tools, signals, listenables).
+    #  History is automatically compacted by the runtime. Completed goals are summarized into history.
+    ai_session<native><public> := class<unique>:
+        # Removes all the history events from the session.
         ClearHistory<native><public>()<transacts>:void
 
         @available {MinUploadedAtFNVersion := 4100}
-        # The result will conform to the result type. The result type must be a struct which can contain.
-        #  - numeric types, message, bools and enums, as well as structs or arrays which only contain those types, anything else results in an error.
-        #  Use the names of the fields and name of the type of the struct to direct the prompt or facts on how to fill out the data structure.
-        Prompt<native><public>((local:)Prompt:prompt, response_type:type)<suspends>:result(response_type, llm_prompt_error)
+        # Sends instructions to the model with the session's full context (personality, pinned facts, history).
+        #  The response is parsed into response_type, which must be a struct containing only:
+        #  numeric types, messages, booleans, enums, agents, or structs/arrays of those types.
+        #  Field names and type names guide the model on how to fill out the structure.
+        Prompt<native><public>((local:)Prompt:message, response_type:type)<suspends>:result(response_type, ai_error)
+
+        @available {MinUploadedAtFNVersion := 4120}
+        # Registers a fire-and-forget side-output the model can emit alongside any response, during prompts and goals.
+        #  When Required is true, the model must emit this every response.
+        #  Returns a cancelable that unregisters the action.
+        RegisterAction<native><public>(Definition:prompt_binding_definition, Required:logic, input_type:type, Callback:type {_(:input_type):void})<transacts>:cancelable
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Defines the way the persona will handle attempts to prompt it while it is processing.
     persona_interruption_rule<native><public> := enum<open>:
         # Cannot be interrupted, will ignore any input until the finished.
@@ -56,26 +66,26 @@ Conversations<public> := module:
         InterruptOnResponseStart
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # NPC Persona component
     persona_component<native><public> := class<final_super>(component):
         # The personality of the persona
-        var Personality<public>:message = external {}
+        var<private> Personality<public>:message = external {}
 
-        # What the persona knows
-        var Knowledge<public>:message = external {}
+        SetPersonality<native><public>(NewPersonality:message)<transacts><decides>:void
 
         # The session which will process all this persona's prompts
         # When the persona is in a voice channel, every session in that channel will automatically
         # propagate conversation history entries to all sessions found in the channel.
         # All and only conversation directly to or from a persona will be automatically recorded.
-        var Session<public>:llm_session = external {}
+        GetAISession<native><public>()<transacts>:ai_session
 
         # The voice assigned to this persona.
-        var Voice<public>:voice_model = external {}
+        var<private> Voice<public>:voice_model = external {}
+
+        SetVoice<native><public>(NewVoice:voice_model)<transacts><decides>:void
 
         # How the persona will handle overlapping prompts.
-        var InterruptionRule<public>:persona_interruption_rule = external {}
+        var PromptInterruptionRule<public>:persona_interruption_rule = external {}
 
         # Listenable which is signaled when the player starts prompting the persona.
         StartHearEvent<native><public>:listenable(agent) = external {}
@@ -98,16 +108,14 @@ Conversations<public> := module:
         #  1/ logic that is true when interrupted
         StopSayEvent<native><public>:listenable(logic) = external {}
 
-        # Requests the Persona to talk on the topic provided, requires the persona to be on a channel
-        RequestToTalk<native><public>(Instructions:message)<transacts><decides>:void
+        # Prompts the session with instructions and speaks the result to the channel parameter.
+        #  Fails if the interrupt rule prevents the prompt being submitted or the persona isn't in a channel.
+        PromptToTalk<native><public>((Instructions:message, Channel:voice_channel(member_info)) where member_info:subtype(has_voice_member_info))<transacts><decides>:void
 
-        # Registers a callback for when the persona receives structured data in the format of response_type.
-        #  Required forces this be filled out every time the persona is prompted.
-        #  The returned cancelable unregisters this callback and stops the llm from attempting to send this kind of structured data.
-        #  The result type must be a struct which can contain.
-        #  - numeric types, message, bools and enums, as well as structs or arrays which only contain those types, anything else results in an error.
-        #  Use the names of the fields and name of the type of the struct to direct the prompt or facts on how to fill out the data structure.
-        SubscribeToResponseType<native><public>(response_type:type, Required:logic, Callback:type {_(:?agent, :response_type):void})<transacts>:cancelable
+        # Prompts the session with instructions and speaks the result to the channel parameter.
+        #  Fails if the interrupt rule prevents the prompt being submitted or the persona isn't in a channel.
+        #  Override the interrupt rules for this prompt only.
+        PromptToTalk<native><public>((Instructions:message, PromptInterrupt:persona_interruption_rule, Channel:voice_channel(member_info)) where member_info:subtype(has_voice_member_info))<transacts><decides>:void
 
         @available {MinUploadedAtFNVersion := 4000}
         OnReceive<override>(SceneEvent:scene_event):logic = external {}
@@ -116,233 +124,184 @@ Conversations<public> := module:
         #  Callback receives:
         #    1) The persona which had the failure
         #    2) The error
-        PromptFailureEvent<native><public>:listenable(llm_prompt_error) = external {}
+        PromptFailureEvent<native><public>:listenable(ai_error) = external {}
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Sets the persona the player will attempt to prompt when they use the relevant hotkey.
     #  The persona must be in the voice channel with the player in order for the player to be able to successfully prompt.
     (Player:player where member_info:subtype(has_voice_member_info)).SetConversationTarget<native><public>((local:)Persona:persona_component, Channel:voice_channel(member_info))<transacts>:void
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Retrieve the persona and channel the player is currently bound to prompt.
     (Player:player).GetConversationTarget<native><public>()<reads><decides>:tuple(persona_component, voice_channel(has_voice_member_info))
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Unbind player from prompting personas
     (Player:player).ClearConversationTarget<native><public>()<transacts>:void
 
-    @available {MinUploadedAtFNVersion := 4100}
-    @experimental
-    # Base class for all prompts sent to an llm session
-    prompt<native><public> := class<abstract><castable><epic_internal>:
-
-    @available {MinUploadedAtFNVersion := 4100}
-    @experimental
-    # A basic prompt for carrying out instructions
-    basic_prompt<native><public> := class<final>(prompt):
-        # What the llm should do
-        var Instructions<native><public>:message
-
-    @available {MinUploadedAtFNVersion := 4100}
-    @experimental
-    # A prompt which defines a persona and tells it to do something
-    persona_prompt<native><public> := class<final>(prompt):
-        # The personality of the persona
-        var Personality<native><public>:message
-
-        # What the persona knows
-        var Knowledge<native><public>:message
-
-        # What the persona should do
-        var Instructions<native><public>:message
-
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # The persona voice used when converting text-to-voice
     voice_model<native><public> := class<abstract><epic_internal>:
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Comic, High, Warm
-    lily_voice<final><public> := class(voice_model):
+    brite_bomber_voice<final><public> := class<epic_internal>(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Refined, Med, Warm
-    julienne_voice<final><public> := class(voice_model):
+    elmira_voice<final><public> := class(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Glamorous, Animated, warm
-    victoria_voice<final><public> := class(voice_model):
+    helsie_midnight_voice<final><public> := class(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Tough, Low, Gravelly
-    wyatt_voice<final><public> := class(voice_model):
+    mancake_voice<final><public> := class<epic_internal>(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
-    # Comic, Med, Natural
-    caleb_voice<final><public> := class(voice_model):
-
-    @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Whimsical, High, Warm
-    ethan_voice<final><public> := class(voice_model):
+    munitions_master_voice<final><public> := class(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
-    # Tough, Med, Natural
-    vera_voice<final><public> := class(voice_model):
-
-    @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Refined, Med, Natural
-    grant_voice<final><public> := class(voice_model):
+    peely_voice<final><public> := class<epic_internal>(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Narrator, Low, Warm
-    rex_voice<final><public> := class(voice_model):
+    terns_voice<final><public> := class(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Whimsical, High, Warm
-    luna_voice<final><public> := class(voice_model):
+    lexa_hexbringer_voice<final><public> := class(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Whimsical, Med, Warm
-    chloe_voice<final><public> := class(voice_model):
+    battle_gamer_mae_voice<final><public> := class(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Tough, Med, Natural
-    roxy_voice<final><public> := class(voice_model):
+    halley_voice<final><public> := class(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Tough, Low, Natural
-    vivienne_voice<final><public> := class(voice_model):
+    aura_voice<final><public> := class(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
-    # Narrator, Med, Natural
-    milo_voice<final><public> := class(voice_model):
-
-    @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Cinematic, Med, Natural
-    clara_voice<final><public> := class(voice_model):
+    brute_gunner_voice<final><public> := class(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Comic, Med, Natural
-    dante_voice<final><public> := class(voice_model):
+    field_commander_voice<final><public> := class(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Cinematic, High, Natural
-    marcus_voice<final><public> := class(voice_model):
+    ziggy_voice<final><public> := class<epic_internal>(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Whimsical, Med, Natural
-    aria_voice<final><public> := class(voice_model):
+    haylee_skye_voice<final><public> := class<epic_internal>(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Comic, High, Natural
-    victor_voice<final><public> := class(voice_model):
+    orin_voice<final><public> := class(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Narrator, Med, Warm
-    alaina_voice<final><public> := class(voice_model):
+    moxie_voice<final><public> := class(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Narrator, Low, Warm
-    maisie_voice<final><public> := class(voice_model):
+    kor_voice<final><public> := class<epic_internal>(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Cinematic, Med, Warm
-    arthur_voice<final><public> := class(voice_model):
+    clover_swift_voice<final><public> := class(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Comic, High, Natural
-    felix_voice<final><public> := class(voice_model):
+    chase_voice<final><public> := class(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Cinematic, Med, Natural
-    walter_voice<final><public> := class(voice_model):
+    fishstick_voice<final><public> := class<epic_internal>(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Refined, Med, Warm
-    simon_voice<final><public> := class(voice_model):
+    guild_voice<final><public> := class(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Whimsical, High, Warm
-    troy_voice<final><public> := class(voice_model):
+    sunspot_voice<final><public> := class(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Tough, High, Warm
-    brenna_voice<final><public> := class(voice_model):
+    the_imagined_voice<final><public> := class<epic_internal>(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Tough, High, Natural
-    marina_voice<final><public> := class(voice_model):
+    red_ruin_joni_voice<final><public> := class<epic_internal>(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Glamorous, Low, Natural
-    helen_voice<final><public> := class(voice_model):
+    nezumi_voice<final><public> := class(voice_model):
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Glamorous, Med, Natural
-    graham_voice<final><public> := class(voice_model):
+    magnus_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    revolt_voice<final><public> := class(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    tomatohead_voice<final><public> := class<epic_internal>(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    raven_voice<final><public> := class<epic_internal>(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    cuddle_team_leader_voice<final><public> := class<epic_internal>(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    midas_voice<final><public> := class<epic_internal>(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    mecha_team_leader_voice<final><public> := class<epic_internal>(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    jonesy_voice<final><public> := class<epic_internal>(voice_model):
+
+    @available {MinUploadedAtFNVersion := 4000}
+    hope_voice<final><public> := class<epic_internal>(voice_model):
 
     @available {MinUploadedAtFNVersion := 4100}
-    @experimental
     @attribscope_data
     @customattribhandler
-    llm_description_attribute<public> := class<computes><internal>(attribute):
+    ai_description_attribute<public> := class<computes><internal>(attribute):
         Description<public>:string
 
     @available {MinUploadedAtFNVersion := 4100}
-    @experimental
-    llm_description<constructor><public>(Description:string)<computes>:llm_description_attribute = external {}
+    ai_description<constructor><public>(Description:string)<computes>:ai_description_attribute = external {}
 
-Progression<public> := module:
-    using {/Verse.org/Progression}
-    using {/Verse.org/Native}
+using {/Verse.org/Native}
+@available {MinUploadedAtFNVersion := 4110}
+# Module import path: /UnrealEngine.com/Progression
+(/UnrealEngine.com:)Progression<public> := module:
+    using {/Verse.org}
     using {/Fortnite.com/Marketplace}
     @experimental
     # Grants an entitlement to each eligible participant.
     entitlement_quest_reward<native><public> := class(quest_reward):
-        @available {MinUploadedAtFNVersion := 4000}
         # The entitlement type to grant.
         var Entitlement<native><public>:concrete_subtype(entitlement)
 
         # Quantity per participant.
         var Quantity<native><public>:int = external {}
 
-        @available {MinUploadedAtFNVersion := 4000}
         # Iterates EligibleParticipants, resolves each participant's agent as a player,
         # and grants the entitlement via the platform entitlement service.
-        GrantReward<override><native><final>(EligibleParticipants:[]quest_participant)<transacts>:result(void, []grant_quest_reward_error)
+        GrantReward<override><native><final>(EligibleParticipants:[](/Verse.org:)Progression.quest_participant)<transacts>:result(void, []grant_quest_reward_error)
 
     @experimental
     # Tracks numeric progress toward a required count.
@@ -373,7 +332,7 @@ Progression<public> := module:
     # Auto-completion: when Objective.IsComplete() succeeds, calls Complete() automatically.
     # Auto-rewarding: on completion, rewards are granted to eligible participants
     # via GetRecipients() then GrantReward().
-    basic_quest<native><public> := class<abstract>(quest, has_icon, has_description):
+    basic_quest<native><public> := class<abstract>((/Verse.org:)Progression.quest, has_icon, has_description):
         # Replaces the progression model on a live quest. Auto-completes if the new objective is
         # already completed.
         SetObjective<native><final><public>(InObjective:quest_objective)<transacts>:void
@@ -393,7 +352,7 @@ Progression<public> := module:
         # Determines which participants can contribute to this objective.
         # Override to customize contributor selection.
         # Default: all participants where Info.Contributes = true.
-        GetContributors<native><native_callable><public>(Memberships:[]quest_membership)<reads>:[]quest_participant
+        GetContributors<native><native_callable><public>(Memberships:[](/Verse.org:)Progression.quest_membership)<reads>:[](/Verse.org:)Progression.quest_participant
 
         # Succeeds if this objective is currently complete.
         IsComplete<native><native_callable><public>()<reads><decides>:void
@@ -417,14 +376,13 @@ Progression<public> := module:
         # Determines which participants should receive this reward.
         # Override to customize recipient selection.
         # Default: all participants where Info.Receives = true.
-        GetRecipients<native><native_callable><public>(Memberships:[]quest_membership)<reads>:[]quest_participant
+        GetRecipients<native><native_callable><public>(Memberships:[](/Verse.org:)Progression.quest_membership)<reads>:[](/Verse.org:)Progression.quest_participant
 
-        @available {MinUploadedAtFNVersion := 4000}
         # Grants this reward to the eligible participants.
-        GrantReward<native><native_callable><public>(EligibleParticipants:[]quest_participant)<transacts>:result(void, []grant_quest_reward_error)
+        GrantReward<native><native_callable><public>(EligibleParticipants:[](/Verse.org:)Progression.quest_participant)<transacts>:result(void, []grant_quest_reward_error)
 
         # Signaled after this reward has been granted to recipients.
-        GrantEvent<native><final><public>:listenable(tuple(quest_reward, []quest_participant)) = external {}
+        GrantEvent<native><final><public>:listenable(tuple(quest_reward, [](/Verse.org:)Progression.quest_participant)) = external {}
 
 Itemization<public> := module:
     using {/Verse.org/Simulation}
@@ -1129,7 +1087,7 @@ Temporary<public> := module:
             Evaluate<native><public>(Time:float):float
 
     # Module import path: /UnrealEngine.com/Temporary/Diagnostics
-    Diagnostics<public> := module:
+    (/UnrealEngine.com/Temporary:)Diagnostics<public> := module:
         using {/UnrealEngine.com/Temporary/SpatialMath}
         using {/Verse.org/Colors}
         using {/Verse.org/SpatialMath}

@@ -31,9 +31,13 @@ describe("import styles matrix (playbook T6)", () => {
      * between. Not the indented `using:` pair, whose path is on the next line -
      * nothing here writes one, and a test that needs it should locate it
      * deliberately rather than lean on a substring match.
+     *
+     * The character after `using` has to be one that can follow the keyword, so
+     * an identifier merely beginning with it - `usingCount := 0` - is not read
+     * as an import.
      */
     function importLineIndex(text: string, fragment: string): number {
-        return text.split("\n").findIndex((line) => line.startsWith("using") && line.includes(fragment));
+        return text.split("\n").findIndex((line) => /^using[\s.{:]/.test(line) && line.includes(fragment));
     }
 
     it("importSyntax dot rewrites the block; flipping back restores curly", async () => {

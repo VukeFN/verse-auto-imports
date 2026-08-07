@@ -2,7 +2,7 @@
 #################################################
 # Generated Digest of Verse API
 # DO NOT modify this manually!
-# Generated from build: ++Fortnite+Release-41.10-CL-55335788
+# Generated from build: ++Fortnite+Release-41.30-CL-56430492
 #################################################
 
 Chat<public> := module:
@@ -10,7 +10,6 @@ Chat<public> := module:
     using {/Verse.org/Native}
     using {/Verse.org/AgentGroup}
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     chat_channel<native><public>(member_info:subtype(member_info_interface)) := class<unique><abstract><internal>:
         (/Verse.org/Chat/chat_channel:)Chat_chat_channel_Variance<private>():tuple(member_info) = external {}
 
@@ -20,7 +19,6 @@ Chat<public> := module:
         Group<public>:agent_group_interface(member_info)
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Used to specify permissions and other settings for a voice_channel.
     has_voice_member_info<native><public> := interface(member_info_interface):
         # Determines if the participant can send voice messages to the channel.
@@ -28,19 +26,16 @@ Chat<public> := module:
         var CanBroadcast<public>:logic = external {}
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # A `voice_channel` defines a group of agents who can communicate via voice chat.
     # An agent can be a member of more than one `voice_channel`.Voice channels can accommodate 80 members of the channel's `Group`. Agents beyond this limit are not included in the chat.A chat participant in a `voice_channel` may be restricted from voice chat based on parental controls and/or user settings.
     voice_channel<native><public>(member_info:subtype(has_voice_member_info)) := class<final>(chat_channel(member_info)):
         (/Verse.org/Chat/voice_channel:)Chat_voice_channel_Variance<private>(:member_info, :member_info):tuple() = external {}
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Returns the registered voice channels on the `simulation_entity`
     (Entity:entity).GetVoiceChannels<native><public>()<reads>:[]voice_channel(has_voice_member_info)
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Registers a `voice_channel` or `text_channel` to the `simulation_entity`.
     # Fails if the `MaxSize` of the channel's `agent_group` is undefined or larger than the channel type's limit.
     # * Voice Chat Max Size = 80 participants.
@@ -48,17 +43,14 @@ Chat<public> := module:
     (Entity:entity where MemberInfo:subtype(member_info_interface)).AddChatChannel<native><public>(Channel:chat_channel(MemberInfo)):result(void, add_channel_error)
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Deregisters a `voice_channel` or `text channel` from the `simulation_entity`.
     (Entity:entity where MemberInfo:subtype(member_info_interface)).RemoveChatChannel<native><public>(Channel:chat_channel(MemberInfo)):result(void, remove_channel_error)
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Error returned when a channel cannot be added via the `AddChatChannel` function.
     add_channel_error<public> := class<computes>:
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Error returned when a channel cannot be removed via the `RemoveChatChannel` function.
     remove_channel_error<public> := class<computes>:
 
@@ -1471,11 +1463,12 @@ SceneGraph<public> := module:
         # Subscribe a callback function to this TickEvent phase. The input parameter to your function (DeltaTime) is the time that has passed between the last update and the current update.
         Subscribe<native><override>(Callback:type {_(:float):void})<transacts>:cancelable
 
+using {/Verse.org/Native}
+@available {MinUploadedAtFNVersion := 4110}
+# Module import path: /Verse.org/Progression
 Progression<public> := module:
     using {/Verse.org/Simulation}
-    using {/Verse.org/Native}
     using {/Verse.org/AgentGroup}
-    @available {MinUploadedAtFNVersion := 4000}
     @experimental
     # Describes how a participant relates to a quest.
     quest_participant_info<native><public> := class(member_info_interface):
@@ -1497,7 +1490,6 @@ Progression<public> := module:
         # The participant in this membership.
         Participant<native><public>:quest_participant
 
-        @available {MinUploadedAtFNVersion := 4000}
         # The participation info describing this participant's role.
         Info<native><public>:quest_participant_info
 
@@ -1532,11 +1524,9 @@ Progression<public> := module:
     @experimental
     # The source of truth for quest participation.
     quest_collection<native><public> := class<unique>:
-        @available {MinUploadedAtFNVersion := 4000}
         # Adds 'Participant' to 'Quest' with the given participation info.
         JoinQuest<native><final><public>(Quest:quest, Participant:quest_participant, Info:quest_participant_info)<transacts>:result(void, []join_quest_error)
 
-        @available {MinUploadedAtFNVersion := 4000}
         # Removes 'Participant' from 'Quest'.
         AbandonQuest<native><final><public>(Quest:quest, Participant:quest_participant)<transacts>:result(void, []abandon_quest_error)
 
@@ -1573,7 +1563,6 @@ Progression<public> := module:
         # The agent this participant represents.
         Agent<native><public>:agent
 
-
 Presentation<public> := module:
     using {/Verse.org/Simulation}
     using {/Verse.org/SceneGraph}
@@ -1603,7 +1592,6 @@ Presentation<public> := module:
         # A shortened description of this entity.
         var ShortDescription<public>:message
 
-using {/Verse.org/Native}
 @available {MinUploadedAtFNVersion := 4000}
 # Module import path: /Verse.org/Input
 Input<public> := module:
@@ -1625,6 +1613,16 @@ Input<public> := module:
         KeyboardAndMouse
         Gamepad
         Touch
+
+    # Flags for input devices currently available to the player. Updates at runtime as devices connect or disconnect. Note that `Keyboard` and `Mouse` always carry the same value because the engine groups them as a single capability today.
+    available_input_devices<native><public> := struct:
+        Gamepad<native><public>:logic = external {}
+
+        Keyboard<native><public>:logic = external {}
+
+        Mouse<native><public>:logic = external {}
+
+        Touch<native><public>:logic = external {}
 
     @available {MinUploadedAtFNVersion := 4000}
     # Access input-related data and settings for a player.
@@ -1684,6 +1682,9 @@ Input<public> := module:
 
         # The player's current preferred input method, updated when the player switches between keyboard/mouse, gamepad, or touch.
         var<internal> PreferredInputMethod<native><public>:input_method = external {}
+
+        # The set of input device capabilities currently available to the player, updated at runtime as devices connect or disconnect.
+        var<internal> AvailableInputDevices<native><public>:available_input_devices = external {}
 
     @available {MinUploadedAtFNVersion := 4100}
     @experimental
@@ -1808,18 +1809,20 @@ Input<public> := module:
         @available {MinUploadedAtFNVersion := 4100}
         @experimental
         PointerSelect<public>:input_action((/Verse.org/SpatialMath:)vector3) = external {}
+
+        @available {MinUploadedAtFNVersion := 4120}
+        @experimental
+        PointerZoom<public>:input_action((/Verse.org/SpatialMath:)vector3) = external {}
 AgentGroup<public> := module:
     using {/Verse.org/Simulation}
     using {/Verse.org/Native}
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Interface that defines a class as being usable as member info in an agent group
     member_info_interface<native><public> := interface:
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Interface that defines a class as providing an agent group.
-    agent_group_interface<public>(member_info:subtype(member_info_interface)) := interface:
+    agent_group_interface<public>(member_info:subtype(member_info_interface)) := interface<unique>:
         (/Verse.org/AgentGroup/agent_group_interface:)AgentGroup_agent_group_interface_Variance<private>():tuple(member_info) = external {}
 
         # Get the members of this agent group with their member info
@@ -1835,7 +1838,6 @@ AgentGroup<public> := module:
         MemberInfoChangeEvent<public>:listenable(tuple(agent, member_info))
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # An agent group is defined as a set of agents that share a common ownership.This class stores agents and specific information about each member via the member_info type provided.
     agent_group<native><public>(member_info:subtype(member_info_interface)) := class<unique>(agent_group_interface(member_info)):
         (/Verse.org/AgentGroup/agent_group:)AgentGroup_agent_group_Variance<private>(:member_info, :member_info):tuple(member_info) = external {}
@@ -1859,12 +1861,10 @@ AgentGroup<public> := module:
         MemberInfoChangeEvent<override><native><final>:listenable(tuple(agent, member_info)) = external {}
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Base class for all errors returned from agent_group.AddMember.
     add_member_error<native><public> := class<computes>:
 
     @available {MinUploadedAtFNVersion := 4000}
-    @experimental
     # Base class for all errors returned from agent_group.RemoveMember.
     remove_member_error<native><public> := class<computes>:
 
@@ -2305,7 +2305,6 @@ Verse<public> := module:
     @available {MinUploadedAtFNVersion := 3800}
     MakeError<public>(Result:error_type where error_type:type)<computes>:result(false, error_type) = external {}
 
-    @available {MinUploadedAtFNVersion := 3800}
     # Implemented by classes whose instances can change visibility to be shown or hidden.
     showable<native><public> := interface:
         # Set this value to hide or show the class.
@@ -3340,3 +3339,4 @@ Concurrency<public> := module:
         (/Verse.org/Concurrency/task:)Concurrency_task_Variance<private>():tuple(t) = external {}
 
         Await<native><override>()<suspends>:t
+

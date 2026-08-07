@@ -1,8 +1,8 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-07-12T23:09:31.029Z",
+  "generatedAt": "2026-08-07T14:31:23.568Z",
   "sourceFile": "UnrealEngine.digest.verse",
-  "sourceBuild": "++Fortnite+Release-41.10-CL-55335788",
+  "sourceBuild": "++Fortnite+Release-41.30-CL-56430492",
   "entries": {
     "Conversations": {
       "identifier": "Conversations",
@@ -10,38 +10,44 @@
       "type": "module",
       "isPublic": true
     },
-    "llm_prompt_error": {
-      "identifier": "llm_prompt_error",
+    "ai_error": {
+      "identifier": "ai_error",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "llm_prompt_timeout_error": {
-      "identifier": "llm_prompt_timeout_error",
+    "ai_timeout_error": {
+      "identifier": "ai_timeout_error",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "llm_prompt_throttled_error": {
-      "identifier": "llm_prompt_throttled_error",
+    "ai_throttled_error": {
+      "identifier": "ai_throttled_error",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "llm_prompt_moderated_error": {
-      "identifier": "llm_prompt_moderated_error",
+    "ai_moderated_error": {
+      "identifier": "ai_moderated_error",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "llm_prompt_character_limit_error": {
-      "identifier": "llm_prompt_character_limit_error",
+    "ai_character_limit_error": {
+      "identifier": "ai_character_limit_error",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "llm_session": {
-      "identifier": "llm_session",
+    "prompt_binding_definition": {
+      "identifier": "prompt_binding_definition",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "ai_session": {
+      "identifier": "ai_session",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
@@ -58,218 +64,230 @@
       "type": "class",
       "isPublic": true
     },
-    "prompt": {
-      "identifier": "prompt",
-      "modulePath": "/UnrealEngine.com/Conversations",
-      "type": "class",
-      "isPublic": true
-    },
-    "basic_prompt": {
-      "identifier": "basic_prompt",
-      "modulePath": "/UnrealEngine.com/Conversations",
-      "type": "class",
-      "isPublic": true
-    },
-    "persona_prompt": {
-      "identifier": "persona_prompt",
-      "modulePath": "/UnrealEngine.com/Conversations",
-      "type": "class",
-      "isPublic": true
-    },
     "voice_model": {
       "identifier": "voice_model",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "lily_voice": {
-      "identifier": "lily_voice",
+    "brite_bomber_voice": {
+      "identifier": "brite_bomber_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "julienne_voice": {
-      "identifier": "julienne_voice",
+    "elmira_voice": {
+      "identifier": "elmira_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "victoria_voice": {
-      "identifier": "victoria_voice",
+    "helsie_midnight_voice": {
+      "identifier": "helsie_midnight_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "wyatt_voice": {
-      "identifier": "wyatt_voice",
+    "mancake_voice": {
+      "identifier": "mancake_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "caleb_voice": {
-      "identifier": "caleb_voice",
+    "munitions_master_voice": {
+      "identifier": "munitions_master_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "ethan_voice": {
-      "identifier": "ethan_voice",
+    "peely_voice": {
+      "identifier": "peely_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "vera_voice": {
-      "identifier": "vera_voice",
+    "terns_voice": {
+      "identifier": "terns_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "grant_voice": {
-      "identifier": "grant_voice",
+    "lexa_hexbringer_voice": {
+      "identifier": "lexa_hexbringer_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "rex_voice": {
-      "identifier": "rex_voice",
+    "battle_gamer_mae_voice": {
+      "identifier": "battle_gamer_mae_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "luna_voice": {
-      "identifier": "luna_voice",
+    "halley_voice": {
+      "identifier": "halley_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "chloe_voice": {
-      "identifier": "chloe_voice",
+    "aura_voice": {
+      "identifier": "aura_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "roxy_voice": {
-      "identifier": "roxy_voice",
+    "brute_gunner_voice": {
+      "identifier": "brute_gunner_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "vivienne_voice": {
-      "identifier": "vivienne_voice",
+    "field_commander_voice": {
+      "identifier": "field_commander_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "milo_voice": {
-      "identifier": "milo_voice",
+    "ziggy_voice": {
+      "identifier": "ziggy_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "clara_voice": {
-      "identifier": "clara_voice",
+    "haylee_skye_voice": {
+      "identifier": "haylee_skye_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "dante_voice": {
-      "identifier": "dante_voice",
+    "orin_voice": {
+      "identifier": "orin_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "marcus_voice": {
-      "identifier": "marcus_voice",
+    "moxie_voice": {
+      "identifier": "moxie_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "aria_voice": {
-      "identifier": "aria_voice",
+    "kor_voice": {
+      "identifier": "kor_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "victor_voice": {
-      "identifier": "victor_voice",
+    "clover_swift_voice": {
+      "identifier": "clover_swift_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "alaina_voice": {
-      "identifier": "alaina_voice",
+    "chase_voice": {
+      "identifier": "chase_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "maisie_voice": {
-      "identifier": "maisie_voice",
+    "fishstick_voice": {
+      "identifier": "fishstick_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "arthur_voice": {
-      "identifier": "arthur_voice",
+    "guild_voice": {
+      "identifier": "guild_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "felix_voice": {
-      "identifier": "felix_voice",
+    "sunspot_voice": {
+      "identifier": "sunspot_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "walter_voice": {
-      "identifier": "walter_voice",
+    "the_imagined_voice": {
+      "identifier": "the_imagined_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "simon_voice": {
-      "identifier": "simon_voice",
+    "red_ruin_joni_voice": {
+      "identifier": "red_ruin_joni_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "troy_voice": {
-      "identifier": "troy_voice",
+    "nezumi_voice": {
+      "identifier": "nezumi_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "brenna_voice": {
-      "identifier": "brenna_voice",
+    "magnus_voice": {
+      "identifier": "magnus_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "marina_voice": {
-      "identifier": "marina_voice",
+    "revolt_voice": {
+      "identifier": "revolt_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "helen_voice": {
-      "identifier": "helen_voice",
+    "tomatohead_voice": {
+      "identifier": "tomatohead_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "graham_voice": {
-      "identifier": "graham_voice",
+    "raven_voice": {
+      "identifier": "raven_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "llm_description_attribute": {
-      "identifier": "llm_description_attribute",
+    "cuddle_team_leader_voice": {
+      "identifier": "cuddle_team_leader_voice",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "class",
       "isPublic": true
     },
-    "llm_description": {
-      "identifier": "llm_description",
+    "midas_voice": {
+      "identifier": "midas_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "mecha_team_leader_voice": {
+      "identifier": "mecha_team_leader_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "jonesy_voice": {
+      "identifier": "jonesy_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "hope_voice": {
+      "identifier": "hope_voice",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "ai_description_attribute": {
+      "identifier": "ai_description_attribute",
+      "modulePath": "/UnrealEngine.com/Conversations",
+      "type": "class",
+      "isPublic": true
+    },
+    "ai_description": {
+      "identifier": "ai_description",
       "modulePath": "/UnrealEngine.com/Conversations",
       "type": "function",
       "isPublic": true
@@ -1010,50 +1028,53 @@
   "moduleIndex": {
     "/UnrealEngine.com/Conversations": [
       "Conversations",
-      "llm_prompt_error",
-      "llm_prompt_timeout_error",
-      "llm_prompt_throttled_error",
-      "llm_prompt_moderated_error",
-      "llm_prompt_character_limit_error",
-      "llm_session",
+      "ai_error",
+      "ai_timeout_error",
+      "ai_throttled_error",
+      "ai_moderated_error",
+      "ai_character_limit_error",
+      "prompt_binding_definition",
+      "ai_session",
       "persona_interruption_rule",
       "persona_component",
-      "prompt",
-      "basic_prompt",
-      "persona_prompt",
       "voice_model",
-      "lily_voice",
-      "julienne_voice",
-      "victoria_voice",
-      "wyatt_voice",
-      "caleb_voice",
-      "ethan_voice",
-      "vera_voice",
-      "grant_voice",
-      "rex_voice",
-      "luna_voice",
-      "chloe_voice",
-      "roxy_voice",
-      "vivienne_voice",
-      "milo_voice",
-      "clara_voice",
-      "dante_voice",
-      "marcus_voice",
-      "aria_voice",
-      "victor_voice",
-      "alaina_voice",
-      "maisie_voice",
-      "arthur_voice",
-      "felix_voice",
-      "walter_voice",
-      "simon_voice",
-      "troy_voice",
-      "brenna_voice",
-      "marina_voice",
-      "helen_voice",
-      "graham_voice",
-      "llm_description_attribute",
-      "llm_description"
+      "brite_bomber_voice",
+      "elmira_voice",
+      "helsie_midnight_voice",
+      "mancake_voice",
+      "munitions_master_voice",
+      "peely_voice",
+      "terns_voice",
+      "lexa_hexbringer_voice",
+      "battle_gamer_mae_voice",
+      "halley_voice",
+      "aura_voice",
+      "brute_gunner_voice",
+      "field_commander_voice",
+      "ziggy_voice",
+      "haylee_skye_voice",
+      "orin_voice",
+      "moxie_voice",
+      "kor_voice",
+      "clover_swift_voice",
+      "chase_voice",
+      "fishstick_voice",
+      "guild_voice",
+      "sunspot_voice",
+      "the_imagined_voice",
+      "red_ruin_joni_voice",
+      "nezumi_voice",
+      "magnus_voice",
+      "revolt_voice",
+      "tomatohead_voice",
+      "raven_voice",
+      "cuddle_team_leader_voice",
+      "midas_voice",
+      "mecha_team_leader_voice",
+      "jonesy_voice",
+      "hope_voice",
+      "ai_description_attribute",
+      "ai_description"
     ],
     "/UnrealEngine.com/Progression": [
       "Progression",

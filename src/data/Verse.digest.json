@@ -1,8 +1,8 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-07-12T23:09:31.035Z",
+  "generatedAt": "2026-08-07T14:31:23.586Z",
   "sourceFile": "Verse.digest.verse",
-  "sourceBuild": "++Fortnite+Release-41.10-CL-55335788",
+  "sourceBuild": "++Fortnite+Release-41.30-CL-56430492",
   "entries": {
     "Chat": {
       "identifier": "Chat",
@@ -814,6 +814,12 @@
       "type": "class",
       "isPublic": true
     },
+    "available_input_devices": {
+      "identifier": "available_input_devices",
+      "modulePath": "/Verse.org/Input",
+      "type": "class",
+      "isPublic": true
+    },
     "GetPlayerInput": {
       "identifier": "GetPlayerInput",
       "modulePath": "/Verse.org/Input",
@@ -984,6 +990,12 @@
     },
     "PointerSelect": {
       "identifier": "PointerSelect",
+      "modulePath": "/Verse.org/Input/UI",
+      "type": "variable",
+      "isPublic": true
+    },
+    "PointerZoom": {
+      "identifier": "PointerZoom",
       "modulePath": "/Verse.org/Input/UI",
       "type": "variable",
       "isPublic": true
@@ -2956,6 +2968,7 @@
     "/Verse.org/Input": [
       "Input",
       "input_method",
+      "available_input_devices",
       "GetPlayerInput",
       "input_events",
       "player_input",
@@ -2990,7 +3003,8 @@
       "ZoomIn",
       "ZoomOut",
       "TouchMapping",
-      "PointerSelect"
+      "PointerSelect",
+      "PointerZoom"
     ],
     "/Verse.org/AgentGroup": [
       "AgentGroup",

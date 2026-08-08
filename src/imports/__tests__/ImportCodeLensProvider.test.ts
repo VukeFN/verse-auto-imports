@@ -1,12 +1,12 @@
 import * as vscode from "vscode";
 import { ImportCodeLensProvider } from "../ImportCodeLensProvider";
 
+/** The registered default for pathConversion.codeLensHideDelay. */
+const DEFAULT_HIDE_DELAY_MS = 1000;
+
 /**
  * A document that only carries what provideCodeLenses reads: its text, a uri to
  * key hover state on, and a name for the log line.
- *
- * @param fsPath distinguishes documents within one test; the hover-state keying
- * tests rely on two documents differing only in their folder.
  */
 function documentWith(text: string, fsPath = "C:\\project\\Content\\Main.verse"): vscode.TextDocument {
     return {
@@ -92,9 +92,6 @@ describe("ImportCodeLensProvider.provideCodeLenses", () => {
 // every document in the window - kept calling in, and a hide timer (delay
 // configurable up to 10000 ms) could still fire seconds later.
 describe("ImportCodeLensProvider hide timers and teardown", () => {
-    /** The registered default for pathConversion.codeLensHideDelay. */
-    const DEFAULT_HIDE_DELAY_MS = 1000;
-
     beforeEach(() => {
         jest.useFakeTimers();
         jest.clearAllMocks();
@@ -182,8 +179,6 @@ describe("ImportCodeLensProvider hide timers and teardown", () => {
 // them - a basename, or a Uri carrying no toString of its own - would let one
 // file's hover decide whether the other file's lenses appear.
 describe("ImportCodeLensProvider per-document hover state", () => {
-    /** The registered default for pathConversion.codeLensHideDelay. */
-    const DEFAULT_HIDE_DELAY_MS = 1000;
     /** One relative import, so a visible document offers exactly one lens. */
     const IMPORT_TEXT = "using { Gadgets.Tools }\n\ncode()";
     const WEAPONS_UTILS = "C:\\project\\Content\\Weapons\\utils.verse";

@@ -10,10 +10,6 @@ import { ImportHandler, ImportPathConverter, ImportCodeLensProvider } from "../.
 
 const IMPORT_STATEMENT = "using { /Fortnite.com/Devices }";
 
-/**
- * @param fsPath distinguishes documents within one test; the conversion keying
- * tests rely on two documents differing only in their folder.
- */
 function makeDocument(fsPath = "C:\\Project\\Content\\device.verse"): vscode.TextDocument & { save: jest.Mock } {
     return {
         uri: vscode.Uri.file(fsPath),
@@ -324,11 +320,13 @@ describe("CommandsHandler per-document conversion keying", () => {
         await run(handler, weapons);
         await run(handler, ui);
 
-        const forwarded = codeLensProvider.forceRefreshAfterConversion.mock.calls.map(([documentUri]) => documentUri);
-        expect(forwarded).toEqual([weapons.uri.toString(), ui.uri.toString()]);
-        // Both sides of that comparison run through the same toString(), so it
-        // would still hold if the key itself collapsed onto one value. This is
-        // the half that fails when it does.
-        expect(new Set(forwarded).size).toBe(2);
+        for (const forwarding of [codeLensProvider.keepHoverStateActive, codeLensProvider.forceRefreshAfterConversion]) {
+            const forwarded = forwarding.mock.calls.map(([documentUri]) => documentUri);
+            expect(forwarded).toEqual([weapons.uri.toString(), ui.uri.toString()]);
+            // Both sides of that comparison run through the same toString(), so
+            // it would still hold if the key itself collapsed onto one value.
+            // This is the half that fails when it does.
+            expect(new Set(forwarded).size).toBe(2);
+        }
     });
 });

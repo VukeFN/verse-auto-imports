@@ -8,14 +8,15 @@ import { AssetsDigestParser } from "../AssetsDigestParser";
  */
 describe("AssetsDigestParser.parseDigestContent", () => {
     describe("41.10 declaration shapes", () => {
-        // Recorded verbatim from a live 41.10 Assets.digest.verse (issue #63).
+        // Recorded from a live 41.10 Assets.digest.verse (issue #63). The
+        // declaration shapes are verbatim; only the project path is a placeholder.
         const digest = [
-            "image1<scoped {/vuke@fortnite.com/VerseAutoImports}>:texture = external {}",
-            "TestSphere_asset<scoped {/vuke@fortnite.com/VerseAutoImports}>:mesh = external {}",
-            "TestVFX_asset<scoped {/vuke@fortnite.com/VerseAutoImports}>:particle_system = external {}",
-            "TestMaterial<scoped {/vuke@fortnite.com/VerseAutoImports}> := class<scoped {/vuke@fortnite.com/VerseAutoImports}>(material):",
-            "TestSphere<scoped {/vuke@fortnite.com/VerseAutoImports}> := class<final><scoped {/vuke@fortnite.com/VerseAutoImports}>(mesh_component):",
-            "TestVFX<scoped {/vuke@fortnite.com/VerseAutoImports}> := class<public>(particle_system_component):",
+            "image1<scoped {/mygame@fortnite.com/mygame}>:texture = external {}",
+            "TestSphere_asset<scoped {/mygame@fortnite.com/mygame}>:mesh = external {}",
+            "TestVFX_asset<scoped {/mygame@fortnite.com/mygame}>:particle_system = external {}",
+            "TestMaterial<scoped {/mygame@fortnite.com/mygame}> := class<scoped {/mygame@fortnite.com/mygame}>(material):",
+            "TestSphere<scoped {/mygame@fortnite.com/mygame}> := class<final><scoped {/mygame@fortnite.com/mygame}>(mesh_component):",
+            "TestVFX<scoped {/mygame@fortnite.com/mygame}> := class<public>(particle_system_component):",
         ].join("\n");
 
         it("parses every recorded 41.10 asset name", () => {
@@ -25,15 +26,13 @@ describe("AssetsDigestParser.parseDigestContent", () => {
         });
 
         it("parses the material class with a scoped specifier on the class keyword", () => {
-            const names = AssetsDigestParser.parseDigestContent("TestMaterial<scoped {/vuke@fortnite.com/VerseAutoImports}> := class<scoped {/vuke@fortnite.com/VerseAutoImports}>(material):");
+            const names = AssetsDigestParser.parseDigestContent("TestMaterial<scoped {/mygame@fortnite.com/mygame}> := class<scoped {/mygame@fortnite.com/mygame}>(material):");
 
             expect(names).toContain("TestMaterial");
         });
 
         it("parses a class with stacked specifiers on the class keyword (<final><scoped {...}>)", () => {
-            const names = AssetsDigestParser.parseDigestContent(
-                "TestSphere<scoped {/vuke@fortnite.com/VerseAutoImports}> := class<final><scoped {/vuke@fortnite.com/VerseAutoImports}>(mesh_component):",
-            );
+            const names = AssetsDigestParser.parseDigestContent("TestSphere<scoped {/mygame@fortnite.com/mygame}> := class<final><scoped {/mygame@fortnite.com/mygame}>(mesh_component):");
 
             expect(names).toEqual(["TestSphere"]);
         });
@@ -41,9 +40,9 @@ describe("AssetsDigestParser.parseDigestContent", () => {
         it("parses texture, mesh, and niagara instance declarations", () => {
             const names = AssetsDigestParser.parseDigestContent(
                 [
-                    "image1<scoped {/vuke@fortnite.com/VerseAutoImports}>:texture = external {}",
-                    "TestSphere_asset<scoped {/vuke@fortnite.com/VerseAutoImports}>:mesh = external {}",
-                    "TestVFX_asset<scoped {/vuke@fortnite.com/VerseAutoImports}>:particle_system = external {}",
+                    "image1<scoped {/mygame@fortnite.com/mygame}>:texture = external {}",
+                    "TestSphere_asset<scoped {/mygame@fortnite.com/mygame}>:mesh = external {}",
+                    "TestVFX_asset<scoped {/mygame@fortnite.com/mygame}>:particle_system = external {}",
                 ].join("\n"),
             );
 

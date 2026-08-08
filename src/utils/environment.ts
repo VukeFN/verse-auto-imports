@@ -1,20 +1,28 @@
 import * as vscode from "vscode";
 
 /**
- * Identifying facts about the build and the host that produced a log. Only
- * things that do not move while the window is open: the settings are toggled
- * by the extension's own status bar menu, so they are read where they are
- * reported rather than captured here.
- *
- * Deliberately holds no folder name, path or URI: an exported debug log is a
- * file people attach to bug reports, and a workspace path names the account it
- * came from. Shape is reported as counts and a flag instead.
+ * The facts that identify a build and cannot change while the window is open.
+ * Everything that can change is SessionState, read where it is reported.
  */
 export interface EnvironmentSnapshot {
     extensionVersion: string;
     vscodeVersion: string;
     platform: string;
+}
+
+/**
+ * The half of the picture that moves mid-session: the status bar menu writes
+ * all five settings, and folders are added and removed without restarting the
+ * extension host. A value captured at activation would describe a session that
+ * had already changed, which is worse in a diagnostics artifact than no value.
+ *
+ * Deliberately holds no folder name, path or URI: an exported debug log is a
+ * file people attach to bug reports, and a workspace path names the account it
+ * came from. Shape is reported as counts and a flag instead.
+ */
+export interface SessionState {
     workspaceShape: string;
+    settings: Record<string, string>;
 }
 
 /**
@@ -42,11 +50,10 @@ export function describeWorkspaceShape(folderCount: number, hasWorkspaceFile: bo
 }
 
 /**
- * Reads the reported settings as they stand now. Called at each point that
- * reports them, never cached: the status bar menu writes all five, so a value
- * captured at activation would describe a session that had already ended.
+ * Reads the moving half as it stands now. Called at each point that reports it,
+ * never cached.
  */
-export function readReportedSettings(): Record<string, string> {
+export function readSessionState(): SessionState {
     const config = vscode.workspace.getConfiguration("verseAutoImports");
     const settings: Record<string, string> = {};
     for (const key of REPORTED_SETTINGS) {
@@ -54,13 +61,15 @@ export function readReportedSettings(): Record<string, string> {
         // type, and a value carrying a newline would forge header lines.
         settings[key] = String(config.get(key)).replace(/[\r\n]+/g, " ");
     }
-    return settings;
+
+    return {
+        workspaceShape: describeWorkspaceShape(vscode.workspace.workspaceFolders?.length ?? 0, vscode.workspace.workspaceFile !== undefined),
+        settings,
+    };
 }
 
 /**
- * Reads the snapshot from the host. The only part of this module that touches
- * vscode besides the settings read, so everything below stays testable without
- * the extension runtime.
+ * Reads the fixed half from the host, once at activation.
  */
 export function collectEnvironment(context: vscode.ExtensionContext): EnvironmentSnapshot {
     return {
@@ -69,7 +78,6 @@ export function collectEnvironment(context: vscode.ExtensionContext): Environmen
         extensionVersion: context.extension?.packageJSON?.version ?? "unknown",
         vscodeVersion: vscode.version,
         platform: process.platform,
-        workspaceShape: describeWorkspaceShape(vscode.workspace.workspaceFolders?.length ?? 0, vscode.workspace.workspaceFile !== undefined),
     };
 }
 
@@ -77,24 +85,25 @@ export function collectEnvironment(context: vscode.ExtensionContext): Environmen
  * The host half of the activation line. The version is not repeated here: the
  * activation line already leads with it.
  */
-export function formatHostSummary(snapshot: EnvironmentSnapshot): string {
-    return `VS Code ${snapshot.vscodeVersion}, ${snapshot.platform}, ${snapshot.workspaceShape}`;
+export function formatHostSummary(snapshot: EnvironmentSnapshot, state: SessionState): string {
+    return `VS Code ${snapshot.vscodeVersion}, ${snapshot.platform}, ${state.workspaceShape}`;
 }
 
 /**
  * The block for the exported log's header. It repeats what activation logged
  * because the log buffer is circular: a long session pushes the activation
  * entries out of the export, and the header is what survives.
+ *
+ * The moving fields say when they were read, so a reader cannot mistake them
+ * for what activation saw.
  */
-export function formatEnvironmentLines(snapshot: EnvironmentSnapshot, settingsAtExport: Record<string, string>): string[] {
+export function formatEnvironmentLines(snapshot: EnvironmentSnapshot, state: SessionState): string[] {
     return [
         `Extension: ${snapshot.extensionVersion}`,
         `VS Code: ${snapshot.vscodeVersion}`,
         `Platform: ${snapshot.platform}`,
-        `Workspace: ${snapshot.workspaceShape}`,
-        // Labelled with when they were read, because the status bar can change
-        // them mid-session: these are not necessarily what activation saw.
+        `Workspace (at export): ${state.workspaceShape}`,
         "Settings (at export):",
-        ...Object.entries(settingsAtExport).map(([key, value]) => `  ${key}=${value}`),
+        ...Object.entries(state.settings).map(([key, value]) => `  ${key}=${value}`),
     ];
 }

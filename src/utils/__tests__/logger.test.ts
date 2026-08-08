@@ -19,20 +19,27 @@ function stubSettings(values: Record<string, unknown>): void {
     } as unknown as ReturnType<typeof vscode.workspace.getConfiguration>);
 }
 
+/** workspaceFolders is readonly in the real typings; the mock is writable. */
+function setFolders(count: number): void {
+    const writable = vscode.workspace as unknown as { workspaceFolders: unknown };
+    writable.workspaceFolders = Array.from({ length: count }, (_unused, index) => ({ uri: { fsPath: `/f${index}` }, name: `f${index}`, index }));
+}
+
 const SNAPSHOT: EnvironmentSnapshot = {
     extensionVersion: "0.9.0",
     vscodeVersion: "1.85.0",
     platform: "win32",
-    workspaceShape: "multi-root (2 folders)",
 };
 
 describe("Logger export header", () => {
     beforeEach(() => {
         resetLogger();
         stubSettings({ "general.autoImport": true });
+        setFolders(2);
     });
 
     afterEach(() => {
+        (vscode.workspace as unknown as { workspaceFolders: unknown }).workspaceFolders = undefined;
         jest.restoreAllMocks();
     });
 
@@ -44,7 +51,7 @@ describe("Logger export header", () => {
         expect(lines).toContain("Extension: 0.9.0");
         expect(lines).toContain("VS Code: 1.85.0");
         expect(lines).toContain("Platform: win32");
-        expect(lines).toContain("Workspace: multi-root (2 folders)");
+        expect(lines).toContain("Workspace (at export): multi-root (2 folders)");
         expect(lines).toContain("Settings (at export):");
         expect(lines).toContain("  general.autoImport=true");
     });
@@ -57,6 +64,16 @@ describe("Logger export header", () => {
         stubSettings({ "general.autoImport": false });
 
         expect(logger.getDebugLogsAsString()).toContain("  general.autoImport=false");
+    });
+
+    it("reports the workspace shape as it stands at export", () => {
+        logger.setEnvironment(SNAPSHOT);
+        expect(logger.getDebugLogsAsString()).toContain("Workspace (at export): multi-root (2 folders)");
+
+        // A folder removed mid-session, which does not restart the host.
+        setFolders(1);
+
+        expect(logger.getDebugLogsAsString()).toContain("Workspace (at export): single folder");
     });
 
     it("puts the environment above the rule, so it reads as header rather than log", () => {

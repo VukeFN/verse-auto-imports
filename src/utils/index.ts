@@ -1,2 +1,2 @@
 export { logger } from "./logger";
-export { collectEnvironment, formatHostSummary, readReportedSettings } from "./environment";
+export { collectEnvironment, formatHostSummary, readSessionState } from "./environment";

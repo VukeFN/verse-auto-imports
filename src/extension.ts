@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { logger, collectEnvironment, formatHostSummary, readReportedSettings } from "./utils";
+import { logger, collectEnvironment, formatHostSummary, readSessionState } from "./utils";
 import { DiagnosticsHandler } from "./diagnostics";
 import { ImportHandler, ImportPathConverter, ImportCodeActionProvider, ImportCodeLensProvider, ImportFormatter } from "./imports";
 import { CommandsHandler, CommandsDependencies } from "./commands";
@@ -55,9 +55,10 @@ export function activate(context: vscode.ExtensionContext) {
     // DEBUG rather than INFO: they belong in the export, not in the channel the
     // user reads. Both reach the export buffer, which stores every level.
     const environment = collectEnvironment(context);
+    const sessionState = readSessionState();
     logger.setEnvironment(environment);
-    logger.info("Extension", `Verse Auto Imports ${environment.extensionVersion} is now active (${formatHostSummary(environment)})`);
-    logger.debug("Extension", "Settings at activation", readReportedSettings());
+    logger.info("Extension", `Verse Auto Imports ${environment.extensionVersion} is now active (${formatHostSummary(environment, sessionState)})`);
+    logger.debug("Extension", "Settings at activation", sessionState.settings);
 
     // Get output channel for backward compatibility with handlers
     const outputChannel = logger.getUserChannel();

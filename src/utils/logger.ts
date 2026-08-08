@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { EnvironmentSnapshot, formatEnvironmentLines, readReportedSettings } from "./environment";
+import { EnvironmentSnapshot, formatEnvironmentLines, readSessionState } from "./environment";
 
 /**
  * Log levels for the logger
@@ -195,7 +195,7 @@ export class Logger {
             // The buffer is circular, so a long session pushes the activation
             // entries out of the export. The header is what still says which
             // build produced the log.
-            ...(this.environment ? formatEnvironmentLines(this.environment, readReportedSettings()) : []),
+            ...(this.environment ? formatEnvironmentLines(this.environment, readSessionState()) : []),
             "-------------------------------------------",
             "",
         ].join("\n");

@@ -165,8 +165,8 @@ export class ImportFormatter {
      * A trailing comment is stripped, so the returned path never carries trivia
      * that would corrupt the statement when it is re-emitted.
      *
-     * Anchored on the trimmed statement, and dotted before braced, exactly as
-     * isModuleImport does it. Unanchored, the braced pattern is free to match
+     * Anchored on the trimmed statement, and dotted before braced, following
+     * isModuleImport. Unanchored, the braced pattern is free to match
      * inside the trailing comment of a dotted statement and win the path -
      * `using. Economy.Shop # was using { Inventory }` read as `Inventory`,
      * because the comment is only stripped afterwards, from that capture.

@@ -8,6 +8,14 @@ import { ProjectPathHandler } from "./project";
 import { AssetsDigestParser, ProjectPathCache } from "./services";
 
 /**
+ * The project path cache toggle, and the default the two reads of it must
+ * agree on: activation captures the value, and the configuration listener
+ * compares against that capture to decide whether a reload is really needed.
+ */
+const CACHE_SETTING = "cache.enableProjectCache";
+const CACHE_SETTING_DEFAULT = true;
+
+/**
  * Reads the explicit user-set value of a setting, ignoring its registered
  * default. config.get cannot distinguish the two: for a registered setting it
  * returns the package.json default instead of the passed fallback.
@@ -47,12 +55,18 @@ export function activate(context: vscode.ExtensionContext) {
     const outputChannel = logger.getUserChannel();
 
     const config = vscode.workspace.getConfiguration("verseAutoImports");
+    const cacheEnabled = config.get<boolean>(CACHE_SETTING, CACHE_SETTING_DEFAULT);
 
     // Create core services
     logger.debug("Extension", "Creating handlers");
     const projectPathHandler = new ProjectPathHandler(outputChannel);
     const assetsDigestParser = new AssetsDigestParser(outputChannel, projectPathHandler);
-    const projectPathCache = new ProjectPathCache(context, outputChannel, projectPathHandler);
+    // Left undefined when the setting is off, so the dependency is absent in
+    // fact and not only in type. Handing the cache to its consumers anyway is
+    // what let the cache commands run with the feature disabled: they would
+    // scan the project and write a cache that has no file watchers behind it,
+    // so it is stale from the moment it is stored.
+    const projectPathCache = cacheEnabled ? new ProjectPathCache(context, outputChannel, projectPathHandler) : undefined;
 
     // Create handlers and providers
     const importHandler = new ImportHandler(outputChannel, assetsDigestParser, context);
@@ -77,11 +91,25 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     // Initialize project path cache asynchronously (if enabled)
-    const cacheEnabled = config.get<boolean>("cache.enableProjectCache", true);
-    if (cacheEnabled) {
+    if (projectPathCache) {
         projectPathCache.initialize().catch((err) => {
             logger.warn("Extension", `Failed to initialize project path cache: ${err}`);
         });
+    } else {
+        // Nothing loads or invalidates a stored cache while the feature is off,
+        // and the Clear Project Path Cache command is guarded off with it, so a
+        // payload from an earlier session would sit in workspace storage with
+        // no route left to remove it. Say so when one is dropped: this is the
+        // only destructive thing activation does.
+        ProjectPathCache.clearPersistedCache(context)
+            .then((dropped) => {
+                if (dropped) {
+                    logger.info("Extension", "Dropped the stored project path cache: the cache is disabled, so nothing would load or invalidate it");
+                }
+            })
+            .catch((err) => {
+                logger.warn("Extension", `Failed to drop the stored project path cache: ${err}`);
+            });
     }
 
     // Set initial debounce delay (handles backward compat with deprecated setting)
@@ -106,7 +134,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Set up file watchers
     context.subscriptions.push(projectPathHandler.setupFileWatcher());
     context.subscriptions.push(assetsDigestParser.setupFileWatcher());
-    if (cacheEnabled) {
+    if (projectPathCache) {
         context.subscriptions.push(projectPathCache.setupFileWatchers());
     }
 
@@ -151,6 +179,28 @@ export function activate(context: vscode.ExtensionContext) {
                 const finalDelay = getConfiguredDebounceDelay(newConfig);
                 diagnosticsHandler.setDelay(finalDelay);
                 logger.info("Extension", `Debounce delay updated to ${finalDelay}ms`);
+            }
+        }),
+    );
+
+    // Configuration change listener for the project path cache toggle. Whether
+    // the cache exists at all is decided once, here in activate(), so a toggle
+    // cannot take effect until the window reloads - say so rather than leaving
+    // the user with a setting that silently does nothing.
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeConfiguration(async (event) => {
+            if (!event.affectsConfiguration(`verseAutoImports.${CACHE_SETTING}`)) {
+                return;
+            }
+            // A change back to what activation captured needs no reload; the
+            // window already behaves the way the setting now reads.
+            const newValue = vscode.workspace.getConfiguration("verseAutoImports").get<boolean>(CACHE_SETTING, CACHE_SETTING_DEFAULT);
+            if (newValue === cacheEnabled) {
+                return;
+            }
+            const choice = await vscode.window.showInformationMessage("Reload the window for the Verse Auto Imports project path cache setting to take effect.", "Reload Window");
+            if (choice === "Reload Window") {
+                await vscode.commands.executeCommand("workbench.action.reloadWindow");
             }
         }),
     );

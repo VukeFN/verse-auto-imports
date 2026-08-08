@@ -303,7 +303,7 @@
         "verseAutoImports.cache.enableProjectCache": {
           "type": "boolean",
           "default": true,
-          "description": "Enable project path tree caching for faster module resolution",
+          "description": "Enable project path tree caching for faster module resolution (requires a window reload to take effect)",
           "order": 50
         },
         "verseAutoImports.cache.autoRebuildOnStartup": {

@@ -400,6 +400,34 @@ export class CommandsHandler {
     }
 
     /**
+     * Reports a conversion the document refused. applyConversion returns false
+     * when it cannot find the line to rewrite, when applyEdit is rejected, or
+     * when the edit throws, and the document is unchanged in all three cases -
+     * reporting the new path would leave the only trace in the output channel.
+     */
+    private reportRefusedConversion(originalImport: string): void {
+        logger.warn("CommandsHandler", `Failed to convert import: ${originalImport}`);
+        vscode.window.showWarningMessage(`Could not convert import: ${originalImport}. The document may have changed or be read-only.`);
+    }
+
+    /**
+     * Reports the outcome of a whole-document conversion. A count alone does
+     * not read as a failure: a run where every edit was refused still reports
+     * a number, so any failure has to say so in its own words.
+     */
+    private reportConversionTotals(pathKind: "absolute" | "relative", convertedCount: number, failedCount: number): void {
+        const summary = `Using ${pathKind} paths for ${convertedCount} import${convertedCount !== 1 ? "s" : ""}.`;
+
+        if (failedCount === 0) {
+            vscode.window.showInformationMessage(summary);
+            return;
+        }
+
+        logger.warn("CommandsHandler", `${failedCount} conversion(s) were not applied to the document`);
+        vscode.window.showWarningMessage(`${summary} ${failedCount} could not be converted. The document may have changed or be read-only.`);
+    }
+
+    /**
      * Shows a quick pick for selecting an ambiguous path.
      */
     private async selectAmbiguousPath(result: PathConversionResult): Promise<string | undefined> {
@@ -438,12 +466,22 @@ export class CommandsHandler {
         if (result.isAmbiguous && result.possiblePaths) {
             const selectedPath = await this.selectAmbiguousPath(result);
             if (selectedPath) {
-                await this.deps.importPathConverter.applyConversion(document, result, selectedPath);
+                const applied = await this.deps.importPathConverter.applyConversion(document, result, selectedPath);
+                if (!applied) {
+                    this.reportRefusedConversion(result.originalImport);
+                    return;
+                }
+
                 vscode.window.setStatusBarMessage(`Using absolute path: ${selectedPath}`, CommandsHandler.STATUS_MESSAGE_DURATION_MS);
                 this.finalizeConversion(documentUri);
             }
         } else {
-            await this.deps.importPathConverter.applyConversion(document, result);
+            const applied = await this.deps.importPathConverter.applyConversion(document, result);
+            if (!applied) {
+                this.reportRefusedConversion(result.originalImport);
+                return;
+            }
+
             vscode.window.setStatusBarMessage(`Using absolute path: ${result.fullPathImport}`, CommandsHandler.STATUS_MESSAGE_DURATION_MS);
             this.finalizeConversion(documentUri);
         }
@@ -464,6 +502,7 @@ export class CommandsHandler {
         }
 
         let convertedCount = 0;
+        let failedCount = 0;
         const ambiguousImports: PathConversionResult[] = [];
 
         // First pass: handle non-ambiguous imports
@@ -471,21 +510,24 @@ export class CommandsHandler {
             if (!result.isAmbiguous) {
                 const success = await this.deps.importPathConverter.applyConversion(document, result);
                 if (success) convertedCount++;
+                else failedCount++;
             } else {
                 ambiguousImports.push(result);
             }
         }
 
-        // Second pass: handle ambiguous imports interactively
+        // Second pass: handle ambiguous imports interactively. A cancelled quick
+        // pick is a decline rather than a failure, so it counts as neither.
         for (const result of ambiguousImports) {
             const selectedPath = await this.selectAmbiguousPath(result);
             if (selectedPath) {
                 const success = await this.deps.importPathConverter.applyConversion(document, result, selectedPath);
                 if (success) convertedCount++;
+                else failedCount++;
             }
         }
 
-        vscode.window.showInformationMessage(`Using absolute paths for ${convertedCount} import${convertedCount !== 1 ? "s" : ""}.`);
+        this.reportConversionTotals("absolute", convertedCount, failedCount);
         this.finalizeConversion(documentUri);
     }
 
@@ -503,7 +545,12 @@ export class CommandsHandler {
             return;
         }
 
-        await this.deps.importPathConverter.applyConversion(document, result);
+        const applied = await this.deps.importPathConverter.applyConversion(document, result);
+        if (!applied) {
+            this.reportRefusedConversion(result.originalImport);
+            return;
+        }
+
         vscode.window.setStatusBarMessage(`Using relative path: ${result.fullPathImport}`, CommandsHandler.STATUS_MESSAGE_DURATION_MS);
         this.finalizeConversion(documentUri);
     }
@@ -523,12 +570,14 @@ export class CommandsHandler {
         }
 
         let convertedCount = 0;
+        let failedCount = 0;
         for (const result of results) {
             const success = await this.deps.importPathConverter.applyConversion(document, result);
             if (success) convertedCount++;
+            else failedCount++;
         }
 
-        vscode.window.showInformationMessage(`Using relative paths for ${convertedCount} import${convertedCount !== 1 ? "s" : ""}.`);
+        this.reportConversionTotals("relative", convertedCount, failedCount);
         this.finalizeConversion(documentUri);
     }
 }

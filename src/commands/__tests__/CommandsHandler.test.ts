@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { CommandsHandler, CommandsDependencies } from "../CommandsHandler";
-import { ImportHandler } from "../../imports";
+import { ImportHandler, ImportPathConverter, ImportCodeLensProvider } from "../../imports";
 
 // Regression for #133: addImportsToDocument and organizeImports return false
 // when applyEdit is rejected - a stale document version, or a read-only file -
@@ -92,6 +92,186 @@ describe("CommandsHandler.optimizeImports", () => {
 
         expect(document.save).toHaveBeenCalledTimes(1);
         expect(vscode.window.showInformationMessage).toHaveBeenCalledWith("Imports optimized successfully");
+        expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
+    });
+});
+
+// Regression for #185: the same class as #133, for the four path conversion
+// commands. applyConversion returns false when it cannot find the line to
+// rewrite, when applyEdit is rejected, or when the edit throws; the single
+// conversions discarded the boolean and reported the new path anyway, and the
+// bulk conversions only counted it, so a run where every edit was refused
+// reported "Using absolute paths for 0 imports".
+
+const RELATIVE_MODULE = "Gadgets/Tools";
+const ABSOLUTE_PATH = `/mygame@fortnite.com/mygame/${RELATIVE_MODULE}`;
+
+/**
+ * The shape CommandsHandler reads off a conversion. Declared here because both
+ * PathConversionResult and ImportConversionResult are module-private, and an
+ * untyped fixture lets a mistyped key through to an assertion that still passes.
+ */
+interface ConversionFixture {
+    originalImport: string;
+    fullPathImport: string;
+    moduleName: string;
+    isAmbiguous: boolean;
+    possiblePaths?: string[];
+}
+
+function makeConversion(overrides: Partial<ConversionFixture> = {}): ConversionFixture {
+    return {
+        originalImport: `using { ${RELATIVE_MODULE} }`,
+        fullPathImport: `using { ${ABSOLUTE_PATH} }`,
+        moduleName: RELATIVE_MODULE,
+        isAmbiguous: false,
+        ...overrides,
+    };
+}
+
+function makeConversionHandler(converterOverrides: Record<string, jest.Mock>): {
+    handler: CommandsHandler;
+    codeLensProvider: { forceRefreshAfterConversion: jest.Mock };
+} {
+    const importPathConverter = {
+        convertToFullPath: jest.fn().mockResolvedValue(null),
+        convertFromFullPath: jest.fn().mockResolvedValue(null),
+        convertAllImportsInDocument: jest.fn().mockResolvedValue([]),
+        convertAllImportsFromFullPath: jest.fn().mockResolvedValue([]),
+        applyConversion: jest.fn().mockResolvedValue(true),
+        ...converterOverrides,
+    } as unknown as ImportPathConverter;
+
+    const codeLensProvider = {
+        keepHoverStateActive: jest.fn(),
+        forceRefreshAfterConversion: jest.fn(),
+    };
+
+    const handler = new CommandsHandler({
+        importPathConverter,
+        importCodeLensProvider: codeLensProvider as unknown as ImportCodeLensProvider,
+    } as unknown as CommandsDependencies);
+
+    return { handler, codeLensProvider };
+}
+
+// clearAllMocks clears calls but not implementations, so a quick pick stubbed in
+// one test would otherwise survive into every test declared after it.
+afterEach(() => {
+    (vscode.window.showQuickPick as jest.Mock).mockReset();
+});
+
+describe("CommandsHandler.convertToFullPath", () => {
+    it("warns and reports no path when the edit is refused", async () => {
+        const { handler, codeLensProvider } = makeConversionHandler({
+            convertToFullPath: jest.fn().mockResolvedValue(makeConversion()),
+            applyConversion: jest.fn().mockResolvedValue(false),
+        });
+
+        await handler.convertToFullPath(makeDocument(), `using { ${RELATIVE_MODULE} }`, 4);
+
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledTimes(1);
+        expect((vscode.window.showWarningMessage as jest.Mock).mock.calls[0][0]).toMatch(/Could not convert import/);
+        expect(vscode.window.setStatusBarMessage).not.toHaveBeenCalled();
+        // The document is unchanged, so the lenses on it are still accurate.
+        expect(codeLensProvider.forceRefreshAfterConversion).not.toHaveBeenCalled();
+    });
+
+    it("reports the new path when the edit applies", async () => {
+        const { handler, codeLensProvider } = makeConversionHandler({
+            convertToFullPath: jest.fn().mockResolvedValue(makeConversion()),
+            applyConversion: jest.fn().mockResolvedValue(true),
+        });
+
+        await handler.convertToFullPath(makeDocument(), `using { ${RELATIVE_MODULE} }`, 4);
+
+        expect(vscode.window.setStatusBarMessage).toHaveBeenCalledTimes(1);
+        expect((vscode.window.setStatusBarMessage as jest.Mock).mock.calls[0][0]).toBe(`Using absolute path: using { ${ABSOLUTE_PATH} }`);
+        expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
+        expect(codeLensProvider.forceRefreshAfterConversion).toHaveBeenCalledTimes(1);
+    });
+
+    it("warns when the edit is refused after an ambiguous path was picked", async () => {
+        (vscode.window.showQuickPick as jest.Mock).mockImplementation(async (items: Array<{ path: string }>) => items[0]);
+        const { handler } = makeConversionHandler({
+            convertToFullPath: jest.fn().mockResolvedValue(makeConversion({ isAmbiguous: true, possiblePaths: [ABSOLUTE_PATH] })),
+            applyConversion: jest.fn().mockResolvedValue(false),
+        });
+
+        await handler.convertToFullPath(makeDocument(), `using { ${RELATIVE_MODULE} }`, 4);
+
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledTimes(1);
+        expect((vscode.window.showWarningMessage as jest.Mock).mock.calls[0][0]).toMatch(/Could not convert import/);
+        expect(vscode.window.setStatusBarMessage).not.toHaveBeenCalled();
+    });
+});
+
+describe("CommandsHandler.convertToRelativePath", () => {
+    it("warns and reports no path when the edit is refused", async () => {
+        const { handler } = makeConversionHandler({
+            convertFromFullPath: jest.fn().mockResolvedValue(makeConversion({ fullPathImport: `using { ${RELATIVE_MODULE} }` })),
+            applyConversion: jest.fn().mockResolvedValue(false),
+        });
+
+        await handler.convertToRelativePath(makeDocument(), `using { ${ABSOLUTE_PATH} }`, 4);
+
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledTimes(1);
+        expect((vscode.window.showWarningMessage as jest.Mock).mock.calls[0][0]).toMatch(/Could not convert import/);
+        expect(vscode.window.setStatusBarMessage).not.toHaveBeenCalled();
+    });
+});
+
+describe("CommandsHandler.convertAllToFullPath", () => {
+    it("warns rather than reporting a count when every edit is refused", async () => {
+        const { handler } = makeConversionHandler({
+            convertAllImportsInDocument: jest.fn().mockResolvedValue([makeConversion(), makeConversion()]),
+            applyConversion: jest.fn().mockResolvedValue(false),
+        });
+
+        await handler.convertAllToFullPath(makeDocument());
+
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledTimes(1);
+        expect((vscode.window.showWarningMessage as jest.Mock).mock.calls[0][0]).toMatch(/2 could not be converted/);
+        expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
+    });
+
+    it("counts a cancelled ambiguous pick as neither converted nor failed", async () => {
+        (vscode.window.showQuickPick as jest.Mock).mockResolvedValue(undefined);
+        const { handler } = makeConversionHandler({
+            convertAllImportsInDocument: jest.fn().mockResolvedValue([makeConversion({ isAmbiguous: true, possiblePaths: [ABSOLUTE_PATH] })]),
+            applyConversion: jest.fn().mockResolvedValue(true),
+        });
+
+        await handler.convertAllToFullPath(makeDocument());
+
+        expect(vscode.window.showInformationMessage).toHaveBeenCalledWith("Using absolute paths for 0 imports.");
+        expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
+    });
+});
+
+describe("CommandsHandler.convertAllToRelativePath", () => {
+    it("names the failures alongside the count when only some edits are refused", async () => {
+        const { handler } = makeConversionHandler({
+            convertAllImportsFromFullPath: jest.fn().mockResolvedValue([makeConversion(), makeConversion()]),
+            applyConversion: jest.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false),
+        });
+
+        await handler.convertAllToRelativePath(makeDocument());
+
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledTimes(1);
+        expect((vscode.window.showWarningMessage as jest.Mock).mock.calls[0][0]).toMatch(/Using relative paths for 1 import\. 1 could not be converted/);
+        expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
+    });
+
+    it("reports the count as before when every edit applies", async () => {
+        const { handler } = makeConversionHandler({
+            convertAllImportsFromFullPath: jest.fn().mockResolvedValue([makeConversion(), makeConversion()]),
+            applyConversion: jest.fn().mockResolvedValue(true),
+        });
+
+        await handler.convertAllToRelativePath(makeDocument());
+
+        expect(vscode.window.showInformationMessage).toHaveBeenCalledWith("Using relative paths for 2 imports.");
         expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
     });
 });

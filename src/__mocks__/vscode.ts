@@ -239,6 +239,7 @@ const window = {
     showInformationMessage: jest.fn(),
     showWarningMessage: jest.fn(),
     showErrorMessage: jest.fn(),
+    showQuickPick: jest.fn(),
     setStatusBarMessage: jest.fn(),
 };
 

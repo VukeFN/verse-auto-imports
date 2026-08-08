@@ -106,10 +106,10 @@
         {
             "id": "unknown-identifier-bare-ambiguous",
             "source": "synthetic",
-            "context": "bare unknown identifier with no inline suggestion; pure extraction yields nothing (expected below), but in a real host the registered behavior.ambiguousImports default maps vector3 to /UnrealEngine.com/Temporary/SpatialMath - the integration suite asserts that mapped import (issue #77 regression)",
+            "context": "bare unknown identifier with no inline suggestion; the registered behavior.ambiguousImports default maps vector3 to /UnrealEngine.com/Temporary/SpatialMath, so extraction resolves it without any inline hint (issue #77 regression, also asserted by the integration suite). Before issue #135 this entry expected nothing, because the extractor's code-side fallback was {} and the test mock returned that fallback rather than the registered default.",
             "message": "Unknown identifier `vector3`.\nUsed inside module /vukefn@fortnite.com/VerseAutoImports/Scripts.",
             "expected": {
-                "suggestions": [],
+                "suggestions": ["using { /UnrealEngine.com/Temporary/SpatialMath }"],
                 "optimizePaths": []
             }
         }

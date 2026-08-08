@@ -322,7 +322,7 @@ export class ImportPathConverter {
     }
 
     /** Scans the workspace for possible locations of a module */
-    async findModuleLocations(modulePath: string, currentFileUri?: vscode.Uri, _maxDepth: number = 5): Promise<string[]> {
+    async findModuleLocations(modulePath: string, currentFileUri?: vscode.Uri): Promise<string[]> {
         const locations: string[] = [];
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders || workspaceFolders.length === 0) return locations;

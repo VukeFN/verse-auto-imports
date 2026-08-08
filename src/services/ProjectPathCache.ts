@@ -22,7 +22,14 @@ export class ProjectPathCache {
     private static readonly CACHE_KEY = "projectPathTree";
     /** Storage key of the pre-2 metadata payload; cleared on save. */
     private static readonly LEGACY_METADATA_KEY = "projectPathTreeMeta";
+    /**
+     * Fallbacks for the two settings this class reads. Each must equal the
+     * default package.json registers for the same key: config.get returns the
+     * registered default for a registered setting, so a fallback that disagrees
+     * is dead in production and live only under the test mock.
+     */
     private static readonly DEBOUNCE_MS = 500;
+    private static readonly AUTO_REBUILD_ON_STARTUP = false;
 
     constructor(
         private context: vscode.ExtensionContext,
@@ -31,7 +38,22 @@ export class ProjectPathCache {
     ) {}
 
     /**
+     * The watcher debounce delay, in milliseconds. Read where the timer is
+     * armed rather than at construction, so changing the setting applies to the
+     * next file change instead of waiting for a window reload.
+     */
+    private getDebounceMs(): number {
+        return vscode.workspace.getConfiguration("verseAutoImports").get<number>("cache.watcherDebounceMs", ProjectPathCache.DEBOUNCE_MS);
+    }
+
+    /**
      * Initialize the cache - load from storage or build fresh.
+     *
+     * cache.autoRebuildOnStartup skips the stored payload entirely and scans
+     * the project instead. The stored cache is only as fresh as the watchers
+     * that maintained it, so a project edited outside this window - a UEFN
+     * build, a branch switch - starts stale; rebuilding trades startup time for
+     * that certainty.
      */
     async initialize(): Promise<void> {
         if (this.initialized) {
@@ -42,13 +64,28 @@ export class ProjectPathCache {
         logger.info("ProjectPathCache", "Initializing project path cache...");
 
         try {
-            const loaded = await this.loadFromStorage();
+            const autoRebuild = vscode.workspace.getConfiguration("verseAutoImports").get<boolean>("cache.autoRebuildOnStartup", ProjectPathCache.AUTO_REBUILD_ON_STARTUP);
 
-            if (loaded) {
-                logger.info("ProjectPathCache", `Loaded cache from storage in ${Date.now() - startTime}ms`);
-            } else {
-                logger.info("ProjectPathCache", "No valid cache found, building fresh...");
+            if (autoRebuild) {
+                logger.info("ProjectPathCache", "cache.autoRebuildOnStartup is on, rebuilding instead of loading the stored cache...");
                 await this.rebuildCache();
+
+                // A rebuild that found no UEFN project leaves the cache empty.
+                // Preferring a fresh scan must not be worse than not asking for
+                // one, so fall back to whatever storage holds: stale
+                // declarations still serve lookups the empty cache would miss.
+                if (!this.data && (await this.loadFromStorage())) {
+                    logger.info("ProjectPathCache", "Rebuild found no project; kept the stored cache rather than starting empty");
+                }
+            } else {
+                const loaded = await this.loadFromStorage();
+
+                if (loaded) {
+                    logger.info("ProjectPathCache", `Loaded cache from storage in ${Date.now() - startTime}ms`);
+                } else {
+                    logger.info("ProjectPathCache", "No valid cache found, building fresh...");
+                    await this.rebuildCache();
+                }
             }
 
             // Latch only once the cache actually holds data. A build that found
@@ -414,7 +451,7 @@ export class ProjectPathCache {
             this.invalidateFiles(filesToUpdate).catch((error) => {
                 logger.error("ProjectPathCache", "Failed to invalidate changed files", error);
             });
-        }, ProjectPathCache.DEBOUNCE_MS);
+        }, this.getDebounceMs());
     }
 
     /**

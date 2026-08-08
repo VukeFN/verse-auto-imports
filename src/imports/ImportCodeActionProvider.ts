@@ -13,7 +13,10 @@ export class ImportCodeActionProvider implements vscode.CodeActionProvider {
         const codeActions: vscode.CodeAction[] = [];
         const config = vscode.workspace.getConfiguration("verseAutoImports");
         const sortAlphabetically = config.get<boolean>("quickFix.sortAlphabetically", false);
-        const showDescriptions = config.get<boolean>("quickFix.showDescriptions", true);
+        // false is what package.json registers, and config.get returns the
+        // registered default for a registered setting - so a fallback of true
+        // never reached production and only ever changed what the tests saw.
+        const showDescriptions = config.get<boolean>("quickFix.showDescriptions", false);
 
         for (const diagnostic of context.diagnostics) {
             const suggestions = await this.importHandler.extractImportSuggestions(diagnostic.message);

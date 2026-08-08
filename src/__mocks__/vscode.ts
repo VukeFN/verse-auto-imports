@@ -351,6 +351,33 @@ const EndOfLine = {
 };
 
 /**
+ * A code action kind, as vscode.CodeActionKind models one: a dotted string
+ * that append() extends. Only the value matters to the providers; nothing
+ * dispatches on identity, so plain string comparison is enough.
+ */
+class CodeActionKind {
+    static readonly QuickFix = new CodeActionKind("quickfix");
+
+    constructor(public readonly value: string) {}
+
+    append(parts: string): CodeActionKind {
+        return new CodeActionKind(`${this.value}.${parts}`);
+    }
+}
+
+class CodeAction {
+    isPreferred?: boolean;
+    diagnostics?: unknown[];
+    command?: Command;
+    edit?: WorkspaceEdit;
+
+    constructor(
+        public title: string,
+        public kind?: CodeActionKind,
+    ) {}
+}
+
+/**
  * The host version, as vscode.version reports it. A fixed value: tests assert
  * that it reaches the log, never what it happens to be.
  */
@@ -376,5 +403,7 @@ export {
     Disposable,
     FileSystemWatcher,
     CodeLens,
+    CodeAction,
+    CodeActionKind,
     EventEmitter,
 };

@@ -288,28 +288,11 @@
           "description": "Milliseconds to wait before hiding CodeLens after cursor leaves import (only applies when visibility is 'hover')",
           "order": 32
         },
-        "verseAutoImports.pathConversion.scanDepth": {
-          "type": "number",
-          "default": 5,
-          "description": "Maximum directory depth to scan when searching for module locations (used for ambiguity detection)",
-          "order": 33
-        },
         "verseAutoImports.experimental.useDigestFiles": {
           "type": "boolean",
           "default": false,
           "description": "⚠️ Enable lookup of unknown identifiers in Verse digest files for intelligent import suggestions",
           "order": 40
-        },
-        "verseAutoImports.experimental.unknownIdentifierResolution": {
-          "type": "string",
-          "enum": [
-            "digest_only",
-            "digest_and_inference",
-            "disabled"
-          ],
-          "default": "disabled",
-          "description": "⚠️ Strategy for resolving unknown identifiers: 'digest_only' uses only digest files, 'digest_and_inference' adds pattern-based guessing, 'disabled' turns off unknown identifier resolution",
-          "order": 41
         },
         "verseAutoImports.cache.enableProjectCache": {
           "type": "boolean",

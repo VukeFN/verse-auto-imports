@@ -1,3 +1,4 @@
+import * as vscode from "vscode";
 import { logger } from "../logger";
 import { EnvironmentSnapshot } from "../environment";
 
@@ -12,17 +13,27 @@ function resetLogger(): void {
     internals.logBuffer = [];
 }
 
+function stubSettings(values: Record<string, unknown>): void {
+    jest.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
+        get: jest.fn().mockImplementation((key: string) => values[key]),
+    } as unknown as ReturnType<typeof vscode.workspace.getConfiguration>);
+}
+
 const SNAPSHOT: EnvironmentSnapshot = {
     extensionVersion: "0.9.0",
     vscodeVersion: "1.85.0",
     platform: "win32",
     workspaceShape: "multi-root (2 folders)",
-    settings: { "general.autoImport": "true" },
 };
 
 describe("Logger export header", () => {
     beforeEach(() => {
         resetLogger();
+        stubSettings({ "general.autoImport": true });
+    });
+
+    afterEach(() => {
+        jest.restoreAllMocks();
     });
 
     it("names the build and the host once the environment is set", () => {
@@ -34,7 +45,18 @@ describe("Logger export header", () => {
         expect(lines).toContain("VS Code: 1.85.0");
         expect(lines).toContain("Platform: win32");
         expect(lines).toContain("Workspace: multi-root (2 folders)");
+        expect(lines).toContain("Settings (at export):");
         expect(lines).toContain("  general.autoImport=true");
+    });
+
+    it("reports the settings as they stand at export, not as activation saw them", () => {
+        logger.setEnvironment(SNAPSHOT);
+        expect(logger.getDebugLogsAsString()).toContain("  general.autoImport=true");
+
+        // What the status bar toggle does mid-session.
+        stubSettings({ "general.autoImport": false });
+
+        expect(logger.getDebugLogsAsString()).toContain("  general.autoImport=false");
     });
 
     it("puts the environment above the rule, so it reads as header rather than log", () => {
@@ -55,11 +77,17 @@ describe("Logger export header", () => {
         expect(lines[3]).toBe("-------------------------------------------");
     });
 
-    it("survives the buffer wrapping, which is what the header is for", () => {
+    it("survives the buffer evicting the activation entries, which is what the header is for", () => {
         logger.setEnvironment(SNAPSHOT);
-        const internals = logger as unknown as { logBuffer: string[] };
-        internals.logBuffer = new Array(10000).fill("[00:00:00.000] [INFO] [Extension] noise");
+        logger.info("Extension", "Verse Auto Imports 0.9.0 is now active");
 
-        expect(logger.getDebugLogsAsString()).toContain("Extension: 0.9.0");
+        // MAX_LOG_ENTRIES is 10000; one more than that evicts the oldest.
+        for (let i = 0; i < 10000; i++) {
+            logger.info("Extension", `noise ${i}`);
+        }
+
+        const exported = logger.getDebugLogsAsString();
+        expect(exported).not.toContain("is now active");
+        expect(exported).toContain("Extension: 0.9.0");
     });
 });

@@ -1,5 +1,7 @@
+import * as fs from "fs";
+import * as path from "path";
 import * as vscode from "vscode";
-import { EnvironmentSnapshot, collectEnvironment, describeWorkspaceShape, formatEnvironmentLines, formatEnvironmentSummary } from "../environment";
+import { EnvironmentSnapshot, REPORTED_SETTINGS, collectEnvironment, describeWorkspaceShape, formatEnvironmentLines, formatHostSummary, readReportedSettings } from "../environment";
 
 /**
  * A context carrying only what the snapshot reads. Cast rather than built out:
@@ -17,13 +19,18 @@ function setWorkspace(folders: { uri: { fsPath: string }; name: string; index: n
     writable.workspaceFile = workspaceFile;
 }
 
+function stubSettings(values: Record<string, unknown>): void {
+    jest.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
+        get: jest.fn().mockImplementation((key: string) => values[key]),
+    } as unknown as ReturnType<typeof vscode.workspace.getConfiguration>);
+}
+
 function makeSnapshot(overrides: Partial<EnvironmentSnapshot> = {}): EnvironmentSnapshot {
     return {
         extensionVersion: "0.9.0",
         vscodeVersion: "1.85.0",
         platform: "win32",
         workspaceShape: "single folder",
-        settings: { "general.autoImport": "true" },
         ...overrides,
     };
 }
@@ -50,20 +57,64 @@ describe("describeWorkspaceShape", () => {
     });
 });
 
+describe("REPORTED_SETTINGS", () => {
+    it("names only settings the package.json actually contributes", () => {
+        const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "..", "..", "package.json"), "utf8"));
+        const contributed = Object.keys(manifest.contributes.configuration.properties);
+
+        // A key renamed in package.json and missed here degrades silently to
+        // "undefined" in the header, which is worse than not reporting it.
+        for (const key of REPORTED_SETTINGS) {
+            expect(contributed).toContain(`verseAutoImports.${key}`);
+        }
+    });
+});
+
+describe("readReportedSettings", () => {
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
+    it("reads the five settings that change import behavior under test", () => {
+        stubSettings({
+            "general.autoImport": false,
+            "behavior.importSyntax": "inline",
+            "behavior.importGrouping": "separate",
+            "behavior.preserveImportLocations": true,
+            "behavior.sortImportsAlphabetically": false,
+        });
+
+        expect(readReportedSettings()).toEqual({
+            "general.autoImport": "false",
+            "behavior.importSyntax": "inline",
+            "behavior.importGrouping": "separate",
+            "behavior.preserveImportLocations": "true",
+            "behavior.sortImportsAlphabetically": "false",
+        });
+    });
+
+    it("flattens a value carrying a newline, so it cannot forge a header line", () => {
+        stubSettings({ "behavior.importSyntax": "inline\nExtension: 9.9.9" });
+
+        expect(readReportedSettings()["behavior.importSyntax"]).toBe("inline Extension: 9.9.9");
+    });
+
+    it("reads at call time, so a mid-session toggle is reflected", () => {
+        stubSettings({ "general.autoImport": true });
+        expect(readReportedSettings()["general.autoImport"]).toBe("true");
+
+        stubSettings({ "general.autoImport": false });
+        expect(readReportedSettings()["general.autoImport"]).toBe("false");
+    });
+});
+
 describe("collectEnvironment", () => {
     afterEach(() => {
         setWorkspace(undefined);
         jest.restoreAllMocks();
     });
 
-    function stubSettings(values: Record<string, unknown>): void {
-        jest.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
-            get: jest.fn().mockImplementation((key: string) => values[key]),
-        } as unknown as ReturnType<typeof vscode.workspace.getConfiguration>);
-    }
-
     it("records the extension version, the host and the workspace shape", () => {
-        stubSettings({});
         setWorkspace([
             { uri: { fsPath: "/a" }, name: "a", index: 0 },
             { uri: { fsPath: "/b" }, name: "b", index: 1 },
@@ -73,33 +124,21 @@ describe("collectEnvironment", () => {
 
         expect(snapshot.extensionVersion).toBe("0.9.0");
         expect(snapshot.vscodeVersion).toBe("1.85.0");
-        expect(snapshot.platform).toBe(process.platform);
         expect(snapshot.workspaceShape).toBe("multi-root (2 folders)");
     });
 
-    it("records the five settings that change behaviour under test", () => {
-        stubSettings({
-            "general.autoImport": false,
-            "behavior.importSyntax": "inline",
-            "behavior.importGrouping": "separate",
-            "behavior.preserveImportLocations": true,
-            "behavior.sortImportsAlphabetically": false,
-        });
+    it("records the host platform", () => {
+        const original = Object.getOwnPropertyDescriptor(process, "platform");
+        Object.defineProperty(process, "platform", { value: "sunos", configurable: true });
 
-        const snapshot = collectEnvironment(makeContext("0.9.0"));
-
-        expect(snapshot.settings).toEqual({
-            "general.autoImport": "false",
-            "behavior.importSyntax": "inline",
-            "behavior.importGrouping": "separate",
-            "behavior.preserveImportLocations": "true",
-            "behavior.sortImportsAlphabetically": "false",
-        });
+        try {
+            expect(collectEnvironment(makeContext("0.9.0")).platform).toBe("sunos");
+        } finally {
+            Object.defineProperty(process, "platform", original!);
+        }
     });
 
     it("falls back to unknown rather than throwing when the host supplies no extension", () => {
-        stubSettings({});
-
         expect(collectEnvironment(makeContext()).extensionVersion).toBe("unknown");
     });
 
@@ -107,27 +146,31 @@ describe("collectEnvironment", () => {
         stubSettings({});
         setWorkspace([{ uri: { fsPath: "C:/Users/someone/project" }, name: "project", index: 0 }], { fsPath: "C:/Users/someone/project.code-workspace" });
 
-        const rendered = formatEnvironmentLines(collectEnvironment(makeContext("0.9.0"))).join("\n");
+        const rendered = formatEnvironmentLines(collectEnvironment(makeContext("0.9.0")), readReportedSettings()).join("\n");
 
         expect(rendered).not.toContain("someone");
         expect(rendered).not.toContain("project");
     });
 });
 
-describe("formatEnvironmentSummary", () => {
+describe("formatHostSummary", () => {
     it("names the host and the workspace shape on one line", () => {
-        expect(formatEnvironmentSummary(makeSnapshot())).toBe("VS Code 1.85.0, win32, single folder");
+        expect(formatHostSummary(makeSnapshot())).toBe("VS Code 1.85.0, win32, single folder");
     });
 });
 
 describe("formatEnvironmentLines", () => {
-    it("carries every field of the snapshot", () => {
-        const lines = formatEnvironmentLines(
-            makeSnapshot({
-                settings: { "general.autoImport": "true", "behavior.importSyntax": "block" },
-            }),
-        );
+    it("carries every field of the snapshot and says when the settings were read", () => {
+        const lines = formatEnvironmentLines(makeSnapshot(), { "general.autoImport": "true", "behavior.importSyntax": "block" });
 
-        expect(lines).toEqual(["Extension: 0.9.0", "VS Code: 1.85.0", "Platform: win32", "Workspace: single folder", "Settings:", "  general.autoImport=true", "  behavior.importSyntax=block"]);
+        expect(lines).toEqual([
+            "Extension: 0.9.0",
+            "VS Code: 1.85.0",
+            "Platform: win32",
+            "Workspace: single folder",
+            "Settings (at export):",
+            "  general.autoImport=true",
+            "  behavior.importSyntax=block",
+        ]);
     });
 });

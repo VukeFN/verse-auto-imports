@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { logger, collectEnvironment, formatEnvironmentSummary } from "./utils";
+import { logger, collectEnvironment, formatHostSummary, readReportedSettings } from "./utils";
 import { DiagnosticsHandler } from "./diagnostics";
 import { ImportHandler, ImportPathConverter, ImportCodeActionProvider, ImportCodeLensProvider, ImportFormatter } from "./imports";
 import { CommandsHandler, CommandsDependencies } from "./commands";
@@ -56,8 +56,8 @@ export function activate(context: vscode.ExtensionContext) {
     // user reads. Both reach the export buffer, which stores every level.
     const environment = collectEnvironment(context);
     logger.setEnvironment(environment);
-    logger.info("Extension", `Verse Auto Imports ${environment.extensionVersion} is now active (${formatEnvironmentSummary(environment)})`);
-    logger.debug("Extension", "Effective settings", environment.settings);
+    logger.info("Extension", `Verse Auto Imports ${environment.extensionVersion} is now active (${formatHostSummary(environment)})`);
+    logger.debug("Extension", "Settings at activation", readReportedSettings());
 
     // Get output channel for backward compatibility with handlers
     const outputChannel = logger.getUserChannel();

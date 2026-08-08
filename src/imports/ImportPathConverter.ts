@@ -583,12 +583,12 @@ export class ImportPathConverter {
         const range = new vscode.Range(new vscode.Position(lineIndex, 0), new vscode.Position(lineIndex, lines[lineIndex].length));
 
         // The replacement is built from the statement alone, so everything else
-        // the line carried is dropped unless it is put back. The comment comes
-        // from the line about to be replaced rather than from the conversion:
-        // that line is what the edit overwrites, and resolving a conversion spans
-        // a workspace scan and, when ambiguous, a quick pick - long enough for
-        // the document to change under a recorded line and for findConversionLine
-        // to land on a different one than the comment was read from.
+        // the line carried is dropped unless it is put back. The comment is read
+        // from the line about to be replaced, which is the text this edit
+        // overwrites - the conversion carries the same comment, since
+        // findConversionLine matches on the whole trimmed line, so reading it
+        // here is the one that needs no field threaded through ConvertibleImport
+        // and ImportConversionResult to reach this point.
         //
         // Only the annotation is at stake here. An import whose line opens a
         // comment over the lines below it never reaches this point, because

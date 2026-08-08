@@ -195,6 +195,18 @@ describe("ImportPathConverter.applyConversion", () => {
 
         expect(replacedOperation().text).toBe("    using { /mygame@fortnite.com/mygame/Gadgets/Tools } # kept");
     });
+
+    it("does not carry the carriage return of a CRLF line into the comment it restores", async () => {
+        // The document is split on "\n", so every line of a CRLF file ends in a
+        // `\r` and the comment is read out of text carrying one. Writing that
+        // `\r` back mid-line would split the line where the comment starts.
+        const document = fakeDocument(["using { Gadgets.Tools } # kept\r", "\r", "code()\r"]);
+        const annotated = { ...conversion(0), originalImport: "using { Gadgets.Tools } # kept" };
+
+        expect(await converter.applyConversion(document, annotated)).toBe(true);
+
+        expect(replacedOperation().text).toBe("using { /mygame@fortnite.com/mygame/Gadgets/Tools } # kept");
+    });
 });
 
 /** A converter with project path resolution pinned, so conversion is pure string work. */

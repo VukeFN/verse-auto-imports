@@ -62,9 +62,15 @@ export class ImportHandler {
     }
 
     /**
-     * Ensures the proper number of empty lines exists after the last import statement.
+     * The edits that would give the file the configured number of empty lines
+     * after its import block, without applying them. For the save participant,
+     * which hands them to VS Code so they land as part of the save.
+     *
+     * There is no applying counterpart on the facade: the only callers that
+     * apply the spacing themselves are inside ImportDocumentEditor, at the end
+     * of adding and organizing imports.
      */
-    async ensureEmptyLinesAfterImports(document: vscode.TextDocument): Promise<boolean> {
-        return this.documentEditor.ensureEmptyLinesAfterImports(document);
+    computeEmptyLinesAfterImportsEdits(document: vscode.TextDocument): vscode.TextEdit[] {
+        return this.documentEditor.computeEmptyLinesAfterImportsEdits(document);
     }
 }

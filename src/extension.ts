@@ -205,15 +205,26 @@ export function activate(context: vscode.ExtensionContext) {
         }),
     );
 
-    // Document save listener for import spacing
+    // Save participant for import spacing. This has to run *during* the save,
+    // not after it: an edit applied once the save has completed makes the tab
+    // dirty again the instant the user saves, and only a second save converges.
+    // waitUntil hands the edits to VS Code, which applies them before writing
+    // the file, so the saved content is already correct.
     context.subscriptions.push(
-        vscode.workspace.onDidSaveTextDocument(async (document) => {
-            if (document.languageId === "verse") {
-                const config = vscode.workspace.getConfiguration("verseAutoImports");
-                const emptyLinesAfterImports = config.get<number>("behavior.emptyLinesAfterImports", 1);
-                if (emptyLinesAfterImports >= 0) {
-                    await importHandler.ensureEmptyLinesAfterImports(document);
+        vscode.workspace.onWillSaveTextDocument((event) => {
+            if (event.document.languageId !== "verse") {
+                return;
+            }
+            // waitUntil is only accepted while the listener is on the stack, so
+            // the edits are computed synchronously. Nothing here may throw
+            // either: a save participant that throws blocks the save.
+            try {
+                const edits = importHandler.computeEmptyLinesAfterImportsEdits(event.document);
+                if (edits.length > 0) {
+                    event.waitUntil(Promise.resolve(edits));
                 }
+            } catch (error) {
+                logger.error("Extension", `Error computing import spacing on save: ${error}`, error);
             }
         }),
     );

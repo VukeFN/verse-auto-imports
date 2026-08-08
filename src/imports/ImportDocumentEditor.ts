@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { logger } from "../utils";
 import { ImportFormatter } from "./ImportFormatter";
-import { allUsingPaths, classifyLines, LineClassification, rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
+import { allUsingPaths, classifyLines, LINE_SPLIT, LineClassification, rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
 
 /** Represents a contiguous block of import statements in the document. */
 interface ImportBlock {
@@ -12,9 +12,6 @@ interface ImportBlock {
 
 /** The line ending a document is written with. */
 export type LineEnding = "\r\n" | "\n";
-
-/** Splits text into lines without keeping the carriage return of a CRLF pair. */
-const LINE_SPLIT = /\r?\n/;
 
 /**
  * Detects the dominant line ending of a text, or null when it has no line

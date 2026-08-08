@@ -1,5 +1,14 @@
 import { ImportFormatter } from "./ImportFormatter";
 
+/**
+ * Splits text into lines without keeping the carriage return of a CRLF pair.
+ *
+ * Split with this wherever a column is later derived from `line.length`: a
+ * `"\n"` split leaves a trailing `\r` on every line of a CRLF document, which
+ * puts that column one past the end of the line.
+ */
+export const LINE_SPLIT = /\r?\n/;
+
 /** A module import found in a document, with the line span it occupies. */
 export interface ScannedImport {
     /** The module path, e.g. "/Verse.org/Simulation" or "Gadgets.Tools". */

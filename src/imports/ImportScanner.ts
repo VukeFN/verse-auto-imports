@@ -48,12 +48,20 @@ interface LineScan {
     /** Whether the line carries any text outside a comment. */
     hasCode: boolean;
     /**
-     * The line with its comments removed, each replaced by a space so text on
-     * either side cannot join into a token the author did not write. A reader
-     * searching a line for a statement it cannot prefix-test needs this: a
-     * statement is not required to open its line - one can follow a `;`, or the
-     * `#>` that closes a block comment - so the search has to cover the whole
-     * line, and searching the raw line finds a `using` written in the trivia.
+     * The line with its comments removed. A reader searching a line for a
+     * statement it cannot prefix-test needs this: a statement is not required
+     * to open its line - one can follow a `;`, or the `#>` that closes a block
+     * comment - so the search has to cover the whole line, and searching the
+     * raw line finds a `using` written in the trivia.
+     *
+     * Nothing is put in a removed comment's place, so text on either side of
+     * one joins. Whether Verse splits a token there is not something its test
+     * corpus settles: comments appear only between tokens throughout
+     * Tests/Roundtrip/Comments.versetest, and the one splicing case,
+     * `"abc<#def#>ghi" = "abcghi"` in Tests/Literals/String.versetest, is
+     * string contents rather than an identifier. Joining is the side to be
+     * wrong on: it can only report a `using` this reader would otherwise miss,
+     * and missing one is the error its caller cannot survive.
      */
     code: string;
     /**
@@ -95,9 +103,6 @@ function scanLine(line: string, depth: number): LineScan {
             } else if (line.startsWith("#>", i)) {
                 nesting -= 1;
                 i += 2;
-                if (nesting === 0) {
-                    code += " ";
-                }
             } else {
                 i += 1;
             }
@@ -119,7 +124,6 @@ function scanLine(line: string, depth: number): LineScan {
         if (line.startsWith("<#", i)) {
             nesting += 1;
             i += 2;
-            code += " ";
             continue;
         }
 
@@ -159,10 +163,9 @@ export interface LineClassification {
      */
     continuesCommentAbove: boolean;
     /**
-     * The line with its comments removed, each replaced by a space. A reader
-     * that searches a line rather than prefix-testing it needs this: search the
-     * raw line and a `using` written in its trivia reads as the line's own
-     * statement.
+     * The line with its comments removed. A reader that searches a line rather
+     * than prefix-testing it needs this: search the raw line and a `using`
+     * written in its trivia reads as the line's own statement.
      */
     code: string;
 }

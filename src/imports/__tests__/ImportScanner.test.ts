@@ -88,10 +88,13 @@ describe("allUsingPaths", () => {
         expect(allUsingPaths(["X := 1 <# note #> using { Economy.Shop }", "using { /A }"])).toEqual(["Economy.Shop", "/A"]);
     });
 
-    // Removing a comment must not splice its neighbours into a token the author
-    // never wrote - `us<# c #>ing` is `us` then `ing`, not a using.
-    it("does not join text across a removed comment into a using", () => {
-        expect(allUsingPaths(["us<# c #>ing { /B }", "using { /A }"])).toEqual(["/A"]);
+    // Whether Verse reads `us<# c #>ing` as one token is not settled by its test
+    // corpus - comments sit between tokens throughout Roundtrip/Comments, and
+    // the one splicing case is string contents. Reporting is the side to be
+    // wrong on: a false path only makes the caller more cautious, where a missed
+    // one is the error it cannot survive.
+    it("reports a using whose token a comment splits, rather than risking a miss", () => {
+        expect(allUsingPaths(["us<# c #>ing { /B }", "using { /A }"])).toEqual(["/B", "/A"]);
     });
 });
 

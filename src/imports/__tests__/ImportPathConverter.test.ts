@@ -196,6 +196,26 @@ describe("ImportPathConverter.applyConversion", () => {
         expect(replacedOperation().text).toBe("    using { /mygame@fortnite.com/mygame/Gadgets/Tools } # kept");
     });
 
+    it("keeps the dotted style when the trailing comment of an ambiguous import contains a brace", async () => {
+        // The user picks the path from a quick pick, and the style comes from
+        // the statement the pick was offered against. A `{` in the comment is
+        // prose, not syntax, so it must not turn a dotted import braced.
+        const line = "using. Gadgets.Tools # prefer {Tools} over {Gadgets}";
+        const document = fakeDocument([line, "", "code()"]);
+        const ambiguous = {
+            originalImport: line,
+            fullPathImport: "",
+            moduleName: "Tools",
+            isAmbiguous: true,
+            possiblePaths: ["/mygame@fortnite.com/mygame/Gadgets/Tools", "/mygame@fortnite.com/mygame/UI/Gadgets/Tools"],
+            line: 0,
+        };
+
+        expect(await converter.applyConversion(document, ambiguous, "/mygame@fortnite.com/mygame/Gadgets/Tools")).toBe(true);
+
+        expect(replacedOperation().text).toBe("using. /mygame@fortnite.com/mygame/Gadgets/Tools # prefer {Tools} over {Gadgets}");
+    });
+
     it("does not carry the carriage return of a CRLF line into the comment it restores", async () => {
         // The document is split on "\n", so every line of a CRLF file ends in a
         // `\r` and the comment is read out of text carrying one. Writing that
@@ -243,6 +263,25 @@ describe("ImportPathConverter.convertFromFullPath", () => {
         expect(result?.fullPathImport).toBe("using { Economy.Shop }");
     });
 
+    it("keeps the dotted style when the trailing comment contains a brace", async () => {
+        // The style test reads the statement, not the path, so it is the one
+        // reader a comment can still reach. A `{` in comment prose is not the
+        // author asking for braced syntax.
+        const converter = converterWithProjectPath(projectVersePath);
+
+        const result = await converter.convertFromFullPath("using. /mygame@fortnite.com/mygame/Economy/Shop # use {braces} here", 0);
+
+        expect(result?.fullPathImport).toBe("using. Economy.Shop");
+    });
+
+    it("keeps the braced style when the trailing comment contains no brace", async () => {
+        const converter = converterWithProjectPath(projectVersePath);
+
+        const result = await converter.convertFromFullPath("using { /mygame@fortnite.com/mygame/Economy/Shop } # the shop", 0);
+
+        expect(result?.fullPathImport).toBe("using { Economy.Shop }");
+    });
+
     it("writes the comment once, and unaltered, when the conversion is applied", async () => {
         // The two halves have to agree on who owns the comment: the converted
         // statement leaves it out and applyConversion puts it back. The `/` in
@@ -256,5 +295,32 @@ describe("ImportPathConverter.convertFromFullPath", () => {
         expect(await converter.applyConversion(document, result!)).toBe(true);
 
         expect(replacedOperation().text).toBe("using. Economy.Shop # see Economy/Vendor");
+    });
+});
+
+describe("ImportPathConverter.convertToFullPath", () => {
+    const projectVersePath = "/mygame@fortnite.com/mygame";
+
+    /** A converter that resolves every module to one fixed location, so conversion is pure string work. */
+    function converterWithLocation(location: string): ImportPathConverter {
+        const converter = converterWithProjectPath(projectVersePath);
+        converter.findModuleLocations = async () => [location];
+        return converter;
+    }
+
+    it("keeps the dotted style when the trailing comment contains a brace", async () => {
+        const converter = converterWithLocation("/Economy");
+
+        const result = await converter.convertToFullPath("using. Shop # use {braces} here", vscode.Uri.file("C:/project/test.verse"), 0);
+
+        expect(result?.fullPathImport).toBe("using. /mygame@fortnite.com/mygame/Economy/Shop");
+    });
+
+    it("keeps the braced style when the trailing comment contains no brace", async () => {
+        const converter = converterWithLocation("/Economy");
+
+        const result = await converter.convertToFullPath("using { Shop } # the shop", vscode.Uri.file("C:/project/test.verse"), 0);
+
+        expect(result?.fullPathImport).toBe("using { /mygame@fortnite.com/mygame/Economy/Shop }");
     });
 });

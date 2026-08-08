@@ -39,7 +39,7 @@ const QUALIFIED_NAME = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/;
  * default for a registered setting, so an empty fallback never reached
  * production and only ever changed what the tests saw. Keep the two in step.
  */
-const DEFAULT_AMBIGUOUS_IMPORTS: Record<string, string> = {
+export const DEFAULT_AMBIGUOUS_IMPORTS: Record<string, string> = {
     vector3: "/UnrealEngine.com/Temporary/SpatialMath",
     vector2: "/UnrealEngine.com/Temporary/SpatialMath",
     rotation: "/UnrealEngine.com/Temporary/SpatialMath",

@@ -69,6 +69,14 @@ export class ProjectPathCache {
             if (autoRebuild) {
                 logger.info("ProjectPathCache", "cache.autoRebuildOnStartup is on, rebuilding instead of loading the stored cache...");
                 await this.rebuildCache();
+
+                // A rebuild that found no UEFN project leaves the cache empty.
+                // Preferring a fresh scan must not be worse than not asking for
+                // one, so fall back to whatever storage holds: stale
+                // declarations still serve lookups the empty cache would miss.
+                if (!this.data && (await this.loadFromStorage())) {
+                    logger.info("ProjectPathCache", "Rebuild found no project; kept the stored cache rather than starting empty");
+                }
             } else {
                 const loaded = await this.loadFromStorage();
 

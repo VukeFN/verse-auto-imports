@@ -200,6 +200,22 @@ describe("ProjectPathCache settings", () => {
             expect(cache.getStats().files).toBe(1);
         });
 
+        it("keeps the stored cache when the rebuild finds no project", async () => {
+            stubSettings({ "cache.autoRebuildOnStartup": true });
+            findFiles.mockResolvedValue([]);
+
+            const cache = makeCache({ [CACHE_KEY]: STORED_CACHE });
+            // No project name is what scanProject reports when the workspace
+            // holds no .uefnproject yet, and it returns null rather than empty
+            // data - so the rebuild leaves the cache untouched.
+            jest.spyOn(cache, "rebuildCache").mockResolvedValue(undefined);
+            await cache.initialize();
+
+            // Asking for a fresh scan must not leave the session worse off than
+            // not asking: the stored declarations still answer lookups.
+            expect(cache.getStats().files).toBe(1);
+        });
+
         it("still builds fresh when it is off and storage holds nothing", async () => {
             stubSettings({ "cache.autoRebuildOnStartup": false });
             findFiles.mockResolvedValue([]);

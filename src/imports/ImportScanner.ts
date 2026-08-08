@@ -92,8 +92,16 @@ interface LineScan {
      * Tests/Roundtrip/Comments.versetest, and the one splicing case,
      * `"abc<#def#>ghi" = "abcghi"` in Tests/Literals/String.versetest, is
      * string contents rather than an identifier. Joining is the side to be
-     * wrong on: it can only report a `using` this reader would otherwise miss,
-     * and missing one is the error its caller cannot survive.
+     * wrong on: missing a `using` is the error its caller cannot survive.
+     *
+     * That is no longer unconditional. usingPathsOnLine requires a `using` to
+     * begin a token, so joining a statement onto the token before it hides it.
+     * Every legal separator survives - a `;`, a space, a `)`, a `}`, a line
+     * start - because none of them is an identifier character. Only
+     * `X := 1<# note #>using { /A }` does not, and two statements with nothing
+     * between them do not compile anyway. Putting a space where a comment was
+     * would repair that shape and break the reason this field exists, so it is
+     * the wrong repair; see the cost usingPathsOnLine documents.
      */
     code: string;
     /**

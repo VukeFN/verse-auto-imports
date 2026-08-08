@@ -764,11 +764,15 @@ export class ImportDocumentEditor {
      */
     computeEmptyLinesAfterImportsEdits(document: vscode.TextDocument): vscode.TextEdit[] {
         const config = vscode.workspace.getConfiguration("verseAutoImports");
-        // Clamped because a negative value reaches the delete branch below,
-        // where it would take real code rather than blank lines. package.json
-        // declares a minimum of 0, but a hand-edited settings.json does not
-        // have to honour it.
-        const emptyLinesAfterImports = Math.max(0, config.get<number>("behavior.emptyLinesAfterImports", 1));
+        const emptyLinesAfterImports = config.get<number>("behavior.emptyLinesAfterImports", 1);
+
+        // package.json declares a minimum of 0, but a hand-edited settings.json
+        // does not have to honour it, and a negative value reaches the delete
+        // branch below, where it would take real code rather than blank lines.
+        if (emptyLinesAfterImports < 0) {
+            logger.debug("ImportDocumentEditor", `Ignoring a negative emptyLinesAfterImports (${emptyLinesAfterImports})`);
+            return [];
+        }
 
         logger.debug("ImportDocumentEditor", `Ensuring ${emptyLinesAfterImports} empty lines after imports`);
 

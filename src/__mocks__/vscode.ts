@@ -98,11 +98,16 @@ class WorkspaceEdit {
 
     /**
      * Real VS Code stores TextEdits whichever method built them, so each one is
-     * recorded as the operation it is equivalent to. That keeps a set() and the
-     * insert()/delete() calls it replaces indistinguishable to a test, which is
-     * what they are to the editor.
+     * recorded as the operation it is equivalent to - which keeps a set() and
+     * the insert()/delete() calls it replaces indistinguishable to a test, as
+     * they are to the editor. set() also *replaces* whatever was recorded for
+     * that uri rather than adding to it, so an empty array clears it.
      */
     set(uri: unknown, edits: TextEdit[]): void {
+        const remaining = this.operations.filter((operation) => String(operation.uri) !== String(uri));
+        this.operations.length = 0;
+        this.operations.push(...remaining);
+
         for (const edit of edits) {
             if (edit.newText.length === 0) {
                 this.delete(uri, edit.range);

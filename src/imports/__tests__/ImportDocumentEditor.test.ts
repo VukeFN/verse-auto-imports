@@ -1112,7 +1112,7 @@ describe("ImportDocumentEditor.computeEmptyLinesAfterImportsEdits", () => {
     });
 
     // package.json declares minimum 0, but settings.json can be hand-edited
-    // past it. Unclamped, the negative difference reaches the delete branch and
+    // past it. Unguarded, the negative difference reaches the delete branch and
     // takes the first line of real code with it.
     it("deletes nothing when the setting is negative", () => {
         mockEmptyLines(-1);

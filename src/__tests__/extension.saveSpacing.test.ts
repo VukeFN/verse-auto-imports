@@ -107,7 +107,9 @@ describe("import spacing on save", () => {
         expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
     });
 
-    it("does not run after the save at all", () => {
+    // The spacing pass was the only post-save listener, so its registration is
+    // the whole of what activate() must no longer do.
+    it("registers nothing to run after a save", () => {
         expect(vscode.workspace.onDidSaveTextDocument).not.toHaveBeenCalled();
     });
 

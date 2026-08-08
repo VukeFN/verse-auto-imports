@@ -147,8 +147,10 @@ export class ImportDocumentEditor {
             // is what puts the marker somewhere it was not written, so it is
             // refused here rather than only by every caller passing a filtered
             // list. Every caller does today; one that forgot would resurrect a
-            // defect this branch has already shipped once.
-            if (!imp.trailingComment || imp.anchorsCommentBelow) {
+            // defect this branch has already shipped once. A statement sharing
+            // its span is refused for the same reason: what trails it is the
+            // rest of the span, not an annotation to re-emit.
+            if (!imp.trailingComment || imp.anchorsCommentBelow || imp.rebuildLosesText) {
                 continue;
             }
             const statement = this.formatter.formatImportStatement(imp.path, preferDotSyntax);

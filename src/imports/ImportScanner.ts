@@ -385,15 +385,21 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
         //
         // Order is load-bearing. A whole-line `using:` matches this tail test
         // too, so the branch above has to keep first refusal or the plain pair
-        // changes shape. It tests the raw line on purpose: promoting
-        // `using: # note` to a rewritable pair would rebuild that line and
-        // delete the comment, which is the loss this branch pins lines to avoid.
+        // changes shape.
+        //
+        // That branch still tests the raw line, and the two inputs cannot
+        // disagree where it runs: isModuleImport gates this loop on the raw text
+        // as well, and a line whose raw text is not exactly `using:` matches
+        // none of its three patterns - so `using: # note` is refused above and
+        // never reaches either branch. The gate is what protects it, not the
+        // input choice. Relaxing the gate is what would make the choice matter.
         //
         // Every path the line writes is recorded, because each is imported and
         // none may be written again, and all are pinned, because no writer can
-        // reproduce this span from any one of them. Their spans overlap, which
-        // is harmless precisely because being pinned keeps them away from every
-        // writer.
+        // reproduce this span from any one of them. Their spans overlap. No
+        // writer sees that, because all of them read rewritableImports, which
+        // excludes a pinned entry; a reader of the unfiltered scan does, and
+        // gets the region reported once per path it carries.
         if (/\busing\s*:\s*$/.test(code)) {
             // The statement before the `;`, when the line writes one. A line
             // whose `using:` follows something that is not a `using` at all
@@ -408,6 +414,12 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
                     endLine: i,
                     anchorsCommentBelow: anchorsCommentBelow(i, i),
                     rebuildLosesText: true,
+                    // Read from the raw line, so on a line whose comment sits
+                    // mid-statement this holds the `; using:` after it as well
+                    // as the comment. Nothing re-emits it - that is what being
+                    // pinned means - and the alternative is worse: the code has
+                    // its comments already removed, so it can only ever answer
+                    // "none".
                     trailingComment: ImportFormatter.extractTrailingComment(trimmed),
                 });
             }

@@ -36,22 +36,23 @@ export interface ScannedImport {
      *
      * Every writer reconstructs a span from `path` and `trailingComment`, which
      * is faithful only while the statement is the whole of what its lines say.
-     * A `using:` opening an indented pair after a `;` breaks that: the span
-     * holds the statement before the `;` as well, and a rebuild from either
+     * A `;` breaks that, because it separates statements exactly as a newline
+     * does: the span holds another statement as well, and a rebuild from either
      * path alone deletes the other. Such a statement is still a real import and
      * still counts as present - only rewriting is off limits, exactly as for
      * anchorsCommentBelow, and rewritableImports filters on both.
      *
-     * `false` is "no loss known", not "provably none". Two shapes carry the
-     * same hazard undetected:
+     * `false` is "no loss known", not "provably none". One shape carries the
+     * same hazard undetected: `using. /X; using:`, where the dotted statement
+     * has no closing delimiter and swallows the rest of the line into its path,
+     * so the pair is pinned under a path that is not `/X` and `/X` itself goes
+     * unreported - the same weakness usingPathsOnLine documents.
      *
-     * - a line writing two complete statements, `using { /X }; using { /Y }`,
-     *   which reads as its first path alone and drops the second silently
-     *   (#223)
-     * - `using. /X; using:`, where the dotted statement has no closing
-     *   delimiter and swallows the rest of the line into its path, so the pair
-     *   is pinned under a path that is not `/X` and `/X` itself goes
-     *   unreported - the same weakness usingPathsOnLine documents
+     * `true` is likewise not a promise that every path on the span was
+     * recorded. A line ending in a `using:` pair reports the statement at its
+     * head and the path below, and no statement in between (#233). The line is
+     * pinned either way, so nothing is deleted; the cost is a path that does not
+     * count as present, which lets a writer add a second copy of it.
      */
     rebuildLosesText: boolean;
     /**
@@ -444,6 +445,45 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
                 trailingComment: ImportFormatter.extractTrailingComment(nextLine),
             });
             i += 2;
+            continue;
+        }
+
+        // Two complete statements sharing a line, `using { /X }; using { /Y }`.
+        // extractPathFromImport below reads the statement at the head of what it
+        // is given and says nothing about the remainder, so the line used to be
+        // recorded as its first path alone, spanning one line and rewritable -
+        // and organizing then rebuilt it from that path, deleting the second
+        // statement with no trace left that anything had gone.
+        //
+        // Every path the line writes is recorded, because each is imported and
+        // none may be written again, and all are pinned, because a rebuild from
+        // any one of them deletes the others. Their spans coincide, which no
+        // writer sees: all of them read rewritableImports, which excludes a
+        // pinned entry.
+        //
+        // Asked of the line's code rather than its raw text, as the branch above
+        // is. `using { /A } <# note about using { /B }` writes one statement and
+        // mentions another in a comment; searching the raw text finds two, and
+        // pins - and misreports - a line that is a plain single statement.
+        //
+        // usingPathsOnLine is what allUsingPaths asks, so reader and writer now
+        // agree on how many statements a line writes. Asking it a second way
+        // here would be the looser second copy its doc warns against.
+        const pathsOnLine = usingPathsOnLine(formatter, code);
+        if (pathsOnLine.length > 1) {
+            for (const linePath of pathsOnLine) {
+                imports.push({
+                    path: linePath,
+                    startLine: i,
+                    endLine: i,
+                    anchorsCommentBelow: anchorsCommentBelow(i, i),
+                    rebuildLosesText: true,
+                    // The same comment for each entry, since they share a line.
+                    // Nothing re-emits it - that is what being pinned means.
+                    trailingComment: ImportFormatter.extractTrailingComment(trimmed),
+                });
+            }
+            i += 1;
             continue;
         }
 

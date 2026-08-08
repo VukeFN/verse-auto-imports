@@ -228,6 +228,46 @@ describe("scanModuleImports", () => {
         expect(scanModuleImports(["X := 1; using:", "    Economy.Shop", "code()"])).toEqual([]);
     });
 
+    // extractPathFromImport reads the statement at the head of what it is given
+    // and reports nothing about the rest, so the line used to be recorded as
+    // `/X` alone, spanning one line and rewritable. Organizing rebuilt it from
+    // that path and Economy.Shop was gone - a well-formed import block importing
+    // one path fewer than the file had, with nothing left behind to say so.
+    it("records both statements a line carrying two writes, pinning both", () => {
+        expect(scanModuleImports(["using { /X }; using { Economy.Shop }", "", "code()"])).toEqual([
+            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "Economy.Shop", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // Both count as imported, so nothing writes either one again, and neither
+    // may be moved, because a rebuild from one path deletes the other. The two
+    // entries share a span; only a reader of the unfiltered scan ever sees that.
+    it("offers no rewritable import for a line carrying two statements", () => {
+        expect(rewritableImports(scanModuleImports(["using { /X }; using { Economy.Shop }", "", "code()"]))).toEqual([]);
+    });
+
+    // The count is taken from the line's code. Searching the raw text finds the
+    // `using` in this trailing comment as well, and pinning on that would refuse
+    // to organize an ordinary single-statement line for the words after its `#`.
+    it("leaves a single statement rewritable when its comment mentions another using", () => {
+        expect(rewritableImports(scanModuleImports(["using { /A } # see using { /B }", "code()"]))).toEqual([
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "# see using { /B }" },
+        ]);
+    });
+
+    // A dotted statement has no closing delimiter, so one sharing a line
+    // swallows what follows it into its path. Both are recorded, the malformed
+    // one included - what makes the line safe is that a second statement was
+    // found on it at all, which is what pins the line. Rewritable, it was
+    // rebuilt from the swallowed path into `using { /X; using { Economy.Shop } }`.
+    it("pins a line whose dotted statement swallows the one written after it", () => {
+        expect(scanModuleImports(["using. /X; using { Economy.Shop }", "code()"])).toEqual([
+            { path: "/X; using { Economy.Shop }", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "Economy.Shop", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
     it("keeps a trailing comment out of the path but on the entry, in all three styles", () => {
         // Out of `path`, which is re-emitted inside the braces and would be
         // corrupted by it, and onto `trailingComment`, which is what a writer

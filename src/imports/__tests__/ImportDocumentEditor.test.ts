@@ -164,6 +164,26 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, [], curlySorted)).toBeNull();
     });
 
+    // A line writing two complete statements read as its first path alone, so
+    // organizing rebuilt it as `using { /X }` and Economy.Shop was simply gone.
+    // The output was a well-formed import block, which is what made the loss
+    // silent - nothing was left stranded to signal it (#223).
+    it("leaves a line carrying two statements alone", () => {
+        const input = ["using { /X }; using { Economy.Shop }", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBeNull();
+    });
+
+    it("organizes the other imports around a line carrying two statements", () => {
+        const input = ["using { /X }; using { Economy.Shop }", "using { /B }", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /B }", "", "using { /X }; using { Economy.Shop }", "", "code()"].join("\n"));
+    });
+
+    it("does not write a second copy of a path such a line already provides", () => {
+        const input = ["using { /X }; using { Economy.Shop }", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["/X"], curlySorted)).toBeNull();
+        expect(editor.buildOrganizedContent(input, ["Economy.Shop"], curlySorted)).toBeNull();
+    });
+
     // The anchored line ends up below the rebuilt block, so dropping the copy
     // above it can leave a `using` without the import that brings its first
     // segment into scope - the ordering #91 and #129 fixed. Only an absolute

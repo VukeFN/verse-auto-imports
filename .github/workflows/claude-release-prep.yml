@@ -82,9 +82,13 @@ jobs:
                `git log $(git describe --tags --abbrev=0 origin/main)..HEAD --oneline`
                plus the diff summary. Identify user-facing changes.
             3. Update CHANGELOG.md following Keep a Changelog: create a section
-               for the new version dated today (UTC) out of the pending changes,
-               written for end users (what changed in the editor experience, not
-               internal refactor details).
+               for the new version dated today (UTC) out of the pending changes.
+               Any entry you write yourself, for a change with no fragment,
+               follows the same convention the fragments do - read the File
+               content section of changelog.d/README and obey it: a bold
+               component name, a colon, one sentence on the user-visible
+               effect, 40 words or fewer excluding the tag, no mechanism, and
+               a second sentence only where the reader must act.
                - Group the entries under Added / Changed / Deprecated / Removed /
                  Fixed / Security, in that order, keeping only the categories
                  that have entries.

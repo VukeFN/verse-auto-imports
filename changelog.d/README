@@ -30,7 +30,42 @@ File content
 ------------
 
 The entry prose only, written for end users - what changed in the editor
-experience, not internal refactor details.
+experience.
+
+    1. A bold component or feature name, a colon, then one sentence on the
+       user-visible effect. 40 words caps the whole entry, not counting the
+       ([#N]) tag added at assembly.
+
+    2. The mechanism does not appear. Why the code was wrong, what it did
+       instead, and which internal component held the bug all belong to the
+       linked issue, which the ([#N]) tag already points at.
+
+    3. A second sentence is allowed only when the reader must act - migrate a
+       setting, re-enable something an old version switched off, rebuild a
+       cache. Never to explain the fix.
+
+    4. The bold lead is the component or feature as the user meets it in the
+       editor (**Asset names**, **Optimize Imports**, **Path conversion
+       CodeLens**), not a headline restating the sentence after it.
+
+CHANGELOG.md is what the Marketplace renders on the extension page, and the
+release workflow copies each section into the GitHub Release body, so an entry
+is read as a shopfront rather than as an engineering record.
+
+Before, 149 words:
+
+    **Asset Names Keep Working After UEFN Rewrites the Digest**: editing an
+    asset in UEFN no longer stops the extension from recognizing asset class
+    names for the rest of the session. The watcher on Assets.digest.verse only
+    emptied its cache, and the one consumer reads that cache synchronously, so
+    nothing ever re-parsed the file: [...]
+
+After, 35 words - every user-visible case the fix covers, none of the
+mechanism:
+
+    **Asset names**: the extension now keeps recognizing asset class names
+    after UEFN rewrites the digest, knows them when VS Code opens before UEFN
+    has generated it, and follows a renamed project - no window reload needed
 
 Do not write a leading "- ". Do not write the ([#N]) tag. Do not add a link
 definition. Release assembly generates all three, because all three are exactly

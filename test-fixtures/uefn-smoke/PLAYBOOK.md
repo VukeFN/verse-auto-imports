@@ -119,8 +119,9 @@ live digest emits `<scoped {...}>` specifiers and instance declarations).
 3. [ ] Case C `Economy.Shop` (explicit module declared in two files): both
        locations detected (Systems and Features). This exercises the cache
        lookup path and the #43 regex fix across multiple files.
-4. [ ] Bulk command "Verse Auto Imports: Use Absolute Paths for All" handles
-       all three lines coherently in one pass.
+4. [ ] The "Use absolute paths for all" CodeLens handles all three lines
+       coherently in one pass. It is not in the Command Palette (#136): it
+       needs the document as an argument, so only the lens invokes it.
 5. [ ] Cache off/on: set `cache.enabled` false, reload, repeat case C
        (pure filesystem path), then re-enable, rebuild cache, repeat again.
        Same results both ways; Debug log shows cache hits when enabled.

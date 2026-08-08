@@ -119,6 +119,25 @@ describe("ImportFormatter trailing comments on import statements", () => {
         expect(formatter.groupAndFormatImports([path as string], false, true, "none")).toEqual(["using { /Verse.org/Simulation }"]);
     });
 
+    // The braced pattern used to be tried first and unanchored, so on a dotted
+    // statement it matched inside the trailing comment and won the path - the
+    // comment being stripped only afterwards, from that wrong capture.
+    it("dot syntax: a trailing comment holding `using { X }` does not hijack the path", () => {
+        expect(formatter.extractPathFromImport("using. Economy.Shop # was using { Inventory }")).toBe("Economy.Shop");
+    });
+
+    it("dot syntax: a full path survives a trailing comment holding `using { X }`", () => {
+        expect(formatter.extractPathFromImport("using. /mygame@fortnite.com/mygame/Economy/Shop # see using { Vendor }")).toBe("/mygame@fortnite.com/mygame/Economy/Shop");
+    });
+
+    // isDigestImport routes anything containing "using" through here, which a
+    // bare path can satisfy as a substring - "Housing" ends in one. Anchoring
+    // means no match, so its `|| importPath` fallback keeps the real path
+    // instead of the tail the unanchored dotted pattern used to capture.
+    it("a bare path whose segment ends in `using` is not read as a dotted statement", () => {
+        expect(formatter.extractPathFromImport("/mygame@fortnite.com/mygame/Housing.Shop")).toBeNull();
+    });
+
     it("a trailing comment does not change module-import classification", () => {
         // Without stripping, the `.` in a comment such as `# see Foo.Bar` made a
         // bare local-scope using look like a dotted module import.

@@ -236,6 +236,21 @@ function converterWithProjectPath(projectVersePath: string): ImportPathConverter
     return converter;
 }
 
+describe("ImportPathConverter import classification", () => {
+    // Both classifiers read the path through extractPathFromImport, where the
+    // braced pattern used to be tried first and unanchored - so a comment
+    // cross-referencing another import handed them its path instead of the
+    // statement's own, and a relative import answered as full-path and built-in.
+    it("judges a dotted import on its own path, not on a `using { X }` in its comment", () => {
+        const converter = converterWithProjectPath("/mygame@fortnite.com/mygame");
+        const statement = "using. Economy.Shop # was using { /Verse.org/Simulation }";
+
+        expect(converter.isFullPathImport(statement)).toBe(false);
+        expect(converter.isBuiltinModule(statement)).toBe(false);
+        expect(converter.extractModuleFromImport(statement)?.moduleName).toBe("Shop");
+    });
+});
+
 describe("ImportPathConverter.convertFromFullPath", () => {
     const projectVersePath = "/mygame@fortnite.com/mygame";
 
@@ -324,5 +339,17 @@ describe("ImportPathConverter.convertToFullPath", () => {
         const result = await converter.convertToFullPath("using { Shop } # see {Vendor}", vscode.Uri.file("C:/project/test.verse"), 0);
 
         expect(result?.fullPathImport).toBe("using { /mygame@fortnite.com/mygame/Economy/Shop }");
+    });
+
+    // A brace in comment prose costs the statement its style; a whole
+    // `using { X }` in there used to cost it its module, converting the
+    // cross-referenced import rather than the one on the line.
+    it("converts the module on the line, not one named in its trailing comment", async () => {
+        const converter = converterWithLocation("/Economy");
+
+        const result = await converter.convertToFullPath("using. Shop # was using { Inventory }", vscode.Uri.file("C:/project/test.verse"), 0);
+
+        expect(result?.fullPathImport).toBe("using. /mygame@fortnite.com/mygame/Economy/Shop");
+        expect(result?.moduleName).toBe("Shop");
     });
 });

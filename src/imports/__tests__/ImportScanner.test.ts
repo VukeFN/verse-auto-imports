@@ -70,6 +70,13 @@ describe("allUsingPaths", () => {
     it("strips a trailing comment from the path", () => {
         expect(allUsingPaths(["using { /A } # why", "code()"])).toEqual(["/A"]);
     });
+
+    // The other half of reading from where the code starts: a line that carries
+    // code and then names a using in its trivia writes no import, so the trivia
+    // must not report one.
+    it("does not read a using named in the trivia of a code line", () => {
+        expect(allUsingPaths(["code() # see using { /B }", "using { /A }"])).toEqual(["/A"]);
+    });
 });
 
 describe("scanModuleImports", () => {

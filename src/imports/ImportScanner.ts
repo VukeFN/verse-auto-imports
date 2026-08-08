@@ -48,6 +48,14 @@ interface LineScan {
     /** Whether the line carries any text outside a comment. */
     hasCode: boolean;
     /**
+     * Index of the first character of that text, or -1 when the line carries
+     * none. A statement is not required to open its line - a line closing a
+     * block comment can carry a live one after the `#>` - so a reader that does
+     * not prefix-test needs to be told where the code starts rather than
+     * searching the whole line and finding a `using` written in the trivia.
+     */
+    codeStart: number;
+    /**
      * Whether the line holds a `<#>` marker, which makes every line below it
      * indented past it part of the comment it opens.
      */
@@ -75,6 +83,7 @@ interface LineScan {
 function scanLine(line: string, depth: number): LineScan {
     let nesting = depth;
     let hasCode = false;
+    let codeStart = -1;
     let i = 0;
 
     while (i < line.length) {
@@ -94,13 +103,13 @@ function scanLine(line: string, depth: number): LineScan {
         if (line.startsWith("<#>", i)) {
             // Indented comment: the rest of this line is comment text, and so
             // is everything below indented past this line.
-            return { depth: nesting, hasCode, opensIndentedComment: true };
+            return { depth: nesting, hasCode, codeStart, opensIndentedComment: true };
         }
 
         if (line[i] === "#") {
             // Line comment: the rest of the line is comment text and cannot
             // open a block.
-            return { depth: nesting, hasCode, opensIndentedComment: false };
+            return { depth: nesting, hasCode, codeStart, opensIndentedComment: false };
         }
 
         if (line.startsWith("<#", i)) {
@@ -110,12 +119,15 @@ function scanLine(line: string, depth: number): LineScan {
         }
 
         if (!/\s/.test(line[i])) {
+            if (!hasCode) {
+                codeStart = i;
+            }
             hasCode = true;
         }
         i += 1;
     }
 
-    return { depth: nesting, hasCode, opensIndentedComment: false };
+    return { depth: nesting, hasCode, codeStart, opensIndentedComment: false };
 }
 
 /** The width of a line's leading whitespace, which is its indentation. */
@@ -143,6 +155,12 @@ export interface LineClassification {
      * below the opener or strands lines that no longer read as comment text.
      */
     continuesCommentAbove: boolean;
+    /**
+     * Where the line's live code begins, or -1 when it has none. A reader that
+     * searches the line rather than prefix-testing it needs this: without it a
+     * `using` written in the line's trivia reads as the line's own statement.
+     */
+    codeStart: number;
 }
 
 /**
@@ -186,6 +204,7 @@ export function classifyLines(lines: string[]): LineClassification[] {
             kind,
             insideBlockComment,
             continuesCommentAbove: insideBlockComment || insideIndentedComment,
+            codeStart: scan.codeStart,
         };
 
         if (!insideBlockComment && !insideIndentedComment && scan.opensIndentedComment) {
@@ -375,10 +394,11 @@ export function rewritableImports(scannedImports: ScannedImport[]): ScannedImpor
  * error this must not make: the caller reads an empty answer as permission to
  * remove an import, so anything unrecognised has to fail towards reporting a
  * path rather than away from it. That is also why the statement is not required
- * to open its line, and why extractPathFromImport decides rather than a prefix
- * test - a line closing a block comment can carry a live `using` after the `#>`.
- * The cost is that trivia naming a path, such as a trailing `# see using { /B }`,
- * reports it; that only makes the caller more cautious.
+ * to open its line: a line closing a block comment can carry a live `using`
+ * after the `#>`, and so can one behind closed inline trivia. Where that live
+ * code begins is the classifier's answer, not a search - reading from the start
+ * of the line instead let a `using { X }` written in the trivia stand in for the
+ * line's own statement, which is the same defect the readers below it had.
  *
  * Positions are not reported; a caller that needs them wants scanModuleImports.
  */
@@ -388,14 +408,15 @@ export function allUsingPaths(lines: string[]): string[] {
     const paths: string[] = [];
 
     for (let i = 0; i < lines.length; i++) {
-        if (classifications[i].kind === "comment") {
+        const { kind, codeStart } = classifications[i];
+        if (kind === "comment") {
             continue;
         }
 
         // The indented half of a `using:` pair is read here from nextLine, and
         // holds no `using` of its own, so the loop reaching it finds nothing and
         // the pair is counted once - as scanModuleImports consumes both at once.
-        const trimmed = lines[i].trim();
+        const trimmed = (codeStart === -1 ? lines[i] : lines[i].slice(codeStart)).trim();
         const nextLine = i + 1 < lines.length ? lines[i + 1] : undefined;
         const path = /^using\s*:\s*$/.test(trimmed)
             ? nextLine !== undefined && /^\s+\S/.test(nextLine)

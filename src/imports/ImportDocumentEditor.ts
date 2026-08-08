@@ -754,12 +754,21 @@ export class ImportDocumentEditor {
     }
 
     /**
-     * Ensures the proper number of empty lines exists after the last import statement.
-     * This method is called when saving files, adding imports, or optimizing imports.
+     * The edits that would give the file the configured number of empty lines
+     * after its import block, or an empty array when it already has them.
+     *
+     * Kept separate from applying them because the save path participates in
+     * the save with these edits (see the onWillSaveTextDocument listener in
+     * extension.ts) rather than editing the document afterwards, which is what
+     * used to leave the tab dirty the moment it was saved.
      */
-    async ensureEmptyLinesAfterImports(document: vscode.TextDocument): Promise<boolean> {
+    computeEmptyLinesAfterImportsEdits(document: vscode.TextDocument): vscode.TextEdit[] {
         const config = vscode.workspace.getConfiguration("verseAutoImports");
-        const emptyLinesAfterImports = config.get<number>("behavior.emptyLinesAfterImports", 1);
+        // Clamped because a negative value reaches the delete branch below,
+        // where it would take real code rather than blank lines. package.json
+        // declares a minimum of 0, but a hand-edited settings.json does not
+        // have to honour it.
+        const emptyLinesAfterImports = Math.max(0, config.get<number>("behavior.emptyLinesAfterImports", 1));
 
         logger.debug("ImportDocumentEditor", `Ensuring ${emptyLinesAfterImports} empty lines after imports`);
 
@@ -779,7 +788,7 @@ export class ImportDocumentEditor {
         // If no imports found or file only has imports, nothing to do
         if (lastImportLine === -1 || lastImportLine === lines.length - 1) {
             logger.debug("ImportDocumentEditor", "No imports found or file ends with imports, skipping spacing adjustment");
-            return true;
+            return [];
         }
 
         // Count existing empty lines after the last import
@@ -804,7 +813,7 @@ export class ImportDocumentEditor {
         // Only adjust if there's content after imports
         if (!hasContentAfterImports) {
             logger.debug("ImportDocumentEditor", "No content after imports, skipping spacing adjustment");
-            return true;
+            return [];
         }
 
         // Calculate adjustment needed
@@ -812,26 +821,40 @@ export class ImportDocumentEditor {
 
         if (lineDifference === 0) {
             logger.debug("ImportDocumentEditor", `Already has ${emptyLinesAfterImports} empty lines after imports`);
-            return true;
+            return [];
         }
-
-        const edit = new vscode.WorkspaceEdit();
 
         if (lineDifference > 0) {
             // Need to add empty lines
             const newLines = eol.repeat(lineDifference);
             const insertPosition = new vscode.Position(lastImportLine + 1, 0);
-            edit.insert(document.uri, insertPosition, newLines);
             logger.info("ImportDocumentEditor", `Adding ${lineDifference} empty lines after imports`);
-        } else {
-            // Need to remove empty lines
-            const linesToRemove = Math.abs(lineDifference);
-            const startLine = lastImportLine + 1;
-            const endLine = Math.min(startLine + linesToRemove, lines.length);
-            const range = new vscode.Range(new vscode.Position(startLine, 0), new vscode.Position(endLine, 0));
-            edit.delete(document.uri, range);
-            logger.info("ImportDocumentEditor", `Removing ${linesToRemove} empty lines after imports`);
+            return [vscode.TextEdit.insert(insertPosition, newLines)];
         }
+
+        // Need to remove empty lines
+        const linesToRemove = Math.abs(lineDifference);
+        const startLine = lastImportLine + 1;
+        const endLine = Math.min(startLine + linesToRemove, lines.length);
+        const range = new vscode.Range(new vscode.Position(startLine, 0), new vscode.Position(endLine, 0));
+        logger.info("ImportDocumentEditor", `Removing ${linesToRemove} empty lines after imports`);
+        return [vscode.TextEdit.delete(range)];
+    }
+
+    /**
+     * Applies the spacing edits to the document. Used by the paths that already
+     * hold the document open and edit it - adding imports and organizing them.
+     * The save path uses computeEmptyLinesAfterImportsEdits instead.
+     */
+    async ensureEmptyLinesAfterImports(document: vscode.TextDocument): Promise<boolean> {
+        const edits = this.computeEmptyLinesAfterImportsEdits(document);
+
+        if (edits.length === 0) {
+            return true;
+        }
+
+        const edit = new vscode.WorkspaceEdit();
+        edit.set(document.uri, edits);
 
         try {
             const success = await vscode.workspace.applyEdit(edit);

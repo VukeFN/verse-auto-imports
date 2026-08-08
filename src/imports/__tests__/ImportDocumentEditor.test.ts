@@ -1048,3 +1048,81 @@ describe("ImportDocumentEditor.ensureEmptyLinesAfterImports", () => {
         expect(operations[0].text).toBe("\r\n");
     });
 });
+
+/**
+ * The save participant asks for the edits and hands them to VS Code instead of
+ * applying them itself (#144), so the spacing decisions have to be answerable
+ * without touching the document.
+ */
+describe("ImportDocumentEditor.computeEmptyLinesAfterImportsEdits", () => {
+    let editor: ImportDocumentEditor;
+
+    /** Answers emptyLinesAfterImports with `value`, defaults for everything else. */
+    function mockEmptyLines(value: number): void {
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValueOnce({
+            get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => (key === "behavior.emptyLinesAfterImports" ? value : defaultValue)),
+            update: jest.fn().mockResolvedValue(undefined),
+        });
+    }
+
+    beforeEach(() => {
+        const outputChannel = vscode.window.createOutputChannel("test");
+        editor = new ImportDocumentEditor(outputChannel, new ImportFormatter());
+        (vscode.workspace.applyEdit as unknown as jest.Mock).mockClear();
+    });
+
+    it("asks for an inserted blank line when the import block has none", () => {
+        const edits = editor.computeEmptyLinesAfterImportsEdits(fakeDocument(["using { /Top }", "code()"].join("\n")));
+
+        expect(edits).toHaveLength(1);
+        expect(edits[0].range.start.line).toBe(1);
+        expect(edits[0].range.isEmpty).toBe(true);
+        expect(edits[0].newText).toBe("\n");
+    });
+
+    it("asks for a deletion when the import block has too many blank lines", () => {
+        const edits = editor.computeEmptyLinesAfterImportsEdits(fakeDocument(["using { /Top }", "", "", "code()"].join("\n")));
+
+        expect(edits).toHaveLength(1);
+        expect(edits[0].newText).toBe("");
+        expect(edits[0].range.start.line).toBe(1);
+        expect(edits[0].range.end.line).toBe(2);
+    });
+
+    it("asks for nothing when the spacing already matches", () => {
+        expect(editor.computeEmptyLinesAfterImportsEdits(fakeDocument(["using { /Top }", "", "code()"].join("\n")))).toEqual([]);
+    });
+
+    it("asks for nothing after a module-scoped using", () => {
+        const input = ["using { /Top }", "", "M := module:", "    using { /Verse.org/Random }", "    F():void = {}", ""].join("\n");
+
+        expect(editor.computeEmptyLinesAfterImportsEdits(fakeDocument(input))).toEqual([]);
+    });
+
+    it("asks for nothing after an import inside a block comment", () => {
+        const input = ["<#", "using { /Fortnite.com/Devices }", "#>", "", "code()"].join("\n");
+
+        expect(editor.computeEmptyLinesAfterImportsEdits(fakeDocument(input))).toEqual([]);
+    });
+
+    it("writes a CRLF blank line into a CRLF document", () => {
+        const edits = editor.computeEmptyLinesAfterImportsEdits(fakeDocument("using { /Top }\r\ncode()\r\n", vscode.EndOfLine.CRLF));
+
+        expect(edits[0].newText).toBe("\r\n");
+    });
+
+    // package.json declares minimum 0, but settings.json can be hand-edited
+    // past it. Unclamped, the negative difference reaches the delete branch and
+    // takes the first line of real code with it.
+    it("deletes nothing when the setting is negative", () => {
+        mockEmptyLines(-1);
+
+        expect(editor.computeEmptyLinesAfterImportsEdits(fakeDocument(["using { /Top }", "code()"].join("\n")))).toEqual([]);
+    });
+
+    it("never edits the document itself", () => {
+        editor.computeEmptyLinesAfterImportsEdits(fakeDocument(["using { /Top }", "code()"].join("\n")));
+
+        expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
+    });
+});

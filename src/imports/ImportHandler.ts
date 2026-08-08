@@ -67,4 +67,13 @@ export class ImportHandler {
     async ensureEmptyLinesAfterImports(document: vscode.TextDocument): Promise<boolean> {
         return this.documentEditor.ensureEmptyLinesAfterImports(document);
     }
+
+    /**
+     * The edits that would give the file the configured number of empty lines
+     * after its import block, without applying them. For the save participant,
+     * which hands them to VS Code so they land as part of the save.
+     */
+    computeEmptyLinesAfterImportsEdits(document: vscode.TextDocument): vscode.TextEdit[] {
+        return this.documentEditor.computeEmptyLinesAfterImportsEdits(document);
+    }
 }

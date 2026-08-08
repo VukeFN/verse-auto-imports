@@ -10,6 +10,29 @@ class Range {
         public readonly start: Position,
         public readonly end: Position,
     ) {}
+
+    get isEmpty(): boolean {
+        return this.start.line === this.end.line && this.start.character === this.end.character;
+    }
+}
+
+class TextEdit {
+    constructor(
+        public readonly range: Range,
+        public readonly newText: string,
+    ) {}
+
+    static insert(position: Position, newText: string): TextEdit {
+        return new TextEdit(new Range(position, position), newText);
+    }
+
+    static delete(range: Range): TextEdit {
+        return new TextEdit(range, "");
+    }
+
+    static replace(range: Range, newText: string): TextEdit {
+        return new TextEdit(range, newText);
+    }
 }
 
 interface Command {
@@ -71,6 +94,24 @@ class WorkspaceEdit {
 
     replace(uri: unknown, range: Range, text: string): void {
         this.operations.push({ kind: "replace", uri, range, text });
+    }
+
+    /**
+     * Real VS Code stores TextEdits whichever method built them, so each one is
+     * recorded as the operation it is equivalent to. That keeps a set() and the
+     * insert()/delete() calls it replaces indistinguishable to a test, which is
+     * what they are to the editor.
+     */
+    set(uri: unknown, edits: TextEdit[]): void {
+        for (const edit of edits) {
+            if (edit.newText.length === 0) {
+                this.delete(uri, edit.range);
+            } else if (edit.range.isEmpty) {
+                this.insert(uri, edit.range.start, edit.newText);
+            } else {
+                this.replace(uri, edit.range, edit.newText);
+            }
+        }
     }
 }
 
@@ -193,6 +234,7 @@ const workspace = {
     onDidChangeConfiguration: jest.fn().mockImplementation(() => ({ dispose: jest.fn() })),
     onDidChangeTextDocument: jest.fn().mockImplementation(() => ({ dispose: jest.fn() })),
     onDidSaveTextDocument: jest.fn().mockImplementation(() => ({ dispose: jest.fn() })),
+    onWillSaveTextDocument: jest.fn().mockImplementation(() => ({ dispose: jest.fn() })),
     applyEdit: jest.fn().mockResolvedValue(true),
     workspaceFolders: undefined as { uri: { fsPath: string }; name: string; index: number }[] | undefined,
     findFiles: jest.fn().mockResolvedValue([]),
@@ -312,6 +354,7 @@ export {
     EndOfLine,
     Position,
     Range,
+    TextEdit,
     WorkspaceEdit,
     Uri,
     RelativePattern,

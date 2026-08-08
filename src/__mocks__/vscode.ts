@@ -192,6 +192,7 @@ const workspace = {
     // disposed" unassertable: one dispose() call would satisfy all of them.
     onDidChangeConfiguration: jest.fn().mockImplementation(() => ({ dispose: jest.fn() })),
     onDidChangeTextDocument: jest.fn().mockImplementation(() => ({ dispose: jest.fn() })),
+    onDidSaveTextDocument: jest.fn().mockImplementation(() => ({ dispose: jest.fn() })),
     applyEdit: jest.fn().mockResolvedValue(true),
     workspaceFolders: undefined as { uri: { fsPath: string }; name: string; index: number }[] | undefined,
     findFiles: jest.fn().mockResolvedValue([]),
@@ -241,10 +242,39 @@ const window = {
     showErrorMessage: jest.fn(),
     showQuickPick: jest.fn(),
     setStatusBarMessage: jest.fn(),
+    /**
+     * Runs the task straight away, as real VS Code does, so a command wrapped
+     * in a progress notification is still observable from a test. The progress
+     * and cancellation arguments are the minimum the callers read.
+     */
+    withProgress: jest
+        .fn()
+        .mockImplementation(<T>(_options: unknown, task: (progress: { report: () => void }, token: { isCancellationRequested: boolean }) => Thenable<T>) =>
+            task({ report: () => {} }, { isCancellationRequested: false }),
+        ),
 };
 
 const languages = {
     getDiagnostics: jest.fn().mockReturnValue([]),
+    onDidChangeDiagnostics: jest.fn().mockImplementation(() => ({ dispose: jest.fn() })),
+    registerCodeActionsProvider: jest.fn().mockImplementation(() => ({ dispose: jest.fn() })),
+    registerCodeLensProvider: jest.fn().mockImplementation(() => ({ dispose: jest.fn() })),
+    registerHoverProvider: jest.fn().mockImplementation(() => ({ dispose: jest.fn() })),
+};
+
+/**
+ * registerCommand records the handler in its own mock.calls, which is how a
+ * test gets at a command body: the extension keeps no registry of its own.
+ */
+const commands = {
+    registerCommand: jest.fn().mockImplementation(() => ({ dispose: jest.fn() })),
+    executeCommand: jest.fn().mockResolvedValue(undefined),
+};
+
+const ProgressLocation = {
+    SourceControl: 1,
+    Window: 10,
+    Notification: 15,
 };
 
 const DiagnosticSeverity = {
@@ -274,9 +304,11 @@ export {
     workspace,
     window,
     languages,
+    commands,
     DiagnosticSeverity,
     StatusBarAlignment,
     ConfigurationTarget,
+    ProgressLocation,
     EndOfLine,
     Position,
     Range,

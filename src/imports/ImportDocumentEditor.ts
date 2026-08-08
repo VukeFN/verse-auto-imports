@@ -579,16 +579,19 @@ export class ImportDocumentEditor {
     ): string | null {
         const eol = detectEol(text) ?? options.fallbackEol ?? "\n";
         const lines = text.split(LINE_SPLIT);
-        // An import anchored by a comment marker is neither hoisted nor
-        // removed from the body: its line stays exactly where it is, and the
-        // rest of the file is organized around it. It is still an import,
-        // though, so an additional path it already covers must not be written
-        // out a second time - that would duplicate it rather than move it.
+        // A pinned import - one anchored by a comment marker, or one sharing its
+        // span with another statement - is neither hoisted nor removed from the
+        // body: its line stays exactly where it is, and the rest of the file is
+        // organized around it. It is still an import, though, so an additional
+        // path it already covers must not be written out a second time - that
+        // would duplicate it rather than move it. Both reasons answer that the
+        // same way, so the set is keyed on the line staying put rather than on
+        // why it does; see ScannedImport.rebuildLosesText.
         const allImports = scanModuleImports(lines);
         const movableImports = rewritableImports(allImports);
-        const anchoredPaths = new Set(allImports.filter((imp) => imp.anchorsCommentBelow).map((imp) => imp.path));
+        const pinnedPaths = new Set(allImports.filter((imp) => imp.anchorsCommentBelow || imp.rebuildLosesText).map((imp) => imp.path));
 
-        const extraPaths = additionalPaths.map((p) => p.trim()).filter((p) => p.length > 0 && !anchoredPaths.has(p));
+        const extraPaths = additionalPaths.map((p) => p.trim()).filter((p) => p.length > 0 && !pinnedPaths.has(p));
 
         // Module imports have file scope, so the names an anchored import brings
         // in are available to code anywhere in the file, however far down its
@@ -627,7 +630,7 @@ export class ImportDocumentEditor {
         // direction: the duplicate left behind is legal Verse, and a stranded
         // provider is a file that stops compiling.
         const withholdIsSafe = [...allUsingPaths(lines), ...extraPaths].every((path) => this.formatter.importRank(path) === 0);
-        const blockImports = withholdIsSafe ? movableImports.filter((imp) => !anchoredPaths.has(imp.path)) : movableImports;
+        const blockImports = withholdIsSafe ? movableImports.filter((imp) => !pinnedPaths.has(imp.path)) : movableImports;
 
         const paths = blockImports.map((imp) => imp.path);
         // Keyed on the unfiltered set: a file whose only rewritable import is

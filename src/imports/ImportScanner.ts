@@ -467,22 +467,18 @@ export function allUsingPaths(lines: string[]): string[] {
 
         // A `using:` opening an indented pair carries no path of its own -
         // extractPathFromImport reads neither pattern out of it - so the path
-        // below it is read here instead, and the line above contributes it
-        // nothing.
+        // below it is read here instead.
         //
-        // The opener is matched as the tail of the line rather than as the
-        // whole of it, because `;` separates statements exactly as a newline
-        // does and one can therefore precede it. Whatever precedes it is
-        // already reported above, so requiring the line to hold nothing else
-        // dropped the path below a pair written that way, and a line reporting
-        // only its absolute statements is read by the caller as permission to
-        // remove an import. The tail is all that has to match: a `using:`
-        // anywhere but the end opens no block, since the path would have to
-        // follow it on the line.
+        // Only the tail of the line has to match. Requiring the whole of it
+        // dropped the path below a pair opened after a `;`, and a line left
+        // reporting nothing but its absolute statements is read by the caller
+        // as permission to remove an import. Matching the tail alone errs the
+        // other way: a line merely ending in `using:` contributes the text
+        // below it as a path, which can only make the caller decline to tidy.
         //
-        // The indented half holds no `using` of its own, so the loop reaching
-        // it finds nothing and the pair is still counted once - as
-        // scanModuleImports consumes both at once.
+        // The indented half holds no `using` statement of its own, so the loop
+        // reaching it adds no second copy of the path - as scanModuleImports
+        // consumes both lines at once.
         if (!/\busing\s*:\s*$/.test(trimmed)) {
             continue;
         }

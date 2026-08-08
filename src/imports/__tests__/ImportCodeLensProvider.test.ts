@@ -1,15 +1,18 @@
 import * as vscode from "vscode";
 import { ImportCodeLensProvider } from "../ImportCodeLensProvider";
 
+/** The registered default for pathConversion.codeLensHideDelay. */
+const DEFAULT_HIDE_DELAY_MS = 1000;
+
 /**
  * A document that only carries what provideCodeLenses reads: its text, a uri to
  * key hover state on, and a name for the log line.
  */
-function documentWith(text: string): vscode.TextDocument {
+function documentWith(text: string, fsPath = "C:\\project\\Content\\Main.verse"): vscode.TextDocument {
     return {
         getText: () => text,
-        uri: vscode.Uri.file("C:\\project\\Content\\Main.verse"),
-        fileName: "C:\\project\\Content\\Main.verse",
+        uri: vscode.Uri.file(fsPath),
+        fileName: fsPath,
         languageId: "verse",
     } as unknown as vscode.TextDocument;
 }
@@ -89,9 +92,6 @@ describe("ImportCodeLensProvider.provideCodeLenses", () => {
 // every document in the window - kept calling in, and a hide timer (delay
 // configurable up to 10000 ms) could still fire seconds later.
 describe("ImportCodeLensProvider hide timers and teardown", () => {
-    /** The registered default for pathConversion.codeLensHideDelay. */
-    const DEFAULT_HIDE_DELAY_MS = 1000;
-
     beforeEach(() => {
         jest.useFakeTimers();
         jest.clearAllMocks();
@@ -171,5 +171,65 @@ describe("ImportCodeLensProvider hide timers and teardown", () => {
         provider.dispose();
 
         expect(jest.getTimerCount()).toBe(0);
+    });
+});
+
+// Both hover maps are keyed by document.uri.toString(), and two Verse files
+// that share a basename differ only in their folder. Any key that collapsed
+// them - a basename, or a Uri carrying no toString of its own - would let one
+// file's hover decide whether the other file's lenses appear.
+describe("ImportCodeLensProvider per-document hover state", () => {
+    /** One relative import, so a visible document offers exactly one lens. */
+    const IMPORT_TEXT = "using { Gadgets.Tools }\n\ncode()";
+    const WEAPONS_UTILS = "C:\\project\\Content\\Weapons\\utils.verse";
+    const UI_UTILS = "C:\\project\\Content\\UI\\utils.verse";
+
+    beforeEach(() => {
+        jest.useFakeTimers();
+        jest.clearAllMocks();
+        // "hover" visibility, so the lenses are a readout of the hover state.
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+            get: (key: string, defaultValue?: unknown) => (key === "pathConversion.codeLensVisibility" ? "hover" : defaultValue),
+            update: jest.fn(),
+        });
+    });
+
+    afterEach(() => {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+        jest.clearAllMocks();
+    });
+
+    it("offers nothing on a document that was never hovered", async () => {
+        const provider = new ImportCodeLensProvider(vscode.window.createOutputChannel("test"));
+
+        const lenses = await provider.provideCodeLenses(documentWith(IMPORT_TEXT), {} as vscode.CancellationToken);
+
+        expect(lenses).toEqual([]);
+    });
+
+    it("confines a hover to the document hovered, not its same-named neighbour", async () => {
+        const provider = new ImportCodeLensProvider(vscode.window.createOutputChannel("test"));
+        const weapons = documentWith(IMPORT_TEXT, WEAPONS_UTILS);
+        const ui = documentWith(IMPORT_TEXT, UI_UTILS);
+
+        provider.setHoverState(weapons.uri.toString(), true, 0);
+
+        await expect(provider.provideCodeLenses(weapons, {} as vscode.CancellationToken)).resolves.toHaveLength(1);
+        await expect(provider.provideCodeLenses(ui, {} as vscode.CancellationToken)).resolves.toEqual([]);
+    });
+
+    it("confines a hide timer to the document it was armed for", async () => {
+        const provider = new ImportCodeLensProvider(vscode.window.createOutputChannel("test"));
+        const weapons = documentWith(IMPORT_TEXT, WEAPONS_UTILS);
+        const ui = documentWith(IMPORT_TEXT, UI_UTILS);
+
+        provider.setHoverState(weapons.uri.toString(), true, 0);
+        provider.setHoverState(ui.uri.toString(), true, 0);
+        provider.setHoverState(weapons.uri.toString(), false);
+        jest.advanceTimersByTime(DEFAULT_HIDE_DELAY_MS);
+
+        await expect(provider.provideCodeLenses(weapons, {} as vscode.CancellationToken)).resolves.toEqual([]);
+        await expect(provider.provideCodeLenses(ui, {} as vscode.CancellationToken)).resolves.toHaveLength(1);
     });
 });

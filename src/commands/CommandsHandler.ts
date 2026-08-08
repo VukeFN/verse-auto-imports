@@ -415,7 +415,7 @@ export class CommandsHandler {
      * not read as a failure: a run where every edit was refused still reports
      * a number, so any failure has to say so in its own words.
      */
-    private reportConversionTotals(pathKind: string, convertedCount: number, failedCount: number): void {
+    private reportConversionTotals(pathKind: "absolute" | "relative", convertedCount: number, failedCount: number): void {
         const summary = `Using ${pathKind} paths for ${convertedCount} import${convertedCount !== 1 ? "s" : ""}.`;
 
         if (failedCount === 0) {

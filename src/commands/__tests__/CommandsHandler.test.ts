@@ -106,7 +106,20 @@ describe("CommandsHandler.optimizeImports", () => {
 const RELATIVE_MODULE = "Gadgets/Tools";
 const ABSOLUTE_PATH = `/mygame@fortnite.com/mygame/${RELATIVE_MODULE}`;
 
-function makeConversion(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+/**
+ * The shape CommandsHandler reads off a conversion. Declared here because both
+ * PathConversionResult and ImportConversionResult are module-private, and an
+ * untyped fixture lets a mistyped key through to an assertion that still passes.
+ */
+interface ConversionFixture {
+    originalImport: string;
+    fullPathImport: string;
+    moduleName: string;
+    isAmbiguous: boolean;
+    possiblePaths?: string[];
+}
+
+function makeConversion(overrides: Partial<ConversionFixture> = {}): ConversionFixture {
     return {
         originalImport: `using { ${RELATIVE_MODULE} }`,
         fullPathImport: `using { ${ABSOLUTE_PATH} }`,
@@ -141,6 +154,12 @@ function makeConversionHandler(converterOverrides: Record<string, jest.Mock>): {
 
     return { handler, codeLensProvider };
 }
+
+// clearAllMocks clears calls but not implementations, so a quick pick stubbed in
+// one test would otherwise survive into every test declared after it.
+afterEach(() => {
+    (vscode.window.showQuickPick as jest.Mock).mockReset();
+});
 
 describe("CommandsHandler.convertToFullPath", () => {
     it("warns and reports no path when the edit is refused", async () => {

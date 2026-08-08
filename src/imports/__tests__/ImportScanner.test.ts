@@ -89,6 +89,26 @@ describe("allUsingPaths", () => {
         expect(allUsingPaths(["using { /A }", "MyModule := module:", "    using { /X }; using { Economy.Shop }", "code()"])).toEqual(["/A", "/X", "Economy.Shop"]);
     });
 
+    // The one shape whose second half lives on the next line. Requiring the
+    // `using:` to be the whole of its line dropped the path below it, leaving a
+    // line of nothing but absolute paths - which the caller reads as permission
+    // to withhold an import the pair was resolving against.
+    it("collects the path below a using: opened after a semicolon", () => {
+        expect(allUsingPaths(["using { /X }; using:", "    Economy.Shop", "code()"])).toEqual(["/X", "Economy.Shop"]);
+    });
+
+    it("collects the path below a using: opened after a semicolon in a module body", () => {
+        expect(allUsingPaths(["using { /A }", "MyModule := module:", "    using { /X }; using:", "        Economy.Shop", "code()"])).toEqual(["/A", "/X", "Economy.Shop"]);
+    });
+
+    it("reports the statements on the line when a using: opens no indented path", () => {
+        expect(allUsingPaths(["using { /X }; using:", "code()"])).toEqual(["/X"]);
+    });
+
+    it("does not read an identifier that merely ends with using: as an opener", () => {
+        expect(allUsingPaths(["Xusing:", "    Economy.Shop", "using { /A }"])).toEqual(["/A"]);
+    });
+
     it("does not read a second statement out of a comment sharing the line", () => {
         expect(allUsingPaths(["using { /X } # see using { Economy.Shop }", "code()"])).toEqual(["/X"]);
     });

@@ -444,8 +444,10 @@ function usingPathsOnLine(formatter: ImportFormatter, code: string): string[] {
  * A `;` also means a line can carry more than one statement, so a line
  * contributes every `using` statement usingPathsOnLine finds on it, in written
  * order, rather than the first. Reporting the first was the same error under
- * another name - see that function. The indented `using:` pair is the one shape
- * still counted once, because its path is read here from the line below.
+ * another name - see that function. For the same reason a `using:` opening an
+ * indented pair is recognised at the end of its line rather than as the whole
+ * of it: a statement can precede it there too. The pair is the one shape still
+ * counted once, because its path is read here from the line below.
  *
  * Positions are not reported; a caller that needs them wants scanModuleImports.
  */
@@ -460,20 +462,36 @@ export function allUsingPaths(lines: string[]): string[] {
             continue;
         }
 
-        // The indented half of a `using:` pair is read here from nextLine, and
-        // holds no `using` of its own, so the loop reaching it finds nothing and
-        // the pair is counted once - as scanModuleImports consumes both at once.
         const trimmed = code.trim();
-        const nextLine = i + 1 < lines.length ? lines[i + 1] : undefined;
-        if (/^using\s*:\s*$/.test(trimmed)) {
-            const indentedPath = nextLine !== undefined && /^\s+\S/.test(nextLine) ? ImportFormatter.stripTrailingComment(nextLine) : "";
-            if (indentedPath) {
-                paths.push(indentedPath);
-            }
+        paths.push(...usingPathsOnLine(formatter, trimmed));
+
+        // A `using:` opening an indented pair carries no path of its own -
+        // extractPathFromImport reads neither pattern out of it - so the path
+        // below it is read here instead, and the line above contributes it
+        // nothing.
+        //
+        // The opener is matched as the tail of the line rather than as the
+        // whole of it, because `;` separates statements exactly as a newline
+        // does and one can therefore precede it. Whatever precedes it is
+        // already reported above, so requiring the line to hold nothing else
+        // dropped the path below a pair written that way, and a line reporting
+        // only its absolute statements is read by the caller as permission to
+        // remove an import. The tail is all that has to match: a `using:`
+        // anywhere but the end opens no block, since the path would have to
+        // follow it on the line.
+        //
+        // The indented half holds no `using` of its own, so the loop reaching
+        // it finds nothing and the pair is still counted once - as
+        // scanModuleImports consumes both at once.
+        if (!/\busing\s*:\s*$/.test(trimmed)) {
             continue;
         }
 
-        paths.push(...usingPathsOnLine(formatter, trimmed));
+        const nextLine = i + 1 < lines.length ? lines[i + 1] : undefined;
+        const indentedPath = nextLine !== undefined && /^\s+\S/.test(nextLine) ? ImportFormatter.stripTrailingComment(nextLine) : "";
+        if (indentedPath) {
+            paths.push(indentedPath);
+        }
     }
 
     return paths;

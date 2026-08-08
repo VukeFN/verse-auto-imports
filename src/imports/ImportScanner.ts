@@ -375,23 +375,36 @@ export function rewritableImports(scannedImports: ScannedImport[]): ScannedImpor
 }
 
 /**
- * The path of the first `using` written anywhere in a line of live code, or ""
- * when it writes none.
+ * The path of every `using` written anywhere in a line of live code, in written
+ * order, or [] when it writes none.
  *
  * extractPathFromImport reads a statement from the head of what it is given, so
  * a statement that does not open the line has to be handed its own head rather
  * than the line. Every `using` on the line is offered in turn, which keeps one
  * copy of the two patterns instead of a looser second copy that searches - the
  * looser copy is what read a comment as the statement in the first place.
+ *
+ * All of them are collected rather than the first, because a line can carry more
+ * than one live statement - `;` separates definitions in a scope exactly as a
+ * newline does. Stopping at the first is how a rank-0 path written before a
+ * rank-1 or rank-2 one on the same line hid it from the caller, which reads an
+ * all-absolute answer as permission to remove an import.
+ *
+ * A dotted statement has no closing delimiter, so one sharing a line swallows
+ * what follows it into its path. The next iteration still finds the statement
+ * after it and reports that path on its own, so nothing is missed - which is the
+ * guarantee this owes its caller. The swallowed copy only adds a path the caller
+ * weighs too, and a path that is not absolute weighs towards keeping an import.
  */
-function firstImportPath(formatter: ImportFormatter, code: string): string {
+function allImportPaths(formatter: ImportFormatter, code: string): string[] {
+    const paths: string[] = [];
     for (let at = code.indexOf("using"); at !== -1; at = code.indexOf("using", at + 1)) {
         const path = formatter.extractPathFromImport(code.slice(at));
         if (path) {
-            return path;
+            paths.push(path);
         }
     }
-    return "";
+    return paths;
 }
 
 /**
@@ -428,6 +441,13 @@ function firstImportPath(formatter: ImportFormatter, code: string): string {
  * `using { X }` written in a comment stand in for the line's own statement,
  * the same defect extractPathFromImport itself had.
  *
+ * A `;` also means a line can carry more than one statement, so every one it
+ * writes is reported rather than the first. Reporting one was the same error
+ * under another name: a rank-0 path written first reads as safe and hides the
+ * rank-1 or rank-2 path beside it, which is exactly the answer the caller acts
+ * on. Two statements on one line therefore contribute two paths, in written
+ * order, and only the indented `using:` pair is still counted once.
+ *
  * Positions are not reported; a caller that needs them wants scanModuleImports.
  */
 export function allUsingPaths(lines: string[]): string[] {
@@ -446,10 +466,15 @@ export function allUsingPaths(lines: string[]): string[] {
         // the pair is counted once - as scanModuleImports consumes both at once.
         const trimmed = code.trim();
         const nextLine = i + 1 < lines.length ? lines[i + 1] : undefined;
-        const path = /^using\s*:\s*$/.test(trimmed) ? (nextLine !== undefined && /^\s+\S/.test(nextLine) ? ImportFormatter.stripTrailingComment(nextLine) : "") : firstImportPath(formatter, trimmed);
-        if (path) {
-            paths.push(path);
+        if (/^using\s*:\s*$/.test(trimmed)) {
+            const indentedPath = nextLine !== undefined && /^\s+\S/.test(nextLine) ? ImportFormatter.stripTrailingComment(nextLine) : "";
+            if (indentedPath) {
+                paths.push(indentedPath);
+            }
+            continue;
         }
+
+        paths.push(...allImportPaths(formatter, trimmed));
     }
 
     return paths;

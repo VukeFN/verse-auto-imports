@@ -328,9 +328,11 @@ export class ImportDocumentEditor {
      * above it rather than merely preferring it there.
      *
      * Only a dotted path needs something in scope above it - its first segment.
-     * An absolute path needs nothing, and a bare reference names a module
-     * beside the file rather than something an earlier import brought in, so
-     * neither can be depending on an import added below it.
+     * An absolute path needs nothing at all. A bare reference can need another
+     * bare one, a nested child its parent, but a newly added import has no
+     * claim to be that parent: belongsAbove already keeps a new bare import
+     * below the existing ones, so raising an upper bound from a bare import
+     * would only contradict the lower bound it raises anyway.
      *
      * Narrower than belongsBelow on purpose. Preference is the right strength
      * in selectTargetBlockIndex, where the consequence of an upper bound is
@@ -365,20 +367,6 @@ export class ImportDocumentEditor {
         return { floor, ceiling };
     }
 
-    /** The bounds of a run of paths written together: the tightest of each. */
-    private combinedAnchoredBounds(anchoredImports: ScannedImport[], classifications: LineClassification[], paths: string[]): AnchoredBounds {
-        return paths.reduce<AnchoredBounds>(
-            (combined, path) => {
-                const bounds = this.anchoredBounds(anchoredImports, classifications, path);
-                return {
-                    floor: Math.max(combined.floor, bounds.floor),
-                    ceiling: combined.ceiling === -1 ? bounds.ceiling : bounds.ceiling === -1 ? combined.ceiling : Math.min(combined.ceiling, bounds.ceiling),
-                };
-            },
-            { floor: -1, ceiling: -1 },
-        );
-    }
-
     /**
      * The line a run of new import statements is written on: `desired`, moved
      * below the floor, and directly above the ceiling wherever there is one.
@@ -389,15 +377,21 @@ export class ImportDocumentEditor {
      * - The ceiling wins over the floor. Only couldResolveAgainst raises one,
      *   so a ceiling is always a scope requirement - an anchored dotted import
      *   whose first segment this new import is being added to provide. A floor
-     *   that disagrees with it can only come from an anchored absolute path,
-     *   which is ordering preference. Honouring the preference and breaking the
-     *   requirement writes the provider below its consumer, which is the defect
-     *   this whole path exists to prevent.
-     * - Taken exactly, so the import lands directly above the statement that
-     *   needs it rather than at `desired`. Anywhere higher is equally legal and
-     *   strictly worse: it opens a third import region, and from `desired` 0 it
-     *   would sit above the file header, which headerLineCount calls the one
-     *   place a header must never be.
+     *   disagreeing with it is usually the rank-0-before-rank-1 preference,
+     *   raised by an anchored absolute path that brings nothing into scope, and
+     *   honouring a preference over a requirement writes the provider below its
+     *   consumer: the defect this whole path exists to prevent. The one
+     *   disagreement that is not a preference - an anchored bare parent below
+     *   an anchored dotted consumer - is a file where the consumer already sits
+     *   above the chain it resolves through, so no line satisfies both and
+     *   neither choice makes it compile.
+     * - Taken exactly, because the ceiling is the *lowest* legal line: the new
+     *   import must precede that statement, so everything below the ceiling is
+     *   ruled out and everything above it is merely further away. Landing
+     *   directly above the statement that needs it keeps it beside its
+     *   consumer, and keeps it off line 0, where a `desired` of 0 would put it
+     *   above the file header - which headerLineCount calls the one place a
+     *   header must never be.
      */
     private placementLine(desired: number, bounds: AnchoredBounds): number {
         if (bounds.ceiling !== -1) {
@@ -662,10 +656,22 @@ export class ImportDocumentEditor {
                             this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, false);
                         }
                     } else {
-                        // No existing block - insert the grouped imports at the
-                        // top, or below an anchored import that has to precede
-                        // one of them.
-                        this.insertImportLines(edit, document, this.placementLine(0, this.combinedAnchoredBounds(anchoredImports, classifications, allImportsArray)), groupedImports, eol, true);
+                        // No existing block - write the imports at the top, or
+                        // below an anchored import that has to precede one of
+                        // them. Split by line like every other site rather than
+                        // written as one run under a merged bound: paths of
+                        // different ranks take their bounds from different
+                        // anchored imports, and one path's floor can sit below
+                        // another's ceiling, leaving the group no line it can
+                        // legally occupy at all.
+                        //
+                        // A relocated path is never among these. Every
+                        // rewritable import opens or extends a block, so no
+                        // block means none of them, which is also why the
+                        // trailing comments here are always empty.
+                        for (const [line, paths] of this.groupByPlacementLine(allImportsArray, 0, anchoredImports, classifications)) {
+                            this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, true);
+                        }
                     }
                 } else {
                     // No grouping or no existing imports - use original behavior
@@ -722,12 +728,21 @@ export class ImportDocumentEditor {
                         }
 
                         // Blocks are disjoint, so the replacements never overlap.
-                        // Neither can a standalone line below collide with one:
-                        // placementLine returns either a ceiling, which is an
-                        // anchored import's own line and so in no block, or
-                        // floor + 1 - and a path reaching that had every block
-                        // refused, which for a path with no ceiling means every
-                        // block starts at or above the floor.
+                        // Neither can a standalone line below collide with one.
+                        // placementLine returns one of two things, and an
+                        // anchored import's span holds no block line either way:
+                        // its own line breaks the contiguity a block is built
+                        // from, and the comment body below it is comment, so no
+                        // column-0 import the scanner would collect can be in
+                        // it.
+                        //
+                        // - A ceiling, which is an anchored import's own line.
+                        // - floor + 1, reached only when every block was
+                        //   refused, which for a path with no ceiling means
+                        //   every block starts at or below the floor. The floor
+                        //   is the end of an anchored span, so a block starting
+                        //   at or below it ends before that span begins, and
+                        //   floor + 1 is past the end of the block.
                         for (const index of [...pathsByBlock.keys()].sort((a, b) => a - b)) {
                             this.createBlockReplacementEdit(edit, document, importBlocks[index], pathsByBlock.get(index)!, preferDotSyntax, true, eol);
                         }

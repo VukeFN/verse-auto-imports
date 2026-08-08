@@ -391,12 +391,12 @@ export function rewritableImports(scannedImports: ScannedImport[]): ScannedImpor
  * all-absolute answer as permission to remove an import.
  *
  * A dotted statement has no closing delimiter, so one sharing a line swallows
- * what follows it into its path. The next iteration still finds the statement
- * after it and reports that path on its own, so nothing is missed - which is the
- * guarantee this owes its caller. The swallowed copy only adds a path the caller
- * weighs too, and a path that is not absolute weighs towards keeping an import.
+ * what follows it into its path. That malformed path is reported as well, but
+ * the next iteration finds the statement after it and reports that path on its
+ * own - which is the guarantee this owes its caller. Reading the swallowed copy
+ * is not what makes the line safe; finding the statement inside it again is.
  */
-function allImportPaths(formatter: ImportFormatter, code: string): string[] {
+function usingPathsOnLine(formatter: ImportFormatter, code: string): string[] {
     const paths: string[] = [];
     for (let at = code.indexOf("using"); at !== -1; at = code.indexOf("using", at + 1)) {
         const path = formatter.extractPathFromImport(code.slice(at));
@@ -441,12 +441,11 @@ function allImportPaths(formatter: ImportFormatter, code: string): string[] {
  * `using { X }` written in a comment stand in for the line's own statement,
  * the same defect extractPathFromImport itself had.
  *
- * A `;` also means a line can carry more than one statement, so every one it
- * writes is reported rather than the first. Reporting one was the same error
- * under another name: a rank-0 path written first reads as safe and hides the
- * rank-1 or rank-2 path beside it, which is exactly the answer the caller acts
- * on. Two statements on one line therefore contribute two paths, in written
- * order, and only the indented `using:` pair is still counted once.
+ * A `;` also means a line can carry more than one statement, so a line
+ * contributes every `using` statement usingPathsOnLine finds on it, in written
+ * order, rather than the first. Reporting the first was the same error under
+ * another name - see that function. The indented `using:` pair is the one shape
+ * still counted once, because its path is read here from the line below.
  *
  * Positions are not reported; a caller that needs them wants scanModuleImports.
  */
@@ -474,7 +473,7 @@ export function allUsingPaths(lines: string[]): string[] {
             continue;
         }
 
-        paths.push(...allImportPaths(formatter, trimmed));
+        paths.push(...usingPathsOnLine(formatter, trimmed));
     }
 
     return paths;

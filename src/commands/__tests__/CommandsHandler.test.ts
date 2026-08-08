@@ -10,9 +10,13 @@ import { ImportHandler, ImportPathConverter, ImportCodeLensProvider } from "../.
 
 const IMPORT_STATEMENT = "using { /Fortnite.com/Devices }";
 
-function makeDocument(): vscode.TextDocument & { save: jest.Mock } {
+/**
+ * @param fsPath distinguishes documents within one test; the conversion keying
+ * tests rely on two documents differing only in their folder.
+ */
+function makeDocument(fsPath = "C:\\Project\\Content\\device.verse"): vscode.TextDocument & { save: jest.Mock } {
     return {
-        uri: vscode.Uri.file("C:\\Project\\Content\\device.verse"),
+        uri: vscode.Uri.file(fsPath),
         languageId: "verse",
         save: jest.fn().mockResolvedValue(true),
     } as unknown as vscode.TextDocument & { save: jest.Mock };
@@ -131,7 +135,7 @@ function makeConversion(overrides: Partial<ConversionFixture> = {}): ConversionF
 
 function makeConversionHandler(converterOverrides: Record<string, jest.Mock>): {
     handler: CommandsHandler;
-    codeLensProvider: { forceRefreshAfterConversion: jest.Mock };
+    codeLensProvider: { keepHoverStateActive: jest.Mock; forceRefreshAfterConversion: jest.Mock };
 } {
     const importPathConverter = {
         convertToFullPath: jest.fn().mockResolvedValue(null),
@@ -273,5 +277,58 @@ describe("CommandsHandler.convertAllToRelativePath", () => {
 
         expect(vscode.window.showInformationMessage).toHaveBeenCalledWith("Using relative paths for 2 imports.");
         expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
+    });
+});
+
+/**
+ * A conversion command, the converter result that carries it through to a
+ * finalized conversion, and how to invoke it. The overrides are built per case
+ * rather than shared, so one case's call counts cannot leak into another's.
+ */
+type ConversionCommandCase = [name: string, converterOverrides: () => Record<string, jest.Mock>, run: (handler: CommandsHandler, document: vscode.TextDocument) => Promise<void>];
+
+const CONVERSION_COMMANDS: ConversionCommandCase[] = [
+    ["convertToFullPath", () => ({ convertToFullPath: jest.fn().mockResolvedValue(makeConversion()) }), (handler, document) => handler.convertToFullPath(document, `using { ${RELATIVE_MODULE} }`, 4)],
+    [
+        "convertToRelativePath",
+        () => ({ convertFromFullPath: jest.fn().mockResolvedValue(makeConversion()) }),
+        (handler, document) => handler.convertToRelativePath(document, `using { ${ABSOLUTE_PATH} }`, 4),
+    ],
+    ["convertAllToFullPath", () => ({ convertAllImportsInDocument: jest.fn().mockResolvedValue([makeConversion()]) }), (handler, document) => handler.convertAllToFullPath(document)],
+    ["convertAllToRelativePath", () => ({ convertAllImportsFromFullPath: jest.fn().mockResolvedValue([makeConversion()]) }), (handler, document) => handler.convertAllToRelativePath(document)],
+];
+
+// The provider keys its hover state on the string these commands hand it, so
+// the commands are half of that keying. One that forwarded a basename, or a
+// stale document's uri, would collide two same-named files without the provider
+// changing at all.
+describe("CommandsHandler per-document conversion keying", () => {
+    const WEAPONS_UTILS = "C:\\Project\\Content\\Weapons\\utils.verse";
+    const UI_UTILS = "C:\\Project\\Content\\UI\\utils.verse";
+
+    it.each(CONVERSION_COMMANDS)("%s forwards the acting document's own uri", async (_name, converterOverrides, run) => {
+        const { handler, codeLensProvider } = makeConversionHandler(converterOverrides());
+        const document = makeDocument(WEAPONS_UTILS);
+
+        await run(handler, document);
+
+        expect(codeLensProvider.keepHoverStateActive).toHaveBeenCalledWith(document.uri.toString());
+        expect(codeLensProvider.forceRefreshAfterConversion).toHaveBeenCalledWith(document.uri.toString());
+    });
+
+    it.each(CONVERSION_COMMANDS)("%s forwards a distinct uri for each of two same-named documents", async (_name, converterOverrides, run) => {
+        const { handler, codeLensProvider } = makeConversionHandler(converterOverrides());
+        const weapons = makeDocument(WEAPONS_UTILS);
+        const ui = makeDocument(UI_UTILS);
+
+        await run(handler, weapons);
+        await run(handler, ui);
+
+        const forwarded = codeLensProvider.forceRefreshAfterConversion.mock.calls.map(([documentUri]) => documentUri);
+        expect(forwarded).toEqual([weapons.uri.toString(), ui.uri.toString()]);
+        // Both sides of that comparison run through the same toString(), so it
+        // would still hold if the key itself collapsed onto one value. This is
+        // the half that fails when it does.
+        expect(new Set(forwarded).size).toBe(2);
     });
 });

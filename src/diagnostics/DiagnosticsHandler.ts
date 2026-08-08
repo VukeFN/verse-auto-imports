@@ -42,6 +42,41 @@ export class DiagnosticsHandler {
         return fsPath.endsWith(".verse") && !fsPath.endsWith(".digest.verse");
     }
 
+    /**
+     * Decides whether a diagnostics URI is inside the configured auto-import
+     * scope. The Verse LSP publishes diagnostics for the whole project, not
+     * only for what is on screen, so without this the extension edits any
+     * .verse file the compiler complains about.
+     *
+     * Callers must consult this before opening the document: opening one is
+     * itself the behaviour "openFiles" exists to prevent, since it pulls a file
+     * the user never opened into the workspace.
+     *
+     * URIs are compared by their string form, as the rest of the extension
+     * keys per-document state, never by fsPath - two URIs can share a path and
+     * differ in scheme or query.
+     *
+     * visibility.openUris must be built from the open tabs, not from
+     * vscode.workspace.textDocuments. That list holds every document opened
+     * programmatically by anything, and this extension's own ProjectPathScanner
+     * opens every .verse file in the project to build the path cache - so keyed
+     * on it, "openFiles" would admit the whole project and mean nothing.
+     *
+     * An unrecognized scope falls back to "allFiles", so a mistyped setting
+     * degrades to the previous behaviour instead of silently disabling
+     * auto-import altogether.
+     */
+    static isUriInScope(uri: { toString(): string }, scope: string, visibility: { openUris: readonly string[]; activeUri?: string }): boolean {
+        if (scope !== "openFiles" && scope !== "activeFile") {
+            return true;
+        }
+        const target = uri.toString();
+        if (scope === "activeFile") {
+            return visibility.activeUri === target;
+        }
+        return visibility.openUris.includes(target);
+    }
+
     async handle(document: vscode.TextDocument) {
         // The diagnostics listener awaits openTextDocument before calling in,
         // so a continuation can resume after teardown. Arming a timer here

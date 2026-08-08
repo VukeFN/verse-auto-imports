@@ -37,6 +37,61 @@ describe("DiagnosticsHandler.shouldProcessUri", () => {
     });
 });
 
+describe("DiagnosticsHandler.isUriInScope", () => {
+    // Built through the shared mock so the uris stringify the way the gate
+    // compares them; a plain object literal would compare "[object Object]"
+    // against itself and pass whatever the scope said.
+    const active = vscode.Uri.file("C:\\Project\\Content\\active.verse");
+    const openBackground = vscode.Uri.file("C:\\Project\\Content\\background.verse");
+    const neverOpened = vscode.Uri.file("C:\\Project\\Content\\untouched.verse");
+
+    const visibility = {
+        openUris: [active.toString(), openBackground.toString()],
+        activeUri: active.toString(),
+    };
+
+    it("accepts every uri under allFiles", () => {
+        expect(DiagnosticsHandler.isUriInScope(neverOpened, "allFiles", visibility)).toBe(true);
+        expect(DiagnosticsHandler.isUriInScope(openBackground, "allFiles", visibility)).toBe(true);
+    });
+
+    it("under openFiles accepts open documents and rejects one the user never opened", () => {
+        expect(DiagnosticsHandler.isUriInScope(active, "openFiles", visibility)).toBe(true);
+        expect(DiagnosticsHandler.isUriInScope(openBackground, "openFiles", visibility)).toBe(true);
+        // The reported defect: the Verse LSP publishes diagnostics project-wide,
+        // so this file would otherwise be opened and edited in the background.
+        expect(DiagnosticsHandler.isUriInScope(neverOpened, "openFiles", visibility)).toBe(false);
+    });
+
+    it("under activeFile accepts only the focused editor", () => {
+        expect(DiagnosticsHandler.isUriInScope(active, "activeFile", visibility)).toBe(true);
+        expect(DiagnosticsHandler.isUriInScope(openBackground, "activeFile", visibility)).toBe(false);
+        expect(DiagnosticsHandler.isUriInScope(neverOpened, "activeFile", visibility)).toBe(false);
+    });
+
+    it("rejects everything under activeFile when no editor has focus", () => {
+        // activeTextEditor is undefined while focus sits in a panel or the
+        // settings editor; nothing is the active file, so nothing qualifies.
+        const noFocus = { openUris: visibility.openUris, activeUri: undefined };
+        expect(DiagnosticsHandler.isUriInScope(active, "activeFile", noFocus)).toBe(false);
+    });
+
+    it("falls back to allFiles for an unrecognized scope", () => {
+        // A mistyped setting must degrade to the previous behavior rather than
+        // silently disabling auto-import.
+        expect(DiagnosticsHandler.isUriInScope(neverOpened, "activefile", visibility)).toBe(true);
+        expect(DiagnosticsHandler.isUriInScope(neverOpened, "", visibility)).toBe(true);
+    });
+
+    it("distinguishes uris that share an fsPath but differ in scheme", () => {
+        // Comparing by fsPath would let a git: or private: uri for an open
+        // file pass the gate; shouldProcessUri rejects those first, so this
+        // guards the gate against being reused without it.
+        const gitUri = { toString: () => `git:${active.toString()}` };
+        expect(DiagnosticsHandler.isUriInScope(gitUri, "openFiles", visibility)).toBe(false);
+    });
+});
+
 const DELAY_MS = 10;
 
 function makeImportHandler(): ImportHandler {

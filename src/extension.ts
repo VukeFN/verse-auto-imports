@@ -171,8 +171,41 @@ export function activate(context: vscode.ExtensionContext) {
     // Diagnostics change listener for auto-import
     context.subscriptions.push(
         vscode.languages.onDidChangeDiagnostics(async (e) => {
+            // Read once per event, and snapshot what the user can see only when
+            // the scope actually restricts anything - the default path must not
+            // pay for a feature it does not use, and this listener runs on every
+            // compile pass. isUriInScope stays the single decision point: it
+            // treats "allFiles" exactly as this fast path does, and any
+            // unrecognized value falls through to it.
+            const scope = vscode.workspace.getConfiguration("verseAutoImports").get<string>("general.autoImportScope", "allFiles");
+            const visibility =
+                scope === "allFiles"
+                    ? { openUris: [] }
+                    : {
+                          // Tabs, never workspace.textDocuments: that list holds
+                          // every document anything has opened programmatically,
+                          // and ProjectPathScanner opens every .verse file in
+                          // the project to build the path cache. Keyed on it,
+                          // "openFiles" would equal "allFiles" on any project
+                          // that has been scanned once.
+                          //
+                          // Snapshotted when the diagnostics arrived, not per
+                          // uri: that is the moment the scope describes, and
+                          // the loop awaits, so a per-uri read would drift.
+                          openUris: vscode.window.tabGroups.all.flatMap((group) =>
+                              group.tabs.filter((tab) => tab.input instanceof vscode.TabInputText).map((tab) => (tab.input as vscode.TabInputText).uri.toString()),
+                          ),
+                          activeUri: vscode.window.activeTextEditor?.document.uri.toString(),
+                      };
+
             for (const uri of e.uris) {
                 if (!DiagnosticsHandler.shouldProcessUri(uri)) {
+                    continue;
+                }
+                // Gate before openTextDocument, never after: the open is itself
+                // what pulls a file the user never opened into the workspace.
+                if (!DiagnosticsHandler.isUriInScope(uri, scope, visibility)) {
+                    logger.trace("Extension", `Skipping ${uri.toString()}: outside the ${scope} auto-import scope`);
                     continue;
                 }
                 try {

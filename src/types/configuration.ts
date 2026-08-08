@@ -2,10 +2,18 @@
  * Configuration types for the Verse Auto Imports extension
  */
 
+/**
+ * Which documents the debounced auto-import is allowed to touch. Quick fixes
+ * and CodeLens are unaffected in every scope; this only bounds the automatic
+ * path, which edits without the user asking.
+ */
+export type AutoImportScope = "allFiles" | "openFiles" | "activeFile";
+
 export interface GeneralConfig {
     autoImport: boolean;
     diagnosticDelay: number; // Deprecated
     autoImportDebounceDelay: number;
+    autoImportScope: AutoImportScope;
 }
 
 export interface BehaviorConfig {

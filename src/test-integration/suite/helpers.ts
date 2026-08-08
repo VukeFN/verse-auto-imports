@@ -127,6 +127,21 @@ export class DiagnosticInjector {
         this.collection.set(document.uri, diagnostics);
     }
 
+    /**
+     * Sets diagnostics on a uri with no open document behind it, which is how
+     * the Verse LSP publishes them: project-wide, for files the user never
+     * opened. Ranges sit at the start of the file, since there is no text to
+     * anchor against.
+     */
+    injectUri(uri: vscode.Uri, messages: string[]): void {
+        const diagnostics = messages.map((message) => {
+            const diagnostic = new vscode.Diagnostic(new vscode.Range(0, 0, 0, 1), message, vscode.DiagnosticSeverity.Error);
+            diagnostic.source = "Verse";
+            return diagnostic;
+        });
+        this.collection.set(uri, diagnostics);
+    }
+
     private rangeFor(document: vscode.TextDocument, anchorIdentifier?: string): vscode.Range {
         if (anchorIdentifier) {
             const offset = document.getText().indexOf(anchorIdentifier);

@@ -165,6 +165,17 @@
           "description": "Debounce delay in milliseconds before auto-importing. Waits for this duration after the last diagnostic change before triggering auto-imports (while you're typing).",
           "order": 3
         },
+        "verseAutoImports.general.autoImportScope": {
+          "type": "string",
+          "enum": [
+            "allFiles",
+            "openFiles",
+            "activeFile"
+          ],
+          "default": "allFiles",
+          "description": "Which documents automatic imports may edit. 'allFiles' edits any project file the compiler reports an error for, including files you never opened. 'openFiles' restricts edits to documents you have open. 'activeFile' restricts them to the editor you are working in. Quick fixes and CodeLens stay available everywhere.",
+          "order": 4
+        },
         "verseAutoImports.behavior.importSyntax": {
           "type": "string",
           "enum": [

@@ -37,6 +37,91 @@ describe("DiagnosticsHandler.shouldProcessUri", () => {
     });
 });
 
+describe("DiagnosticsHandler.isUriInScope", () => {
+    // Built through the shared mock so the uris stringify the way the gate
+    // compares them; a plain object literal would compare "[object Object]"
+    // against itself and pass whatever the scope said.
+    const active = vscode.Uri.file("C:\\Project\\Content\\active.verse");
+    const openBackground = vscode.Uri.file("C:\\Project\\Content\\background.verse");
+    const neverOpened = vscode.Uri.file("C:\\Project\\Content\\untouched.verse");
+
+    const visibility = {
+        openUris: [active.toString(), openBackground.toString()],
+        activeUri: active.toString(),
+    };
+
+    it("accepts every uri under allFiles", () => {
+        expect(DiagnosticsHandler.isUriInScope(neverOpened, "allFiles", visibility)).toBe(true);
+        expect(DiagnosticsHandler.isUriInScope(openBackground, "allFiles", visibility)).toBe(true);
+    });
+
+    it("under openFiles accepts open documents and rejects one the user never opened", () => {
+        expect(DiagnosticsHandler.isUriInScope(active, "openFiles", visibility)).toBe(true);
+        expect(DiagnosticsHandler.isUriInScope(openBackground, "openFiles", visibility)).toBe(true);
+        // The reported defect: the Verse LSP publishes diagnostics project-wide,
+        // so this file would otherwise be opened and edited in the background.
+        expect(DiagnosticsHandler.isUriInScope(neverOpened, "openFiles", visibility)).toBe(false);
+    });
+
+    it("under activeFile accepts only the focused editor", () => {
+        expect(DiagnosticsHandler.isUriInScope(active, "activeFile", visibility)).toBe(true);
+        expect(DiagnosticsHandler.isUriInScope(openBackground, "activeFile", visibility)).toBe(false);
+        expect(DiagnosticsHandler.isUriInScope(neverOpened, "activeFile", visibility)).toBe(false);
+    });
+
+    it("rejects everything under activeFile when no editor has focus", () => {
+        // activeTextEditor is undefined when the active tab is not a text
+        // editor at all - the settings UI, a webview, an image preview - or
+        // when nothing is open. Focusing a panel does not clear it: the API
+        // keeps the editor whose input changed most recently.
+        const noFocus = { openUris: visibility.openUris, activeUri: undefined };
+        expect(DiagnosticsHandler.isUriInScope(active, "activeFile", noFocus)).toBe(false);
+    });
+
+    it("under openFiles admits the active document even when no text tab reports it", () => {
+        // A .verse file focused in a diff editor has an active editor but a
+        // TabInputTextDiff tab, so it never reaches openUris. openFiles is the
+        // looser setting; it must never reject what activeFile would accept.
+        const inDiffEditor = { openUris: [], activeUri: active.toString() };
+        expect(DiagnosticsHandler.isUriInScope(active, "openFiles", inDiffEditor)).toBe(true);
+        expect(DiagnosticsHandler.isUriInScope(active, "activeFile", inDiffEditor)).toBe(true);
+    });
+
+    it("keeps activeFile a strict subset of openFiles", () => {
+        // The property the case above protects, stated directly: anything
+        // activeFile accepts, openFiles accepts too.
+        for (const uri of [active, openBackground, neverOpened]) {
+            if (DiagnosticsHandler.isUriInScope(uri, "activeFile", visibility)) {
+                expect(DiagnosticsHandler.isUriInScope(uri, "openFiles", visibility)).toBe(true);
+            }
+        }
+    });
+
+    it("reports which scopes restrict anything", () => {
+        expect(DiagnosticsHandler.scopeRestrictsDocuments("openFiles")).toBe(true);
+        expect(DiagnosticsHandler.scopeRestrictsDocuments("activeFile")).toBe(true);
+        // The callers skip building a visibility snapshot when this is false,
+        // so it must agree with isUriInScope's own pass-everything branch.
+        expect(DiagnosticsHandler.scopeRestrictsDocuments("allFiles")).toBe(false);
+        expect(DiagnosticsHandler.scopeRestrictsDocuments("activefile")).toBe(false);
+    });
+
+    it("falls back to allFiles for an unrecognized scope", () => {
+        // A mistyped setting must degrade to the previous behavior rather than
+        // silently disabling auto-import.
+        expect(DiagnosticsHandler.isUriInScope(neverOpened, "activefile", visibility)).toBe(true);
+        expect(DiagnosticsHandler.isUriInScope(neverOpened, "", visibility)).toBe(true);
+    });
+
+    it("distinguishes uris that share an fsPath but differ in scheme", () => {
+        // Comparing by fsPath would let a git: or private: uri for an open
+        // file pass the gate; shouldProcessUri rejects those first, so this
+        // guards the gate against being reused without it.
+        const gitUri = { toString: () => `git:${active.toString()}` };
+        expect(DiagnosticsHandler.isUriInScope(gitUri, "openFiles", visibility)).toBe(false);
+    });
+});
+
 const DELAY_MS = 10;
 
 function makeImportHandler(): ImportHandler {

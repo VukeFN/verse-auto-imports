@@ -221,8 +221,35 @@ export function activate(context: vscode.ExtensionContext) {
     // Diagnostics change listener for auto-import
     context.subscriptions.push(
         vscode.languages.onDidChangeDiagnostics(async (e) => {
+            // Read once per event, and snapshot what the user has on screen only
+            // when the scope actually restricts something - this listener runs
+            // on every compile pass, and the default path must not pay for a
+            // feature it does not use.
+            const scope = vscode.workspace.getConfiguration("verseAutoImports").get<string>("general.autoImportScope", "allFiles");
+            const visibility = !DiagnosticsHandler.scopeRestrictsDocuments(scope)
+                ? { openUris: [] }
+                : {
+                      // Open tabs, never workspace.textDocuments - see
+                      // DiagnosticsHandler.isUriInScope for why that list
+                      // cannot answer this question.
+                      //
+                      // Snapshotted when the diagnostics arrived, not per uri:
+                      // that is the moment the scope describes, and the loop
+                      // awaits, so a per-uri read would drift.
+                      openUris: vscode.window.tabGroups.all.flatMap((group) =>
+                          group.tabs.filter((tab): tab is vscode.Tab & { input: vscode.TabInputText } => tab.input instanceof vscode.TabInputText).map((tab) => tab.input.uri.toString()),
+                      ),
+                      activeUri: vscode.window.activeTextEditor?.document.uri.toString(),
+                  };
+
             for (const uri of e.uris) {
                 if (!DiagnosticsHandler.shouldProcessUri(uri)) {
+                    continue;
+                }
+                // Gate before openTextDocument, never after: the open is itself
+                // what pulls a file the user never opened into the workspace.
+                if (!DiagnosticsHandler.isUriInScope(uri, scope, visibility)) {
+                    logger.trace("Extension", `Skipping ${uri.toString()}: outside the ${scope} auto-import scope`);
                     continue;
                 }
                 try {

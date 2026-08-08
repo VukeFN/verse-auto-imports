@@ -42,6 +42,59 @@ export class DiagnosticsHandler {
         return fsPath.endsWith(".verse") && !fsPath.endsWith(".digest.verse");
     }
 
+    /**
+     * Decides whether a diagnostics URI is inside the configured auto-import
+     * scope. The Verse LSP publishes diagnostics for the whole project, not
+     * only for what is on screen, so without this the extension edits any
+     * .verse file the compiler complains about.
+     *
+     * Callers must consult this before opening the document: opening one is
+     * itself the behaviour "openFiles" exists to prevent, since it pulls a file
+     * the user never opened into the workspace.
+     *
+     * URIs are compared by their string form, as the rest of the extension
+     * keys per-document state, never by fsPath - two URIs can share a path and
+     * differ in scheme or query.
+     *
+     * visibility.openUris must be built from the open tabs, not from
+     * vscode.workspace.textDocuments. That list holds every document opened
+     * programmatically by anything, and this extension's own ProjectPathScanner
+     * opens every .verse file in the project to build the path cache - so keyed
+     * on it, "openFiles" would admit the whole project and mean nothing.
+     *
+     * An unrecognized scope falls back to "allFiles", so a mistyped setting
+     * degrades to the previous behaviour instead of silently disabling
+     * auto-import altogether.
+     */
+    static isUriInScope(uri: { toString(): string }, scope: string, visibility: { openUris: readonly string[]; activeUri?: string }): boolean {
+        if (!DiagnosticsHandler.scopeRestrictsDocuments(scope)) {
+            return true;
+        }
+        const target = uri.toString();
+        if (scope === "activeFile") {
+            return visibility.activeUri === target;
+        }
+        // The active document counts as open even when no text tab reports it,
+        // which keeps activeFile a strict subset of openFiles. A .verse file
+        // focused in a diff editor is the case that needs it: it has an active
+        // editor, but its tab is a TabInputTextDiff and so never reaches
+        // openUris. Without this, tightening the setting one level would let
+        // through an edit the looser level blocked.
+        return visibility.activeUri === target || visibility.openUris.includes(target);
+    }
+
+    /**
+     * Whether a scope narrows anything at all. Callers use it to skip building
+     * a visibility snapshot they will not read.
+     *
+     * It is the single definition of that question on purpose: expressing it
+     * again at the call site, in the opposite polarity, would make the cheap
+     * path correct only for as long as the two stayed exact complements.
+     */
+    static scopeRestrictsDocuments(scope: string): boolean {
+        return scope === "openFiles" || scope === "activeFile";
+    }
+
     async handle(document: vscode.TextDocument) {
         // The diagnostics listener awaits openTextDocument before calling in,
         // so a continuation can resume after teardown. Arming a timer here

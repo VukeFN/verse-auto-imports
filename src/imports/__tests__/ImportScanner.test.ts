@@ -113,6 +113,14 @@ describe("allUsingPaths", () => {
         expect(allUsingPaths(["using { /X } # see using { Economy.Shop }", "code()"])).toEqual(["/X"]);
     });
 
+    // Only a `using` beginning a token is a statement. `Housing` holds those
+    // five letters, and the dotted pattern needs no space after its `.`, so
+    // offering every occurrence invented `Data }` as a second path.
+    it("invents no second path from an identifier that merely contains using", () => {
+        expect(allUsingPaths(["using { Housing.Data }", "code()"])).toEqual(["Housing.Data"]);
+        expect(allUsingPaths(["using { A_using.B }", "code()"])).toEqual(["A_using.B"]);
+    });
+
     it("strips a trailing comment from the path", () => {
         expect(allUsingPaths(["using { /A } # why", "code()"])).toEqual(["/A"]);
     });
@@ -253,6 +261,23 @@ describe("scanModuleImports", () => {
     it("leaves a single statement rewritable when its comment mentions another using", () => {
         expect(rewritableImports(scanModuleImports(["using { /A } # see using { /B }", "code()"]))).toEqual([
             { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "# see using { /B }" },
+        ]);
+    });
+
+    // `using` is a substring of ordinary identifiers, and the dotted pattern
+    // needs no space after its `.`, so offering every occurrence reads
+    // `Housing.Data` as `Housing.Data` and then `Data }` - two statements, on a
+    // line that writes one. Pinning on that count stops the file being organized
+    // at all, for a module whose name merely ends in those five letters.
+    it("leaves a single statement rewritable when its path holds the word using", () => {
+        expect(rewritableImports(scanModuleImports(["using { Housing.Data }", "code()"]))).toEqual([
+            { path: "Housing.Data", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
+        ]);
+        expect(rewritableImports(scanModuleImports(["using { /Verse.org/Housing.Sim }", "code()"]))).toEqual([
+            { path: "/Verse.org/Housing.Sim", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
+        ]);
+        expect(rewritableImports(scanModuleImports(["using { A_using.B }", "code()"]))).toEqual([
+            { path: "A_using.B", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
         ]);
     });
 

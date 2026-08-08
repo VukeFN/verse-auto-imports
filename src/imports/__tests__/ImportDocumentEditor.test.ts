@@ -184,6 +184,16 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, ["Economy.Shop"], curlySorted)).toBeNull();
     });
 
+    // A module whose name merely ends in those five letters writes one
+    // statement, and organizing has to keep treating it as one. Counted by
+    // every occurrence of `using`, this line reads as two, and the file stops
+    // being organized at all - the import is left where it sits, splitting the
+    // block in two.
+    it("organizes an import whose path holds the word using", () => {
+        const input = ["using { /Verse.org/Simulation }", "using { Housing.Data }", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /Verse.org/Simulation }", "using { Housing.Data }", "", "code()"].join("\n"));
+    });
+
     // The anchored line ends up below the rebuilt block, so dropping the copy
     // above it can leave a `using` without the import that brings its first
     // segment into scope - the ordering #91 and #129 fixed. Only an absolute

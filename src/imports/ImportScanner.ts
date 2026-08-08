@@ -42,11 +42,17 @@ export interface ScannedImport {
      * still counts as present - only rewriting is off limits, exactly as for
      * anchorsCommentBelow, and rewritableImports filters on both.
      *
-     * `false` is "no loss known", not "provably none". One shape carries the
-     * same hazard undetected: `using. /X; using:`, where the dotted statement
-     * has no closing delimiter and swallows the rest of the line into its path,
-     * so the pair is pinned under a path that is not `/X` and `/X` itself goes
-     * unreported - the same weakness usingPathsOnLine documents.
+     * `false` is "no loss known", not "provably none". Detection looks for a
+     * second `using` on the line, so two shapes carry the same hazard
+     * undetected:
+     *
+     * - a `;` followed by anything that is not a `using` at all,
+     *   `using { /X }; MyVal := 5`, where the rebuild deletes the definition
+     *   (#235)
+     * - `using. /X; using:`, where the dotted statement has no closing
+     *   delimiter and swallows the rest of the line into its path, so the pair
+     *   is pinned under a path that is not `/X` and `/X` itself goes
+     *   unreported - the same weakness usingPathsOnLine documents
      *
      * `true` is likewise not a promise that every path on the span was
      * recorded. A line ending in a `using:` pair reports the statement at its
@@ -455,20 +461,19 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
         // and organizing then rebuilt it from that path, deleting the second
         // statement with no trace left that anything had gone.
         //
-        // Every path the line writes is recorded, because each is imported and
-        // none may be written again, and all are pinned, because a rebuild from
-        // any one of them deletes the others. Their spans coincide, which no
-        // writer sees: all of them read rewritableImports, which excludes a
-        // pinned entry.
+        // All of them recorded, all of them pinned, spans coinciding, for the
+        // reasons the branch above gives.
         //
-        // Asked of the line's code rather than its raw text, as the branch above
-        // is. `using { /A } <# note about using { /B }` writes one statement and
-        // mentions another in a comment; searching the raw text finds two, and
-        // pins - and misreports - a line that is a plain single statement.
+        // Asked of the line's code rather than its raw text, as that branch is.
+        // `using { /A } # see using { /B }` writes one statement and mentions
+        // another in a comment; searching the raw text finds two, and refuses to
+        // organize a plain single-statement line over the words after its `#`.
         //
         // usingPathsOnLine is what allUsingPaths asks, so reader and writer now
         // agree on how many statements a line writes. Asking it a second way
-        // here would be the looser second copy its doc warns against.
+        // here would be the looser second copy its doc warns against - and this
+        // caller needs the count exact in both directions, which is why that
+        // function only offers a `using` that begins a token.
         const pathsOnLine = usingPathsOnLine(formatter, code);
         if (pathsOnLine.length > 1) {
             for (const linePath of pathsOnLine) {
@@ -548,10 +553,25 @@ export function rewritableImports(scannedImports: ScannedImport[]): ScannedImpor
  * the next iteration finds the statement after it and reports that path on its
  * own - which is the guarantee this owes its caller. Reading the swallowed copy
  * is not what makes the line safe; finding the statement inside it again is.
+ *
+ * Only a `using` that begins a token is offered. `using` is a substring of
+ * ordinary identifiers - `Housing` holds one - and the dotted pattern needs no
+ * space after its `.`, so `using { Housing.Data }` offered every occurrence
+ * reports `Housing.Data` and then `Data }`, a path the line does not write. A
+ * caller counting statements reads that as two.
+ *
+ * The cost is a `using` glued to an identifier by a comment removed from
+ * between them, `X := 1<# note #>using { /A }`. Whether Verse splits a token
+ * where a comment was is not something its test corpus settles, so this is a
+ * shape whose meaning is already unclear; a path invented out of every
+ * identifier ending in `using` is not.
  */
 function usingPathsOnLine(formatter: ImportFormatter, code: string): string[] {
     const paths: string[] = [];
     for (let at = code.indexOf("using"); at !== -1; at = code.indexOf("using", at + 1)) {
+        if (at > 0 && /[A-Za-z0-9_]/.test(code[at - 1])) {
+            continue;
+        }
         const path = formatter.extractPathFromImport(code.slice(at));
         if (path) {
             paths.push(path);

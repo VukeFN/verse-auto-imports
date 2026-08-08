@@ -87,7 +87,8 @@ jobs:
                follows the same convention the fragments do - read the File
                content section of changelog.d/README and obey it: a bold
                component name, a colon, one sentence on the user-visible
-               effect, 40 words or fewer excluding the tag, no mechanism.
+               effect, 40 words or fewer excluding the tag, no mechanism, and
+               a second sentence only where the reader must act.
                - Group the entries under Added / Changed / Deprecated / Removed /
                  Fixed / Security, in that order, keeping only the categories
                  that have entries.

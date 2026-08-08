@@ -20,8 +20,8 @@ Pending changes are kept as one file per change under [changelog.d/](changelog.d
 
 - **Commented-out imports**: a `using` statement inside a `<# ... #>` block comment is now ignored by every import operation, so it is neither counted as already present nor hoisted back into force ([#127])
 - **CRLF files**: editing imports in a file saved with Windows line endings no longer mixes CRLF and LF, and **Optimize Imports** no longer rewrites the whole document on every invocation ([#139])
-- **Snooze Auto Import**: a snooze is now held in memory and ends with the window, instead of writing `general.autoImport: false` into your settings. If an earlier snooze left auto import off, re-enable it from the status bar menu once ([#132])
-- **Asset names**: editing an asset in UEFN no longer stops the extension recognizing asset class names for the rest of the session, so no window reload is needed ([#131])
+- **Snooze Auto Import**: a snooze now ends with the window instead of leaving `general.autoImport: false` behind, and the status menu shows `Snoozed (M:SS)` while one is active. If an earlier snooze left auto import off, re-enable it once ([#132])
+- **Asset names**: the extension now keeps recognizing asset class names after UEFN rewrites the digest, knows them when VS Code opens before UEFN has generated it, and follows a renamed project — no window reload needed ([#131])
 - **"Did you mean" suggestions**: a suggestion is only turned into an import when it is a dotted chain of Verse identifiers, so trailing punctuation or prose no longer produces a wrong or syntactically invalid import ([#130])
 - **Import placement**: an import added to a file whose imports sit in blank-line-separated groups now lands in the group the file's ordering calls for, rather than always the first ([#129])
 - **Auto import**: two files sharing a name across module folders, such as `Weapons/utils.verse` and `UI/utils.verse`, are now imported independently instead of cancelling or skipping each other's pending import ([#134])
@@ -41,7 +41,7 @@ Pending changes are kept as one file per change under [changelog.d/](changelog.d
 ### Fixed
 
 - **Output log**: regenerating Epic's `Assets.digest.verse` no longer logs a `Failed to parse` error ([#95])
-- **Import suggestions**: the bundled API digests now attribute each declaration to the correct module, so `creative_device`, `agent`, `player`, `vector3`, `button_device` and `trigger_device` import from the right path ([#97])
+- **Import suggestions**: the bundled API digests now attribute each declaration to the correct module, so `button_device` and `trigger_device` resolve to the right path and `creative_device`, `agent`, `player` and `vector3` are importable at all ([#97])
 - **Import grouping**: an out-of-enum `behavior.importGrouping` value now falls back to ungrouped output instead of removing every import from the file ([#121])
 - **Trailing comments**: an import in dot syntax with a trailing comment, such as `using. /Verse.org/Simulation # note`, is no longer rewritten into a statement the comment breaks ([#120])
 
@@ -50,7 +50,7 @@ Pending changes are kept as one file per change under [changelog.d/](changelog.d
 ### Fixed
 
 - **Preserve import locations**: with grouping enabled, a quick fix on a file whose import block sits below a header comment now regroups that block in place instead of deleting it and rewriting the imports at the top ([#90])
-- **Import sorting**: sorting no longer reorders a `using` block in a way that breaks compilation - absolute paths come first, then bare local imports, then dotted ones, matching the order Verse resolves them in ([#91])
+- **Import sorting**: sorting no longer reorders a `using` block in a way that breaks compilation, and the quick fix merges new imports into the block in the same order — absolute paths, then bare local imports, then dotted ones ([#91])
 - **Folder imports**: a file-level bare `using { X }` is now recognized as a module import, so deduplication and **Optimize Imports** no longer overlook an import the extension inserted itself ([#65])
 
 ## [0.7.0] - 2026-07-11

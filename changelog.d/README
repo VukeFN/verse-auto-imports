@@ -60,11 +60,12 @@ Before, 149 words:
     emptied its cache, and the one consumer reads that cache synchronously, so
     nothing ever re-parsed the file: [...]
 
-After, 28 words:
+After, 35 words - every user-visible case the fix covers, none of the
+mechanism:
 
-    **Asset names**: editing an asset in UEFN no longer stops the extension
-    recognizing asset class names for the rest of the session, so no window
-    reload is needed
+    **Asset names**: the extension now keeps recognizing asset class names
+    after UEFN rewrites the digest, knows them when VS Code opens before UEFN
+    has generated it, and follows a renamed project - no window reload needed
 
 Do not write a leading "- ". Do not write the ([#N]) tag. Do not add a link
 definition. Release assembly generates all three, because all three are exactly

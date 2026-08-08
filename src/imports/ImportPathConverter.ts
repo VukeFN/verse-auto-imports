@@ -101,9 +101,9 @@ export class ImportPathConverter {
      *
      * Judged on the statement minus any trailing comment: a `{` is legal in
      * comment prose but not in a module path, so testing the raw line lets a
-     * comment decide the syntax the conversion emits. Every other reader in
-     * this class strips the comment first, via extractPathFromImport; this is
-     * the one that reads the statement rather than the path.
+     * comment decide the syntax the conversion emits. This is the one reader
+     * that looks at the whole statement rather than at a capture taken from
+     * it, which is why it needs its own strip.
      */
     private static usesBracedStyle(importStatement: string): boolean {
         return ImportFormatter.stripTrailingComment(importStatement).includes("{");

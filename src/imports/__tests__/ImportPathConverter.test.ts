@@ -274,10 +274,12 @@ describe("ImportPathConverter.convertFromFullPath", () => {
         expect(result?.fullPathImport).toBe("using. Economy.Shop");
     });
 
-    it("keeps the braced style when the trailing comment contains no brace", async () => {
+    it("keeps the braced style when the trailing comment also contains a brace", async () => {
+        // The other half of the same rule: stripping the comment must not cost
+        // a braced import its braces, whatever the comment happens to hold.
         const converter = converterWithProjectPath(projectVersePath);
 
-        const result = await converter.convertFromFullPath("using { /mygame@fortnite.com/mygame/Economy/Shop } # the shop", 0);
+        const result = await converter.convertFromFullPath("using { /mygame@fortnite.com/mygame/Economy/Shop } # see {Vendor}", 0);
 
         expect(result?.fullPathImport).toBe("using { Economy.Shop }");
     });
@@ -316,10 +318,10 @@ describe("ImportPathConverter.convertToFullPath", () => {
         expect(result?.fullPathImport).toBe("using. /mygame@fortnite.com/mygame/Economy/Shop");
     });
 
-    it("keeps the braced style when the trailing comment contains no brace", async () => {
+    it("keeps the braced style when the trailing comment also contains a brace", async () => {
         const converter = converterWithLocation("/Economy");
 
-        const result = await converter.convertToFullPath("using { Shop } # the shop", vscode.Uri.file("C:/project/test.verse"), 0);
+        const result = await converter.convertToFullPath("using { Shop } # see {Vendor}", vscode.Uri.file("C:/project/test.verse"), 0);
 
         expect(result?.fullPathImport).toBe("using { /mygame@fortnite.com/mygame/Economy/Shop }");
     });

@@ -96,6 +96,19 @@ export class ImportPathConverter {
         return ImportFormatter.stripTrailingComment(captured);
     }
 
+    /**
+     * Whether the author wrote the braced style rather than the dotted one.
+     *
+     * Judged on the statement minus any trailing comment: a `{` is legal in
+     * comment prose but not in a module path, so testing the raw line lets a
+     * comment decide the syntax the conversion emits. This is the one reader
+     * that looks at the whole statement rather than at a capture taken from
+     * it, which is why it needs its own strip.
+     */
+    private static usesBracedStyle(importStatement: string): boolean {
+        return ImportFormatter.stripTrailingComment(importStatement).includes("{");
+    }
+
     /** Checks if an import is already in full path format */
     isFullPathImport(importStatement: string): boolean {
         const path = this.extractPathFromImport(importStatement);
@@ -410,7 +423,7 @@ export class ImportPathConverter {
             return null;
         }
 
-        const usesCurlyBraces = importStatement.includes("{");
+        const usesCurlyBraces = ImportPathConverter.usesBracedStyle(importStatement);
         const relativeImport = usesCurlyBraces ? `using { ${relativeImportPath} }` : `using. ${relativeImportPath}`;
 
         return {
@@ -475,7 +488,7 @@ export class ImportPathConverter {
         logger.debug("ImportPathConverter", `findModuleLocations returned ${possibleLocations.length} location(s)`);
         possibleLocations.forEach((loc, idx) => logger.debug("ImportPathConverter", `  Location ${idx}: '${loc}'`));
 
-        const usesCurlyBraces = importStatement.includes("{");
+        const usesCurlyBraces = ImportPathConverter.usesBracedStyle(importStatement);
 
         if (possibleLocations.length === 0) {
             logger.debug("ImportPathConverter", `No locations found for ${modulePath}`);
@@ -575,7 +588,7 @@ export class ImportPathConverter {
 
         let finalImport = conversion.fullPathImport;
         if (conversion.isAmbiguous && selectedPath) {
-            const usesCurlyBraces = conversion.originalImport.includes("{");
+            const usesCurlyBraces = ImportPathConverter.usesBracedStyle(conversion.originalImport);
             finalImport = usesCurlyBraces ? `using { ${selectedPath} }` : `using. ${selectedPath}`;
         }
 

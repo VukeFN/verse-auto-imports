@@ -113,6 +113,54 @@ function attachedCommentStart(importStartLine: number, classifications: LineClas
 }
 
 /**
+ * The last line an import anchored by a comment marker owns: its own statement,
+ * plus the body of the comment it opens below it.
+ *
+ * Placement needs the whole span rather than the statement, because the line
+ * directly below the marker is comment text. A `<#>` marker's body is the lines
+ * indented past it, and a `<#` leaves every line comment until a matching `#>`,
+ * so writing a new import at column 0 on the line after the statement lands it
+ * inside the author's comment - which for `<#>` also truncates that comment at
+ * the new line, silently discarding the rest of what they wrote.
+ *
+ * `continuesCommentAbove` is exactly this question already answered: it marks a
+ * line whose comment was opened above it, under either marker. So the span ends
+ * at the last line still carrying it.
+ */
+function anchoredCommentEnd(imp: ScannedImport, classifications: LineClassification[]): number {
+    let end = imp.endLine;
+    while (end + 1 < classifications.length && classifications[end + 1].continuesCommentAbove) {
+        end++;
+    }
+    return end;
+}
+
+/**
+ * The lines an anchored import forbids a newly added `path` from crossing.
+ *
+ * An anchored import is in no ImportBlock - blocks are built from the movable
+ * imports alone, since a writer may not rebuild an anchored line - so every
+ * placement decision that reads `importBlocks` is blind to it. It is still a
+ * real import that a `using` below it resolves against, so it constrains where
+ * a new one may go exactly as the imports inside a block do.
+ *
+ * Both bounds read the same ranks selectTargetBlockIndex compares, with the
+ * same two predicates, so anchored and blocked imports cannot disagree about
+ * what must precede what:
+ *
+ * - `floor` - the last line owned by the lowest anchored import that belongs
+ *   above the new one. The new import goes below it.
+ * - `ceiling` - the first line of the highest anchored import the new one
+ *   belongs above. The new import goes above it.
+ *
+ * `-1` means unconstrained in that direction.
+ */
+interface AnchoredBounds {
+    floor: number;
+    ceiling: number;
+}
+
+/**
  * Handles all document modifications for imports.
  */
 export class ImportDocumentEditor {
@@ -238,10 +286,10 @@ export class ImportDocumentEditor {
         let upperBound = -1;
         importBlocks.forEach((block, index) => {
             const ranks = block.imports.map((imp) => this.formatter.importRank(imp.path));
-            if (ranks.some((existing) => existing < rank || (existing === rank && rank === 1))) {
+            if (ranks.some((existing) => this.belongsAbove(existing, rank))) {
                 lowerBound = index;
             }
-            if (upperBound === -1 && ranks.some((existing) => existing > rank)) {
+            if (upperBound === -1 && ranks.some((existing) => this.belongsBelow(existing, rank))) {
                 upperBound = index;
             }
         });
@@ -250,6 +298,119 @@ export class ImportDocumentEditor {
             return 0;
         }
         return upperBound !== -1 && upperBound < lowerBound ? upperBound : lowerBound;
+    }
+
+    /**
+     * Whether an existing import of rank `existing` belongs above a newly added
+     * import of rank `rank`.
+     *
+     * A lower rank always precedes a higher one, and two bare references keep
+     * their written order because it is semantic - a nested child must follow
+     * the parent providing it, and a newly added one has no claim to go first.
+     * See ImportFormatter.sortImportsByRank.
+     */
+    private belongsAbove(existing: number, rank: number): boolean {
+        return existing < rank || (existing === rank && rank === 1);
+    }
+
+    /** Whether an existing import of rank `existing` belongs below a newly added one of rank `rank`. */
+    private belongsBelow(existing: number, rank: number): boolean {
+        return existing > rank;
+    }
+
+    /**
+     * Where the imports anchored by a comment marker allow a new `path` to be
+     * written. See AnchoredBounds.
+     */
+    private anchoredBounds(anchoredImports: ScannedImport[], classifications: LineClassification[], path: string): AnchoredBounds {
+        const rank = this.formatter.importRank(path);
+
+        let floor = -1;
+        let ceiling = -1;
+        for (const imp of anchoredImports) {
+            const existing = this.formatter.importRank(imp.path);
+            if (this.belongsAbove(existing, rank)) {
+                floor = Math.max(floor, anchoredCommentEnd(imp, classifications));
+            }
+            if (this.belongsBelow(existing, rank)) {
+                ceiling = ceiling === -1 ? imp.startLine : Math.min(ceiling, imp.startLine);
+            }
+        }
+
+        return { floor, ceiling };
+    }
+
+    /** The bounds of a run of paths written together: the tightest of each. */
+    private combinedAnchoredBounds(anchoredImports: ScannedImport[], classifications: LineClassification[], paths: string[]): AnchoredBounds {
+        return paths.reduce<AnchoredBounds>(
+            (combined, path) => {
+                const bounds = this.anchoredBounds(anchoredImports, classifications, path);
+                return {
+                    floor: Math.max(combined.floor, bounds.floor),
+                    ceiling: combined.ceiling === -1 ? bounds.ceiling : bounds.ceiling === -1 ? combined.ceiling : Math.min(combined.ceiling, bounds.ceiling),
+                };
+            },
+            { floor: -1, ceiling: -1 },
+        );
+    }
+
+    /**
+     * The line a run of new import statements is written on: `desired`, moved
+     * below the floor and then above the ceiling.
+     *
+     * The floor wins where the two disagree. That disagreement is never a real
+     * provider-consumer cycle: one would need an anchored dotted consumer
+     * already sitting above the anchored bare provider it depends on, which is
+     * a file that does not compile as written. What it can be is an anchored
+     * absolute path below an anchored dotted one, and an absolute path brings
+     * nothing into scope, so that floor is ordering preference rather than a
+     * scope requirement - honouring it costs nothing that compiles.
+     */
+    private placementLine(desired: number, bounds: AnchoredBounds): number {
+        const belowFloor = Math.max(desired, bounds.floor + 1);
+        if (bounds.ceiling === -1 || bounds.ceiling > bounds.floor) {
+            return bounds.ceiling === -1 ? belowFloor : Math.min(belowFloor, bounds.ceiling);
+        }
+        return belowFloor;
+    }
+
+    /** Whether a block sits entirely inside the space the anchored imports leave for `path`. */
+    private blockIsWithin(block: ImportBlock, bounds: AnchoredBounds): boolean {
+        return block.start > bounds.floor && (bounds.ceiling === -1 || block.end < bounds.ceiling);
+    }
+
+    /**
+     * Writes a run of import statements on their own lines at `line`.
+     *
+     * One home for the end-of-document case, which every caller has to handle
+     * the same way: the line after the last one does not exist in a document
+     * with no trailing newline, and VS Code clamps a position past the end onto
+     * the end of the last line - splicing the first statement onto whatever is
+     * already there and leaving one unreadable line where two belong.
+     */
+    private insertImportLines(edit: vscode.WorkspaceEdit, document: vscode.TextDocument, line: number, statements: string[], eol: LineEnding, blankLineAfter: boolean): void {
+        const text = statements.join(eol);
+
+        if (line < document.lineCount) {
+            edit.insert(document.uri, new vscode.Position(line, 0), text + eol + (blankLineAfter ? eol : ""));
+            return;
+        }
+
+        edit.insert(document.uri, document.lineAt(document.lineCount - 1).range.end, eol + text);
+    }
+
+    /**
+     * Groups paths no block can take by the line each has to be written on,
+     * starting from the line the site would have used had no import been
+     * anchored. Paths wanting the same line are written together.
+     */
+    private groupByPlacementLine(paths: string[], desired: number, anchoredImports: ScannedImport[], classifications: LineClassification[]): Map<number, string[]> {
+        const byLine = new Map<number, string[]>();
+        for (const path of paths) {
+            const line = this.placementLine(desired, this.anchoredBounds(anchoredImports, classifications, path));
+            byLine.set(line, [...(byLine.get(line) ?? []), path]);
+        }
+        return new Map([...byLine].sort(([a], [b]) => a - b));
     }
 
     /**
@@ -295,6 +456,13 @@ export class ImportDocumentEditor {
         const eol = resolveEol(document, text);
         const lines = text.split(LINE_SPLIT);
         const scannedImports = scanModuleImports(lines);
+
+        // Blocks are built from the movable imports below, so an anchored one
+        // is in none of them and no placement decision can see it. Kept here,
+        // with the comment structure a placement needs to read its span, so
+        // every site can bound itself against them. See AnchoredBounds.
+        const classifications = classifyLines(lines);
+        const anchoredImports = scannedImports.filter((imp) => imp.anchorsCommentBelow);
 
         const importBlocks: ImportBlock[] = [];
         for (const imp of rewritableImports(scannedImports)) {
@@ -378,36 +546,54 @@ export class ImportDocumentEditor {
                     }
                 }
 
+                // A block can only take a new import where the anchored imports
+                // leave room for it. Rebuilding a block writes the new
+                // statement at that block's lines, so which block absorbs a
+                // path is a placement decision like any other, and a block
+                // sitting above an anchored provider cannot make one.
+                const blockCanTake = (blockIndex: number, path: string): boolean =>
+                    blockIndex >= 0 && this.blockIsWithin(importBlocks[blockIndex], this.anchoredBounds(anchoredImports, classifications, path));
+
+                const digestForBlock = newDigestPaths.filter((path) => blockCanTake(digestBlockIndex, path));
+                const localForBlock = newLocalPaths.filter((path) => blockCanTake(localBlockIndex, path));
+
                 // Add digest imports to digest block
-                if (newDigestPaths.length > 0 && digestBlockIndex >= 0) {
-                    this.createBlockReplacementEdit(edit, document, importBlocks[digestBlockIndex], newDigestPaths, preferDotSyntax, sortAlphabetically, eol);
+                if (digestForBlock.length > 0) {
+                    this.createBlockReplacementEdit(edit, document, importBlocks[digestBlockIndex], digestForBlock, preferDotSyntax, sortAlphabetically, eol);
                 }
 
                 // Add local imports to local block
-                if (newLocalPaths.length > 0 && localBlockIndex >= 0) {
-                    this.createBlockReplacementEdit(edit, document, importBlocks[localBlockIndex], newLocalPaths, preferDotSyntax, sortAlphabetically, eol);
+                if (localForBlock.length > 0) {
+                    this.createBlockReplacementEdit(edit, document, importBlocks[localBlockIndex], localForBlock, preferDotSyntax, sortAlphabetically, eol);
                 }
 
-                // Handle imports that don't have a matching block
-                const unhandledDigest = digestBlockIndex < 0 ? newDigestPaths : [];
-                const unhandledLocal = localBlockIndex < 0 ? newLocalPaths : [];
-                const unhandledPaths = [...unhandledDigest, ...unhandledLocal];
+                // Imports no block took: one with no matching block, and one an
+                // anchored import keeps out of the block it would have matched.
+                const unhandledPaths = [...newDigestPaths.filter((path) => !blockCanTake(digestBlockIndex, path)), ...newLocalPaths.filter((path) => !blockCanTake(localBlockIndex, path))];
 
                 if (unhandledPaths.length > 0) {
-                    const unhandledImports = this.formatter.groupAndFormatImports(unhandledPaths, preferDotSyntax, sortAlphabetically, importGrouping);
-
                     // Add unhandled imports at the appropriate position
-                    if (importBlocks.length > 0) {
-                        edit.insert(document.uri, new vscode.Position(importBlocks[importBlocks.length - 1].end + 1, 0), unhandledImports.join(eol) + eol);
-                    } else {
-                        edit.insert(document.uri, new vscode.Position(0, 0), unhandledImports.join(eol) + eol + eol);
+                    const desired = importBlocks.length > 0 ? importBlocks[importBlocks.length - 1].end + 1 : 0;
+                    for (const [line, paths] of this.groupByPlacementLine(unhandledPaths, desired, anchoredImports, classifications)) {
+                        this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, importBlocks.length === 0);
                     }
                 }
             } else {
                 // Either no existing grouping or need to create initial groups
                 if (importGrouping !== "none" && existingPaths.size > 0) {
-                    // We have existing imports but no grouping - reorganize everything into groups
-                    const allPaths = new Set<string>([...relocatablePaths, ...newImportPaths]);
+                    // We have existing imports but no grouping - reorganize
+                    // everything into groups. A new path an anchored import
+                    // keeps out of the rebuilt block is written on its own line
+                    // below that import instead, rather than into a group that
+                    // sits above it. Only the new paths are asked: this branch
+                    // sees at most one block (2+ gapped blocks reach the
+                    // hasGrouping branch above), so every relocated path is
+                    // already inside the block being rebuilt in place.
+                    const displacedPaths =
+                        importBlocks.length > 0 ? Array.from(newImportPaths).filter((path) => !this.blockIsWithin(importBlocks[0], this.anchoredBounds(anchoredImports, classifications, path))) : [];
+                    const displaced = new Set(displacedPaths);
+
+                    const allPaths = new Set<string>([...relocatablePaths, ...newImportPaths].filter((path) => !displaced.has(path)));
                     const allImportsArray = Array.from(allPaths);
                     const groupedImports = this.withTrailingComments(
                         this.formatter.groupAndFormatImports(allImportsArray, preferDotSyntax, sortAlphabetically, importGrouping),
@@ -427,9 +613,15 @@ export class ImportDocumentEditor {
                             const block = importBlocks[i];
                             edit.delete(document.uri, new vscode.Range(new vscode.Position(block.start, 0), new vscode.Position(block.end + 1, 0)));
                         }
+
+                        for (const [line, paths] of this.groupByPlacementLine(displacedPaths, firstBlock.end + 1, anchoredImports, classifications)) {
+                            this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, false);
+                        }
                     } else {
-                        // No existing imports - insert grouped imports at the top
-                        edit.insert(document.uri, new vscode.Position(0, 0), groupedImports.join(eol) + eol + eol);
+                        // No existing block - insert the grouped imports at the
+                        // top, or below an anchored import that has to precede
+                        // one of them.
+                        this.insertImportLines(edit, document, this.placementLine(0, this.combinedAnchoredBounds(anchoredImports, classifications, allImportsArray)), groupedImports, eol, true);
                     }
                 } else {
                     // No grouping or no existing imports - use original behavior
@@ -450,9 +642,33 @@ export class ImportDocumentEditor {
                         // block orders the new import against that block alone,
                         // which is how a consumer ended up above its provider in
                         // another block (see selectTargetBlockIndex).
+                        //
+                        // Only a block inside the space the anchored imports
+                        // leave is eligible, and the selector chooses among
+                        // those. An anchored import is in no block, so offering
+                        // it every block is what let a new import be merged into
+                        // one above the anchored provider it needs.
                         const pathsByBlock = new Map<number, string[]>();
+                        const unblockedPaths: string[] = [];
                         for (const path of newImportPathsArray) {
-                            const index = this.selectTargetBlockIndex(importBlocks, path);
+                            const bounds = this.anchoredBounds(anchoredImports, classifications, path);
+                            const eligible = importBlocks.map((block, index) => ({ block, index })).filter(({ block }) => this.blockIsWithin(block, bounds));
+
+                            if (eligible.length === 0) {
+                                // No block sits where this import may go, so it
+                                // is written on its own line there instead.
+                                unblockedPaths.push(path);
+                                continue;
+                            }
+
+                            // The selector reports a position in the list it was
+                            // given, so its answer is read back through that
+                            // list to reach the real block.
+                            const chosen = this.selectTargetBlockIndex(
+                                eligible.map(({ block }) => block),
+                                path,
+                            );
+                            const index = eligible[chosen].index;
                             const targetPaths = pathsByBlock.get(index);
                             if (targetPaths) {
                                 targetPaths.push(path);
@@ -465,38 +681,36 @@ export class ImportDocumentEditor {
                         for (const index of [...pathsByBlock.keys()].sort((a, b) => a - b)) {
                             this.createBlockReplacementEdit(edit, document, importBlocks[index], pathsByBlock.get(index)!, preferDotSyntax, true, eol);
                         }
+
+                        for (const [line, paths] of this.groupByPlacementLine(unblockedPaths, 0, anchoredImports, classifications)) {
+                            this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, true, importGrouping), eol, true);
+                        }
                     } else {
                         // Sorting off or no existing block: keep the original
                         // append-in-place behavior and leave existing lines
                         // untouched.
-                        const newImports = this.formatter.groupAndFormatImports(newImportPathsArray, preferDotSyntax, sortAlphabetically, importGrouping);
+                        // After the last import block, not the first: with
+                        // sorting off nothing reorders a block afterwards, so
+                        // any earlier position could leave a new import above
+                        // one that has to stay above it.
+                        //
+                        // Wherever that block sits, not only when it starts at
+                        // line 0. A file whose imports open below a licence
+                        // header has its first block at a later line, and
+                        // inserting at line 0 there put the new import above the
+                        // header and left two disconnected import regions
+                        // behind.
+                        //
+                        // With no block at all the top of the file is where a
+                        // new import goes - unless an anchored import that has
+                        // to precede it sits there, which is the one case a file
+                        // whose only import is anchored always reaches. That is
+                        // what groupByPlacementLine answers, from either start.
+                        const desired = importBlocks.length > 0 ? importBlocks[importBlocks.length - 1].end + 1 : 0;
+                        const blankLineAfter = importBlocks.length === 0;
 
-                        if (importBlocks.length > 0) {
-                            // After the last import block, not the first: with
-                            // sorting off nothing reorders a block afterwards,
-                            // so any earlier position could leave a new import
-                            // above one that has to stay above it.
-                            //
-                            // Wherever that block sits, not only when it starts
-                            // at line 0. A file whose imports open below a
-                            // licence header has its first block at a later
-                            // line, and inserting at line 0 there put the new
-                            // import above the header and left two disconnected
-                            // import regions behind.
-                            const lastBlock = importBlocks[importBlocks.length - 1];
-                            if (lastBlock.end + 1 < document.lineCount) {
-                                edit.insert(document.uri, new vscode.Position(lastBlock.end + 1, 0), newImports.join(eol) + eol);
-                            } else {
-                                // The block ends a document with no trailing
-                                // newline, so the line after it does not exist.
-                                // VS Code clamps a position past the end onto
-                                // the end of the last line, which would splice
-                                // the new statement onto the last import and
-                                // leave one unreadable line where two belong.
-                                edit.insert(document.uri, document.lineAt(lastBlock.end).range.end, eol + newImports.join(eol));
-                            }
-                        } else {
-                            edit.insert(document.uri, new vscode.Position(0, 0), newImports.join(eol) + eol + eol);
+                        for (const [line, paths] of this.groupByPlacementLine(newImportPathsArray, desired, anchoredImports, classifications)) {
+                            this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, blankLineAfter);
                         }
                     }
                 }

@@ -994,6 +994,150 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         expect(operations.some((op) => op.kind === "replace")).toBe(false);
         expect(operations.some((op) => op.kind === "delete")).toBe(false);
     });
+
+    // An import anchored by a comment marker belongs to no import block, so
+    // every placement decision - all of which read the blocks - was blind to
+    // it, and a new import could be written above the anchored import that
+    // brings its first segment into scope. Verse resolves `using` sequentially,
+    // so the "Unknown identifier" the import was added to fix survived it.
+    describe("placement against an import anchored by a comment marker", () => {
+        it("writes a new consumer below an anchored provider, past the indented comment it opens", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["using { Features } <#> why this is here", "    it brings Economy into scope", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            expect(operations).toHaveLength(1);
+            expect(operations[0].kind).toBe("insert");
+            // Line 2, not line 1: the line below the marker is the comment's
+            // own body, and an import at column 0 there both lands inside the
+            // comment and truncates the rest of what the author wrote.
+            expect(operations[0].position).toEqual({ line: 2, character: 0 });
+            expect(operations[0].text).toBe("using { Economy.Shop }\n\n");
+        });
+
+        it("writes a new consumer below an anchored provider, past the block comment it leaves open", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["using { Features } <# why this is here", "it brings Economy into scope", "#>", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            expect(operations).toHaveLength(1);
+            expect(operations[0].kind).toBe("insert");
+            expect(operations[0].position).toEqual({ line: 3, character: 0 });
+            expect(operations[0].text).toBe("using { Economy.Shop }\n\n");
+        });
+
+        it("keeps a new consumer out of a block that sits above the anchored provider it needs", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["using { /Verse.org/Simulation }", "", "using { Features } <#> note", "    body", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            // The block at line 0 would have taken it, above the provider.
+            expect(operations.some((op) => op.kind === "replace")).toBe(false);
+
+            const insert = operations.find((op) => op.kind === "insert");
+            expect(insert).toBeDefined();
+            expect(insert!.position!.line).toBe(4);
+            expect(insert!.text).toBe("using { Economy.Shop }\n\n");
+        });
+
+        it("still merges a new consumer into a block that sits below the anchored provider", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["using { Features } <#> note", "    body", "", "using { /Verse.org/Simulation }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            // Nothing forbids that block, so the ordinary merge still happens
+            // rather than a standalone line.
+            expect(operations.some((op) => op.kind === "insert")).toBe(false);
+
+            const replace = operations.find((op) => op.kind === "replace");
+            expect(replace).toBeDefined();
+            expect(replace!.range!.start.line).toBe(3);
+            expect(replace!.text).toBe("using { /Verse.org/Simulation }\nusing { Economy.Shop }\n");
+        });
+
+        it("writes a new provider above the anchored consumer that depends on it", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["using { Economy.Shop } <#> note", "    body", "", "using { /Verse.org/Simulation }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            // Merging into the block below would put the provider under the
+            // anchored consumer, which is the same breakage the other way up.
+            expect(operations.some((op) => op.kind === "replace")).toBe(false);
+
+            const insert = operations.find((op) => op.kind === "insert");
+            expect(insert).toBeDefined();
+            expect(insert!.position!.line).toBe(0);
+            expect(insert!.text).toBe("using { Features }\n\n");
+        });
+
+        it("sort OFF: appends below the anchored provider rather than after the last block", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": false,
+            });
+            const input = ["using { /Verse.org/Simulation }", "", "using { Features } <#> note", "    body", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
+
+            expect(success).toBe(true);
+            const insert = appliedOperations(0).find((op) => op.kind === "insert");
+            expect(insert).toBeDefined();
+            expect(insert!.position!.line).toBe(4);
+            expect(insert!.text).toBe("using { Economy.Shop }\n");
+        });
+
+        it("digestFirst: writes the new group below the anchored provider, not at the top", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "digestFirst",
+            });
+            const input = ["using { Features } <#> note", "    body", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
+
+            expect(success).toBe(true);
+            const insert = appliedOperations(0).find((op) => op.kind === "insert");
+            expect(insert).toBeDefined();
+            expect(insert!.position!.line).toBe(2);
+            expect(insert!.text).toBe("using { Economy.Shop }\n\n");
+        });
+    });
 });
 
 describe("ImportDocumentEditor.ensureEmptyLinesAfterImports", () => {

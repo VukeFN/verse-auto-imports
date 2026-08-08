@@ -4,7 +4,7 @@ import { logger } from "../utils";
 import { ProjectPathHandler } from "../project";
 import { ProjectPathCache } from "../services";
 import { ImportFormatter } from "./ImportFormatter";
-import { scanConvertibleImports } from "./ImportScanner";
+import { LINE_SPLIT, scanConvertibleImports } from "./ImportScanner";
 
 interface ImportConversionResult {
     originalImport: string;
@@ -450,7 +450,7 @@ export class ImportPathConverter {
     async convertAllImportsFromFullPath(document: vscode.TextDocument): Promise<ImportConversionResult[]> {
         const results: ImportConversionResult[] = [];
         const text = document.getText();
-        const lines = text.split("\n");
+        const lines = text.split(LINE_SPLIT);
 
         for (const { statement, line } of scanConvertibleImports(lines)) {
             if (this.isFullPathImport(statement) && !this.isBuiltinModule(statement)) {
@@ -539,7 +539,7 @@ export class ImportPathConverter {
     async convertAllImportsInDocument(document: vscode.TextDocument): Promise<ImportConversionResult[]> {
         const results: ImportConversionResult[] = [];
         const text = document.getText();
-        const lines = text.split("\n");
+        const lines = text.split(LINE_SPLIT);
 
         for (const { statement, line } of scanConvertibleImports(lines)) {
             const result = await this.convertToFullPath(statement, document.uri, line);
@@ -568,8 +568,8 @@ export class ImportPathConverter {
      * a lens would never have appeared: searching the raw lines is what let the
      * commented-out copy absorb the edit in the first place.
      *
-     * Comparison is by trimmed text, which also absorbs the trailing `\r` a CRLF
-     * document leaves on every element of a `"\n"` split.
+     * Comparison is by trimmed text, so the recorded line still matches after
+     * the user indents or outdents the import while the conversion resolves.
      */
     private static findConversionLine(lines: string[], conversion: ImportConversionResult): number {
         const original = conversion.originalImport.trim();
@@ -587,7 +587,7 @@ export class ImportPathConverter {
      */
     async applyConversion(document: vscode.TextDocument, conversion: ImportConversionResult, selectedPath?: string): Promise<boolean> {
         const text = document.getText();
-        const lines = text.split("\n");
+        const lines = text.split(LINE_SPLIT);
         const lineIndex = ImportPathConverter.findConversionLine(lines, conversion);
 
         if (lineIndex === -1) {

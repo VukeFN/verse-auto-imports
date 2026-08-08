@@ -65,8 +65,8 @@ interface RecordedOperation {
     text?: string;
 }
 
-function fakeDocument(lines: string[]): vscode.TextDocument {
-    const text = lines.join("\n");
+function fakeDocument(lines: string[], eol: "\n" | "\r\n" = "\n"): vscode.TextDocument {
+    const text = lines.join(eol);
     return {
         uri: vscode.Uri.file("C:/project/test.verse"),
         getText: () => text,
@@ -217,17 +217,56 @@ describe("ImportPathConverter.applyConversion", () => {
     });
 
     it("does not carry the carriage return of a CRLF line into the comment it restores", async () => {
-        // The document is split on "\n", so every line of a CRLF file ends in a
-        // `\r` and the comment is read out of text carrying one. Writing that
-        // `\r` back mid-line would split the line where the comment starts.
-        const document = fakeDocument(["using { Gadgets.Tools } # kept\r", "\r", "code()\r"]);
+        // The comment is read back out of the line about to be replaced, so a
+        // `\r` left on that line would be written into the middle of the
+        // rebuilt one - splitting it where the comment starts.
+        const document = fakeDocument(["using { Gadgets.Tools } # kept", "", "code()"], "\r\n");
         const annotated = { ...conversion(0), originalImport: "using { Gadgets.Tools } # kept" };
 
         expect(await converter.applyConversion(document, annotated)).toBe(true);
 
         expect(replacedOperation().text).toBe("using { /mygame@fortnite.com/mygame/Gadgets/Tools } # kept");
     });
+
+    it("ends the replace range at the true end of a CRLF line", async () => {
+        // The end column comes from the split line's length, so splitting on
+        // "\n" makes it one past the end of the line on every CRLF document.
+        // Real VS Code clamps the overshoot, which is exactly why nothing here
+        // can be left resting on it.
+        const document = fakeDocument(["using { Gadgets.Tools }", "", "code()"], "\r\n");
+
+        expect(await converter.applyConversion(document, conversion(0))).toBe(true);
+
+        const range = replacedOperation().range!;
+        expect(range.start).toEqual({ line: 0, character: 0 });
+        expect(range.end).toEqual({ line: 0, character: "using { Gadgets.Tools }".length });
+    });
+
+    it("leaves every other line of a CRLF document byte-identical", async () => {
+        const lines = ["using { Gadgets.Tools }", "", "code()"];
+        const document = fakeDocument(lines, "\r\n");
+
+        expect(await converter.applyConversion(document, conversion(0))).toBe(true);
+
+        const replaced = replacedOperation();
+        expect(applyOperation(document.getText(), replaced, "\r\n")).toBe(["using { /mygame@fortnite.com/mygame/Gadgets/Tools }", "", "code()"].join("\r\n"));
+    });
 });
+
+/**
+ * Applies a recorded replace operation to `text`, resolving its positions the
+ * way VS Code does: against lines that exclude the terminator.
+ *
+ * The mock's Range does not clamp an out-of-range column, which is what lets a
+ * test see the range the code actually built rather than the one the host
+ * would have salvaged from it.
+ */
+function applyOperation(text: string, operation: RecordedOperation, eol: "\n" | "\r\n"): string {
+    const lines = text.split(eol);
+    const offsetOf = (position: { line: number; character: number }) => lines.slice(0, position.line).reduce((total, line) => total + line.length + eol.length, 0) + position.character;
+
+    return text.slice(0, offsetOf(operation.range!.start)) + operation.text + text.slice(offsetOf(operation.range!.end));
+}
 
 /** A converter with project path resolution pinned, so conversion is pure string work. */
 function converterWithProjectPath(projectVersePath: string): ImportPathConverter {

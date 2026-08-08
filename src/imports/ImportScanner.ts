@@ -3,10 +3,9 @@ import { ImportFormatter } from "./ImportFormatter";
 /**
  * Splits text into lines without keeping the carriage return of a CRLF pair.
  *
- * Every `lines: string[]` this module consumes is expected to have been split
- * this way. A `"\n"` split leaves a trailing `\r` on every line of a CRLF
- * document, and a caller that derives a column from `line.length` then points
- * one past the end of the line.
+ * Split with this wherever a column is later derived from `line.length`: a
+ * `"\n"` split leaves a trailing `\r` on every line of a CRLF document, which
+ * puts that column one past the end of the line.
  */
 export const LINE_SPLIT = /\r?\n/;
 

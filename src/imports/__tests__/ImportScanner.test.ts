@@ -67,6 +67,32 @@ describe("allUsingPaths", () => {
         expect(allUsingPaths(["using. /A", "code()"])).toEqual(["/A"]);
     });
 
+    // `;` separates definitions in a scope exactly as a newline does, so a line
+    // can write two statements. Reporting only the first is what let an
+    // absolute path hide a dotted one beside it and read as safe to withhold.
+    it("collects both statements a line separated by a semicolon writes", () => {
+        expect(allUsingPaths(["using { /X }; using { Economy.Shop }", "code()"])).toEqual(["/X", "Economy.Shop"]);
+    });
+
+    it("collects three statements sharing a line, in written order", () => {
+        expect(allUsingPaths(["using { /X }; using { Features }; using { Economy.Shop }", "code()"])).toEqual(["/X", "Features", "Economy.Shop"]);
+    });
+
+    // A dotted statement has no closing delimiter, so it swallows what follows
+    // it into its path. The statement after it is still found and reported on
+    // its own, which is the guarantee that matters: nothing is missed.
+    it("still reports a statement written after a dotted one on the same line", () => {
+        expect(allUsingPaths(["using. /X; using { Economy.Shop }", "code()"])).toEqual(["/X; using { Economy.Shop }", "Economy.Shop"]);
+    });
+
+    it("collects a second statement written after a braced one in a module body", () => {
+        expect(allUsingPaths(["using { /A }", "MyModule := module:", "    using { /X }; using { Economy.Shop }", "code()"])).toEqual(["/A", "/X", "Economy.Shop"]);
+    });
+
+    it("does not read a second statement out of a comment sharing the line", () => {
+        expect(allUsingPaths(["using { /X } # see using { Economy.Shop }", "code()"])).toEqual(["/X"]);
+    });
+
     it("strips a trailing comment from the path", () => {
         expect(allUsingPaths(["using { /A } # why", "code()"])).toEqual(["/A"]);
     });

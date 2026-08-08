@@ -48,6 +48,23 @@ interface LineScan {
     /** Whether the line carries any text outside a comment. */
     hasCode: boolean;
     /**
+     * The line with its comments removed. A reader searching a line for a
+     * statement it cannot prefix-test needs this: a statement is not required
+     * to open its line - one can follow a `;`, or the `#>` that closes a block
+     * comment - so the search has to cover the whole line, and searching the
+     * raw line finds a `using` written in the trivia.
+     *
+     * Nothing is put in a removed comment's place, so text on either side of
+     * one joins. Whether Verse splits a token there is not something its test
+     * corpus settles: comments appear only between tokens throughout
+     * Tests/Roundtrip/Comments.versetest, and the one splicing case,
+     * `"abc<#def#>ghi" = "abcghi"` in Tests/Literals/String.versetest, is
+     * string contents rather than an identifier. Joining is the side to be
+     * wrong on: it can only report a `using` this reader would otherwise miss,
+     * and missing one is the error its caller cannot survive.
+     */
+    code: string;
+    /**
      * Whether the line holds a `<#>` marker, which makes every line below it
      * indented past it part of the comment it opens.
      */
@@ -75,6 +92,7 @@ interface LineScan {
 function scanLine(line: string, depth: number): LineScan {
     let nesting = depth;
     let hasCode = false;
+    let code = "";
     let i = 0;
 
     while (i < line.length) {
@@ -94,13 +112,13 @@ function scanLine(line: string, depth: number): LineScan {
         if (line.startsWith("<#>", i)) {
             // Indented comment: the rest of this line is comment text, and so
             // is everything below indented past this line.
-            return { depth: nesting, hasCode, opensIndentedComment: true };
+            return { depth: nesting, hasCode, code, opensIndentedComment: true };
         }
 
         if (line[i] === "#") {
             // Line comment: the rest of the line is comment text and cannot
             // open a block.
-            return { depth: nesting, hasCode, opensIndentedComment: false };
+            return { depth: nesting, hasCode, code, opensIndentedComment: false };
         }
 
         if (line.startsWith("<#", i)) {
@@ -112,10 +130,11 @@ function scanLine(line: string, depth: number): LineScan {
         if (!/\s/.test(line[i])) {
             hasCode = true;
         }
+        code += line[i];
         i += 1;
     }
 
-    return { depth: nesting, hasCode, opensIndentedComment: false };
+    return { depth: nesting, hasCode, code, opensIndentedComment: false };
 }
 
 /** The width of a line's leading whitespace, which is its indentation. */
@@ -143,6 +162,12 @@ export interface LineClassification {
      * below the opener or strands lines that no longer read as comment text.
      */
     continuesCommentAbove: boolean;
+    /**
+     * The line with its comments removed. A reader that searches a line rather
+     * than prefix-testing it needs this: search the raw line and a `using`
+     * written in its trivia reads as the line's own statement.
+     */
+    code: string;
 }
 
 /**
@@ -186,6 +211,7 @@ export function classifyLines(lines: string[]): LineClassification[] {
             kind,
             insideBlockComment,
             continuesCommentAbove: insideBlockComment || insideIndentedComment,
+            code: scan.code,
         };
 
         if (!insideBlockComment && !insideIndentedComment && scan.opensIndentedComment) {
@@ -349,6 +375,26 @@ export function rewritableImports(scannedImports: ScannedImport[]): ScannedImpor
 }
 
 /**
+ * The path of the first `using` written anywhere in a line of live code, or ""
+ * when it writes none.
+ *
+ * extractPathFromImport reads a statement from the head of what it is given, so
+ * a statement that does not open the line has to be handed its own head rather
+ * than the line. Every `using` on the line is offered in turn, which keeps one
+ * copy of the two patterns instead of a looser second copy that searches - the
+ * looser copy is what read a comment as the statement in the first place.
+ */
+function firstImportPath(formatter: ImportFormatter, code: string): string {
+    for (let at = code.indexOf("using"); at !== -1; at = code.indexOf("using", at + 1)) {
+        const path = formatter.extractPathFromImport(code.slice(at));
+        if (path) {
+            return path;
+        }
+    }
+    return "";
+}
+
+/**
  * The path of every `using` the file writes, at any indentation, module import
  * and local-scope using alike.
  *
@@ -375,10 +421,12 @@ export function rewritableImports(scannedImports: ScannedImport[]): ScannedImpor
  * error this must not make: the caller reads an empty answer as permission to
  * remove an import, so anything unrecognised has to fail towards reporting a
  * path rather than away from it. That is also why the statement is not required
- * to open its line, and why extractPathFromImport decides rather than a prefix
- * test - a line closing a block comment can carry a live `using` after the `#>`.
- * The cost is that trivia naming a path, such as a trailing `# see using { /B }`,
- * reports it; that only makes the caller more cautious.
+ * to open its line: it can follow a `;`, the `#>` that closes a block comment,
+ * or closed inline trivia. So the whole line is searched - but the line with its
+ * comments already removed, which is the classifier's answer rather than
+ * anything read off the raw text. Searching the raw text is what let a
+ * `using { X }` written in a comment stand in for the line's own statement,
+ * the same defect extractPathFromImport itself had.
  *
  * Positions are not reported; a caller that needs them wants scanModuleImports.
  */
@@ -388,20 +436,17 @@ export function allUsingPaths(lines: string[]): string[] {
     const paths: string[] = [];
 
     for (let i = 0; i < lines.length; i++) {
-        if (classifications[i].kind === "comment") {
+        const { kind, code } = classifications[i];
+        if (kind === "comment") {
             continue;
         }
 
         // The indented half of a `using:` pair is read here from nextLine, and
         // holds no `using` of its own, so the loop reaching it finds nothing and
         // the pair is counted once - as scanModuleImports consumes both at once.
-        const trimmed = lines[i].trim();
+        const trimmed = code.trim();
         const nextLine = i + 1 < lines.length ? lines[i + 1] : undefined;
-        const path = /^using\s*:\s*$/.test(trimmed)
-            ? nextLine !== undefined && /^\s+\S/.test(nextLine)
-                ? ImportFormatter.stripTrailingComment(nextLine)
-                : ""
-            : formatter.extractPathFromImport(trimmed);
+        const path = /^using\s*:\s*$/.test(trimmed) ? (nextLine !== undefined && /^\s+\S/.test(nextLine) ? ImportFormatter.stripTrailingComment(nextLine) : "") : firstImportPath(formatter, trimmed);
         if (path) {
             paths.push(path);
         }

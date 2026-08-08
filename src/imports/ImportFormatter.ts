@@ -164,19 +164,28 @@ export class ImportFormatter {
      * Handles both curly syntax (using { /path }) and dot syntax (using. /path).
      * A trailing comment is stripped, so the returned path never carries trivia
      * that would corrupt the statement when it is re-emitted.
+     *
+     * Anchored on the trimmed statement, and dotted before braced, following
+     * isModuleImport. Unanchored, the braced pattern is free to match
+     * inside the trailing comment of a dotted statement and win the path -
+     * `using. Economy.Shop # was using { Inventory }` read as `Inventory`,
+     * because the comment is only stripped afterwards, from that capture.
+     *
      * @param importStatement The full import statement
      * @returns The extracted path, or null if there is none (including a
      *   statement whose content is nothing but a comment)
      */
     extractPathFromImport(importStatement: string): string | null {
-        const curlyMatch = importStatement.match(/using\s*\{\s*([^}]+)\s*\}/);
-        if (curlyMatch) {
-            return ImportFormatter.stripTrailingComment(curlyMatch[1]) || null;
-        }
+        const trimmed = importStatement.trim();
 
-        const dotMatch = importStatement.match(/using\.\s*(.+)/);
+        const dotMatch = trimmed.match(/^using\.\s*(.+)/);
         if (dotMatch) {
             return ImportFormatter.stripTrailingComment(dotMatch[1]) || null;
+        }
+
+        const curlyMatch = trimmed.match(/^using\s*\{\s*([^}]+)\s*\}/);
+        if (curlyMatch) {
+            return ImportFormatter.stripTrailingComment(curlyMatch[1]) || null;
         }
 
         return null;

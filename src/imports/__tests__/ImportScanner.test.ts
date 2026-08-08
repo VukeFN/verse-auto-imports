@@ -70,6 +70,32 @@ describe("allUsingPaths", () => {
     it("strips a trailing comment from the path", () => {
         expect(allUsingPaths(["using { /A } # why", "code()"])).toEqual(["/A"]);
     });
+
+    // The other half of searching the line's code: a line that carries code and
+    // then names a using in its trivia writes no import, so the trivia must not
+    // report one.
+    it("does not read a using named in the trivia of a code line", () => {
+        expect(allUsingPaths(["code() # see using { /B }", "using { /A }"])).toEqual(["/A"]);
+    });
+
+    // The statement need not be the first thing on its line either. Reporting
+    // only a statement that opens the line is the miss this must never make.
+    it("collects a using written after other code on the same line", () => {
+        expect(allUsingPaths(["F():void =", "    Foo(); using { LocalVar }", "using { /A }"])).toEqual(["LocalVar", "/A"]);
+    });
+
+    it("collects a using written after code and a closed inline comment", () => {
+        expect(allUsingPaths(["X := 1 <# note #> using { Economy.Shop }", "using { /A }"])).toEqual(["Economy.Shop", "/A"]);
+    });
+
+    // Whether Verse reads `us<# c #>ing` as one token is not settled by its test
+    // corpus - comments sit between tokens throughout Roundtrip/Comments, and
+    // the one splicing case is string contents. Reporting is the side to be
+    // wrong on: a false path only makes the caller more cautious, where a missed
+    // one is the error it cannot survive.
+    it("reports a using whose token a comment splits, rather than risking a miss", () => {
+        expect(allUsingPaths(["us<# c #>ing { /B }", "using { /A }"])).toEqual(["/B", "/A"]);
+    });
 });
 
 describe("scanModuleImports", () => {

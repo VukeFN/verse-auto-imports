@@ -242,6 +242,9 @@ const workspace = {
     onWillSaveTextDocument: jest.fn().mockImplementation(() => ({ dispose: jest.fn() })),
     applyEdit: jest.fn().mockResolvedValue(true),
     workspaceFolders: undefined as { uri: { fsPath: string }; name: string; index: number }[] | undefined,
+    // Set when a .code-workspace file is open, folder-only workspaces leave it
+    // undefined - which is how the environment snapshot tells the two apart.
+    workspaceFile: undefined as { fsPath: string } | undefined,
     findFiles: jest.fn().mockResolvedValue([]),
     createFileSystemWatcher: jest.fn().mockImplementation((globPattern: unknown) => new FileSystemWatcher(globPattern)),
     // Empty by default so a test that only needs the scan to complete does not
@@ -347,7 +350,14 @@ const EndOfLine = {
     CRLF: 2,
 };
 
+/**
+ * The host version, as vscode.version reports it. A fixed value: tests assert
+ * that it reaches the log, never what it happens to be.
+ */
+const version = "1.85.0";
+
 export {
+    version,
     workspace,
     window,
     languages,

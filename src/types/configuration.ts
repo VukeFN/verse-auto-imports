@@ -36,12 +36,10 @@ export interface PathConversionConfig {
     enableCodeLens: boolean;
     codeLensVisibility: "hover" | "always";
     codeLensHideDelay: number;
-    scanDepth: number;
 }
 
 export interface ExperimentalConfig {
     useDigestFiles: boolean;
-    unknownIdentifierResolution: "digest_only" | "digest_and_inference" | "disabled";
 }
 
 export interface VerseAutoImportsConfig {

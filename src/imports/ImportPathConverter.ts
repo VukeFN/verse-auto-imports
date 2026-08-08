@@ -377,9 +377,13 @@ export class ImportPathConverter {
             return null;
         }
 
-        const curlyMatch = importStatement.match(/using\s*\{\s*([^}]+)\s*\}/);
-        const dotMatch = importStatement.match(/using\.\s*(.+)/);
-        const fullPath = curlyMatch ? curlyMatch[1].trim() : dotMatch ? dotMatch[1].trim() : null;
+        // Read through extractPathFromImport rather than a second copy of its
+        // regexes, because that copy skipped the trailing-comment strip: the
+        // dotted capture runs to end of line, so `using. /A/B # note` yielded the
+        // path `/A/B # note` and re-emitted the comment inside the converted
+        // statement - which applyConversion, restoring the comment itself, would
+        // then write a second time.
+        const fullPath = this.extractPathFromImport(importStatement);
 
         if (!fullPath || !fullPath.startsWith("/")) {
             return null;
@@ -578,8 +582,21 @@ export class ImportPathConverter {
         const edit = new vscode.WorkspaceEdit();
         const range = new vscode.Range(new vscode.Position(lineIndex, 0), new vscode.Position(lineIndex, lines[lineIndex].length));
 
+        // The replacement is built from the statement alone, so everything else
+        // the line carried is dropped unless it is put back. The comment comes
+        // from the line about to be replaced rather than from the conversion:
+        // that line is what the edit overwrites, and resolving a conversion spans
+        // a workspace scan and, when ambiguous, a quick pick - long enough for
+        // the document to change under a recorded line and for findConversionLine
+        // to land on a different one than the comment was read from.
+        //
+        // Only the annotation is at stake here. An import whose line opens a
+        // comment over the lines below it never reaches this point, because
+        // scanConvertibleImports excludes it; see ScannedImport.anchorsCommentBelow.
         const originalIndent = lines[lineIndex].match(/^\s*/)?.[0] || "";
-        edit.replace(document.uri, range, originalIndent + finalImport);
+        const trailingComment = ImportFormatter.extractTrailingComment(lines[lineIndex]);
+        const rebuiltLine = trailingComment ? `${finalImport} ${trailingComment}` : finalImport;
+        edit.replace(document.uri, range, originalIndent + rebuiltLine);
 
         try {
             const success = await vscode.workspace.applyEdit(edit);

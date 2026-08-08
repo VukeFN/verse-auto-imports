@@ -30,6 +30,31 @@ export interface ScannedImport {
      */
     anchorsCommentBelow: boolean;
     /**
+     * Whether rebuilding this statement's lines from `path` would delete text
+     * the author wrote, because the span carries a statement `path` cannot
+     * reproduce.
+     *
+     * Every writer reconstructs a span from `path` and `trailingComment`, which
+     * is faithful only while the statement is the whole of what its lines say.
+     * A `using:` opening an indented pair after a `;` breaks that: the span
+     * holds the statement before the `;` as well, and a rebuild from either
+     * path alone deletes the other. Such a statement is still a real import and
+     * still counts as present - only rewriting is off limits, exactly as for
+     * anchorsCommentBelow, and rewritableImports filters on both.
+     *
+     * `false` is "no loss known", not "provably none". Two shapes carry the
+     * same hazard undetected:
+     *
+     * - a line writing two complete statements, `using { /X }; using { /Y }`,
+     *   which reads as its first path alone and drops the second silently
+     *   (#223)
+     * - `using. /X; using:`, where the dotted statement has no closing
+     *   delimiter and swallows the rest of the line into its path, so the pair
+     *   is pinned under a path that is not `/X` and `/X` itself goes
+     *   unreported - the same weakness usingPathsOnLine documents
+     */
+    rebuildLosesText: boolean;
+    /**
      * The comment trailing the statement on its own line, or "" when it has
      * none. For the indented pair this is the comment on the path line, the
      * only one of the two lines that can carry a path and therefore a comment
@@ -224,15 +249,6 @@ export function classifyLines(lines: string[]): LineClassification[] {
 }
 
 /**
- * Marks, for each line, whether it begins inside a block comment. Computed in
- * one pass up front because a block comment is a property of everything above
- * a line, which the scanner's main loop cannot see once it starts skipping.
- */
-function blockCommentMask(lines: string[]): boolean[] {
-    return classifyLines(lines).map((classification) => classification.insideBlockComment);
-}
-
-/**
  * Scans document lines for module imports. This is the single scanner behind
  * every import-editing operation so they all agree on what counts as an
  * import:
@@ -247,7 +263,11 @@ function blockCommentMask(lines: string[]): boolean[] {
  *   deliberately disabled import back into force.
  * - The indented style (`using:` with the path on the following line) is
  *   consumed as one two-line entry so editing operations never orphan the
- *   path line or lose its path.
+ *   path line or lose its path. A pair opened after a `using` statement and a
+ *   `;` is consumed as well, but pinned rather than rewritable: its span says
+ *   more than any one path can, so a writer rebuilding it deletes what it did
+ *   not read. A `using:` following anything that is not itself a `using` is
+ *   not an import line at all and is skipped whole, as it always was.
  * - Content classification (module import vs local-scope using) is delegated
  *   to ImportFormatter.isModuleImport, passing `{ atFileScope: true }` since
  *   every candidate here already sits at column 0. This means a bare
@@ -265,7 +285,12 @@ function blockCommentMask(lines: string[]): boolean[] {
 export function scanModuleImports(lines: string[]): ScannedImport[] {
     const formatter = new ImportFormatter();
     const imports: ScannedImport[] = [];
-    const insideBlockComment = blockCommentMask(lines);
+    // Computed in one pass up front because comment structure is a property of
+    // everything above a line, which the main loop cannot see once it starts
+    // skipping. `insideBlockComment` decides whether a line may be read as an
+    // import at all, and `code` is what a test searching a line rather than
+    // prefix-testing it has to search - see the tail test below.
+    const classifications = classifyLines(lines);
 
     // Whether the statement's own text opens a comment over the lines below it,
     // read from that text alone rather than from what currently sits under it.
@@ -297,7 +322,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
     while (i < lines.length) {
         const line = lines[i];
 
-        if (insideBlockComment[i]) {
+        if (classifications[i].insideBlockComment) {
             i += 1;
             continue;
         }
@@ -310,6 +335,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
         }
 
         const trimmed = line.trim();
+        const code = classifications[i].code.trim();
         const nextLine = i + 1 < lines.length ? lines[i + 1] : undefined;
 
         if (!ImportFormatter.isModuleImport(trimmed, nextLine, { atFileScope: true })) {
@@ -328,6 +354,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
                         startLine: i,
                         endLine: i + 1,
                         anchorsCommentBelow: anchorsCommentBelow(i, i + 1),
+                        rebuildLosesText: false,
                         trailingComment: ImportFormatter.extractTrailingComment(nextLine),
                     });
                     i += 2;
@@ -339,6 +366,87 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
             continue;
         }
 
+        // The same pair, opened after a `;` rather than at the head of its line.
+        // `;` separates definitions in a scope exactly as a newline does, so a
+        // statement can precede the `using:` - which is why allUsingPaths tests
+        // the tail of the line rather than the whole of it (#218). Read whole,
+        // the line is not a pair at all: it falls through to the single-statement
+        // branch below, which reports the path before the `;` and a span of one
+        // line, and a writer then rebuilds that line from that path alone -
+        // deleting the `; using:` and leaving its path stranded in the body.
+        //
+        // Tested against the line's code rather than its raw text, for the same
+        // reason allUsingPaths is: a `$` anchored on the raw line is defeated by
+        // any comment after the `using:`, which puts the line straight back on
+        // the mangling path this branch exists to keep it off. Searching the raw
+        // text has the mirror failure - `using { /A } <# note about using:` ends
+        // in `using:` inside a comment, and reading it as an opener records the
+        // comment text below as an import path.
+        //
+        // Order is load-bearing. A whole-line `using:` matches this tail test
+        // too, so the branch above has to keep first refusal or the plain pair
+        // changes shape.
+        //
+        // That branch still tests the raw line, and the two inputs cannot
+        // disagree where it runs: isModuleImport gates this loop on the raw text
+        // as well, and a line whose raw text is not exactly `using:` matches
+        // none of its three patterns - so `using: # note` is refused above and
+        // never reaches either branch. The gate is what protects it, not the
+        // input choice. Relaxing the gate is what would make the choice matter.
+        //
+        // Every path the line writes is recorded, because each is imported and
+        // none may be written again, and all are pinned, because no writer can
+        // reproduce this span from any one of them. Their spans overlap. No
+        // writer sees that, because all of them read rewritableImports, which
+        // excludes a pinned entry; a reader of the unfiltered scan does, and
+        // gets the region reported once per path it carries.
+        if (/\busing\s*:\s*$/.test(code)) {
+            // The statement before the `;`, when the line writes one. A line
+            // whose `using:` follows something that is not a `using` at all
+            // never reaches here: isModuleImport rejects it above, so the line
+            // is skipped whole and left alone, which is the same outcome by a
+            // different route.
+            const precedingPath = formatter.extractPathFromImport(code);
+            if (precedingPath) {
+                imports.push({
+                    path: precedingPath,
+                    startLine: i,
+                    endLine: i,
+                    anchorsCommentBelow: anchorsCommentBelow(i, i),
+                    rebuildLosesText: true,
+                    // Read from the raw line, so on a line whose comment sits
+                    // mid-statement this holds the `; using:` after it as well
+                    // as the comment. Nothing re-emits it - that is what being
+                    // pinned means - and the alternative is worse: the code has
+                    // its comments already removed, so it can only ever answer
+                    // "none".
+                    trailingComment: ImportFormatter.extractTrailingComment(trimmed),
+                });
+            }
+
+            const indentedPath = nextLine !== undefined && /^\s+\S/.test(nextLine) ? ImportFormatter.stripTrailingComment(nextLine) : "";
+            if (!indentedPath) {
+                // The `using:` opens nothing usable, exactly as in the branch
+                // above - but the line still carries a statement this scanner
+                // cannot reproduce, so it is pinned rather than handed to the
+                // single-statement branch, which would rebuild it and delete the
+                // `; using:`.
+                i += 1;
+                continue;
+            }
+
+            imports.push({
+                path: indentedPath,
+                startLine: i,
+                endLine: i + 1,
+                anchorsCommentBelow: anchorsCommentBelow(i, i + 1),
+                rebuildLosesText: true,
+                trailingComment: ImportFormatter.extractTrailingComment(nextLine),
+            });
+            i += 2;
+            continue;
+        }
+
         const path = formatter.extractPathFromImport(trimmed);
         if (path) {
             imports.push({
@@ -346,6 +454,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
                 startLine: i,
                 endLine: i,
                 anchorsCommentBelow: anchorsCommentBelow(i, i),
+                rebuildLosesText: false,
                 trailingComment: ImportFormatter.extractTrailingComment(trimmed),
             });
         }
@@ -366,12 +475,16 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
  * around, or - for a `<#` - drops it and resurrects the region below. See
  * ScannedImport.anchorsCommentBelow.
  *
+ * A statement sharing its span with another one is excluded for the same
+ * reason, arrived at from the other direction: there the rebuild is faithful to
+ * the path and deletes the rest of the span. See ScannedImport.rebuildLosesText.
+ *
  * Such an import is still present for existence and deduplication purposes;
  * only rewriting is off limits. Callers wanting "is this path imported" must
  * read the unfiltered scan.
  */
 export function rewritableImports(scannedImports: ScannedImport[]): ScannedImport[] {
-    return scannedImports.filter((imp) => !imp.anchorsCommentBelow);
+    return scannedImports.filter((imp) => !imp.anchorsCommentBelow && !imp.rebuildLosesText);
 }
 
 /**

@@ -1,4 +1,4 @@
-import { allUsingPaths, classifyLines, scanConvertibleImports, scanModuleImports } from "../ImportScanner";
+import { allUsingPaths, classifyLines, rewritableImports, scanConvertibleImports, scanModuleImports } from "../ImportScanner";
 
 describe("allUsingPaths", () => {
     it("collects a file-scope import the same way scanModuleImports does", () => {
@@ -147,18 +147,85 @@ describe("allUsingPaths", () => {
 describe("scanModuleImports", () => {
     it("collects a braced import at column 0 with a single-line span", () => {
         expect(scanModuleImports(["using { /Verse.org/Simulation }", "code()"])).toEqual([
-            { path: "/Verse.org/Simulation", startLine: 0, endLine: 0, anchorsCommentBelow: false, trailingComment: "" },
+            { path: "/Verse.org/Simulation", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
         ]);
     });
 
     it("collects a dotted-style import", () => {
-        expect(scanModuleImports(["using. /Verse.org/Simulation"])).toEqual([{ path: "/Verse.org/Simulation", startLine: 0, endLine: 0, anchorsCommentBelow: false, trailingComment: "" }]);
+        expect(scanModuleImports(["using. /Verse.org/Simulation"])).toEqual([
+            { path: "/Verse.org/Simulation", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
+        ]);
     });
 
     it("consumes the indented using: pair as one two-line entry", () => {
         expect(scanModuleImports(["using:", "    /Verse.org/Simulation", "code()"])).toEqual([
-            { path: "/Verse.org/Simulation", startLine: 0, endLine: 1, anchorsCommentBelow: false, trailingComment: "" },
+            { path: "/Verse.org/Simulation", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
         ]);
+    });
+
+    // Read as a whole line the tail is not a `using:` at all, so the line used
+    // to fall through to the single-statement branch: one entry for the path
+    // before the `;`, spanning one line, and rewritable. Organizing then rebuilt
+    // that line from that path alone, deleting the `; using:` and leaving
+    // Economy.Shop stranded in the body as a bare indented expression.
+    it("consumes a using: pair opened after a semicolon, pinning both paths", () => {
+        expect(scanModuleImports(["using { /X }; using:", "    Economy.Shop", "", "code()"])).toEqual([
+            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "Economy.Shop", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // Both paths still count as imported - that is what stops a writer adding
+    // either one a second time - but neither may be rebuilt or moved, because
+    // no writer can reproduce the span from one path.
+    it("offers no rewritable import for a pair opened after a semicolon", () => {
+        expect(rewritableImports(scanModuleImports(["using { /X }; using:", "    Economy.Shop", "", "code()"]))).toEqual([]);
+    });
+
+    // The line the fix keys on has to keep meaning what it did: a pair opening
+    // its own line is one entry spanning both lines, and still rewritable.
+    it("leaves the plain indented pair rewritable", () => {
+        expect(rewritableImports(scanModuleImports(["using:", "    Economy.Shop", "code()"]))).toEqual([
+            { path: "Economy.Shop", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
+        ]);
+    });
+
+    // The tail is tested against the line's code, not its raw text. A `$`
+    // anchored on the raw line is defeated by any comment after the `using:`,
+    // which puts the line straight back on the branch that rebuilds it from the
+    // path before the `;`.
+    it("consumes a pair opened after a semicolon when a comment trails the opener", () => {
+        expect(scanModuleImports(["using { /X }; using: # note", "    Economy.Shop", "code()"])).toEqual([
+            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "# note" },
+            { path: "Economy.Shop", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // The mirror error of searching the raw line: this one ends in `using:`
+    // inside a comment, and reading that as an opener records the comment text
+    // below it as an import path.
+    it("does not read a using: written inside a comment as opening a pair", () => {
+        expect(scanModuleImports(["using { /A } <# note about using:", "    still comment", "#>", "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, rebuildLosesText: false, trailingComment: "<# note about using:" },
+        ]);
+    });
+
+    // The `using:` opens nothing usable, but the line still writes a statement
+    // no rebuild can reproduce, so it is pinned rather than handed to the
+    // single-statement branch - which would rebuild it and delete the
+    // `; using:`.
+    it("pins a pair opened after a semicolon whose using: opens no indented path", () => {
+        expect(scanModuleImports(["using { /X }; using:", "code()"])).toEqual([{ path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" }]);
+        expect(scanModuleImports(["using { /X }; using:", "    # just a note", "code()"])).toEqual([
+            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // A `using:` following something that is not a `using` writes no import
+    // this scanner may touch: isModuleImport rejects the line, so it is skipped
+    // whole and left exactly as written.
+    it("skips a using: opened after a statement that is not a using", () => {
+        expect(scanModuleImports(["X := 1; using:", "    Economy.Shop", "code()"])).toEqual([]);
     });
 
     it("keeps a trailing comment out of the path but on the entry, in all three styles", () => {
@@ -166,13 +233,13 @@ describe("scanModuleImports", () => {
         // corrupted by it, and onto `trailingComment`, which is what a writer
         // puts back after rebuilding the line.
         expect(scanModuleImports(["using { /Verse.org/Simulation } # keep me"])).toEqual([
-            { path: "/Verse.org/Simulation", startLine: 0, endLine: 0, anchorsCommentBelow: false, trailingComment: "# keep me" },
+            { path: "/Verse.org/Simulation", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "# keep me" },
         ]);
         expect(scanModuleImports(["using. /Verse.org/Simulation # keep me"])).toEqual([
-            { path: "/Verse.org/Simulation", startLine: 0, endLine: 0, anchorsCommentBelow: false, trailingComment: "# keep me" },
+            { path: "/Verse.org/Simulation", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "# keep me" },
         ]);
         expect(scanModuleImports(["using:", "    /Verse.org/Simulation # keep me", "code()"])).toEqual([
-            { path: "/Verse.org/Simulation", startLine: 0, endLine: 1, anchorsCommentBelow: false, trailingComment: "# keep me" },
+            { path: "/Verse.org/Simulation", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "# keep me" },
         ]);
     });
 
@@ -181,7 +248,7 @@ describe("scanModuleImports", () => {
     });
 
     it("collects dot-notation module references", () => {
-        expect(scanModuleImports(["using { Gadgets.Tools }"])).toEqual([{ path: "Gadgets.Tools", startLine: 0, endLine: 0, anchorsCommentBelow: false, trailingComment: "" }]);
+        expect(scanModuleImports(["using { Gadgets.Tools }"])).toEqual([{ path: "Gadgets.Tools", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" }]);
     });
 
     it("skips indented using lines (module-scoped imports)", () => {
@@ -194,7 +261,7 @@ describe("scanModuleImports", () => {
         // body level; local-scope `using{instance}` is only legal inside a
         // function body. So a bare `using { X }` at column 0 can only be a
         // same-directory folder-module import, never a local-scope using.
-        expect(scanModuleImports(["using { Features }"])).toEqual([{ path: "Features", startLine: 0, endLine: 0, anchorsCommentBelow: false, trailingComment: "" }]);
+        expect(scanModuleImports(["using { Features }"])).toEqual([{ path: "Features", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" }]);
     });
 
     it("skips local-scope using inside a function body", () => {
@@ -207,7 +274,7 @@ describe("scanModuleImports", () => {
     });
 
     it("handles CRLF line endings", () => {
-        expect(scanModuleImports(["using { /A }\r", "code()\r"])).toEqual([{ path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, trailingComment: "" }]);
+        expect(scanModuleImports(["using { /A }\r", "code()\r"])).toEqual([{ path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" }]);
     });
 
     it("skips an import commented out with a block comment", () => {
@@ -217,18 +284,20 @@ describe("scanModuleImports", () => {
 
     it("resumes scanning after a block comment closes", () => {
         const lines = ["<#", "using { /Old/Path }", "#>", "using { /Verse.org/Simulation }", "", "code()"];
-        expect(scanModuleImports(lines)).toEqual([{ path: "/Verse.org/Simulation", startLine: 3, endLine: 3, anchorsCommentBelow: false, trailingComment: "" }]);
+        expect(scanModuleImports(lines)).toEqual([{ path: "/Verse.org/Simulation", startLine: 3, endLine: 3, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" }]);
     });
 
     it("skips an import inside a block comment opened and closed on one line", () => {
-        expect(scanModuleImports(["<# using { /Old/Path } #>", "using { /A }"])).toEqual([{ path: "/A", startLine: 1, endLine: 1, anchorsCommentBelow: false, trailingComment: "" }]);
+        expect(scanModuleImports(["<# using { /Old/Path } #>", "using { /A }"])).toEqual([
+            { path: "/A", startLine: 1, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
+        ]);
     });
 
     it("keeps an import whose line opens a block comment after it, and flags it", () => {
         const lines = ["using { /A } <# disabled below", "using { /Old/Path }", "#>", "using { /B }"];
         expect(scanModuleImports(lines)).toEqual([
-            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, trailingComment: "<# disabled below" },
-            { path: "/B", startLine: 3, endLine: 3, anchorsCommentBelow: false, trailingComment: "" },
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, rebuildLosesText: false, trailingComment: "<# disabled below" },
+            { path: "/B", startLine: 3, endLine: 3, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
         ]);
     });
 
@@ -236,15 +305,15 @@ describe("scanModuleImports", () => {
         // Nothing below the line is comment body, so rebuilding it only loses
         // the annotation text - the documented behavior of stripTrailingComment.
         expect(scanModuleImports(["using { /A } <# note #>", "using { /B }"])).toEqual([
-            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, trailingComment: "<# note #>" },
-            { path: "/B", startLine: 1, endLine: 1, anchorsCommentBelow: false, trailingComment: "" },
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "<# note #>" },
+            { path: "/B", startLine: 1, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
         ]);
     });
 
     it("does not flag an import whose trailing line comment mentions <#", () => {
         expect(scanModuleImports(["using { /A } # opens with <#", "using { /B }"])).toEqual([
-            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, trailingComment: "# opens with <#" },
-            { path: "/B", startLine: 1, endLine: 1, anchorsCommentBelow: false, trailingComment: "" },
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "# opens with <#" },
+            { path: "/B", startLine: 1, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
         ]);
     });
 
@@ -253,8 +322,8 @@ describe("scanModuleImports", () => {
         // be read at endLine rather than startLine.
         const lines = ["using:", "    /A <# disabled below", "using { /Old/Path }", "#>", "using { /B }"];
         expect(scanModuleImports(lines)).toEqual([
-            { path: "/A", startLine: 0, endLine: 1, anchorsCommentBelow: true, trailingComment: "<# disabled below" },
-            { path: "/B", startLine: 4, endLine: 4, anchorsCommentBelow: false, trailingComment: "" },
+            { path: "/A", startLine: 0, endLine: 1, anchorsCommentBelow: true, rebuildLosesText: false, trailingComment: "<# disabled below" },
+            { path: "/B", startLine: 4, endLine: 4, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
         ]);
     });
 
@@ -264,14 +333,16 @@ describe("scanModuleImports", () => {
         // got turned on whether it ended with a newline. Now that a rebuild
         // carries the opener through rather than dropping it, "swallows nothing
         // today" stops being safe: sorted above another import, it swallows it.
-        expect(scanModuleImports(["using { /A } <#"])).toEqual([{ path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, trailingComment: "<#" }]);
-        expect(scanModuleImports(["using { /A } <#", ""])).toEqual([{ path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, trailingComment: "<#" }]);
+        expect(scanModuleImports(["using { /A } <#"])).toEqual([{ path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, rebuildLosesText: false, trailingComment: "<#" }]);
+        expect(scanModuleImports(["using { /A } <#", ""])).toEqual([{ path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, rebuildLosesText: false, trailingComment: "<#" }]);
     });
 
     it("does not flag a statement whose own text closes every block it opens", () => {
         // Depth returns to 0 on the line, so nothing below it is comment body
         // and the trailing text travels with the statement safely.
-        expect(scanModuleImports(["using { /A } <# note #>", "code()"])).toEqual([{ path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, trailingComment: "<# note #>" }]);
+        expect(scanModuleImports(["using { /A } <# note #>", "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "<# note #>" },
+        ]);
     });
 
     it("flags an import whose line carries an indented comment marker", () => {
@@ -279,31 +350,33 @@ describe("scanModuleImports", () => {
         // it. Rebuilding the line moves the marker away from that body, and
         // leaves the body behind as indented lines at file scope.
         const lines = ["using { /A } <#> why this is here", "    it brings the module into scope", "code()"];
-        expect(scanModuleImports(lines)).toEqual([{ path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, trailingComment: "<#> why this is here" }]);
+        expect(scanModuleImports(lines)).toEqual([{ path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, rebuildLosesText: false, trailingComment: "<#> why this is here" }]);
     });
 
     it("flags an indented pair whose path line carries an indented comment marker", () => {
         const lines = ["using:", "    /A <#> why", "        the body of the marker's comment", "code()"];
-        expect(scanModuleImports(lines)).toEqual([{ path: "/A", startLine: 0, endLine: 1, anchorsCommentBelow: true, trailingComment: "<#> why" }]);
+        expect(scanModuleImports(lines)).toEqual([{ path: "/A", startLine: 0, endLine: 1, anchorsCommentBelow: true, rebuildLosesText: false, trailingComment: "<#> why" }]);
     });
 
     it("flags a marker with no body below it, unlike an unclosed block opener", () => {
         // The `<#` carve-out above is safe because a file ending at that line
         // can never grow a body. A marker's body is whatever sits indented
         // below it, so a rebuild that moves the line hands it one it never had.
-        expect(scanModuleImports(["using { /A } <#> note", "code()"])).toEqual([{ path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, trailingComment: "<#> note" }]);
+        expect(scanModuleImports(["using { /A } <#> note", "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, rebuildLosesText: false, trailingComment: "<#> note" },
+        ]);
     });
 
     it("treats block comments as nesting, so an inner close does not resume scanning", () => {
         const lines = ["<#", "<#", "using { /Inner }", "#>", "using { /Outer }", "#>", "using { /Live }"];
-        expect(scanModuleImports(lines)).toEqual([{ path: "/Live", startLine: 6, endLine: 6, anchorsCommentBelow: false, trailingComment: "" }]);
+        expect(scanModuleImports(lines)).toEqual([{ path: "/Live", startLine: 6, endLine: 6, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" }]);
     });
 
     it("flags an import whose trailing opener is closed by a nested block below", () => {
         // The outer `<#` is still open on the line after the statement, so the
         // import stays anchored even though an inner `#>` appears first.
         const lines = ["using { /A } <# outer", "<# inner #>", "using { /Old/Path }", "#>", "code()"];
-        expect(scanModuleImports(lines)).toEqual([{ path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, trailingComment: "<# outer" }]);
+        expect(scanModuleImports(lines)).toEqual([{ path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, rebuildLosesText: false, trailingComment: "<# outer" }]);
     });
 
     it("skips an indented using: pair commented out as a block", () => {
@@ -316,20 +389,20 @@ describe("scanModuleImports", () => {
         // below it, which are skipped anyway. Reading it as `<#` would open a
         // block that never closes and hide every import in the rest of the file.
         const lines = ["<#> disabled for now", "    using { /Old/Path }", "using { /Verse.org/Simulation }"];
-        expect(scanModuleImports(lines)).toEqual([{ path: "/Verse.org/Simulation", startLine: 2, endLine: 2, anchorsCommentBelow: false, trailingComment: "" }]);
+        expect(scanModuleImports(lines)).toEqual([{ path: "/Verse.org/Simulation", startLine: 2, endLine: 2, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" }]);
     });
 
     it("does not treat a <# inside a line comment as a block opener", () => {
         const lines = ["# a block comment opens with <#", "using { /Verse.org/Simulation }"];
-        expect(scanModuleImports(lines)).toEqual([{ path: "/Verse.org/Simulation", startLine: 1, endLine: 1, anchorsCommentBelow: false, trailingComment: "" }]);
+        expect(scanModuleImports(lines)).toEqual([{ path: "/Verse.org/Simulation", startLine: 1, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" }]);
     });
 
     it("returns entries in document order with correct spans across mixed styles", () => {
         const lines = ["using { /A }", "using:", "    /B", "using. /C"];
         expect(scanModuleImports(lines)).toEqual([
-            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, trailingComment: "" },
-            { path: "/B", startLine: 1, endLine: 2, anchorsCommentBelow: false, trailingComment: "" },
-            { path: "/C", startLine: 3, endLine: 3, anchorsCommentBelow: false, trailingComment: "" },
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
+            { path: "/B", startLine: 1, endLine: 2, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
+            { path: "/C", startLine: 3, endLine: 3, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
         ]);
     });
 });

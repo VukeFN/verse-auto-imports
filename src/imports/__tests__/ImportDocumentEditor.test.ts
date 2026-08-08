@@ -125,6 +125,45 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /B }", "", "using { /A } <#> why this is here", "    it brings the module into scope", "code()"].join("\n"));
     });
 
+    // A `using:` opening an indented pair after a `;` carries two paths across
+    // two lines, which no rebuild from a single path can reproduce. The line
+    // used to read as the path before the `;` alone, so organizing rewrote it as
+    // `using { /X }` - deleting the `; using:` that opened the pair and leaving
+    // Economy.Shop below as a bare indented expression that imports nothing.
+    // Null is what leaves the document untouched: organizeImports skips the edit
+    // entirely (#219).
+    it("leaves a using: pair opened after a semicolon alone", () => {
+        const input = ["using { /X }; using:", "    Economy.Shop", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBeNull();
+    });
+
+    it("organizes the other imports around a using: pair opened after a semicolon", () => {
+        const input = ["using { /X }; using:", "    Economy.Shop", "using { /B }", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /B }", "", "using { /X }; using:", "    Economy.Shop", "", "code()"].join("\n"));
+    });
+
+    it("does not write a second copy of a path such a pair already provides", () => {
+        const input = ["using { /X }; using:", "    Economy.Shop", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["/X"], curlySorted)).toBeNull();
+        expect(editor.buildOrganizedContent(input, ["Economy.Shop"], curlySorted)).toBeNull();
+    });
+
+    // A comment after the `using:` defeats a `$` anchored on the raw line, which
+    // put the line straight back on the mangling path: rebuilt as
+    // `using { /X } # note`, with Economy.Shop stranded below it.
+    it("leaves a using: pair alone when a comment trails the opener", () => {
+        const input = ["using { /X }; using: # note", "    Economy.Shop", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBeNull();
+    });
+
+    // The `using:` opens nothing here, so there is no pair to read - but the
+    // line is still not reproducible from the path before the `;`, and
+    // rebuilding it deletes the `; using:` the author wrote.
+    it("leaves the line alone when such a using: opens no indented path", () => {
+        const input = ["using { /X }; using:", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBeNull();
+    });
+
     // The anchored line ends up below the rebuilt block, so dropping the copy
     // above it can leave a `using` without the import that brings its first
     // segment into scope - the ordering #91 and #129 fixed. Only an absolute

@@ -274,10 +274,19 @@ export class ProjectPathCache {
      * this when the feature is switched off: nothing then loads or invalidates
      * what an earlier session stored, and the cache commands are guarded off
      * too, so a payload left behind can never be read or removed again.
+     *
+     * Returns whether there was one to drop, so a caller can say so; every
+     * later startup with the feature off then finds nothing and writes nothing.
      */
-    static async clearPersistedCache(context: vscode.ExtensionContext): Promise<void> {
+    static async clearPersistedCache(context: vscode.ExtensionContext): Promise<boolean> {
+        const stored = context.workspaceState.get(ProjectPathCache.CACHE_KEY) !== undefined || context.workspaceState.get(ProjectPathCache.LEGACY_METADATA_KEY) !== undefined;
+        if (!stored) {
+            return false;
+        }
+
         await context.workspaceState.update(ProjectPathCache.CACHE_KEY, undefined);
         await context.workspaceState.update(ProjectPathCache.LEGACY_METADATA_KEY, undefined);
+        return true;
     }
 
     /**

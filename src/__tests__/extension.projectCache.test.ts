@@ -29,13 +29,16 @@ interface FakeContext {
     workspaceState: { get: jest.Mock; update: jest.Mock; keys: jest.Mock };
 }
 
-function makeContext(): FakeContext {
+/** A stored payload, shaped the way ProjectPathCache serializes one. */
+const STORED_CACHE = { version: 2, projectName: "MyGame", generatedAt: 0, nodes: [] };
+
+function makeContext(stored: Record<string, unknown> = {}): FakeContext {
     return {
         subscriptions: [],
         workspaceState: {
-            get: jest.fn().mockReturnValue(undefined),
+            get: jest.fn().mockImplementation((key: string) => stored[key]),
             update: jest.fn().mockResolvedValue(undefined),
-            keys: jest.fn().mockReturnValue([]),
+            keys: jest.fn().mockReturnValue(Object.keys(stored)),
         },
     };
 }
@@ -59,10 +62,10 @@ function stubConfiguration(): void {
     });
 }
 
-function activateWithCache(cacheEnabled: boolean): FakeContext {
+function activateWithCache(cacheEnabled: boolean, stored: Record<string, unknown> = {}): FakeContext {
     cacheSetting = cacheEnabled;
     stubConfiguration();
-    const context = makeContext();
+    const context = makeContext(stored);
     activate(context as unknown as vscode.ExtensionContext);
     return context;
 }
@@ -121,25 +124,31 @@ describe("activate with cache.enableProjectCache off", () => {
         expect(status).not.toContain("Not loaded");
     });
 
-    it("neither loads the stored cache nor watches for changes to it", async () => {
-        const context = activateWithCache(false);
+    it("does not watch the project for cache invalidation", async () => {
+        activateWithCache(false);
         await flushAsync();
 
-        expect(context.workspaceState.get).not.toHaveBeenCalledWith(CACHE_KEY);
         expect(watcherGlobs()).not.toContain(CACHE_WATCHER_GLOB);
     });
 
     it("drops a cache an earlier session stored, which nothing can reach now", async () => {
-        const context = activateWithCache(false);
+        const context = activateWithCache(false, { [CACHE_KEY]: STORED_CACHE });
         await flushAsync();
 
         expect(context.workspaceState.update).toHaveBeenCalledWith(CACHE_KEY, undefined);
+    });
+
+    it("writes nothing when there is no stored cache to drop", async () => {
+        const context = activateWithCache(false);
+        await flushAsync();
+
+        expect(context.workspaceState.update).not.toHaveBeenCalled();
     });
 });
 
 describe("activate with cache.enableProjectCache on", () => {
     it("loads the stored cache and watches for changes to it", async () => {
-        const context = activateWithCache(true);
+        const context = activateWithCache(true, { [CACHE_KEY]: STORED_CACHE });
         await flushAsync();
 
         expect(context.workspaceState.get).toHaveBeenCalledWith(CACHE_KEY);

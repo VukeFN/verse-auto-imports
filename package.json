@@ -120,6 +120,30 @@
         "category": "Verse Auto Imports"
       }
     ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "verseAutoImports.addSingleImport",
+          "when": "false"
+        },
+        {
+          "command": "verseAutoImports.convertToFullPath",
+          "when": "false"
+        },
+        {
+          "command": "verseAutoImports.convertAllToFullPath",
+          "when": "false"
+        },
+        {
+          "command": "verseAutoImports.convertToRelativePath",
+          "when": "false"
+        },
+        {
+          "command": "verseAutoImports.convertAllToRelativePath",
+          "when": "false"
+        }
+      ]
+    },
     "configuration": {
       "title": "Verse Auto Imports",
       "properties": {

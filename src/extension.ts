@@ -87,6 +87,14 @@ export function activate(context: vscode.ExtensionContext) {
         projectPathCache.initialize().catch((err) => {
             logger.warn("Extension", `Failed to initialize project path cache: ${err}`);
         });
+    } else {
+        // Nothing loads or invalidates a stored cache while the feature is off,
+        // and the Clear Project Path Cache command is guarded off with it, so a
+        // payload from an earlier session would sit in workspace storage with
+        // no route left to remove it.
+        ProjectPathCache.clearPersistedCache(context).catch((err) => {
+            logger.warn("Extension", `Failed to drop the stored project path cache: ${err}`);
+        });
     }
 
     // Set initial debounce delay (handles backward compat with deprecated setting)
@@ -167,6 +175,12 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration(async (event) => {
             if (!event.affectsConfiguration("verseAutoImports.cache.enableProjectCache")) {
+                return;
+            }
+            // A change back to what activation captured needs no reload; the
+            // window already behaves the way the setting now reads.
+            const newValue = vscode.workspace.getConfiguration("verseAutoImports").get<boolean>("cache.enableProjectCache", true);
+            if (newValue === cacheEnabled) {
                 return;
             }
             const choice = await vscode.window.showInformationMessage("Reload the window for the Verse Auto Imports project path cache setting to take effect.", "Reload Window");

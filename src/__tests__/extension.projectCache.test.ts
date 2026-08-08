@@ -41,20 +41,27 @@ function makeContext(): FakeContext {
 }
 
 /**
+ * The setting's current value. Read lazily by the configuration stub, so a test
+ * can change it after activation the way the user changes it in the UI.
+ */
+let cacheSetting = true;
+
+/**
  * Replaces the shared configuration stub with one that answers the cache
  * setting explicitly. inspect() is part of the contract too: the debounce delay
  * is read through it, and a stub without it throws before activation finishes.
  */
-function stubConfiguration(cacheEnabled: boolean): void {
+function stubConfiguration(): void {
     (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
-        get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => (key === CACHE_SETTING ? cacheEnabled : defaultValue)),
+        get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => (key === CACHE_SETTING ? cacheSetting : defaultValue)),
         inspect: jest.fn().mockReturnValue(undefined),
         update: jest.fn().mockResolvedValue(undefined),
     });
 }
 
 function activateWithCache(cacheEnabled: boolean): FakeContext {
-    stubConfiguration(cacheEnabled);
+    cacheSetting = cacheEnabled;
+    stubConfiguration();
     const context = makeContext();
     activate(context as unknown as vscode.ExtensionContext);
     return context;
@@ -86,15 +93,14 @@ beforeEach(() => {
 
 describe("activate with cache.enableProjectCache off", () => {
     it("refuses the rebuild command rather than writing an unwatched cache", async () => {
-        const context = activateWithCache(false);
+        activateWithCache(false);
 
         await commandHandler("verseAutoImports.rebuildPathCache")();
 
         expect(messageTexts(vscode.window.showWarningMessage as jest.Mock)).toContain("Project path cache is not enabled");
-        // A rebuild here would scan the project and persist the result, with no
-        // watcher behind it to invalidate what it stored.
+        // withProgress is the scan: reaching it means the command went on to
+        // rebuild and persist a cache no watcher would ever invalidate.
         expect(vscode.window.withProgress).not.toHaveBeenCalled();
-        expect(context.workspaceState.update).not.toHaveBeenCalled();
     });
 
     it("refuses the clear command", async () => {
@@ -122,6 +128,13 @@ describe("activate with cache.enableProjectCache off", () => {
         expect(context.workspaceState.get).not.toHaveBeenCalledWith(CACHE_KEY);
         expect(watcherGlobs()).not.toContain(CACHE_WATCHER_GLOB);
     });
+
+    it("drops a cache an earlier session stored, which nothing can reach now", async () => {
+        const context = activateWithCache(false);
+        await flushAsync();
+
+        expect(context.workspaceState.update).toHaveBeenCalledWith(CACHE_KEY, undefined);
+    });
 });
 
 describe("activate with cache.enableProjectCache on", () => {
@@ -131,6 +144,9 @@ describe("activate with cache.enableProjectCache on", () => {
 
         expect(context.workspaceState.get).toHaveBeenCalledWith(CACHE_KEY);
         expect(watcherGlobs()).toContain(CACHE_WATCHER_GLOB);
+        // The drop is for the disabled path only; here the stored cache is the
+        // whole point of the feature.
+        expect(context.workspaceState.update).not.toHaveBeenCalledWith(CACHE_KEY, undefined);
     });
 
     it("lets the cache commands through", async () => {
@@ -162,6 +178,7 @@ describe("toggling cache.enableProjectCache", () => {
 
     it("asks for a reload, because the setting is only read at activation", async () => {
         activateWithCache(true);
+        cacheSetting = false;
 
         await fireCacheSettingChange();
 
@@ -174,6 +191,7 @@ describe("toggling cache.enableProjectCache", () => {
     it("reloads the window when the user accepts", async () => {
         (vscode.window.showInformationMessage as jest.Mock).mockResolvedValue("Reload Window");
         activateWithCache(true);
+        cacheSetting = false;
 
         await fireCacheSettingChange();
 
@@ -183,9 +201,25 @@ describe("toggling cache.enableProjectCache", () => {
     it("does not reload when the user dismisses the prompt", async () => {
         (vscode.window.showInformationMessage as jest.Mock).mockResolvedValue(undefined);
         activateWithCache(true);
+        cacheSetting = false;
 
         await fireCacheSettingChange();
 
+        expect(vscode.window.showInformationMessage).toHaveBeenCalledTimes(1);
         expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
+    });
+
+    it("stays quiet when the value returns to the one activation captured", async () => {
+        activateWithCache(true);
+
+        // Off and back on again: the window already behaves as the setting reads.
+        cacheSetting = false;
+        await fireCacheSettingChange();
+        (vscode.window.showInformationMessage as jest.Mock).mockClear();
+
+        cacheSetting = true;
+        await fireCacheSettingChange();
+
+        expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
     });
 });

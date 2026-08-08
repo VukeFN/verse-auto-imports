@@ -264,10 +264,20 @@ export class ProjectPathCache {
     async clearAll(): Promise<void> {
         this.clear();
 
-        await this.context.workspaceState.update(ProjectPathCache.CACHE_KEY, undefined);
-        await this.context.workspaceState.update(ProjectPathCache.LEGACY_METADATA_KEY, undefined);
+        await ProjectPathCache.clearPersistedCache(this.context);
 
         logger.info("ProjectPathCache", "Persisted cache cleared from workspace storage");
+    }
+
+    /**
+     * Drop the persisted copy without needing a cache instance. Activation uses
+     * this when the feature is switched off: nothing then loads or invalidates
+     * what an earlier session stored, and the cache commands are guarded off
+     * too, so a payload left behind can never be read or removed again.
+     */
+    static async clearPersistedCache(context: vscode.ExtensionContext): Promise<void> {
+        await context.workspaceState.update(ProjectPathCache.CACHE_KEY, undefined);
+        await context.workspaceState.update(ProjectPathCache.LEGACY_METADATA_KEY, undefined);
     }
 
     /**

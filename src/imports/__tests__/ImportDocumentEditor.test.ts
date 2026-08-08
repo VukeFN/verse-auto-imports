@@ -1122,6 +1122,94 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             expect(insert!.text).toBe("using { Economy.Shop }\n");
         });
 
+        // The provider has to clear the anchored consumer, and an anchored
+        // absolute path below that consumer says only that absolute paths are
+        // written first. Honouring the preference over the requirement is how
+        // the provider ended up under its consumer again, one bound further on.
+        it("writes a new provider above the anchored consumer even when an anchored absolute path sits below it", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["using { Economy.Shop } <#> note", "    body", "using { /A } <#> note", "    body", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
+
+            expect(success).toBe(true);
+            const insert = appliedOperations(0).find((op) => op.kind === "insert");
+            expect(insert).toBeDefined();
+            expect(insert!.position!.line).toBe(0);
+            expect(insert!.text).toBe("using { Features }\n\n");
+        });
+
+        // Directly above the statement that needs it, which is not the same
+        // line as the top of the file - and only a fixture with something above
+        // the anchored import can tell the two apart. Everything higher is
+        // equally legal and strictly worse: it opens a third import region, and
+        // at line 0 it puts the import above the file header.
+        it("writes a new provider directly above the anchored consumer, not above the file header", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["# Copyright 2026 MyGame", "", "using { Economy.Shop } <#> note", "    body", "using { /Verse.org/Simulation }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
+
+            expect(success).toBe(true);
+            const insert = appliedOperations(0).find((op) => op.kind === "insert");
+            expect(insert).toBeDefined();
+            expect(insert!.position!.line).toBe(2);
+            expect(insert!.text).toBe("using { Features }\n\n");
+        });
+
+        // An anchored bare import does not constrain a new absolute one: an
+        // absolute path needs nothing in scope, and a bare reference names a
+        // module beside the file rather than anything an import provides. So
+        // neither needs the other above it, and treating the rank order as a
+        // requirement would refuse the block and fragment the file for nothing.
+        it("still merges a new absolute import into a block below an anchored bare import", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["using { Features } <#> why", "    body", "using { /Verse.org/Simulation }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            expect(operations.some((op) => op.kind === "insert")).toBe(false);
+
+            const replace = operations.find((op) => op.kind === "replace");
+            expect(replace).toBeDefined();
+            expect(replace!.range!.start.line).toBe(2);
+            expect(replace!.text).toBe("using { /Fortnite.com/Devices }\nusing { /Verse.org/Simulation }\n");
+        });
+
+        it("digestFirst with two existing groups: keeps a new consumer out of the group above the anchored provider", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "digestFirst",
+            });
+            const input = ["using { /Verse.org/Simulation }", "", "using { Other }", "", "using { Features } <#> note", "    body", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            // The local group at line 2 would have taken it, above the provider.
+            expect(operations.some((op) => op.kind === "replace")).toBe(false);
+
+            const insert = operations.find((op) => op.kind === "insert");
+            expect(insert).toBeDefined();
+            expect(insert!.position!.line).toBe(6);
+            expect(insert!.text).toBe("using { Economy.Shop }\n");
+        });
+
         it("digestFirst: writes the new group below the anchored provider, not at the top", async () => {
             mockConfig({
                 "behavior.preserveImportLocations": true,

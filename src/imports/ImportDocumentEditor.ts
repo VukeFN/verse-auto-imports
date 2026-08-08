@@ -144,14 +144,18 @@ function anchoredCommentEnd(imp: ScannedImport, classifications: LineClassificat
  * real import that a `using` below it resolves against, so it constrains where
  * a new one may go exactly as the imports inside a block do.
  *
- * Both bounds read the same ranks selectTargetBlockIndex compares, with the
- * same two predicates, so anchored and blocked imports cannot disagree about
- * what must precede what:
+ * Both bounds read the ranks selectTargetBlockIndex compares, so anchored and
+ * blocked imports cannot disagree about what precedes what:
  *
  * - `floor` - the last line owned by the lowest anchored import that belongs
- *   above the new one. The new import goes below it.
- * - `ceiling` - the first line of the highest anchored import the new one
- *   belongs above. The new import goes above it.
+ *   above the new one (belongsAbove). The new import goes below it.
+ * - `ceiling` - the first line of the highest anchored import that could be
+ *   resolving against the new one (couldResolveAgainst). The new import goes
+ *   directly above it.
+ *
+ * The two predicates are deliberately not mirror images: see
+ * couldResolveAgainst for why an upper bound here has to be a scope
+ * requirement rather than the ordering preference belongsBelow also captures.
  *
  * `-1` means unconstrained in that direction.
  */
@@ -319,6 +323,27 @@ export class ImportDocumentEditor {
     }
 
     /**
+     * Whether an existing import of rank `existing` could be resolving against
+     * a newly added import of rank `rank`, which is what forces the new one
+     * above it rather than merely preferring it there.
+     *
+     * Only a dotted path needs something in scope above it - its first segment.
+     * An absolute path needs nothing, and a bare reference names a module
+     * beside the file rather than something an earlier import brought in, so
+     * neither can be depending on an import added below it.
+     *
+     * Narrower than belongsBelow on purpose. Preference is the right strength
+     * in selectTargetBlockIndex, where the consequence of an upper bound is
+     * merging into an earlier block - always a legal place for the import.
+     * Here the consequence is refusing every block and writing a standalone
+     * line, so applying a preference at that strength fragments a file into
+     * import regions to satisfy nothing.
+     */
+    private couldResolveAgainst(existing: number, rank: number): boolean {
+        return existing === 2 && rank < 2;
+    }
+
+    /**
      * Where the imports anchored by a comment marker allow a new `path` to be
      * written. See AnchoredBounds.
      */
@@ -332,7 +357,7 @@ export class ImportDocumentEditor {
             if (this.belongsAbove(existing, rank)) {
                 floor = Math.max(floor, anchoredCommentEnd(imp, classifications));
             }
-            if (this.belongsBelow(existing, rank)) {
+            if (this.couldResolveAgainst(existing, rank)) {
                 ceiling = ceiling === -1 ? imp.startLine : Math.min(ceiling, imp.startLine);
             }
         }
@@ -356,22 +381,29 @@ export class ImportDocumentEditor {
 
     /**
      * The line a run of new import statements is written on: `desired`, moved
-     * below the floor and then above the ceiling.
+     * below the floor, and directly above the ceiling wherever there is one.
      *
-     * The floor wins where the two disagree. That disagreement is never a real
-     * provider-consumer cycle: one would need an anchored dotted consumer
-     * already sitting above the anchored bare provider it depends on, which is
-     * a file that does not compile as written. What it can be is an anchored
-     * absolute path below an anchored dotted one, and an absolute path brings
-     * nothing into scope, so that floor is ordering preference rather than a
-     * scope requirement - honouring it costs nothing that compiles.
+     * A ceiling is always honoured, and taken exactly rather than as a cap.
+     * Both halves matter:
+     *
+     * - The ceiling wins over the floor. Only couldResolveAgainst raises one,
+     *   so a ceiling is always a scope requirement - an anchored dotted import
+     *   whose first segment this new import is being added to provide. A floor
+     *   that disagrees with it can only come from an anchored absolute path,
+     *   which is ordering preference. Honouring the preference and breaking the
+     *   requirement writes the provider below its consumer, which is the defect
+     *   this whole path exists to prevent.
+     * - Taken exactly, so the import lands directly above the statement that
+     *   needs it rather than at `desired`. Anywhere higher is equally legal and
+     *   strictly worse: it opens a third import region, and from `desired` 0 it
+     *   would sit above the file header, which headerLineCount calls the one
+     *   place a header must never be.
      */
     private placementLine(desired: number, bounds: AnchoredBounds): number {
-        const belowFloor = Math.max(desired, bounds.floor + 1);
-        if (bounds.ceiling === -1 || bounds.ceiling > bounds.floor) {
-            return bounds.ceiling === -1 ? belowFloor : Math.min(belowFloor, bounds.ceiling);
+        if (bounds.ceiling !== -1) {
+            return bounds.ceiling;
         }
-        return belowFloor;
+        return Math.max(desired, bounds.floor + 1);
     }
 
     /** Whether a block sits entirely inside the space the anchored imports leave for `path`. */
@@ -551,25 +583,37 @@ export class ImportDocumentEditor {
                 // statement at that block's lines, so which block absorbs a
                 // path is a placement decision like any other, and a block
                 // sitting above an anchored provider cannot make one.
-                const blockCanTake = (blockIndex: number, path: string): boolean =>
-                    blockIndex >= 0 && this.blockIsWithin(importBlocks[blockIndex], this.anchoredBounds(anchoredImports, classifications, path));
+                //
+                // Partitioned in one pass rather than filtered twice, so taken
+                // and unhandled are complements by construction: two filters
+                // that have to stay each other's negation write a path into
+                // both lists, or into neither, as soon as one is edited alone.
+                const splitForBlock = (blockIndex: number, paths: string[]): { taken: string[]; unhandled: string[] } => {
+                    const taken: string[] = [];
+                    const unhandled: string[] = [];
+                    for (const path of paths) {
+                        const canTake = blockIndex >= 0 && this.blockIsWithin(importBlocks[blockIndex], this.anchoredBounds(anchoredImports, classifications, path));
+                        (canTake ? taken : unhandled).push(path);
+                    }
+                    return { taken, unhandled };
+                };
 
-                const digestForBlock = newDigestPaths.filter((path) => blockCanTake(digestBlockIndex, path));
-                const localForBlock = newLocalPaths.filter((path) => blockCanTake(localBlockIndex, path));
+                const digest = splitForBlock(digestBlockIndex, newDigestPaths);
+                const local = splitForBlock(localBlockIndex, newLocalPaths);
 
                 // Add digest imports to digest block
-                if (digestForBlock.length > 0) {
-                    this.createBlockReplacementEdit(edit, document, importBlocks[digestBlockIndex], digestForBlock, preferDotSyntax, sortAlphabetically, eol);
+                if (digest.taken.length > 0) {
+                    this.createBlockReplacementEdit(edit, document, importBlocks[digestBlockIndex], digest.taken, preferDotSyntax, sortAlphabetically, eol);
                 }
 
                 // Add local imports to local block
-                if (localForBlock.length > 0) {
-                    this.createBlockReplacementEdit(edit, document, importBlocks[localBlockIndex], localForBlock, preferDotSyntax, sortAlphabetically, eol);
+                if (local.taken.length > 0) {
+                    this.createBlockReplacementEdit(edit, document, importBlocks[localBlockIndex], local.taken, preferDotSyntax, sortAlphabetically, eol);
                 }
 
                 // Imports no block took: one with no matching block, and one an
                 // anchored import keeps out of the block it would have matched.
-                const unhandledPaths = [...newDigestPaths.filter((path) => !blockCanTake(digestBlockIndex, path)), ...newLocalPaths.filter((path) => !blockCanTake(localBlockIndex, path))];
+                const unhandledPaths = [...digest.unhandled, ...local.unhandled];
 
                 if (unhandledPaths.length > 0) {
                     // Add unhandled imports at the appropriate position
@@ -678,6 +722,12 @@ export class ImportDocumentEditor {
                         }
 
                         // Blocks are disjoint, so the replacements never overlap.
+                        // Neither can a standalone line below collide with one:
+                        // placementLine returns either a ceiling, which is an
+                        // anchored import's own line and so in no block, or
+                        // floor + 1 - and a path reaching that had every block
+                        // refused, which for a path with no ceiling means every
+                        // block starts at or above the floor.
                         for (const index of [...pathsByBlock.keys()].sort((a, b) => a - b)) {
                             this.createBlockReplacementEdit(edit, document, importBlocks[index], pathsByBlock.get(index)!, preferDotSyntax, true, eol);
                         }

@@ -160,7 +160,7 @@ describe("ImportSuggestionExtractor", () => {
 
         it("should drop prose lines trailing a 'Did you mean any of' option list", async () => {
             // Regression #130: the trailing sentence used to become an option
-            const errorMessage = "Unknown identifier `Combat`. Did you mean any of: \nSystems.Combat\nFeatures.Combat\nUsed inside module /mygame@fortnite.com/MyGame/Scripts.";
+            const errorMessage = "Unknown identifier `Combat`. Did you mean any of: \nSystems.Combat\nFeatures.Combat\nUsed inside module /mygame@fortnite.com/mygame/Scripts.";
 
             const suggestions = await extractor.extractImportSuggestions(errorMessage);
 

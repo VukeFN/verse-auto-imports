@@ -173,7 +173,7 @@
             "activeFile"
           ],
           "default": "allFiles",
-          "description": "Which documents automatic imports may edit. 'allFiles' edits any project file the compiler reports an error for, including files you never opened. 'openFiles' restricts edits to documents you have open. 'activeFile' restricts them to the editor you are working in. Quick fixes and CodeLens stay available everywhere.",
+          "description": "Which documents automatic imports may edit. 'allFiles' edits any project file the compiler reports an error for, including files you never opened. 'openFiles' restricts edits to documents you have open. 'activeFile' restricts them to the editor you were working in when the compiler reported the error. Quick fixes and CodeLens stay available everywhere.",
           "order": 4
         },
         "verseAutoImports.behavior.importSyntax": {

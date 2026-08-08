@@ -212,6 +212,32 @@ in (see test-fixtures/corpus/README.md).
        "Verse Auto Imports: Capture Diagnostics Corpus" and curate the output
        into the corpus folder for this UEFN version.
 
+### T10 -- auto-import scope (#96)
+
+The two behaviors here need the real Verse LSP: the extension-host suite
+injects its own diagnostics, so it cannot tell whether live diagnostics uris
+match the open tabs, nor whether re-entering scope ever republishes them.
+
+1. [ ] Default (general.autoImportScope unset, so allFiles): with only
+       Scripts/T1_auto_import.verse open, break an import in
+       Scripts/T5_optimize.verse and save. T5 is imported in the background,
+       which is the behavior #96 reports and the default keeps.
+2. [ ] Set the scope to openFiles. Repeat with T5 CLOSED: it must not be
+       edited, and it must not appear in the editor tab bar.
+3. [ ] Still openFiles, with T5 open in a background tab and T1 focused: the
+       import must land in T5. A failure here means the tab uri does not match
+       the uri the LSP publishes on, which no automated layer can catch.
+4. [ ] Still openFiles, with T5 closed and left broken from case 2: now open
+       T5. Record whether the import lands on open, or only after an edit
+       republishes the diagnostic. This decides whether openFiles means
+       "deferred until you look at it" or "never fixed until you retype";
+       file an issue with the verbatim outcome either way.
+5. [ ] Set the scope to activeFile. With T1 focused, T5 open but unfocused
+       must not be edited; T1 itself still imports normally.
+6. [ ] Still activeFile: trigger a diagnostic in T1, then switch to T5 within
+       the debounce window. The import lands in T1 anyway - the scope is
+       evaluated when the diagnostic arrives, not when the timer fires.
+
 ## Phase D: verdict
 
 | Case | Pass | Finding # |
@@ -226,6 +252,7 @@ in (see test-fixtures/corpus/README.md).
 | T7   |      |           |
 | T8   |      |           |
 | T9   |      |           |
+| T10  |      |           |
 
 Findings (number, verbatim evidence, suspected component):
 

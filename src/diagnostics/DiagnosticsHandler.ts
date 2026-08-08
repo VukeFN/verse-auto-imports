@@ -67,14 +67,32 @@ export class DiagnosticsHandler {
      * auto-import altogether.
      */
     static isUriInScope(uri: { toString(): string }, scope: string, visibility: { openUris: readonly string[]; activeUri?: string }): boolean {
-        if (scope !== "openFiles" && scope !== "activeFile") {
+        if (!DiagnosticsHandler.scopeRestrictsDocuments(scope)) {
             return true;
         }
         const target = uri.toString();
         if (scope === "activeFile") {
             return visibility.activeUri === target;
         }
-        return visibility.openUris.includes(target);
+        // The active document counts as open even when no text tab reports it,
+        // which keeps activeFile a strict subset of openFiles. A .verse file
+        // focused in a diff editor is the case that needs it: it has an active
+        // editor, but its tab is a TabInputTextDiff and so never reaches
+        // openUris. Without this, tightening the setting one level would let
+        // through an edit the looser level blocked.
+        return visibility.activeUri === target || visibility.openUris.includes(target);
+    }
+
+    /**
+     * Whether a scope narrows anything at all. Callers use it to skip building
+     * a visibility snapshot they will not read.
+     *
+     * It is the single definition of that question on purpose: expressing it
+     * again at the call site, in the opposite polarity, would make the cheap
+     * path correct only for as long as the two stayed exact complements.
+     */
+    static scopeRestrictsDocuments(scope: string): boolean {
+        return scope === "openFiles" || scope === "activeFile";
     }
 
     async handle(document: vscode.TextDocument) {

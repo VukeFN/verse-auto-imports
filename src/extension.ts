@@ -171,32 +171,26 @@ export function activate(context: vscode.ExtensionContext) {
     // Diagnostics change listener for auto-import
     context.subscriptions.push(
         vscode.languages.onDidChangeDiagnostics(async (e) => {
-            // Read once per event, and snapshot what the user can see only when
-            // the scope actually restricts anything - the default path must not
-            // pay for a feature it does not use, and this listener runs on every
-            // compile pass. isUriInScope stays the single decision point: it
-            // treats "allFiles" exactly as this fast path does, and any
-            // unrecognized value falls through to it.
+            // Read once per event, and snapshot what the user has on screen only
+            // when the scope actually restricts something - this listener runs
+            // on every compile pass, and the default path must not pay for a
+            // feature it does not use.
             const scope = vscode.workspace.getConfiguration("verseAutoImports").get<string>("general.autoImportScope", "allFiles");
-            const visibility =
-                scope === "allFiles"
-                    ? { openUris: [] }
-                    : {
-                          // Tabs, never workspace.textDocuments: that list holds
-                          // every document anything has opened programmatically,
-                          // and ProjectPathScanner opens every .verse file in
-                          // the project to build the path cache. Keyed on it,
-                          // "openFiles" would equal "allFiles" on any project
-                          // that has been scanned once.
-                          //
-                          // Snapshotted when the diagnostics arrived, not per
-                          // uri: that is the moment the scope describes, and
-                          // the loop awaits, so a per-uri read would drift.
-                          openUris: vscode.window.tabGroups.all.flatMap((group) =>
-                              group.tabs.filter((tab) => tab.input instanceof vscode.TabInputText).map((tab) => (tab.input as vscode.TabInputText).uri.toString()),
-                          ),
-                          activeUri: vscode.window.activeTextEditor?.document.uri.toString(),
-                      };
+            const visibility = !DiagnosticsHandler.scopeRestrictsDocuments(scope)
+                ? { openUris: [] }
+                : {
+                      // Open tabs, never workspace.textDocuments - see
+                      // DiagnosticsHandler.isUriInScope for why that list
+                      // cannot answer this question.
+                      //
+                      // Snapshotted when the diagnostics arrived, not per uri:
+                      // that is the moment the scope describes, and the loop
+                      // awaits, so a per-uri read would drift.
+                      openUris: vscode.window.tabGroups.all.flatMap((group) =>
+                          group.tabs.filter((tab): tab is vscode.Tab & { input: vscode.TabInputText } => tab.input instanceof vscode.TabInputText).map((tab) => tab.input.uri.toString()),
+                      ),
+                      activeUri: vscode.window.activeTextEditor?.document.uri.toString(),
+                  };
 
             for (const uri of e.uris) {
                 if (!DiagnosticsHandler.shouldProcessUri(uri)) {

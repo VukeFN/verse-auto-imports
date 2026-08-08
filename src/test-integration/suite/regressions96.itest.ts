@@ -64,6 +64,24 @@ describe("auto-import scope (issue #96)", () => {
         await waitForDocumentChange(foreground, (text) => text.includes(IMPORT), "auto-import of the focused document under activeFile");
     });
 
+    it("openFiles still imports into an open but unfocused document", async () => {
+        const target = await openFixture("r96_open_unfocused.verse");
+        // Opened second, so target is open in a tab without holding focus.
+        await openFixture("r96_foreground.verse");
+        await settings.set("general.autoImportScope", "openFiles");
+        await sleep(300);
+        assert.notStrictEqual(vscode.window.activeTextEditor?.document.uri.toString(), target.uri.toString(), "target must be unfocused, or this would pass through activeUri instead of the tab list");
+
+        injector.inject(target, [corpusMessage("unknown-with-suggestion-class-context")], "button_device");
+
+        // The only test that exercises a positive tab-list match. If a tab uri
+        // ever stopped matching the uri diagnostics arrive on, openFiles would
+        // silently degrade to never importing and every other case here would
+        // still pass: two of them assert a negative, and the third matches
+        // through activeUri.
+        await waitForDocumentChange(target, (text) => text.includes(IMPORT), "auto-import of the open but unfocused document under openFiles");
+    });
+
     it("openFiles does not edit a file the user never opened", async () => {
         await settings.set("general.autoImportScope", "openFiles");
         await sleep(300);

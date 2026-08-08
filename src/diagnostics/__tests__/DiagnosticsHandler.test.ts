@@ -70,10 +70,40 @@ describe("DiagnosticsHandler.isUriInScope", () => {
     });
 
     it("rejects everything under activeFile when no editor has focus", () => {
-        // activeTextEditor is undefined while focus sits in a panel or the
-        // settings editor; nothing is the active file, so nothing qualifies.
+        // activeTextEditor is undefined when the active tab is not a text
+        // editor at all - the settings UI, a webview, an image preview - or
+        // when nothing is open. Focusing a panel does not clear it: the API
+        // keeps the editor whose input changed most recently.
         const noFocus = { openUris: visibility.openUris, activeUri: undefined };
         expect(DiagnosticsHandler.isUriInScope(active, "activeFile", noFocus)).toBe(false);
+    });
+
+    it("under openFiles admits the active document even when no text tab reports it", () => {
+        // A .verse file focused in a diff editor has an active editor but a
+        // TabInputTextDiff tab, so it never reaches openUris. openFiles is the
+        // looser setting; it must never reject what activeFile would accept.
+        const inDiffEditor = { openUris: [], activeUri: active.toString() };
+        expect(DiagnosticsHandler.isUriInScope(active, "openFiles", inDiffEditor)).toBe(true);
+        expect(DiagnosticsHandler.isUriInScope(active, "activeFile", inDiffEditor)).toBe(true);
+    });
+
+    it("keeps activeFile a strict subset of openFiles", () => {
+        // The property the case above protects, stated directly: anything
+        // activeFile accepts, openFiles accepts too.
+        for (const uri of [active, openBackground, neverOpened]) {
+            if (DiagnosticsHandler.isUriInScope(uri, "activeFile", visibility)) {
+                expect(DiagnosticsHandler.isUriInScope(uri, "openFiles", visibility)).toBe(true);
+            }
+        }
+    });
+
+    it("reports which scopes restrict anything", () => {
+        expect(DiagnosticsHandler.scopeRestrictsDocuments("openFiles")).toBe(true);
+        expect(DiagnosticsHandler.scopeRestrictsDocuments("activeFile")).toBe(true);
+        // The callers skip building a visibility snapshot when this is false,
+        // so it must agree with isUriInScope's own pass-everything branch.
+        expect(DiagnosticsHandler.scopeRestrictsDocuments("allFiles")).toBe(false);
+        expect(DiagnosticsHandler.scopeRestrictsDocuments("activefile")).toBe(false);
     });
 
     it("falls back to allFiles for an unrecognized scope", () => {

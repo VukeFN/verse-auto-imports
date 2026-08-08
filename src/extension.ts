@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { logger } from "./utils";
+import { logger, collectEnvironment, formatEnvironmentSummary } from "./utils";
 import { DiagnosticsHandler } from "./diagnostics";
 import { ImportHandler, ImportPathConverter, ImportCodeActionProvider, ImportCodeLensProvider, ImportFormatter } from "./imports";
 import { CommandsHandler, CommandsDependencies } from "./commands";
@@ -49,7 +49,15 @@ function getConfiguredDebounceDelay(config: vscode.WorkspaceConfiguration): numb
 export function activate(context: vscode.ExtensionContext) {
     // Initialize the logger
     logger.initialize(context);
-    logger.info("Extension", "Verse Auto Imports is now active");
+
+    // Record which build and host this is before anything else logs, so an
+    // exported session can be tied back to a specific vsix. The settings go to
+    // DEBUG rather than INFO: they belong in the export, not in the channel the
+    // user reads. Both reach the export buffer, which stores every level.
+    const environment = collectEnvironment(context);
+    logger.setEnvironment(environment);
+    logger.info("Extension", `Verse Auto Imports ${environment.extensionVersion} is now active (${formatEnvironmentSummary(environment)})`);
+    logger.debug("Extension", "Effective settings", environment.settings);
 
     // Get output channel for backward compatibility with handlers
     const outputChannel = logger.getUserChannel();

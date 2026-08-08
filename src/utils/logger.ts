@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { EnvironmentSnapshot, formatEnvironmentLines } from "./environment";
 
 /**
  * Log levels for the logger
@@ -30,6 +31,7 @@ export class Logger {
     private debugChannel: vscode.OutputChannel;
     private performanceTimers: Map<string, number> = new Map();
     private logBuffer: string[] = [];
+    private environment?: EnvironmentSnapshot;
     private readonly MAX_LOG_ENTRIES = 10000;
 
     private constructor() {
@@ -53,6 +55,14 @@ export class Logger {
     public initialize(context: vscode.ExtensionContext): void {
         context.subscriptions.push(this.userChannel);
         context.subscriptions.push(this.debugChannel);
+    }
+
+    /**
+     * Record which build and host this session is running on, so an exported
+     * log can be tied back to a specific vsix. Set once at activation.
+     */
+    public setEnvironment(snapshot: EnvironmentSnapshot): void {
+        this.environment = snapshot;
     }
 
     /**
@@ -178,9 +188,17 @@ export class Logger {
      * Get debug logs as a single string for file export
      */
     public getDebugLogsAsString(): string {
-        const header = ["Verse Auto Imports - Debug Log Export", `Exported: ${new Date().toISOString()}`, `Entries: ${this.logBuffer.length}`, "-------------------------------------------", ""].join(
-            "\n",
-        );
+        const header = [
+            "Verse Auto Imports - Debug Log Export",
+            `Exported: ${new Date().toISOString()}`,
+            `Entries: ${this.logBuffer.length}`,
+            // The buffer is circular, so a long session pushes the activation
+            // entries out of the export. The header is what still says which
+            // build produced the log.
+            ...(this.environment ? formatEnvironmentLines(this.environment) : []),
+            "-------------------------------------------",
+            "",
+        ].join("\n");
 
         return header + this.logBuffer.join("\n");
     }

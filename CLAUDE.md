@@ -32,6 +32,8 @@ Read the code for structure. These are the things reading one file won't tell yo
 
 Jest + ts-jest; `vscode` is mocked at `src/__mocks__/vscode.ts`. Tests live in `__tests__/` beside the code. Add a regression test for any bug fix in pure logic (extractors, formatters, parsers) — those run without the VS Code runtime.
 
+Epic account placeholders have one spelling per context: `/mygame@fortnite.com/mygame` in unit tests under `src/**/__tests__/`, and `/vukefn@fortnite.com` in the integration harness, the smoke fixtures under `test-fixtures/`, and prose examples such as JSDoc. Use the one the context calls for rather than inventing a third.
+
 ## Git workflow
 
 GitHub Flow: `main` is the only long-lived branch and the default branch. There is no `develop`.

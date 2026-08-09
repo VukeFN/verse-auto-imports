@@ -7,6 +7,17 @@ import { DigestEntry, parseDigestContent, rootDomainForDigestFile } from "./dige
 
 export { DigestEntry } from "./digestParsing";
 
+/**
+ * The index of importable Verse API identifiers, served from precompiled JSON
+ * where possible and parsed from the bundled `.digest.verse` files where not.
+ *
+ * The fallback is one-way: the first failure to load the precompiled data
+ * latches precompiled use off for the lifetime of the instance, so a transient
+ * failure costs runtime parsing for the rest of the session rather than
+ * retrying on every lookup. {@link forceReparse} is the only way back to
+ * runtime parsing by choice, and nothing returns to precompiled data short of a
+ * new instance.
+ */
 export class DigestParser {
     private digestCache: Map<string, DigestEntry> = new Map();
     private lastParsed: number = 0;
@@ -24,7 +35,6 @@ export class DigestParser {
     }
 
     async getDigestIndex(): Promise<Map<string, DigestEntry>> {
-        // Try precompiled loader first
         if (this.usePrecompiled && this.precompiledLoader) {
             try {
                 if (!this.precompiledLoader.isLoaded()) {
@@ -40,7 +50,6 @@ export class DigestParser {
             }
         }
 
-        // Fallback to runtime parsing
         const now = Date.now();
         if (this.digestCache.size > 0 && now - this.lastParsed < this.CACHE_DURATION) {
             logger.debug("DigestParser", "Using cached digest index (runtime parsed)");
@@ -53,17 +62,21 @@ export class DigestParser {
         return this.digestCache;
     }
 
+    /**
+     * Entries whose identifier matches, the exact one first and then every
+     * case-insensitive substring match. Ranking beyond that order is the
+     * caller's: the quick-fix menu re-sorts alphabetically when
+     * `quickFix.sortAlphabetically` is on.
+     */
     async lookupIdentifier(identifier: string): Promise<DigestEntry[]> {
         const index = await this.getDigestIndex();
         const results: DigestEntry[] = [];
 
-        // Exact match
         const exactMatch = index.get(identifier);
         if (exactMatch) {
             results.push(exactMatch);
         }
 
-        // Partial matches (case-insensitive)
         const lowerIdentifier = identifier.toLowerCase();
         for (const [key, entry] of index) {
             if (key.toLowerCase().includes(lowerIdentifier) && key !== identifier) {
@@ -105,10 +118,11 @@ export class DigestParser {
     }
 
     /**
-     * Parses one digest file via the shared {@link parseDigestContent} module and
-     * merges its entries into the runtime cache. Entries already present are kept
-     * (first occurrence wins across the Fortnite, UnrealEngine, and Verse files, in
-     * that iteration order), matching the precompiled loader's merge semantics.
+     * Merges one digest file's entries into the runtime cache, keeping the entry
+     * already there on a collision. First occurrence therefore wins across the
+     * Fortnite, UnrealEngine and Verse files in that iteration order, which is
+     * what the precompiled loader does too - the two must agree, or the same
+     * identifier resolves differently depending on which path served it.
      */
     private parseDigestFile(filePath: string): void {
         try {
@@ -136,9 +150,9 @@ export class DigestParser {
     }
 
     /**
-     * Force reparse of digest files at runtime.
-     * This bypasses the precompiled loader and parses the raw .verse files.
-     * Useful if user suspects the precompiled data is outdated.
+     * Reparses the bundled `.verse` files and switches this instance to runtime
+     * parsing for good, for when the precompiled data is suspected stale.
+     * Nothing switches it back.
      */
     async forceReparse(): Promise<void> {
         logger.info("DigestParser", "Forcing runtime reparse of digest files...");
@@ -149,9 +163,7 @@ export class DigestParser {
         logger.info("DigestParser", `Runtime reparse complete: ${this.digestCache.size} entries`);
     }
 
-    /**
-     * Get statistics about the current digest data
-     */
+    /** Which of the two sources is currently serving lookups, and how much it holds. */
     getStats(): { entries: number; source: "precompiled" | "runtime"; loaded: boolean } {
         if (this.usePrecompiled && this.precompiledLoader?.isLoaded()) {
             const stats = this.precompiledLoader.getStats();

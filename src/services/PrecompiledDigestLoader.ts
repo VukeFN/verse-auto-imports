@@ -5,7 +5,9 @@ import { logger } from "../utils";
 import { DigestEntry } from "./DigestParser";
 
 /**
- * Structure of the pre-compiled JSON digest files
+ * One `src/data/*.digest.json` payload, as written by `npm run parse-digest`.
+ * Hand-editing these files is not supported; change the generator or its
+ * `src/utils/*.digest.verse` input instead.
  */
 export interface PrecompiledDigest {
     version: string;
@@ -17,8 +19,13 @@ export interface PrecompiledDigest {
 }
 
 /**
- * Loads pre-compiled JSON digest files for fast runtime access.
- * These files are generated at build time by src/scripts/parseDigestFiles.ts
+ * The bundled Verse API index, read from the JSON that
+ * `src/scripts/parseDigestFiles.ts` generates at build time rather than parsed
+ * from Verse source at startup.
+ *
+ * This is DigestParser's fast path. It reports failure by throwing from
+ * {@link loadPrecompiledDigests} and by leaving {@link isLoaded} false, which is
+ * the signal DigestParser falls back on.
  */
 export class PrecompiledDigestLoader {
     private digestCache: Map<string, DigestEntry> = new Map();
@@ -31,8 +38,13 @@ export class PrecompiledDigestLoader {
     constructor(private extensionContext: vscode.ExtensionContext) {}
 
     /**
-     * Load all pre-compiled digest files into memory.
-     * Call this once during extension activation.
+     * Loads every digest file into memory, throwing if none of them could be
+     * read.
+     *
+     * One file is enough to count as loaded, so a caller that sees
+     * {@link isLoaded} true may still be holding a partial index. Only a total
+     * failure leaves it false and sends DigestParser to runtime parsing.
+     * Calling again after success is a no-op.
      */
     async loadPrecompiledDigests(): Promise<void> {
         if (this.loaded) {
@@ -47,9 +59,11 @@ export class PrecompiledDigestLoader {
             const dataDir = path.join(extensionPath, "src", "data");
             let successCount = 0;
 
-            // Check if data directory exists
+            // src/data is the live location in both a checkout and a .vsix -
+            // .vscodeignore excludes src/** but re-includes src/data/**, and
+            // nothing copies the JSON into out/. The out/data branch below is
+            // dormant, and stays only against a build that starts copying.
             if (!fs.existsSync(dataDir)) {
-                // Try out directory for compiled extension
                 const outDataDir = path.join(extensionPath, "out", "data");
                 if (fs.existsSync(outDataDir)) {
                     successCount = await this.loadFromDirectory(outDataDir);
@@ -60,7 +74,6 @@ export class PrecompiledDigestLoader {
                 successCount = await this.loadFromDirectory(dataDir);
             }
 
-            // Only mark as loaded if at least one file was successfully parsed
             if (successCount > 0) {
                 this.loaded = true;
                 const elapsed = Date.now() - startTime;
@@ -76,8 +89,9 @@ export class PrecompiledDigestLoader {
     }
 
     /**
-     * Load digest files from a directory
-     * @returns number of successfully loaded files
+     * How many of the expected digest files were read and merged. A file that
+     * is missing or unparseable is logged and skipped rather than failing the
+     * others.
      */
     private async loadFromDirectory(dataDir: string): Promise<number> {
         let successCount = 0;
@@ -94,14 +108,17 @@ export class PrecompiledDigestLoader {
                 const content = fs.readFileSync(filePath, "utf8");
                 const digest: PrecompiledDigest = JSON.parse(content);
 
-                // Merge entries into cache
+                // First file to declare an identifier wins, matching
+                // DigestParser's runtime merge. DIGEST_FILES order is therefore
+                // the precedence between the three domains.
                 for (const [identifier, entry] of Object.entries(digest.entries)) {
                     if (!this.digestCache.has(identifier)) {
                         this.digestCache.set(identifier, entry);
                     }
                 }
 
-                // Merge module index using Set for efficiency
+                // The module index unions instead, so a module re-declared
+                // across files keeps every member.
                 for (const [modulePath, identifiers] of Object.entries(digest.moduleIndex)) {
                     const existingSet = new Set(this.moduleIndex.get(modulePath) || []);
                     for (const id of identifiers) {
@@ -120,44 +137,27 @@ export class PrecompiledDigestLoader {
         return successCount;
     }
 
-    /**
-     * Get a digest entry by identifier
-     */
     getEntry(identifier: string): DigestEntry | undefined {
         return this.digestCache.get(identifier);
     }
 
-    /**
-     * Get all identifiers in a module
-     */
     getModuleIdentifiers(modulePath: string): string[] {
         return this.moduleIndex.get(modulePath) || [];
     }
 
-    /**
-     * Get all loaded entries as a Map (compatible with DigestParser interface)
-     */
+    /** The live cache, not a copy: mutating it corrupts the index. */
     getAllEntries(): Map<string, DigestEntry> {
         return this.digestCache;
     }
 
-    /**
-     * Check if the loader has successfully loaded data
-     */
     isLoaded(): boolean {
         return this.loaded;
     }
 
-    /**
-     * Get the load error if loading failed
-     */
     getLoadError(): Error | null {
         return this.loadError;
     }
 
-    /**
-     * Get statistics about loaded data
-     */
     getStats(): { entries: number; modules: number; loaded: boolean } {
         return {
             entries: this.digestCache.size,
@@ -166,9 +166,7 @@ export class PrecompiledDigestLoader {
         };
     }
 
-    /**
-     * Clear all cached data and reset loaded state
-     */
+    /** Empties the index and allows {@link loadPrecompiledDigests} to run again. */
     clear(): void {
         this.digestCache.clear();
         this.moduleIndex.clear();

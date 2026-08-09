@@ -47,7 +47,9 @@ export class ProjectPathCache {
     }
 
     /**
-     * Initialize the cache - load from storage or build fresh.
+     * Brings the cache up, from workspace storage where possible and from a
+     * fresh scan otherwise. Safe to call more than once; only a call that ends
+     * with data latches.
      *
      * cache.autoRebuildOnStartup skips the stored payload entirely and scans
      * the project instead. The stored cache is only as fresh as the watchers
@@ -100,9 +102,10 @@ export class ProjectPathCache {
     }
 
     /**
-     * Look up the possible locations of a module import path.
+     * The possible locations of a module import path, empty when nothing is
+     * cached.
      *
-     * Returns candidates in the same location contract the converter's
+     * Candidates use the same location contract the converter's
      * filesystem scan produces ("" or "/Dir/Sub", Content-relative), each
      * with the source file that declares the module so callers can validate
      * against the filesystem before trusting the (possibly stale) cache.
@@ -120,7 +123,10 @@ export class ProjectPathCache {
     }
 
     /**
-     * Force a full cache rebuild.
+     * Rescans the whole project and replaces the cache with the result.
+     *
+     * A scan that finds no project leaves the existing cache untouched rather
+     * than emptying it, so a rebuild can never be worse than not rebuilding.
      */
     async rebuildCache(): Promise<void> {
         const startTime = Date.now();
@@ -150,8 +156,12 @@ export class ProjectPathCache {
     }
 
     /**
-     * Invalidate cache for specific files.
-     * Uses transaction-like pattern: parse first, then swap old for new only on success.
+     * Reparses the named files and swaps their declarations into the cache.
+     *
+     * A file the scanner could not read yields no nodes rather than an error,
+     * so it is committed as empty and its previous declarations are dropped;
+     * only a failure raised outside the scanner keeps the old nodes. Both cases
+     * self-correct on the file's next change event.
      *
      * Parsing awaits, and `this.data` can be replaced while it does - the
      * .uefnproject watcher, watcher teardown and the Clear Project Path Cache
@@ -175,7 +185,6 @@ export class ProjectPathCache {
 
         const scanner = new ProjectPathScanner(this.outputChannel, this.projectPathHandler);
 
-        // Phase 1: Parse all files first and collect new nodes (transaction preparation)
         const parsedResults: Map<string, ProjectPathNode[]> = new Map();
         const failedFiles: string[] = [];
 
@@ -187,7 +196,10 @@ export class ProjectPathCache {
             } catch (error) {
                 logger.error("ProjectPathCache", `Failed to reparse ${filePath}`, error);
                 failedFiles.push(filePath);
-                // Keep old data for failed files - don't add to parsedResults
+                // Staying out of parsedResults is what keeps this file's
+                // existing nodes: the commit below only replaces files it
+                // reparsed. Reachable only for a throw from outside
+                // parseVerseFile, which swallows its own read and parse errors.
             }
         }
 
@@ -198,7 +210,6 @@ export class ProjectPathCache {
             return;
         }
 
-        // Phase 2: Apply changes only for successfully parsed files (transaction commit)
         const reparsedFiles = new Set(parsedResults.keys());
         const keptNodes = data.nodes.filter((node) => !node.sourceFile || !reparsedFiles.has(node.sourceFile));
         for (const newNodes of parsedResults.values()) {
@@ -216,12 +227,13 @@ export class ProjectPathCache {
     }
 
     /**
-     * Set up file watchers for .verse files and project files.
+     * Starts watching the project and returns the handle that stops it.
+     * Disposing also clears the in-memory cache, which is what cancels a
+     * debounced update that would otherwise run after deactivation.
      */
     setupFileWatchers(): vscode.Disposable {
         const disposables: vscode.Disposable[] = [];
 
-        // Watch for .verse file changes
         this.fileWatcher = vscode.workspace.createFileSystemWatcher("**/*.verse");
 
         this.fileWatcher.onDidChange((uri) => this.handleFileChange(uri));
@@ -255,9 +267,6 @@ export class ProjectPathCache {
         return vscode.Disposable.from(...disposables);
     }
 
-    /**
-     * Get cache statistics.
-     */
     getStats(): {
         loaded: boolean;
         identifiers: number;
@@ -273,7 +282,9 @@ export class ProjectPathCache {
     }
 
     /**
-     * Clear all cached data.
+     * Drops the in-memory cache and any queued update, leaving the persisted
+     * copy alone. Doubles as the watcher-teardown hook, so it must stay safe to
+     * call when nothing was ever loaded.
      */
     clear(): void {
         this.data = null;
@@ -327,7 +338,8 @@ export class ProjectPathCache {
     }
 
     /**
-     * Save cache to VS Code workspace storage.
+     * Writes the cache to workspace storage, stamped with the current
+     * PROJECT_CACHE_VERSION, and drops the legacy payload on the way past.
      */
     private async saveToStorage(): Promise<void> {
         if (!this.data) {
@@ -353,7 +365,10 @@ export class ProjectPathCache {
     }
 
     /**
-     * Load cache from VS Code workspace storage.
+     * Whether a usable cache was restored from workspace storage. A stored
+     * payload is rejected when its version does not match the current one or
+     * when it belongs to a different project, since either makes its
+     * declarations wrong rather than merely stale.
      */
     private async loadFromStorage(): Promise<boolean> {
         try {
@@ -363,13 +378,13 @@ export class ProjectPathCache {
                 return false;
             }
 
-            // Check version compatibility (also rejects pre-2 tree-shaped payloads)
+            // The nodes check also rejects the pre-2 tree-shaped payload, whose
+            // version field a future bump could otherwise let through.
             if (serialized.version !== PROJECT_CACHE_VERSION || !Array.isArray(serialized.nodes)) {
                 logger.info("ProjectPathCache", "Cache version mismatch, will rebuild");
                 return false;
             }
 
-            // Check if project name matches
             const currentProjectName = await this.projectPathHandler.getProjectName();
             if (currentProjectName && serialized.projectName !== currentProjectName) {
                 logger.info("ProjectPathCache", "Project name mismatch, will rebuild");
@@ -394,9 +409,7 @@ export class ProjectPathCache {
         }
     }
 
-    /**
-     * Rebuild all lookup indexes from the flat node list.
-     */
+    /** Must follow every mutation of `data.nodes`, or lookups serve the old set. */
     private rebuildIndexes(): void {
         this.indexes = buildProjectIndexes(this.data ? this.data.nodes : []);
     }
@@ -426,9 +439,7 @@ export class ProjectPathCache {
         return uri.fsPath.toLowerCase().endsWith(".digest.verse");
     }
 
-    /**
-     * Handle file change events with debouncing.
-     */
+    /** Queues a changed file for reparsing once the debounce window closes. */
     private handleFileChange(uri: vscode.Uri): void {
         if (ProjectPathCache.isDigestFile(uri)) {
             return;
@@ -455,7 +466,8 @@ export class ProjectPathCache {
     }
 
     /**
-     * Handle file delete events.
+     * Drops a deleted file's declarations immediately, without the debounce a
+     * change gets - there is nothing left to reparse and nothing to coalesce.
      */
     private handleFileDelete(uri: vscode.Uri): void {
         if (ProjectPathCache.isDigestFile(uri)) {
@@ -471,7 +483,6 @@ export class ProjectPathCache {
         this.data.nodes = this.data.nodes.filter((node) => node.sourceFile !== relativePath);
         this.rebuildIndexes();
 
-        // Save asynchronously
         this.saveToStorage().catch((error) => {
             logger.error("ProjectPathCache", "Failed to save after file delete", error);
         });

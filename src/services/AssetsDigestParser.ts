@@ -25,9 +25,12 @@ const CLASS_OR_STRUCT_DECL = /^(\w+)(?:<[^>]*>)*\s*:=\s*(?:class|struct)\b/;
 const INSTANCE_DECL = /^(\w+)(?:<[^>]*>)*\s*:\s*\w+\s*=\s*external\b/;
 
 /**
- * Parses the project's Assets.digest.verse file to extract class names.
- * This is used to determine the correct module boundary when inferring imports
- * from "Did you mean X.Y.Z.ClassName" error messages.
+ * The set of asset type names UEFN generated for this project, read from its
+ * Assets.digest.verse.
+ *
+ * These names are what tells a dotted suggestion where the module ends: in
+ * "Did you mean X.Y.Z.ClassName", a segment naming an asset class ends the
+ * module path, and that segment onward addresses members rather than modules.
  */
 export class AssetsDigestParser {
     private classNames: Set<string> = new Set();
@@ -52,8 +55,13 @@ export class AssetsDigestParser {
     ) {}
 
     /**
-     * Gets the path to the project's Assets.digest.verse file.
-     * Location: {LOCALAPPDATA}\UnrealEditorFortnite\Saved\VerseProject\{ProjectName}\{ProjectName}-Assets\Assets.digest.verse
+     * The project's Assets.digest.verse, or null when there is no project name
+     * or no file at either known location.
+     *
+     * The file lives outside the workspace, under
+     * `{LOCALAPPDATA}\UnrealEditorFortnite\Saved\VerseProject\{ProjectName}\`,
+     * in a `{ProjectName}-Assets` subfolder on current UEFN and directly in the
+     * project folder on older versions.
      */
     async getAssetsDigestPath(): Promise<string | null> {
         if (this.cachedDigestPath && fs.existsSync(this.cachedDigestPath)) {
@@ -66,10 +74,8 @@ export class AssetsDigestParser {
             return null;
         }
 
-        // Get LocalAppData path
         const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local");
 
-        // Try primary path structure (newer UEFN versions)
         const primaryPath = path.join(localAppData, "UnrealEditorFortnite", "Saved", "VerseProject", projectName, `${projectName}-Assets`, "Assets.digest.verse");
 
         if (fs.existsSync(primaryPath)) {
@@ -78,7 +84,6 @@ export class AssetsDigestParser {
             return primaryPath;
         }
 
-        // Try fallback path structure (older UEFN versions)
         const fallbackPath = path.join(localAppData, "UnrealEditorFortnite", "Saved", "VerseProject", projectName, "Assets.digest.verse");
 
         if (fs.existsSync(fallbackPath)) {
@@ -93,7 +98,9 @@ export class AssetsDigestParser {
     }
 
     /**
-     * Parses the Assets.digest.verse file and extracts class names.
+     * Refreshes the cached names, doing nothing if they were parsed within
+     * CACHE_DURATION or if the digest cannot be located. A file that cannot be
+     * read leaves the previously cached names in place.
      */
     async parseAssetsDigest(): Promise<void> {
         const now = Date.now();
@@ -186,37 +193,33 @@ export class AssetsDigestParser {
     }
 
     /**
-     * Checks if a name is a known asset class name (synchronous, uses cache).
-     * Call parseAssetsDigest() first to ensure cache is populated.
+     * Whether the name is a known asset class, answered from the cache alone.
+     * Nothing fills that cache lazily, so a caller that has not awaited
+     * {@link ensureCachePopulated} gets false for every name.
      */
     isAssetClassName(name: string): boolean {
         return this.classNames.has(name);
     }
 
-    /**
-     * Checks if a name is a known asset class name (async, ensures cache is fresh).
-     */
+    /** As {@link isAssetClassName}, but refreshes the cache first. */
     async isAssetClassNameAsync(name: string): Promise<boolean> {
         await this.parseAssetsDigest();
         return this.classNames.has(name);
     }
 
-    /**
-     * Ensures the cache is populated. Call this during initialization.
-     */
+    /** Fills the cache so the synchronous {@link isAssetClassName} can answer. */
     async ensureCachePopulated(): Promise<void> {
         await this.parseAssetsDigest();
     }
 
-    /**
-     * Gets all known asset class names (for debugging).
-     */
+    /** A copy of the cached names, safe for a caller to keep. */
     getAssetClassNames(): Set<string> {
         return new Set(this.classNames);
     }
 
     /**
-     * Clears the cache and forces a re-parse on next access.
+     * Empties the cache and forgets the located digest path, so the next parse
+     * searches for the file again.
      */
     clearCache(): void {
         this.classNames.clear();
@@ -265,14 +268,13 @@ export class AssetsDigestParser {
     }
 
     /**
-     * Sets up a file watcher for the Assets.digest.verse file.
-     * The file changes when assets are modified in UEFN.
+     * Starts watching for asset changes and returns the handle that stops it.
+     * Disposing is not optional: it is what cancels a queued refresh that would
+     * otherwise run against a deactivated extension.
      */
     setupFileWatcher(): vscode.Disposable {
-        // Create a composite disposable to hold multiple watchers
         const disposables: vscode.Disposable[] = [];
 
-        // Watch for Assets.digest.verse in the VerseProject folder
         const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local");
         // The digest lives outside the workspace. A plain string glob is only
         // honored inside workspace folders, so watch the external VerseProject

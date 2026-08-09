@@ -4,7 +4,9 @@ import { ImportSuggestion, ImportSuggestionSource, ImportConfidence } from "../t
 import { DigestParser, AssetsDigestParser } from "../services";
 import { ImportFormatter } from "./ImportFormatter";
 
-// Regex patterns for error message parsing
+// Each entry is documented by the compiler text it matches, since the message
+// wording is the contract these depend on. Precedence between them lives in
+// classifyMessage, not here.
 const PATTERNS = {
     /** "Did you mean any of:\n<options>" */
     DID_YOU_MEAN_ANY: /Did you mean any of:\s*\n(.+)/s,
@@ -35,9 +37,9 @@ const QUALIFIED_NAME = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/;
 
 /**
  * Fallback for behavior.ambiguousImports. package.json is the source of truth
- * and registers exactly these three mappings; config.get returns the registered
- * default for a registered setting, so an empty fallback never reached
- * production and only ever changed what the tests saw. Keep the two in step.
+ * and registers exactly these three mappings; keep the two in step. Only a
+ * caller with no registered setting behind it, such as a test, ever sees this
+ * value - config.get returns the registered default otherwise.
  */
 export const DEFAULT_AMBIGUOUS_IMPORTS: Record<string, string> = {
     vector3: "/UnrealEngine.com/Temporary/SpatialMath",
@@ -65,7 +67,8 @@ type DiagnosticClassification =
     | { kind: "identifier"; identifier: string; inferred?: ImportCandidate };
 
 /**
- * Handles parsing error messages and diagnostics to extract import suggestions.
+ * Turns Verse compiler messages into import suggestions, for both the quick-fix
+ * menu and Optimize Imports.
  */
 export class ImportSuggestionExtractor {
     private readonly digestParser: DigestParser;
@@ -78,9 +81,7 @@ export class ImportSuggestionExtractor {
         this.assetsDigestParser = assetsDigestParser || null;
     }
 
-    /**
-     * Extracts paths from "using { /Path }" format.
-     */
+    /** Every path written as `using { /Path }` in the text. */
     private extractUsingPaths(text: string): string[] {
         const paths: string[] = [];
         const pattern = new RegExp(PATTERNS.USING_PATH.source, "g");
@@ -91,9 +92,7 @@ export class ImportSuggestionExtractor {
         return paths;
     }
 
-    /**
-     * Extracts paths from "(/Path:)" format (used in "Identifier could be one of many types").
-     */
+    /** Every path written as `(/Path:)`, the form used by "could be one of many types". */
     private extractParenPaths(text: string): string[] {
         const paths: string[] = [];
         const pattern = new RegExp(PATTERNS.PATH_IN_PARENS.source, "g");
@@ -105,17 +104,21 @@ export class ImportSuggestionExtractor {
     }
 
     /**
-     * Finds the correct module path from a fully qualified name by checking
-     * if any intermediate segments are known asset class names.
+     * Splits a fully qualified name into the module path to import and the
+     * class name within it, or null when the name is not a dotted identifier
+     * chain or carries no module part at all.
      *
-     * @param fullName The fully qualified name (e.g., "Ake.UI.UI_UMG.ClassName")
-     * @returns The correct module path and class name, or null if invalid
+     * The split normally falls before the last segment. An intermediate segment
+     * that names a known asset class moves it earlier, since everything from
+     * that class onward addresses members rather than modules.
+     *
+     * @param fullName e.g. "MyGame.UI.UI_Widget.ClassName"
      */
     private findCorrectModulePath(fullName: string): { modulePath: string; className: string } | null {
         // "Did you mean" captures raw sentence text, so trailing punctuation
         // ("Economy.Shop.") or prose ("to use Bar.Baz instead?") reaches this
-        // point; splitting those would produce a plausible-looking but wrong
-        // import. Anything that is not a dotted identifier chain is dropped.
+        // point, and splitting those produces a plausible-looking but wrong
+        // import.
         if (!QUALIFIED_NAME.test(fullName)) {
             logger.debug("ImportSuggestionExtractor", `Rejecting suggestion text that is not a dotted identifier chain: ${fullName}`);
             return null;
@@ -126,14 +129,12 @@ export class ImportSuggestionExtractor {
             return null;
         }
 
-        // Check from second-to-last segment backwards to find asset class names
-        // The last segment is always assumed to be the actual identifier being referenced
+        // Backwards from the second-to-last segment: the last is always taken to
+        // be the identifier being referenced, never a module.
         for (let i = parts.length - 2; i > 0; i--) {
             const segment = parts[i];
 
-            // Check if this segment is a known asset class name
             if (this.assetsDigestParser?.isAssetClassName(segment)) {
-                // This segment is a class, so the module path is everything before it
                 const modulePath = parts.slice(0, i).join(".");
                 const className = parts[parts.length - 1];
 
@@ -143,8 +144,8 @@ export class ImportSuggestionExtractor {
             }
         }
 
-        // No asset class found in intermediate segments - use default behavior
-        // (last segment is the class, everything else is the module)
+        // No asset class in between: the last segment is the class and
+        // everything before it the module.
         const lastDotIndex = fullName.lastIndexOf(".");
         return {
             modulePath: fullName.substring(0, lastDotIndex),
@@ -153,17 +154,14 @@ export class ImportSuggestionExtractor {
     }
 
     /**
-     * Parses error messages for multi-option import candidates.
-     * Handles three patterns:
-     * 1. "Did you mean any of:\n<options>"
-     * 2. "Did you forget to specify one of:\nusing { /Path }\nusing { /Path }"
-     * 3. "Identifier X could be one of many types: (/Path1:)X or (/Path2:)X"
+     * The importable candidates offered by a message that lists several.
      *
-     * Returns null when no multi-option pattern matches; an empty array when a
-     * pattern matched but no option was importable (e.g. only bare identifiers).
+     * Null and [] mean different things: null when no multi-option pattern
+     * matched at all, [] when one matched but no option was importable, such as
+     * a list of bare identifiers. Callers use the difference to decide whether
+     * the single-option patterns still deserve a try.
      */
     private parseMultiOptionCandidates(errorMessage: string): ImportCandidate[] | null {
-        // Pattern 1: "Did you mean any of:\n<options>"
         const match1 = errorMessage.match(PATTERNS.DID_YOU_MEAN_ANY);
         if (match1) {
             const options = match1[1]
@@ -175,24 +173,23 @@ export class ImportSuggestionExtractor {
             const candidates: ImportCandidate[] = [];
             for (const option of options) {
                 if (option.startsWith("/")) {
-                    // Direct module path
                     candidates.push({ path: option, description: `Import from ${option}` });
                     continue;
                 }
-                // Fully qualified name (e.g., "Module.ClassName" or "Module.AssetClass.Member")
+                // A fully qualified name, "Module.ClassName" or
+                // "Module.AssetClass.Member".
                 const result = this.findCorrectModulePath(option);
                 if (result && result.modulePath) {
                     candidates.push({ path: result.modulePath, description: `${result.className} from ${result.modulePath}` });
                 } else {
-                    // Bare identifiers (e.g. a local definition echoed in the option
-                    // list) carry no module path and are not importable.
+                    // A bare identifier, such as a local definition echoed in
+                    // the option list, carries no module path to import.
                     logger.debug("ImportSuggestionExtractor", `Dropping non-importable multi-option entry: ${option}`);
                 }
             }
             return candidates;
         }
 
-        // Pattern 2: "Did you forget to specify one of:\nusing { /Path }\nusing { /Path }"
         const match2 = errorMessage.match(PATTERNS.FORGET_ONE_OF);
         if (match2) {
             const options = this.extractUsingPaths(match2[1]);
@@ -200,7 +197,6 @@ export class ImportSuggestionExtractor {
             return options.map((path) => ({ path, description: `Import from ${path}` }));
         }
 
-        // Pattern 3: "Identifier X could be one of many types: (/Path1:)X or (/Path2:)X"
         const match3 = errorMessage.match(PATTERNS.IDENTIFIER_MANY_TYPES);
         if (match3) {
             const options = this.extractParenPaths(match3[1]);
@@ -212,9 +208,9 @@ export class ImportSuggestionExtractor {
     }
 
     /**
-     * Derives an import candidate from a "Did you mean Namespace.Component"
-     * suggestion. Returns null for suggestions without a module path (single
-     * segment names never produce an import).
+     * The import candidate behind a "Did you mean Namespace.Component"
+     * suggestion, or null when the suggestion carries no module path - a
+     * single-segment name never produces an import.
      */
     private inferFromDidYouMean(errorMessage: string): ImportCandidate | null {
         const didYouMeanMatch = errorMessage.match(PATTERNS.DID_YOU_MEAN_SINGLE);
@@ -265,7 +261,6 @@ export class ImportSuggestionExtractor {
             }
         }
 
-        // "Unknown identifier `x`. Did you forget to specify using { /Path }"
         const specificMatch = errorMessage.match(PATTERNS.UNKNOWN_WITH_SUGGESTION);
         if (specificMatch) {
             const identifierMatch = errorMessage.match(PATTERNS.UNKNOWN_IDENTIFIER);
@@ -273,22 +268,21 @@ export class ImportSuggestionExtractor {
             return { kind: "singleImport", candidate: { path: specificMatch[1], description: `Import ${name} from ${specificMatch[1]}` } };
         }
 
-        // "Did you forget to specify using { /Path }"
         const forgetMatch = errorMessage.match(PATTERNS.FORGET_SINGLE);
         if (forgetMatch) {
             return { kind: "singleImport", candidate: { path: forgetMatch[1], description: `Standard import for ${forgetMatch[1]}` } };
         }
 
-        // "Unknown identifier `x`" without an inline path: the consumer decides
-        // how to resolve it (configured mapping, digest lookup, or the inferred
-        // "Did you mean" path).
+        // An unknown identifier with no inline path. The consumer decides how to
+        // resolve it: configured mapping, digest lookup, or the inferred
+        // "Did you mean" path.
         const unknownMatch = errorMessage.match(PATTERNS.UNKNOWN_IDENTIFIER);
         if (unknownMatch) {
             const inferred = this.inferFromDidYouMean(errorMessage);
             return { kind: "identifier", identifier: unknownMatch[1], inferred: inferred ?? undefined };
         }
 
-        // "Did you mean Namespace.Component" without an unknown-identifier prefix
+        // A "Did you mean" with no unknown-identifier prefix in front of it.
         const inferred = this.inferFromDidYouMean(errorMessage);
         if (inferred) {
             return { kind: "singleImport", candidate: inferred };
@@ -297,9 +291,6 @@ export class ImportSuggestionExtractor {
         return { kind: "none" };
     }
 
-    /**
-     * Creates an ImportSuggestion object.
-     */
     private createImportSuggestion(importStatement: string, source: ImportSuggestionSource, confidence: ImportConfidence, description?: string): ImportSuggestion {
         const modulePath = this.formatter.extractPathFromImport(importStatement);
         return {
@@ -312,7 +303,12 @@ export class ImportSuggestionExtractor {
     }
 
     /**
-     * Looks up an identifier in digest files for import suggestions.
+     * The import suggestions the digest files offer for an identifier. Empty
+     * unless `experimental.useDigestFiles` is on, and empty rather than
+     * throwing when the lookup fails.
+     *
+     * Confidence is high only for an exact identifier match; a near match is
+     * medium.
      */
     private async lookupIdentifierInDigest(identifier: string): Promise<ImportSuggestion[]> {
         const config = vscode.workspace.getConfiguration("verseAutoImports");
@@ -351,8 +347,12 @@ export class ImportSuggestionExtractor {
     }
 
     /**
-     * Extracts import suggestions from an error message.
-     * This is the main method for parsing compiler errors.
+     * Every import suggestion a single compiler message supports, ambiguous
+     * ones included - the quick-fix menu is where the user picks between them.
+     *
+     * An unknown identifier is resolved in a fixed order: a configured
+     * ambiguous mapping first, then the digest lookup, then the path inferred
+     * from a "Did you mean". The order is the precedence, most specific first.
      */
     async extractImportSuggestions(errorMessage: string): Promise<ImportSuggestion[]> {
         logger.debug("ImportSuggestionExtractor", `Extracting import suggestions from error: ${errorMessage}`);
@@ -382,7 +382,6 @@ export class ImportSuggestionExtractor {
             }
 
             case "identifier": {
-                // Configured ambiguous mappings take precedence
                 if (ambiguousImportMappings[classification.identifier]) {
                     const preferredPath = ambiguousImportMappings[classification.identifier];
                     const importStatement = this.formatter.formatImportStatement(preferredPath, preferDotSyntax);
@@ -390,14 +389,12 @@ export class ImportSuggestionExtractor {
                     return [this.createImportSuggestion(importStatement, "error_message", "high", `Configured import for ${classification.identifier}`)];
                 }
 
-                // Then digest-based lookup
                 const digestSuggestions = await this.lookupIdentifierInDigest(classification.identifier);
                 if (digestSuggestions.length > 0) {
                     logger.debug("ImportSuggestionExtractor", `Found digest-based suggestions for unknown identifier: ${classification.identifier}`);
                     return digestSuggestions;
                 }
 
-                // Finally the path inferred from a "Did you mean" suggestion
                 if (classification.inferred) {
                     const importStatement = this.formatter.formatImportStatement(classification.inferred.path, preferDotSyntax);
                     logger.debug("ImportSuggestionExtractor", `Inferred import statement: ${importStatement}`);
@@ -416,10 +413,12 @@ export class ImportSuggestionExtractor {
     }
 
     /**
-     * Extracts unambiguous import paths from VS Code diagnostics for the
-     * Optimize Imports command. Only single, unambiguous suggestions are
-     * collected: multi-option (ambiguous) messages need a user choice and are
-     * left to the quick-fix menu, and non-import messages contribute nothing.
+     * The unambiguous import paths across a set of diagnostics, deduplicated,
+     * for the Optimize Imports command.
+     *
+     * Ambiguous messages are left out rather than resolved: they need a user
+     * choice, which belongs to the quick-fix menu. A command that adds imports
+     * in bulk has nobody to ask.
      */
     extractImportsFromDiagnostics(diagnostics: vscode.Diagnostic[]): string[] {
         logger.debug("ImportSuggestionExtractor", `Extracting imports from ${diagnostics.length} diagnostics`);

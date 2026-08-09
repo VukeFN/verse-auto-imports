@@ -13,21 +13,18 @@ export interface IsModuleImportOptions {
 }
 
 /**
- * Handles import formatting, syntax preferences, grouping, and path utilities.
+ * Reads and writes `using` statements: their syntax, their paths, their
+ * ordering rank, and the grouping the settings ask for.
  */
 export class ImportFormatter {
     /**
-     * Strips a trailing Verse comment from the content of a `using` statement.
+     * The content of a `using` statement with any trailing comment removed,
+     * trimmed.
      *
-     * `#` opens a line comment and `<#` opens a block comment. Neither
-     * character is legal in a module path, so everything from the first
-     * comment opener onward is trivia. The path captures are greedy to end of
-     * line, so without this a trailing comment is captured as part of the path
-     * and re-emitted inside the braces — `using { /X # note }`, where the
-     * comment swallows the closing brace and the statement no longer parses.
-     *
-     * @param content The captured content of a `using` statement
-     * @returns The content with any trailing comment removed, trimmed
+     * The path captures are greedy to end of line, so a comment left on the
+     * content is captured as part of the path and re-emitted inside the braces
+     * - `using { /X # note }`, where the comment swallows the closing brace and
+     * the statement no longer parses.
      */
     static stripTrailingComment(content: string): string {
         const commentStart = ImportFormatter.commentStartIndex(content);
@@ -43,7 +40,6 @@ export class ImportFormatter {
      * this is what it needs to put back so the annotation survives.
      *
      * @param content A `using` statement, or the indented path line of one
-     * @returns The comment, trimmed, or "" when the content carries none
      */
     static extractTrailingComment(content: string): string {
         const commentStart = ImportFormatter.commentStartIndex(content);
@@ -69,40 +65,32 @@ export class ImportFormatter {
     }
 
     /**
-     * Determines if a line is a module import (as opposed to a local-scope `using`).
+     * Whether a line is a module import rather than a local-scope `using`.
      *
      * `using` has two meanings in Verse:
      * - Module import: `using { /Verse.org/Simulation }`, `using { game_systems.inventory }`
      * - Local-scope using: `using{Variable}` — brings an instance's members into scope
      *
-     * Verse supports three equivalent syntactic styles for `using`:
-     * - Braced:   `using { /Verse.org/Simulation }`
-     * - Dotted:   `using. /Verse.org/Simulation`
-     * - Indented: `using:` followed by an indented path on the next line
+     * Either meaning can be written in any of the three equivalent styles:
+     * braced `using { /Path }`, dotted `using. /Path`, or indented `using:`
+     * with the path on the next line. So the two are separated by content, and
+     * at file scope by position as well:
      *
-     * All three styles can express either a module import or a local-scope using.
-     * Detection has two modes:
+     * - Default (`options.atFileScope` absent or `false`): content only. A
+     *   path (leading `/`) or a dot-notation reference (containing `.`) is a
+     *   module import; a bare identifier is a local-scope using. This is the
+     *   mode for callers that see a matched line in isolation and cannot
+     *   attest to where it sits in the file.
+     * - `options.atFileScope: true`: a bare identifier is a module import too
+     *   (a same-directory folder-module import, `using { Features }`). Module
+     *   `using` is legal at file level or module-definition body level, while
+     *   local-scope `using{instance}` is legal only inside a function body, so
+     *   at file scope a bare `using { X }` can only be the former. Pass this
+     *   only when you know the line is not inside a function body.
      *
-     * - Default (`options.atFileScope` absent or `false`): content-based only.
-     *   Paths (starting with `/`) and dot-notation module references
-     *   (containing `.`) indicate module imports. Bare identifiers indicate
-     *   local-scope using. This mode is used by call sites that lack
-     *   positional context (they see a matched line in isolation and cannot
-     *   attest to where it sits in the file).
-     * - `options.atFileScope: true`: additionally treats a bare identifier as
-     *   a module import (a same-directory folder-module import, e.g.
-     *   `using { Features }`). This is legal per the Book of Verse only
-     *   because module `using` is valid at file level or module-definition
-     *   body level, while local-scope `using{instance}` is legal only inside
-     *   function bodies — so a bare `using { X }` at file scope can only be a
-     *   module import, never a legal local-scope using. Callers must only
-     *   pass this when they know the line is not inside a function body.
-     *
-     * @param line The line to check
-     * @param nextLine The following line in the document (needed for indented style
-     *   where the content is on the next line). When not provided and the line is
-     *   `using:`, conservatively returns `true`.
-     * @param options Classification options; see above.
+     * @param nextLine The following line, which carries the content for the
+     *   indented style. When it is not given and the line is `using:`, this
+     *   conservatively returns `true`.
      */
     static isModuleImport(line: string, nextLine?: string, options?: IsModuleImportOptions): boolean {
         const trimmed = line.trim();
@@ -124,24 +112,21 @@ export class ImportFormatter {
             return false;
         };
 
-        // Indented style: using:
-        //     /Verse.org/Simulation
-        // Content is on the next line — use nextLine for content-based detection.
+        // Indented style: the content is on the next line.
         if (/^using\s*:\s*$/.test(trimmed)) {
             if (nextLine !== undefined) {
                 return isModuleImportContent(ImportFormatter.stripTrailingComment(nextLine));
             }
-            // Without next line context, conservatively assume module import
             return true;
         }
 
-        // Dotted style: using. <content>
+        // Dotted style.
         const dotMatch = trimmed.match(/^using\.\s+(.+)/);
         if (dotMatch) {
             return isModuleImportContent(ImportFormatter.stripTrailingComment(dotMatch[1]));
         }
 
-        // Braced style: using { /path } or using{Variable}
+        // Braced style.
         const curlyMatch = trimmed.match(/^using\s*\{\s*([^}]+)\s*\}/);
         if (curlyMatch) {
             return isModuleImportContent(ImportFormatter.stripTrailingComment(curlyMatch[1]));
@@ -151,9 +136,9 @@ export class ImportFormatter {
     }
 
     /**
-     * Formats an import statement using the specified syntax.
-     * @param path The module path to import
-     * @param useDotSyntax Whether to use dot syntax (using. /path) or curly syntax (using { /path })
+     * A `using` statement for a path, written in the caller's preferred style.
+     *
+     * @param useDotSyntax `using. /path` when true, `using { /path }` when false
      */
     formatImportStatement(path: string, useDotSyntax: boolean): string {
         return useDotSyntax ? `using. ${path.trim()}` : `using { ${path.trim()} }`;
@@ -176,13 +161,10 @@ export class ImportFormatter {
      * already imports it. An unbalanced `'` matches neither branch, so the
      * capture ends before it and the remainder pins the line.
      *
-     * A comment opener is outside the class, though a quoted group admits one.
-     * matchImport strips it regardless, so none reaches a path - but the strip
-     * cuts inside the group while `end` measures the unstripped capture, so on
-     * `using. Foo'a#b'` the path and the leftover disagree about where the
-     * statement ends. No caller reaches that: isModuleImport refuses `Foo'a`,
-     * and the leftover is read from the line's code, which has no comment left
-     * in it. Widening the class is what would make the two meet.
+     * Do not widen the class to admit a comment opener. matchImport strips a
+     * comment from the capture but measures `end` on the unstripped text, so a
+     * `#` reaching the capture makes the path and the leftover disagree about
+     * where the statement ends.
      */
     private static readonly DOTTED_STATEMENT = /^using\.\s*((?:[A-Za-z0-9_./@:()-]|'[^']*')*)/;
 
@@ -191,8 +173,8 @@ export class ImportFormatter {
      * much of the string it occupies.
      *
      * Anchored on the trimmed statement, and dotted before braced, following
-     * isModuleImport. Unanchored, the braced pattern is free to match
-     * inside the trailing comment of a dotted statement and win the path -
+     * isModuleImport. Unanchored, the braced pattern is free to match inside
+     * the trailing comment of a dotted statement and win the path -
      * `using. Economy.Shop # was using { Inventory }` read as `Inventory`,
      * because the comment is only stripped afterwards, from that capture.
      *
@@ -203,10 +185,10 @@ export class ImportFormatter {
      * The dotted style closes with nothing, so its own content is what ends it:
      * the capture stops at the first character a dotted content cannot hold,
      * which is how Verse itself lexes a path - `/a/b-c` is the path `/a/b`, then
-     * `-`, then `c`. Reading to end of line instead is what let a statement
-     * written after a `;` be captured into the path and re-emitted inside the
-     * braces. See DOTTED_STATEMENT for what a dotted content may hold, and why
-     * ending the capture early is not the safe direction it looks.
+     * `-`, then `c`. Reading to end of line instead captures a statement written
+     * after a `;` into the path, which is then re-emitted inside the braces. See
+     * DOTTED_STATEMENT for what a dotted content may hold, and why ending the
+     * capture early is not the safe direction it looks.
      *
      * @returns The path and the offset just past the statement **in the
      *   trimmed input**, or null when there is no statement (including one
@@ -231,14 +213,12 @@ export class ImportFormatter {
     }
 
     /**
-     * Extracts the module path from an import statement.
-     * Handles both curly syntax (using { /path }) and dot syntax (using. /path).
-     * A trailing comment is stripped, so the returned path never carries trivia
-     * that would corrupt the statement when it is re-emitted.
+     * The module path of the `using` statement at the head of a string, or null
+     * when there is none - including a statement whose content is nothing but a
+     * comment.
      *
-     * @param importStatement The full import statement
-     * @returns The extracted path, or null if there is none (including a
-     *   statement whose content is nothing but a comment)
+     * The trailing comment is stripped, so the path never carries trivia that
+     * would corrupt the statement when it is re-emitted.
      */
     extractPathFromImport(importStatement: string): string | null {
         return ImportFormatter.matchImport(importStatement)?.path ?? null;
@@ -273,22 +253,21 @@ export class ImportFormatter {
     }
 
     /**
-     * Determines if an import is a digest import (from Verse.org, Fortnite.com, or UnrealEngine.com).
-     * @param importPath The import path or statement to check
-     * @returns true if the import is from a digest source, false otherwise
+     * Whether an import comes from a digest source, which the
+     * `behavior.digestImportPrefixes` setting defines and defaults to
+     * Verse.org, Fortnite.com and UnrealEngine.com.
+     *
+     * @param importPath A bare path or a whole `using` statement
      */
     isDigestImport(importPath: string): boolean {
-        // Extract the path if this is a full import statement
         let path = importPath;
         if (importPath.includes("using")) {
             path = this.extractPathFromImport(importPath) || importPath;
         }
 
-        // Get configurable digest prefixes
         const config = vscode.workspace.getConfiguration("verseAutoImports");
         const digestPrefixes = config.get<string[]>("behavior.digestImportPrefixes", ["/Verse.org/", "/Fortnite.com/", "/UnrealEngine.com/"]);
 
-        // Check if it's a digest import
         return digestPrefixes.some((prefix) => path.startsWith(prefix));
     }
 
@@ -302,9 +281,6 @@ export class ImportFormatter {
      * Placement reads the same ranks the sort compares, so a new import can be
      * ranked against the whole file rather than only against the block it is
      * merged into.
-     *
-     * @param path The import path to rank
-     * @returns 0, 1 or 2
      */
     importRank(path: string): number {
         if (path.startsWith("/")) {
@@ -317,37 +293,27 @@ export class ImportFormatter {
     }
 
     /**
-     * Sorts import paths for a `using` block using rank-based ordering rather
-     * than plain alphabetical order.
+     * A new array of the paths ordered by rank, and alphabetically within ranks
+     * 0 and 2. The input is not modified.
      *
-     * Verse resolves `using` statements top-down: a statement can only see
-     * identifiers brought into scope by statements above it. This matters
-     * because `using` has two meanings — a module import (`using { /Path }`,
-     * `using { Foo.Bar }`) and a local-scope using (`using { Variable }`) —
-     * and a dotted module import's first segment is itself only in scope if
-     * some other import (a bare module reference) already provided it. For
-     * example `using { Economy.Shop }` needs `Economy` in scope, which
-     * `using { Features }` provides if `Features` declares the `Economy`
-     * submodule. Plain alphabetical sorting can reorder `Economy.Shop` before
-     * `Features` (E < F) and break compilation even though both imports are
-     * individually valid.
+     * Rank ordering rather than plain alphabetical order, because Verse
+     * resolves `using` statements top-down: a statement sees only identifiers
+     * brought into scope above it. A dotted import's first segment is in scope
+     * only if a bare module reference already provided it, so
+     * `using { Economy.Shop }` needs the `Economy` that `using { Features }`
+     * brings - and alphabetical order puts `Economy.Shop` first (E < F) and
+     * breaks compilation, though both imports are individually valid.
      *
-     * Paths are grouped into three ranks, and only alphabetized within a rank:
-     * - Rank 0 — absolute paths (start with `/`): self-contained, sorted alphabetically.
-     * - Rank 1 — bare identifiers (no `/`, no `.`): kept in their original
-     *   input order, never alphabetized, since the relative order between
-     *   bare module imports is semantic — a nested child must follow the
-     *   parent that provides it.
-     * - Rank 2 — everything else (dotted references such as `Economy.Shop`,
-     *   and any other non-absolute form): sorted alphabetically.
+     * - Rank 0, absolute paths (leading `/`): self-contained, alphabetized.
+     * - Rank 1, bare identifiers (no `/`, no `.`): kept in input order, never
+     *   alphabetized, since the order between bare module imports is semantic
+     *   - a nested child must follow the parent that provides it.
+     * - Rank 2, everything else (dotted references such as `Economy.Shop`):
+     *   alphabetized.
      *
-     * A lower rank always precedes a higher rank, so bare imports precede
-     * dotted ones, guaranteeing a provider precedes anything that might
-     * depend on it. The sort is stable, so rank 1 entries keep their input
-     * order (the comparator returns 0 for two rank-1 paths).
-     *
-     * @param paths Import paths to sort
-     * @returns A new array with paths ordered by rank, then alphabetically within rank 0 and rank 2
+     * A lower rank always precedes a higher one, so a provider precedes
+     * anything that might depend on it. The sort is stable, which is what keeps
+     * rank 1 in input order once its comparator returns 0.
      */
     sortImportsByRank(paths: string[]): string[] {
         const rankOf = (path: string): number => this.importRank(path);
@@ -366,24 +332,19 @@ export class ImportFormatter {
     }
 
     /**
-     * Groups and formats imports based on the configuration settings.
-     * @param importPaths Array of import paths to group and format
-     * @param preferDotSyntax Whether to use dot syntax for imports
-     * @param sortAlphabetically Whether to sort imports alphabetically
-     * @param importGrouping The grouping strategy ('none', 'digestFirst', or 'localFirst').
-     *   Any other value falls back to 'none', so a setting typo or a renamed
-     *   enum member degrades to ungrouped output rather than dropping imports.
-     * @returns Array of formatted import statements with potential empty lines for grouping
+     * The formatted `using` statements for a set of paths, with an empty string
+     * between the two groups when a grouping strategy puts imports in both.
+     *
+     * @param importGrouping 'none', 'digestFirst' or 'localFirst'. Any other
+     *   value falls back to 'none', so a setting typo or a renamed enum member
+     *   degrades to ungrouped output rather than dropping imports.
      */
     groupAndFormatImports(importPaths: string[], preferDotSyntax: boolean, sortAlphabetically: boolean, importGrouping: string): string[] {
         if (importGrouping !== "digestFirst" && importGrouping !== "localFirst") {
-            // Rank-based sort if enabled (see sortImportsByRank for why plain
-            // alphabetical order is unsafe for local imports)
             const sortedPaths = sortAlphabetically ? this.sortImportsByRank(importPaths) : importPaths;
             return sortedPaths.map((path) => this.formatImportStatement(path, preferDotSyntax));
         }
 
-        // New grouping behavior: separate digest and local imports
         let digestImports: string[] = [];
         let localImports: string[] = [];
 
@@ -395,26 +356,22 @@ export class ImportFormatter {
             }
         }
 
-        // Sort within groups if enabled. digestImports are always absolute
-        // paths, so rank sort and plain alphabetical sort are equivalent
-        // there; the same helper is used for both groups for consistency.
+        // digestImports are always absolute paths, so rank sort and plain
+        // alphabetical sort agree there; one helper serves both groups.
         if (sortAlphabetically) {
             digestImports = this.sortImportsByRank(digestImports);
             localImports = this.sortImportsByRank(localImports);
         }
 
-        // Format the imports
         const formattedDigestImports = digestImports.map((path) => this.formatImportStatement(path, preferDotSyntax));
         const formattedLocalImports = localImports.map((path) => this.formatImportStatement(path, preferDotSyntax));
 
-        // Combine based on configuration. Only the two grouped strategies reach
-        // this point, so both branches of the pair are covered.
+        // Only the two grouped strategies reach here, so the pair covers both.
         const [firstGroup, secondGroup] = importGrouping === "digestFirst" ? [formattedDigestImports, formattedLocalImports] : [formattedLocalImports, formattedDigestImports];
 
         const formattedImports: string[] = [...firstGroup];
-        // Add spacing between groups if both have imports
         if (firstGroup.length > 0 && secondGroup.length > 0) {
-            formattedImports.push(""); // Empty line between groups
+            formattedImports.push("");
         }
         formattedImports.push(...secondGroup);
 

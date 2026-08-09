@@ -293,6 +293,46 @@ describe("scanModuleImports", () => {
         ]);
     });
 
+    // The line writes one `using`, so counting them says one and the line was
+    // recorded as rewritable. Organizing rebuilt it from `/X` and the definition
+    // was gone, under an import block well-formed enough to say nothing.
+    it("pins a line that writes a definition after its import", () => {
+        expect(scanModuleImports(["using { /X }; MyVal := 5", "", "code()"])).toEqual([
+            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    it("offers no rewritable import for a line that writes a definition after its import", () => {
+        expect(rewritableImports(scanModuleImports(["using { /X }; MyVal := 5", "", "code()"]))).toEqual([]);
+    });
+
+    // What is left over is read from the line's code. A trailing comment is left
+    // over on the raw text, and pinning on that refuses to organize every
+    // annotated import in the file.
+    it("leaves a single statement rewritable when a semicolon sits in its trailing comment", () => {
+        expect(rewritableImports(scanModuleImports(["using { /A } # note; and more", "code()"]))).toEqual([
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "# note; and more" },
+        ]);
+    });
+
+    // The separator is never searched for, only the text after the statement,
+    // so a `;` the braces enclose is part of the path rather than a second
+    // statement. A `;` in a string literal is covered by the same property
+    // without a case of its own: it can only ever sit inside leftover text,
+    // never be what decides there is any.
+    it("leaves a single statement rewritable when a semicolon sits inside its braces", () => {
+        expect(rewritableImports(scanModuleImports(["using { /X;Y }", "code()"]))).toEqual([
+            { path: "/X;Y", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
+        ]);
+    });
+
+    // Nothing follows the separator, so the rebuild would lose only the `;`
+    // itself. Pinned anyway: the cost is a line left as written, where trimming
+    // the separator away first means being right about which ones mean nothing.
+    it("pins a line whose import is followed by a bare separator", () => {
+        expect(rewritableImports(scanModuleImports(["using { /X };", "code()"]))).toEqual([]);
+    });
+
     it("keeps a trailing comment out of the path but on the entry, in all three styles", () => {
         // Out of `path`, which is re-emitted inside the braces and would be
         // corrupted by it, and onto `trailingComment`, which is what a writer

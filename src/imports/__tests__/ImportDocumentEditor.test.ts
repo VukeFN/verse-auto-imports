@@ -186,6 +186,25 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, ["Economy.Shop"], curlySorted)).toBeNull();
     });
 
+    // A `;` separates definitions exactly as a newline does, so what follows the
+    // import need not be an import. Counting `using` statements says one, and
+    // organizing rebuilt the line from `/X` alone - MyVal simply gone, with a
+    // well-formed import block left in its place.
+    it("leaves a line that writes a definition after its import alone", () => {
+        const input = ["using { /X }; MyVal := 5", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBeNull();
+    });
+
+    it("organizes the other imports around a line that writes a definition after its import", () => {
+        const input = ["using { /X }; MyVal := 5", "using { /B }", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /B }", "", "using { /X }; MyVal := 5", "", "code()"].join("\n"));
+    });
+
+    it("does not write a second copy of a path such a line already provides, next to a definition", () => {
+        const input = ["using { /X }; MyVal := 5", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["/X"], curlySorted)).toBeNull();
+    });
+
     // A module whose name merely ends in those five letters writes one
     // statement, and organizing has to keep treating it as one. Counted by
     // every occurrence of `using`, this line reads as two, and the file stops

@@ -51,17 +51,21 @@ export interface ScannedImport {
      * still counts as present - only rewriting is off limits, exactly as for
      * anchorsCommentBelow, and rewritableImports filters on both.
      *
-     * `false` is "no loss known", not "provably none". Detection looks for a
-     * second `using` on the line, so two shapes carry the same hazard
-     * undetected:
+     * Detection asks two questions of the line: how many `using` statements it
+     * writes, and - where it writes one - whether any code is left over after
+     * it. What the leftover says does not matter, so a statement written after
+     * a `;` is caught by the second question when it is not a `using` and the
+     * first cannot count it.
      *
-     * - a `;` followed by anything that is not a `using` at all,
-     *   `using { /X }; MyVal := 5`, where the rebuild deletes the definition
-     *   (#235)
-     * - `using. /X; using:`, where the dotted statement has no closing
-     *   delimiter and swallows the rest of the line into its path, so the pair
-     *   is pinned under a path that is not `/X` and `/X` itself goes
-     *   unreported - the same weakness usingPathsOnLine documents
+     * `false` is still "no loss known", not "provably none". Both questions are
+     * blind to the same shape, a dotted statement sharing its line: it has no
+     * closing delimiter, so it swallows the rest of the line into its path -
+     * leaving nothing over for the second question, and no second `using` for
+     * the first to find in `using. /X; MyVal := 5`. The path is then the whole
+     * of the line and rebuilding from it corrupts rather than deletes, which is
+     * the weakness usingPathsOnLine documents. Where the tail is a `using`, the
+     * line is pinned but under that swallowed path, so the path it really
+     * imports goes unreported and a writer may add a second copy of it.
      *
      * `true` is likewise not a promise that every path on the span was
      * recorded. A line ending in a `using:` pair reports the statement at its
@@ -509,6 +513,19 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
             continue;
         }
 
+        // One statement, and the line is rewritable only if that statement is
+        // the whole of what it says. What follows a `;` need not be a `using`,
+        // and neither branch above counts it - so the leftover is what says the
+        // definition after it would be deleted. See textAfterImport for why the
+        // question is "what is left over" rather than "where is the `;`".
+        //
+        // Asked of the line's code, as the two branches above are: a trailing
+        // comment is leftover text on the raw line, and pinning on that refuses
+        // to organize every annotated import in the file.
+        //
+        // A line ending in a bare `;` is pinned too, on text that means
+        // nothing. The cost is one line left as written; trimming separators
+        // away first means being right about which ones mean nothing.
         const path = formatter.extractPathFromImport(trimmed);
         if (path) {
             imports.push({
@@ -516,7 +533,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
                 startLine: i,
                 endLine: i,
                 anchorsCommentBelow: anchorsCommentBelow(i, i),
-                rebuildLosesText: false,
+                rebuildLosesText: formatter.textAfterImport(code) !== "",
                 trailingComment: ImportFormatter.extractTrailingComment(trimmed),
             });
         }

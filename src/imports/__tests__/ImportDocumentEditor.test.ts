@@ -1434,6 +1434,12 @@ describe("ImportDocumentEditor.ensureEmptyLinesAfterImports", () => {
 describe("ImportDocumentEditor.computeEmptyLinesAfterImportsEdits", () => {
     let editor: ImportDocumentEditor;
 
+    /** The setting as the manifest declares it, which is what the settings UI enforces. */
+    function emptyLinesSetting(): { type: string; minimum: number; description: string } {
+        const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "..", "..", "package.json"), "utf8"));
+        return manifest.contributes.configuration.properties["verseAutoImports.behavior.emptyLinesAfterImports"];
+    }
+
     /** Answers emptyLinesAfterImports with `value`, defaults for everything else. */
     function mockEmptyLines(value: number): void {
         (vscode.workspace.getConfiguration as jest.Mock).mockReturnValueOnce({
@@ -1506,13 +1512,51 @@ describe("ImportDocumentEditor.computeEmptyLinesAfterImportsEdits", () => {
     });
 
     it("honours -1 only because package.json admits it, so the settings UI can offer it", () => {
-        const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "..", "..", "package.json"), "utf8"));
-        const setting = manifest.contributes.configuration.properties["verseAutoImports.behavior.emptyLinesAfterImports"];
+        const setting = emptyLinesSetting();
 
         // Declared below the minimum, the opt-out is unreachable however well
         // the code above honours it: the settings UI refuses to store it.
         expect(setting.minimum).toBeLessThanOrEqual(-1);
         expect(setting.description).toContain("-1");
+    });
+
+    // A blank-line count is whole. Declared "number" the settings UI offered
+    // 1.5, and the pass then asked for an edit that changed nothing on every
+    // save (#242).
+    it("declares the setting an integer, so the settings UI cannot offer a fraction", () => {
+        expect(emptyLinesSetting().type).toBe("integer");
+    });
+
+    it("asks for nothing when a fractional setting rounds to the spacing the file already has", () => {
+        mockEmptyLines(1.5);
+
+        const input = ["using { /Top }", "", "", "code()"].join("\n");
+
+        expect(editor.computeEmptyLinesAfterImportsEdits(fakeDocument(input))).toEqual([]);
+    });
+
+    // The convergence itself: the first pass has to reach a state the second
+    // pass leaves alone. 1.5 used to give a difference of 0.5 forever, since
+    // the count of real blank lines can never equal it.
+    it("converges on a fractional setting instead of editing on every pass", () => {
+        mockEmptyLines(1.5);
+        const edits = editor.computeEmptyLinesAfterImportsEdits(fakeDocument(["using { /Top }", "", "code()"].join("\n")));
+
+        expect(edits).toHaveLength(1);
+        expect(edits[0].newText).toBe("\n");
+
+        mockEmptyLines(1.5);
+        const settled = ["using { /Top }", "", "", "code()"].join("\n");
+
+        expect(editor.computeEmptyLinesAfterImportsEdits(fakeDocument(settled))).toEqual([]);
+    });
+
+    it("keeps the spacing a fraction just below the opt-out asks it to keep", () => {
+        mockEmptyLines(-0.4);
+
+        const input = ["using { /Top }", "", "", "", "code()"].join("\n");
+
+        expect(editor.computeEmptyLinesAfterImportsEdits(fakeDocument(input))).toEqual([]);
     });
 
     it("never edits the document itself", () => {

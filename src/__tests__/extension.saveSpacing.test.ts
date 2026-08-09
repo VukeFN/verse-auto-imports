@@ -52,6 +52,19 @@ function stubConfiguration(): void {
     });
 }
 
+/**
+ * Re-answers emptyLinesAfterImports with `value` for the rest of the test. The
+ * listener reads the setting when the save fires, not when it is registered, so
+ * this works on the listener activate() already installed.
+ */
+function stubEmptyLines(value: number): void {
+    (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+        get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => (key === "behavior.emptyLinesAfterImports" ? value : defaultValue)),
+        inspect: jest.fn().mockReturnValue(undefined),
+        update: jest.fn().mockResolvedValue(undefined),
+    });
+}
+
 function fakeDocument(text: string, languageId: string = "verse"): vscode.TextDocument {
     const lines = text.split(/\r?\n/);
     return {
@@ -115,6 +128,18 @@ describe("import spacing on save", () => {
 
     it("stays out of the save when the spacing already matches", () => {
         const event = fireWillSave(fakeDocument(ALREADY_SPACED));
+
+        expect(event.waitUntil).not.toHaveBeenCalled();
+        expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
+    });
+
+    // #242: a fractional setting the UI used to accept gave a difference that
+    // no count of real blank lines could close, so every save was handed an
+    // edit whose text was empty.
+    it("stays out of the save when a fractional setting rounds to the spacing the file has", () => {
+        stubEmptyLines(1.5);
+
+        const event = fireWillSave(fakeDocument(["using { /Fortnite.com/Devices }", "", "", "code()"].join("\n")));
 
         expect(event.waitUntil).not.toHaveBeenCalled();
         expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();

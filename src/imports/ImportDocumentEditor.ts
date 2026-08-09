@@ -1055,7 +1055,16 @@ export class ImportDocumentEditor {
             return [];
         }
 
-        logger.debug("ImportDocumentEditor", `Ensuring ${emptyLinesAfterImports} empty lines after imports`);
+        // A line count has to be a whole number: the difference below is taken
+        // against a count of real lines, and `repeat` truncates a fractional
+        // count to nothing, so a stored 1.5 would ask for an edit that changes
+        // nothing on every save and never converge. package.json declares this
+        // an integer, but a hand-edited settings.json still reaches here.
+        // Must round after the negative return above, not before: -0.4 rounds
+        // to 0, which would take the opt-out's meaning away from it.
+        const targetEmptyLines = Math.round(emptyLinesAfterImports);
+
+        logger.debug("ImportDocumentEditor", `Ensuring ${targetEmptyLines} empty lines after imports`);
 
         const text = document.getText();
         const eol = resolveEol(document, text);
@@ -1102,10 +1111,10 @@ export class ImportDocumentEditor {
         }
 
         // Calculate adjustment needed
-        const lineDifference = emptyLinesAfterImports - existingEmptyLines;
+        const lineDifference = targetEmptyLines - existingEmptyLines;
 
         if (lineDifference === 0) {
-            logger.debug("ImportDocumentEditor", `Already has ${emptyLinesAfterImports} empty lines after imports`);
+            logger.debug("ImportDocumentEditor", `Already has ${targetEmptyLines} empty lines after imports`);
             return [];
         }
 

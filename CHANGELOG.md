@@ -10,6 +10,52 @@ Where an entry resolves a tracked issue, it ends with a `[#N]` reference linked 
 
 Pending changes are kept as one file per change under [changelog.d/](changelog.d/) and assembled here at release.
 
+## [0.10.0] - 2026-08-09
+
+### Added
+
+- **Debug logs**: the activation line and the exported log header now name the extension version, VS Code version, platform, workspace shape, and the settings that change import behavior ([#92])
+- **Auto-import scope**: a new `general.autoImportScope` setting bounds which documents automatic imports may edit - `allFiles` (the default) keeps today's behavior, `openFiles` limits edits to open documents, `activeFile` to the active editor; quick fixes and CodeLens are unaffected ([#96])
+- **Empty lines after imports**: setting `behavior.emptyLinesAfterImports` to -1 now leaves the spacing after your import block exactly as you wrote it, instead of normalizing it on every save, add and organize ([#151])
+
+### Changed
+
+- **Bundled Verse API digests**: refreshed to UEFN 41.30, adding the renamed AI conversation types, `prompt_binding_definition`, Fortnite character voices and 29 weapons and devices. The old `llm_*` and `*_prompt` names are gone; code using them needs updating ([#197])
+
+### Removed
+
+- **Settings**: `pathConversion.scanDepth` and `experimental.unknownIdentifierResolution` are gone; neither was ever consulted, and `experimental.useDigestFiles` already covers digest lookup ([#135])
+
+### Fixed
+
+- **Import edits**: a rejected edit now shows a warning instead of a success message, and **Optimize Imports** no longer saves the document when its edit did not apply ([#133])
+- **Settings**: `cache.watcherDebounceMs` and `cache.autoRebuildOnStartup` now take effect; both were declared and documented but read by no code path ([#135])
+- **Command palette**: five commands meant only for the quick fix and the CodeLens - Add Import, Use Absolute Path, Use Relative Path and the two convert-all commands - no longer appear in the palette, where running them raised an error ([#136])
+- **Project path cache**: the cache being cleared or rebuilt while a saved file is being re-parsed no longer loses that update or leaves stale declarations in workspace storage for the next session ([#137])
+- **Project path cache setting**: turning `cache.enableProjectCache` off now really disables the cache - the rebuild, clear and status commands report it as off, a stored cache is dropped, and toggling the setting offers the window reload it needs ([#138])
+- **Header comments**: a file header comment now stays above the import block when imports are organized or a new import is added, and a comment directly above an import travels with it when the block is sorted ([#140])
+- **Auto import and CodeLens**: a pending auto-import can no longer edit a file after the extension is disabled, the CodeLens provider stops handling keystrokes once it is gone, and a path conversion lens no longer vanishes under the cursor ([#142])
+- **Saving no longer re-dirties the file**: the import spacing pass now runs as part of the save rather than editing the file once the save has finished, so the tab no longer shows unsaved changes the moment you press Ctrl+S ([#144])
+- **Path conversion CodeLens**: a `using` inside a block comment or indented in a module body no longer gets a conversion lens or is touched by the convert-all commands, while a bare folder import now does ([#167])
+- **Path conversion**: converting an import whose statement also appears elsewhere in the file, commented out above it say, now rewrites the line the CodeLens sits on rather than the first line reading the same ([#183])
+- **Path conversion**: converting an import now warns when the edit could not be applied, and a whole-document conversion says how many imports it could not convert ([#185])
+- **Import comments**: the comment trailing a `using` statement is no longer deleted when imports are sorted or organized, and an import line carrying a comment marker or an unclosed `<#` block opener is left where it was written ([#189])
+- **Path conversion**: converting an import path keeps the comment trailing that line instead of deleting it or rewriting text inside it, in both directions and in both the braced and dotted styles ([#191])
+- **Optimize Imports**: a file holding both a comment-anchored import and an ordinary import of the same path no longer keeps both - the ordinary one is removed, unless the file also imports a module by a bare or dotted name ([#192])
+- **Import placement around an anchored import**: a new import is no longer written above the import that brings its first segment into scope when that import is anchored by a `<#` or `<#>` comment marker. Such an import belongs to no import block, so every placement decision was blind to it and the "Unknown identifier" the new import was added to resolve could survive ([#196])
+- **Path conversion**: a brace inside the comment trailing an import no longer flips the `using` syntax style the conversion emits, which now follows the statement the author wrote ([#204])
+- **Import paths read from the statement, not its comment**: a `using` import whose trailing comment mentioned another import in braces, such as `using. Economy.Shop # was using { Inventory }`, had that other path read as its own - converting the wrong module and misclassifying the import as a full path or a built-in one ([#207])
+- **Optimize Imports**: a file holding both a comment-anchored import and an ordinary import of the same path no longer removes the ordinary one when two `using` statements share a line and something below still needs one of them ([#214])
+- **Organize imports**: an indented `using:` pair written after a `;` on the same line no longer reads as absent, so organizing keeps an import the pair resolves against instead of dropping it ([#216])
+- **Organize imports**: a `using:` pair opened after a `;` keeps both of its lines, instead of losing the opener and leaving its path stranded in the file body ([#219])
+- **Optimize Imports**: a line writing two `using` statements keeps both, instead of being rebuilt from the first and silently dropping the second ([#223])
+- **Import scanning**: A line writing three or more `using` statements and ending in a `using:` pair now counts every path it imports, so adding one of the middle paths no longer writes a second copy of it ([#233])
+- **Organize imports**: A line that writes a definition after an import, such as `using { /X }; MyVal := 5`, is now left as written instead of losing the definition ([#235])
+- **Import spacing**: `behavior.emptyLinesAfterImports` now takes whole numbers only, so a fractional value no longer stops the spacing after your imports settling on the count you configured. A value already saved rounds to the nearest whole number ([#242])
+- **Import organizing**: a statement written after a dotted `using.` import on the same line is no longer folded into the import path, and the line is left exactly as written ([#244])
+- **Import scanning**: A dotted import of a same-directory module sharing its line with another statement now counts as imported, so nothing writes a second copy of an import the file already makes ([#247])
+- **Project path cache**: a .verse file that cannot be read when its change is processed keeps the declarations it already contributed, instead of dropping them until something edits the file again ([#255])
+
 ## [0.9.0] - 2026-08-06
 
 ### Changed
@@ -316,7 +362,8 @@ See [GitHub Releases](https://github.com/VukeFN/verse-auto-imports/releases) for
 
 <!-- Version comparisons. The chain starts at 0.6.0: no v0.4.x or v0.5.x tags exist. -->
 
-[Unreleased]: https://github.com/vukefn/verse-auto-imports/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/vukefn/verse-auto-imports/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/vukefn/verse-auto-imports/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/vukefn/verse-auto-imports/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/VukeFN/verse-auto-imports/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/VukeFN/verse-auto-imports/compare/v0.7.0...v0.7.1
@@ -329,6 +376,38 @@ See [GitHub Releases](https://github.com/VukeFN/verse-auto-imports/releases) for
 
 <!-- Issue references -->
 
+[#92]: https://github.com/vukefn/verse-auto-imports/issues/92
+[#96]: https://github.com/vukefn/verse-auto-imports/issues/96
+[#133]: https://github.com/vukefn/verse-auto-imports/issues/133
+[#135]: https://github.com/vukefn/verse-auto-imports/issues/135
+[#135]: https://github.com/vukefn/verse-auto-imports/issues/135
+[#136]: https://github.com/vukefn/verse-auto-imports/issues/136
+[#137]: https://github.com/vukefn/verse-auto-imports/issues/137
+[#138]: https://github.com/vukefn/verse-auto-imports/issues/138
+[#140]: https://github.com/vukefn/verse-auto-imports/issues/140
+[#142]: https://github.com/vukefn/verse-auto-imports/issues/142
+[#144]: https://github.com/vukefn/verse-auto-imports/issues/144
+[#151]: https://github.com/vukefn/verse-auto-imports/issues/151
+[#167]: https://github.com/vukefn/verse-auto-imports/issues/167
+[#183]: https://github.com/vukefn/verse-auto-imports/issues/183
+[#185]: https://github.com/vukefn/verse-auto-imports/issues/185
+[#189]: https://github.com/vukefn/verse-auto-imports/issues/189
+[#191]: https://github.com/vukefn/verse-auto-imports/issues/191
+[#192]: https://github.com/vukefn/verse-auto-imports/issues/192
+[#196]: https://github.com/vukefn/verse-auto-imports/issues/196
+[#197]: https://github.com/vukefn/verse-auto-imports/issues/197
+[#204]: https://github.com/vukefn/verse-auto-imports/issues/204
+[#207]: https://github.com/vukefn/verse-auto-imports/issues/207
+[#214]: https://github.com/vukefn/verse-auto-imports/issues/214
+[#216]: https://github.com/vukefn/verse-auto-imports/issues/216
+[#219]: https://github.com/vukefn/verse-auto-imports/issues/219
+[#223]: https://github.com/vukefn/verse-auto-imports/issues/223
+[#233]: https://github.com/vukefn/verse-auto-imports/issues/233
+[#235]: https://github.com/vukefn/verse-auto-imports/issues/235
+[#242]: https://github.com/vukefn/verse-auto-imports/issues/242
+[#244]: https://github.com/vukefn/verse-auto-imports/issues/244
+[#247]: https://github.com/vukefn/verse-auto-imports/issues/247
+[#255]: https://github.com/vukefn/verse-auto-imports/issues/255
 [#129]: https://github.com/vukefn/verse-auto-imports/issues/129
 [#134]: https://github.com/vukefn/verse-auto-imports/issues/134
 [#146]: https://github.com/vukefn/verse-auto-imports/issues/146

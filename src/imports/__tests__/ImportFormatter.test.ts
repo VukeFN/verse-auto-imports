@@ -52,10 +52,19 @@ describe("ImportFormatter.isModuleImport", () => {
         expect(ImportFormatter.isModuleImport("using. Economy.Shop; MyVal := 5", undefined, { atFileScope: true })).toBe(true);
     });
 
-    // Ending the capture at the statement must not promote a local-scope using:
-    // outside file scope a bare identifier is an instance, whatever follows it.
+    // Outside file scope a bare identifier is an instance, whatever follows it.
+    // Read to end of line, a dot anywhere in that leftover answered the content
+    // test instead and promoted the local-scope using to a module import.
     it("default mode: a local-scope dotted using sharing its line stays a local-scope using", () => {
         expect(ImportFormatter.isModuleImport("using. Instance; MyVal := 5")).toBe(false);
+        expect(ImportFormatter.isModuleImport("using. Instance; MyVal := Foo.Bar")).toBe(false);
+    });
+
+    // The shared pattern needs no space after the `.`, where the classifier's
+    // own copy required one - so this line read as an import to everything
+    // going through matchImport and as no import at all to the scanner.
+    it("atFileScope: a dotted import written without a space after the dot is a module import", () => {
+        expect(ImportFormatter.isModuleImport("using.Features", undefined, { atFileScope: true })).toBe(true);
     });
 });
 

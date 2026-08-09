@@ -1047,11 +1047,11 @@ export class ImportDocumentEditor {
         const config = vscode.workspace.getConfiguration("verseAutoImports");
         const emptyLinesAfterImports = config.get<number>("behavior.emptyLinesAfterImports", 1);
 
-        // package.json declares a minimum of 0, but a hand-edited settings.json
-        // does not have to honour it, and a negative value reaches the delete
-        // branch below, where it would take real code rather than blank lines.
+        // A negative value means "leave the file's own spacing alone";
+        // package.json declares -1 for it. Without this return the negative
+        // difference below deletes real code.
         if (emptyLinesAfterImports < 0) {
-            logger.debug("ImportDocumentEditor", `Ignoring a negative emptyLinesAfterImports (${emptyLinesAfterImports})`);
+            logger.debug("ImportDocumentEditor", `Preserving the existing spacing (emptyLinesAfterImports is ${emptyLinesAfterImports})`);
             return [];
         }
 

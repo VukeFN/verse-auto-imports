@@ -1,3 +1,5 @@
+import * as fs from "fs";
+import * as path from "path";
 import { detectEol, ImportDocumentEditor } from "../ImportDocumentEditor";
 import { ImportFormatter } from "../ImportFormatter";
 import * as vscode from "vscode";
@@ -1467,13 +1469,31 @@ describe("ImportDocumentEditor.computeEmptyLinesAfterImportsEdits", () => {
         expect(edits[0].newText).toBe("\r\n");
     });
 
-    // package.json declares minimum 0, but settings.json can be hand-edited
-    // past it. Unguarded, the negative difference reaches the delete branch and
-    // takes the first line of real code with it.
+    // -1 is the opt-out: the file keeps whatever spacing it has. Both
+    // directions matter - it must not take the blank lines the author wrote,
+    // and it must not take the line of code below an import block with none.
     it("deletes nothing when the setting is negative", () => {
         mockEmptyLines(-1);
 
         expect(editor.computeEmptyLinesAfterImportsEdits(fakeDocument(["using { /Top }", "code()"].join("\n")))).toEqual([]);
+    });
+
+    it("keeps the blank lines the file already has when the setting is negative", () => {
+        mockEmptyLines(-1);
+
+        const input = ["using { /Top }", "", "", "", "code()"].join("\n");
+
+        expect(editor.computeEmptyLinesAfterImportsEdits(fakeDocument(input))).toEqual([]);
+    });
+
+    it("honours -1 only because package.json admits it, so the settings UI can offer it", () => {
+        const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "..", "..", "package.json"), "utf8"));
+        const setting = manifest.contributes.configuration.properties["verseAutoImports.behavior.emptyLinesAfterImports"];
+
+        // Declared below the minimum, the opt-out is unreachable however well
+        // the code above honours it: the settings UI refuses to store it.
+        expect(setting.minimum).toBeLessThanOrEqual(-1);
+        expect(setting.description).toContain("-1");
     });
 
     it("never edits the document itself", () => {

@@ -212,9 +212,9 @@
         "verseAutoImports.behavior.emptyLinesAfterImports": {
           "type": "number",
           "default": 1,
-          "minimum": 0,
+          "minimum": -1,
           "maximum": 5,
-          "description": "Number of empty lines to add after the imports section at the top of the file",
+          "description": "Number of empty lines to keep after the imports section at the top of the file. Set to -1 to leave the existing spacing untouched.",
           "order": 14
         },
         "verseAutoImports.behavior.ambiguousImports": {

@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Build-time script to parse .verse digest files into JSON.
- * This pre-compiles the digest files so they can be loaded quickly at runtime
- * without parsing the raw .verse files each time.
+ * Precompiles the bundled `.verse` digests into JSON, so the runtime loads a
+ * parsed index instead of parsing megabytes of Verse at activation.
  *
- * Run with: npx ts-node src/scripts/parseDigestFiles.ts
- * Or via npm: npm run parse-digest
+ * Run with `npm run parse-digest`. Its output under `src/data` is generated and
+ * checked in: refresh it by replacing the `.verse` inputs and re-running, never
+ * by editing the JSON.
  */
 
 import * as fs from "fs";
@@ -28,8 +28,8 @@ const DIGEST_FILES = ["Fortnite.digest.verse", "UnrealEngine.digest.verse", "Ver
 const VERSION = "1.0.0";
 
 /**
- * Extract the build reference from the digest file content.
- * Looks for patterns like: ++Fortnite+Release-37.20-CL-45679054
+ * The UEFN build a digest came from, as stamped in its header
+ * (`++Fortnite+Release-37.20-CL-45679054`), or "unknown" if absent.
  */
 function extractBuildReference(content: string): string {
     const buildMatch = content.match(/\+\+Fortnite\+Release-[\d.]+-CL-\d+/);
@@ -37,8 +37,9 @@ function extractBuildReference(content: string): string {
 }
 
 /**
- * Parse a single digest file into structured data.
- * The parsing logic is shared with the runtime path via `parseDigestContent`.
+ * One digest file, parsed and stamped for storage. Parsing itself is shared
+ * with the runtime path through `parseDigestContent`, so the precompiled data
+ * cannot drift from what a live parse would produce.
  */
 function parseDigestFile(filePath: string): PrecompiledDigest {
     const content = fs.readFileSync(filePath, "utf8");
@@ -56,9 +57,6 @@ function parseDigestFile(filePath: string): PrecompiledDigest {
     };
 }
 
-/**
- * Main function to parse all digest files
- */
 function main() {
     const scriptDir = __dirname;
     const srcDir = path.resolve(scriptDir, "..");
@@ -70,7 +68,6 @@ function main() {
     console.log(`  Output: ${dataDir}`);
     console.log("");
 
-    // Ensure data directory exists
     if (!fs.existsSync(dataDir)) {
         fs.mkdirSync(dataDir, { recursive: true });
         console.log(`Created directory: ${dataDir}`);

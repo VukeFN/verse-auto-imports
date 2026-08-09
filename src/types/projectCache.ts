@@ -1,9 +1,4 @@
 /**
- * Type definitions for the Project Path Cache system.
- * Used to cache and quickly look up project module structure.
- */
-
-/**
  * Version of the persisted cache format. Bumping this invalidates previously
  * stored caches (they are rebuilt on next activation). Shared by the scanner
  * that stamps payloads and the cache that validates them.
@@ -14,7 +9,6 @@ export const PROJECT_CACHE_VERSION = "2";
  * A single declaration found in a .verse file.
  */
 export interface ProjectPathNode {
-    /** The identifier name */
     name: string;
 
     /**
@@ -26,16 +20,14 @@ export interface ProjectPathNode {
      */
     fullPath: string;
 
-    /** The type of declaration */
     type: "module" | "class" | "struct" | "function" | "variable" | "interface" | "enum";
 
-    /** Whether this declaration is public */
     isPublic: boolean;
 
-    /** Relative path to the source .verse file (from workspace root, "/" separators) */
+    /** Relative to the workspace folder, and without the folder's own name. */
     sourceFile?: string;
 
-    /** Line number in the source file where this declaration starts */
+    /** One-based line the declaration starts on, as an editor would show it. */
     sourceLine?: number;
 }
 
@@ -44,16 +36,14 @@ export interface ProjectPathNode {
  * All lookup indexes are derived from `nodes` and are not persisted.
  */
 export interface ProjectPathData {
-    /** The project Verse path */
     projectVersePath: string;
 
-    /** The project name from .uefnproject */
     projectName: string;
 
-    /** Timestamp when this data was generated */
+    /** Milliseconds since the epoch, restamped every time the data changes. */
     generatedAt: number;
 
-    /** Every declaration found in the project, flat */
+    /** Every declaration in the project, flat: nesting lives in `fullPath`. */
     nodes: ProjectPathNode[];
 }
 
@@ -69,15 +59,18 @@ export interface SerializedProjectPathCache extends ProjectPathData {
  * Options for scanning the project for declarations.
  */
 export interface ProjectScanOptions {
-    /** File patterns to include */
+    /**
+     * Globs relative to the workspace folder. Only the first is read; the
+     * scanner passes one include pattern to `findFiles` and drops the rest.
+     */
     includePatterns?: string[];
 
-    /** File patterns to exclude */
+    /** Globs; a match here is skipped even when the include pattern took it. */
     excludePatterns?: string[];
 
-    /** Whether to include private declarations */
+    /** Off by default, which also excludes anything neither public nor internal. */
     includePrivate?: boolean;
 
-    /** Progress callback for UI feedback */
+    /** Called per file scanned, with `file` relative to the workspace folder. */
     onProgress?: (current: number, total: number, file: string) => void;
 }

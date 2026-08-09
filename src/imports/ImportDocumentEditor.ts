@@ -3,7 +3,11 @@ import { logger } from "../utils";
 import { ImportFormatter } from "./ImportFormatter";
 import { allUsingPaths, classifyLines, LINE_SPLIT, LineClassification, rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
 
-/** Represents a contiguous block of import statements in the document. */
+/**
+ * A run of import statements on consecutive lines. Any gap starts a new block,
+ * because a rebuild rewrites a block's whole line range and would swallow
+ * whatever sat in the gap.
+ */
 interface ImportBlock {
     start: number;
     end: number;
@@ -53,7 +57,7 @@ function resolveEol(document: vscode.TextDocument, text: string): LineEnding {
  *
  * That run is the file header - a licence, an attribution, a description of
  * what the file is - and it belongs above the import block rather than below
- * it. Rebuilding the block at line 0 pushed the header into the middle of the
+ * it. Rebuilding the block at line 0 puts the header into the middle of the
  * file, which is the one place a header must never be.
  *
  * Position identifies it, never content: the first line carrying code ends the
@@ -69,8 +73,7 @@ function resolveEol(document: vscode.TextDocument, text: string): LineEnding {
  * following that import down through a sort. Line 0 is ambiguous - a file
  * header and a first-import annotation are written identically - and of the
  * two readings only this one leaves the comment where the author put it. The
- * other relocates a licence into the middle of the import block, which is the
- * defect this whole change exists to remove.
+ * other relocates a licence into the middle of the import block.
  */
 function headerLineCount(classifications: LineClassification[]): number {
     let end = 0;
@@ -162,7 +165,15 @@ interface AnchoredBounds {
 }
 
 /**
- * Handles all document modifications for imports.
+ * Managing a document's import block: adding the imports a diagnostic asked
+ * for, reorganizing what is there, and the blank lines after it.
+ *
+ * The three share one set of placement rules, which is why they share a class:
+ * where an import may go depends on the ranks of the imports already there and
+ * on which of them are pinned to their line.
+ *
+ * Converting an existing import between path forms is ImportPathConverter's,
+ * and is the one write into an import line that does not come from here.
  */
 export class ImportDocumentEditor {
     private readonly formatter: ImportFormatter;
@@ -195,10 +206,9 @@ export class ImportDocumentEditor {
             // is the marker that anchors it. Restoring that onto a rebuilt line
             // is what puts the marker somewhere it was not written, so it is
             // refused here rather than only by every caller passing a filtered
-            // list. Every caller does today; one that forgot would resurrect a
-            // defect this branch has already shipped once. A statement sharing
-            // its span is refused for the same reason: what trails it is the
-            // rest of the span, not an annotation to re-emit.
+            // list. A statement sharing its span is refused for the same
+            // reason: what trails it is the rest of the span, not an annotation
+            // to re-emit.
             if (!imp.trailingComment || imp.anchorsCommentBelow || imp.rebuildLosesText) {
                 continue;
             }
@@ -224,9 +234,6 @@ export class ImportDocumentEditor {
         return statements.map((statement) => this.withTrailingComment(statement, trailingByStatement));
     }
 
-    /**
-     * Creates an edit to replace an import block with combined and formatted imports.
-     */
     private createBlockReplacementEdit(
         edit: vscode.WorkspaceEdit,
         document: vscode.TextDocument,
@@ -236,7 +243,6 @@ export class ImportDocumentEditor {
         sortAlphabetically: boolean,
         eol: LineEnding,
     ): void {
-        // Get existing paths in this block for combined sorting
         const existingBlockPaths = block.imports.map((imp) => imp.path);
 
         let combinedPaths = [...existingBlockPaths, ...newPaths];
@@ -244,14 +250,11 @@ export class ImportDocumentEditor {
             combinedPaths = this.formatter.sortImportsByRank(combinedPaths);
         }
 
-        // Format all imports for this block, restoring the comment each
-        // existing one trailed its line with.
         const formattedImports = this.withTrailingComments(
             combinedPaths.map((path) => this.formatter.formatImportStatement(path, preferDotSyntax)),
             this.trailingCommentsByStatement(block.imports, preferDotSyntax),
         );
 
-        // Replace the entire block
         edit.replace(document.uri, new vscode.Range(new vscode.Position(block.start, 0), new vscode.Position(block.end + 1, 0)), formattedImports.join(eol) + eol);
     }
 
@@ -439,8 +442,9 @@ export class ImportDocumentEditor {
     }
 
     /**
-     * Extracts existing import statements from a document. Indented pairs
-     * (`using:` plus the path line) are returned joined as a single statement.
+     * The module import statements a document holds, deduplicated, with an
+     * indented pair (`using:` plus its path line) joined into one statement.
+     * Local-scope `using` is not among them.
      */
     extractExistingImports(document: vscode.TextDocument): string[] {
         logger.debug("ImportDocumentEditor", "Extracting existing imports from document");
@@ -461,7 +465,14 @@ export class ImportDocumentEditor {
     }
 
     /**
-     * Adds import statements to a document.
+     * Writes the statements whose paths the document does not already import,
+     * then normalizes the blank lines after the block. True when nothing needed
+     * adding, as well as when the edit succeeded.
+     *
+     * Where they go is `behavior.preserveImportLocations`: with it on, each
+     * path is merged into an existing block or written on its own line beside
+     * the imports it must sit relative to; with it off, every movable import in
+     * the file is consolidated at the top.
      */
     async addImportsToDocument(document: vscode.TextDocument, importStatements: string[]): Promise<boolean> {
         logger.info("ImportDocumentEditor", `Adding ${importStatements.length} import statements to document`);
@@ -495,11 +506,9 @@ export class ImportDocumentEditor {
 
             const lastBlock = importBlocks[importBlocks.length - 1];
             if (lastBlock && imp.startLine === lastBlock.end + 1) {
-                // Only extend block if import immediately follows (no gap)
                 lastBlock.end = imp.endLine;
                 lastBlock.imports.push(imp);
             } else {
-                // Any gap creates a new block
                 importBlocks.push({ start: imp.startLine, end: imp.endLine, imports: [imp] });
             }
         }
@@ -531,18 +540,18 @@ export class ImportDocumentEditor {
         const edit = new vscode.WorkspaceEdit();
 
         if (preserveImportLocations) {
-            // Check if existing imports are grouped (2+ blocks with gap between them)
+            // A gap between two blocks is the author's own grouping, so the
+            // configured strategy is applied by adding to whichever group each
+            // new path belongs in rather than by regrouping the file.
             const hasGrouping =
                 importGrouping !== "none" &&
                 importBlocks.length >= 2 &&
                 importBlocks.some((block, i) => {
                     if (i === 0) return false;
-                    // Check if there's a gap between this block and the previous one
                     return block.start > importBlocks[i - 1].end + 1;
                 });
 
             if (hasGrouping && importBlocks.length >= 2) {
-                // Analyze existing blocks to determine which is digest and which is local
                 let digestBlockIndex = -1;
                 let localBlockIndex = -1;
 
@@ -551,7 +560,9 @@ export class ImportDocumentEditor {
                     const hasDigest = blockPaths.some((path) => this.formatter.isDigestImport(path));
                     const hasLocal = blockPaths.some((path) => !this.formatter.isDigestImport(path));
 
-                    // Determine block type based on majority
+                    // A block counts as a group only if it is pure. A mixed one
+                    // is evidence of nothing, so it is left as neither and
+                    // takes no new import.
                     if (hasDigest && !hasLocal) {
                         digestBlockIndex = index;
                     } else if (hasLocal && !hasDigest) {
@@ -559,7 +570,6 @@ export class ImportDocumentEditor {
                     }
                 });
 
-                // Separate new imports into digest and local
                 const newDigestPaths: string[] = [];
                 const newLocalPaths: string[] = [];
 
@@ -594,12 +604,10 @@ export class ImportDocumentEditor {
                 const digest = splitForBlock(digestBlockIndex, newDigestPaths);
                 const local = splitForBlock(localBlockIndex, newLocalPaths);
 
-                // Add digest imports to digest block
                 if (digest.taken.length > 0) {
                     this.createBlockReplacementEdit(edit, document, importBlocks[digestBlockIndex], digest.taken, preferDotSyntax, sortAlphabetically, eol);
                 }
 
-                // Add local imports to local block
                 if (local.taken.length > 0) {
                     this.createBlockReplacementEdit(edit, document, importBlocks[localBlockIndex], local.taken, preferDotSyntax, sortAlphabetically, eol);
                 }
@@ -609,17 +617,15 @@ export class ImportDocumentEditor {
                 const unhandledPaths = [...digest.unhandled, ...local.unhandled];
 
                 if (unhandledPaths.length > 0) {
-                    // Add unhandled imports at the appropriate position
                     const desired = importBlocks.length > 0 ? importBlocks[importBlocks.length - 1].end + 1 : 0;
                     for (const [line, paths] of this.groupByPlacementLine(unhandledPaths, desired, anchoredImports, classifications)) {
                         this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, importBlocks.length === 0);
                     }
                 }
             } else {
-                // Either no existing grouping or need to create initial groups
                 if (importGrouping !== "none" && existingPaths.size > 0) {
-                    // We have existing imports but no grouping - reorganize
-                    // everything into groups. A new path an anchored import
+                    // Grouping is wanted and the file has none, so the imports
+                    // are regrouped in place. A new path an anchored import
                     // keeps out of the rebuilt block is written on its own line
                     // below that import instead, rather than into a group that
                     // sits above it. Only the new paths are asked: this branch
@@ -638,11 +644,10 @@ export class ImportDocumentEditor {
                     );
 
                     if (importBlocks.length > 0) {
-                        // Replace the first existing block in place so it stays at its
-                        // original location rather than relocating to the top of the file.
-                        // Delete any additional blocks defensively (by construction this
-                        // branch only sees one block when grouping != "none", since 2+
-                        // gapped blocks are handled by the hasGrouping branch above).
+                        // In place, so the block stays where the author put it
+                        // rather than moving to the top of the file. The loop
+                        // over any further block is defensive: this branch sees
+                        // only one, as above.
                         const firstBlock = importBlocks[0];
                         edit.replace(document.uri, new vscode.Range(new vscode.Position(firstBlock.start, 0), new vscode.Position(firstBlock.end + 1, 0)), groupedImports.join(eol) + eol);
 
@@ -673,7 +678,6 @@ export class ImportDocumentEditor {
                         }
                     }
                 } else {
-                    // No grouping or no existing imports - use original behavior
                     const newImportPathsArray = Array.from(newImportPaths);
 
                     if (sortAlphabetically && importBlocks.length > 0) {
@@ -689,14 +693,14 @@ export class ImportDocumentEditor {
                         // Which block each import joins is a whole-file
                         // decision, not always the first one: rank-sorting one
                         // block orders the new import against that block alone,
-                        // which is how a consumer ended up above its provider in
-                        // another block (see selectTargetBlockIndex).
+                        // which leaves a consumer in another block free to sit
+                        // above its provider (see selectTargetBlockIndex).
                         //
                         // Only a block inside the space the anchored imports
                         // leave is eligible, and the selector chooses among
                         // those. An anchored import is in no block, so offering
-                        // it every block is what let a new import be merged into
-                        // one above the anchored provider it needs.
+                        // the selector every block lets it merge an import into
+                        // one above the anchored provider that import needs.
                         const pathsByBlock = new Map<number, string[]>();
                         const unblockedPaths: string[] = [];
                         for (const path of newImportPathsArray) {
@@ -750,9 +754,9 @@ export class ImportDocumentEditor {
                             this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, true, importGrouping), eol, true);
                         }
                     } else {
-                        // Sorting off or no existing block: keep the original
-                        // append-in-place behavior and leave existing lines
-                        // untouched.
+                        // Sorting off, or no block to merge into: the new
+                        // imports are appended and no existing line is touched.
+                        //
                         // After the last import block, not the first: with
                         // sorting off nothing reorders a block afterwards, so
                         // any earlier position could leave a new import above
@@ -760,9 +764,9 @@ export class ImportDocumentEditor {
                         //
                         // Wherever that block sits, not only when it starts at
                         // line 0. A file whose imports open below a licence
-                        // header has its first block at a later line, and
-                        // inserting at line 0 there put the new import above the
-                        // header and left two disconnected import regions
+                        // header has its first block at a later line, so
+                        // inserting at line 0 there writes the new import above
+                        // the header and leaves two disconnected import regions
                         // behind.
                         //
                         // With no block at all the top of the file is where a
@@ -780,21 +784,20 @@ export class ImportDocumentEditor {
                 }
             }
         } else {
-            // Consolidate all imports at the top
             const allPaths = new Set<string>([...relocatablePaths, ...newImportPaths]);
             const allImportsArray = Array.from(allPaths);
 
-            // Use the new grouping method for all imports
             const formattedImports = this.withTrailingComments(
                 this.formatter.groupAndFormatImports(allImportsArray, preferDotSyntax, sortAlphabetically, importGrouping),
                 this.trailingCommentsByStatement(rewritableImports(scannedImports), preferDotSyntax),
             );
 
-            // Insert imports at top with minimal spacing (will be fixed by ensureEmptyLinesAfterImports)
+            // No blank line after the block: ensureEmptyLinesAfterImports runs
+            // once the edit has been applied and puts the configured number
+            // there.
             const importsText = formattedImports.join(eol) + eol;
             edit.insert(document.uri, new vscode.Position(0, 0), importsText);
 
-            // Remove existing import blocks (in reverse order to maintain line numbers)
             for (let i = importBlocks.length - 1; i >= 0; i--) {
                 const block = importBlocks[i];
                 edit.delete(document.uri, new vscode.Range(new vscode.Position(block.start, 0), new vscode.Position(block.end + 1, 0)));
@@ -805,7 +808,6 @@ export class ImportDocumentEditor {
             const success = await vscode.workspace.applyEdit(edit);
             logger.info("ImportDocumentEditor", success ? "Successfully updated imports in document" : "Failed to update imports in document");
 
-            // After adding imports, ensure proper spacing
             if (success) {
                 await this.ensureEmptyLinesAfterImports(document);
             }
@@ -884,11 +886,10 @@ export class ImportDocumentEditor {
         // against it. File scope governs what code can see, but a `using`
         // resolves its own path top-down: a path that is not absolute needs its
         // first segment already in scope above it, which is why sorting ranks
-        // them (see ImportFormatter.sortImportsByRank, and the defects behind
-        // it). The anchored line ends up below the rebuilt block, so withholding
-        // the copy above it can strand such a path - in the block, or further
-        // down the body where scanModuleImports does not even look, as in a
-        // module-definition body.
+        // them (see ImportFormatter.sortImportsByRank). The anchored line ends
+        // up below the rebuilt block, so withholding the copy above it can
+        // strand such a path - in the block, or further down the body where
+        // scanModuleImports does not even look, as in a module-definition body.
         //
         // So this asks the whole file, every `using` at every indentation, and
         // withholds only where all of them are absolute. An absolute path needs
@@ -1040,8 +1041,8 @@ export class ImportDocumentEditor {
      *
      * Kept separate from applying them because the save path participates in
      * the save with these edits (see the onWillSaveTextDocument listener in
-     * extension.ts) rather than editing the document afterwards, which is what
-     * used to leave the tab dirty the moment it was saved.
+     * extension.ts) rather than editing the document afterwards, which would
+     * leave the tab dirty the moment it was saved.
      */
     computeEmptyLinesAfterImportsEdits(document: vscode.TextDocument): vscode.TextEdit[] {
         const config = vscode.workspace.getConfiguration("verseAutoImports");
@@ -1079,13 +1080,11 @@ export class ImportDocumentEditor {
         const scannedImports = rewritableImports(scanModuleImports(lines));
         const lastImportLine = scannedImports.length > 0 ? scannedImports[scannedImports.length - 1].endLine : -1;
 
-        // If no imports found or file only has imports, nothing to do
         if (lastImportLine === -1 || lastImportLine === lines.length - 1) {
             logger.debug("ImportDocumentEditor", "No imports found or file ends with imports, skipping spacing adjustment");
             return [];
         }
 
-        // Count existing empty lines after the last import
         let existingEmptyLines = 0;
         for (let i = lastImportLine + 1; i < lines.length; i++) {
             if (lines[i].trim() === "") {
@@ -1095,7 +1094,6 @@ export class ImportDocumentEditor {
             }
         }
 
-        // Check if there's non-import content after the imports
         let hasContentAfterImports = false;
         for (let i = lastImportLine + 1; i < lines.length; i++) {
             if (lines[i].trim() !== "") {
@@ -1104,13 +1102,14 @@ export class ImportDocumentEditor {
             }
         }
 
-        // Only adjust if there's content after imports
+        // The setting is spacing between the block and the code below it, so a
+        // file trailing nothing but blank lines has no gap to size and keeps
+        // whatever it has.
         if (!hasContentAfterImports) {
             logger.debug("ImportDocumentEditor", "No content after imports, skipping spacing adjustment");
             return [];
         }
 
-        // Calculate adjustment needed
         const lineDifference = targetEmptyLines - existingEmptyLines;
 
         if (lineDifference === 0) {
@@ -1119,14 +1118,12 @@ export class ImportDocumentEditor {
         }
 
         if (lineDifference > 0) {
-            // Need to add empty lines
             const newLines = eol.repeat(lineDifference);
             const insertPosition = new vscode.Position(lastImportLine + 1, 0);
             logger.info("ImportDocumentEditor", `Adding ${lineDifference} empty lines after imports`);
             return [vscode.TextEdit.insert(insertPosition, newLines)];
         }
 
-        // Need to remove empty lines
         const linesToRemove = Math.abs(lineDifference);
         const startLine = lastImportLine + 1;
         const endLine = Math.min(startLine + linesToRemove, lines.length);

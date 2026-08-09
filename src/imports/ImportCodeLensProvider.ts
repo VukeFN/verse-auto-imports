@@ -4,17 +4,26 @@ import { ImportPathConverter } from "./ImportPathConverter";
 import { LINE_SPLIT, scanConvertibleImports } from "./ImportScanner";
 
 /**
- * Tracks hover state for a document's imports. An entry can exist purely to
- * hold a pending hide timer, with no line hovered, so lineNumber is optional:
- * a hide can be scheduled for a document that was never entered through the
- * hovering branch - after a conversion, for instance, which sets
- * isHoveringImport directly.
+ * What one document's lenses are doing: the import line under the pointer, and
+ * the timer that will hide them.
+ *
+ * An entry can exist purely to hold that timer, with no line hovered, so
+ * lineNumber is optional: a hide can be scheduled for a document that was never
+ * entered through the hovering branch - after a conversion, for instance, which
+ * sets isHoveringImport directly.
  */
 interface HoverState {
     lineNumber?: number;
     timeout: NodeJS.Timeout | null;
 }
 
+/**
+ * The path-conversion lenses on a document's import lines, and the hover state
+ * that decides whether they are shown at all.
+ *
+ * Hover state is per document uri, because the same provider serves every open
+ * Verse file and a lens shown in one must not follow the user into another.
+ */
 export class ImportCodeLensProvider implements vscode.CodeLensProvider {
     private readonly _onDidChangeCodeLenses = new vscode.EventEmitter<void>();
     public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
@@ -32,47 +41,45 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
         // fires on every keystroke in every document in the window, so one left
         // registered past deactivation keeps calling into a dead provider.
         this.disposables.push(
-            // Watch for configuration changes
             vscode.workspace.onDidChangeConfiguration((e) => {
                 if (e.affectsConfiguration("verseAutoImports.pathConversion")) {
                     this._onDidChangeCodeLenses.fire();
                 }
             }),
 
-            // Watch for document changes to refresh CodeLens immediately
             vscode.workspace.onDidChangeTextDocument((e) => {
-                // Only refresh for Verse files that are currently showing CodeLens
                 if (e.document.languageId === "verse" && this.isHoveringImport.get(e.document.uri.toString())) {
-                    // Clear any pending refresh
                     if (this.refreshTimeout) {
                         clearTimeout(this.refreshTimeout);
                         this.refreshTimeout = null;
                     }
 
-                    // Single immediate refresh
                     this._onDidChangeCodeLenses.fire();
                 }
             }),
         );
     }
 
-    /** Gets the configured hide delay in milliseconds */
+    /** The configured delay before the lenses are hidden, in milliseconds. */
     private getHideDelay(): number {
         const config = vscode.workspace.getConfiguration("verseAutoImports");
         return config.get<number>("pathConversion.codeLensHideDelay", 1000);
     }
 
-    /** Gets the visibility mode setting */
     private getVisibilityMode(): "hover" | "always" {
         const config = vscode.workspace.getConfiguration("verseAutoImports");
         return config.get<"hover" | "always">("pathConversion.codeLensVisibility", "hover");
     }
 
     /**
-     * Sets the hover state for a document
+     * Shows the lenses for a document at once, or schedules them to be hidden
+     * once the hide delay elapses. A no-op in "always" mode, where visibility
+     * does not follow the pointer.
+     *
+     * @param lineNumber The hovered line; required for `hovering`, since a
+     *   hover reported without one leaves the state as it was.
      */
     setHoverState(documentUri: string, hovering: boolean, lineNumber?: number): void {
-        // In "always" mode, hover state management is not needed
         if (this.getVisibilityMode() === "always") {
             return;
         }
@@ -80,7 +87,6 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
         const currentState = this.hoverState.get(documentUri);
 
         if (hovering && lineNumber !== undefined) {
-            // Clear existing timeout if any
             if (currentState?.timeout) {
                 clearTimeout(currentState.timeout);
             }
@@ -92,7 +98,6 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
             this.isHoveringImport.set(documentUri, true);
             this._onDidChangeCodeLenses.fire();
         } else if (!hovering) {
-            // Set timeout to hide CodeLens after configured delay
             if (currentState?.timeout) {
                 clearTimeout(currentState.timeout);
             }
@@ -106,9 +111,9 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
 
             // Recorded whether or not a state already existed. The commonest
             // caller is the hover provider reporting a non-import line, which
-            // reaches here with nothing stored; the timer used to be dropped
-            // on the floor there, leaving nothing able to clear it - not
-            // keepHoverStateActive, and not dispose.
+            // reaches here with nothing stored, and a timer left out of the map
+            // is one nothing can clear afterwards - not keepHoverStateActive,
+            // and not dispose.
             this.hoverState.set(documentUri, {
                 ...currentState,
                 timeout,
@@ -117,7 +122,8 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
     }
 
     /**
-     * Keeps the hover state active (used during conversions)
+     * Holds the lenses open across a conversion, which the user drives from a
+     * lens and which takes long enough for a pending hide to fire mid-way.
      */
     keepHoverStateActive(documentUri: string): void {
         const currentState = this.hoverState.get(documentUri);
@@ -130,17 +136,24 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
             this.hoverState.set(documentUri, { ...currentState, timeout: null });
         }
 
-        // Keep the hover state active
         this.isHoveringImport.set(documentUri, true);
 
-        // Single immediate refresh
         this._onDidChangeCodeLenses.fire();
     }
 
+    /**
+     * The conversion lenses for a document, and a "for all" lens beside each
+     * where the file holds more than one import of that direction.
+     *
+     * An import gets a lens only where the conversion has somewhere to go: a
+     * built-in module has no relative form, and a statement no module name can
+     * be read out of has nothing to convert. So a file of nothing but Epic
+     * imports carries no lens at all, and neither does one where the feature is
+     * off or, in "hover" mode, nothing is hovered.
+     */
     async provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CodeLens[]> {
         const codeLenses: vscode.CodeLens[] = [];
 
-        // Check if CodeLens is enabled in configuration
         const config = vscode.workspace.getConfiguration("verseAutoImports");
         const showCodeLens = config.get<boolean>("pathConversion.enableCodeLens", true);
 
@@ -148,11 +161,9 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
             return codeLenses;
         }
 
-        // Check visibility mode
         const visibilityMode = this.getVisibilityMode();
         const documentUri = document.uri.toString();
 
-        // In "hover" mode, only show CodeLens if hovering over imports
         if (visibilityMode === "hover") {
             const isHovering = this.isHoveringImport.get(documentUri);
             if (!isHovering) {
@@ -177,14 +188,11 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
         for (const { statement: trimmedLine, line: i } of convertibleImports) {
             const range = new vscode.Range(new vscode.Position(i, 0), new vscode.Position(i, lines[i].length));
 
-            // Check if it's a full path import that can be converted to relative
             if (this.importPathConverter.isFullPathImport(trimmedLine)) {
-                // Only show relative conversion for non-built-in modules
                 if (!this.importPathConverter.isBuiltinModule(trimmedLine)) {
                     const moduleName = this.importPathConverter.extractModuleName(trimmedLine);
 
                     if (moduleName) {
-                        // Create CodeLens for converting to relative path
                         const convertToRelativeLens = new vscode.CodeLens(range, {
                             title: `$(arrow-both)  Use relative path`,
                             tooltip: `Use relative path for '${moduleName}'`,
@@ -193,7 +201,6 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
                         });
                         codeLenses.push(convertToRelativeLens);
 
-                        // Add "Use relative paths for all" option if there are multiple full path imports
                         if (hasMultipleFullPathImports) {
                             const convertAllRelativeLens = new vscode.CodeLens(range, {
                                 title: `$(arrow-swap)  Use relative paths for all`,
@@ -206,11 +213,9 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
                     }
                 }
             } else {
-                // It's a relative import - show option to convert to absolute path
                 const moduleName = this.importPathConverter.extractModuleName(trimmedLine);
 
                 if (moduleName) {
-                    // Create CodeLens for converting to absolute path
                     const convertSingleLens = new vscode.CodeLens(range, {
                         title: `$(arrow-both)  Use absolute path`,
                         tooltip: `Use absolute path for '${moduleName}'`,
@@ -219,7 +224,6 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
                     });
                     codeLenses.push(convertSingleLens);
 
-                    // Add "Use absolute paths for all" option if there are multiple relative imports
                     if (hasMultipleRelativeImports) {
                         const convertAllLens = new vscode.CodeLens(range, {
                             title: `$(arrow-swap)  Use absolute paths for all`,
@@ -237,26 +241,24 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
         return codeLenses;
     }
 
+    /** The lens unchanged: provideCodeLenses gives every lens its command, so none is resolved lazily. */
     resolveCodeLens(codeLens: vscode.CodeLens, token: vscode.CancellationToken): vscode.ProviderResult<vscode.CodeLens> {
-        // We already set the command in provideCodeLenses, so just return the same CodeLens
         return codeLens;
     }
 
-    /**
-     * Refresh CodeLens display
-     */
+    /** Asks VS Code to re-query the lenses. */
     refresh(): void {
         this._onDidChangeCodeLenses.fire();
     }
 
     /**
-     * Force immediate refresh after conversion (called after document edit)
+     * Re-queries the lenses of a document a conversion has just edited, and
+     * asserts the hover state first so the lenses survive the edit that the
+     * pointer, still over the import, would otherwise have to re-establish.
      */
     forceRefreshAfterConversion(documentUri: string): void {
-        // Ensure hover state remains active
         this.isHoveringImport.set(documentUri, true);
 
-        // Single immediate refresh - VS Code handles the timing
         this._onDidChangeCodeLenses.fire();
     }
 

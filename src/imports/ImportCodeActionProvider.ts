@@ -3,12 +3,25 @@ import { logger } from "../utils";
 import { ImportSuggestion } from "../types";
 import { ImportHandler } from "./ImportHandler";
 
+/**
+ * Turns the imports a Verse diagnostic suggests into quick fixes.
+ *
+ * The suggestions come from the diagnostic's own message, so a compiler error
+ * naming no import produces no action.
+ */
 export class ImportCodeActionProvider implements vscode.CodeActionProvider {
     constructor(
         private outputChannel: vscode.OutputChannel,
         private importHandler: ImportHandler,
     ) {}
 
+    /**
+     * A quick fix for every import the diagnostics at this range suggest, or
+     * undefined when they suggest none.
+     *
+     * The first action of each diagnostic is marked preferred, so which
+     * suggestion the editor offers first depends on the sort.
+     */
     async provideCodeActions(document: vscode.TextDocument, range: vscode.Range, context: vscode.CodeActionContext, token: vscode.CancellationToken): Promise<vscode.CodeAction[] | undefined> {
         const codeActions: vscode.CodeAction[] = [];
         const config = vscode.workspace.getConfiguration("verseAutoImports");
@@ -25,12 +38,10 @@ export class ImportCodeActionProvider implements vscode.CodeActionProvider {
                 continue;
             }
 
-            // Sort suggestions based on user preference
             const sortedSuggestions = this.sortSuggestions(suggestions, sortAlphabetically);
 
             logger.debug("ImportCodeActionProvider", `Creating ${sortedSuggestions.length} quick fix action(s) for diagnostic`);
 
-            // Create quick fix actions for each suggestion
             sortedSuggestions.forEach((suggestion, index) => {
                 const action = this.createQuickFixAction(
                     suggestion,
@@ -46,26 +57,26 @@ export class ImportCodeActionProvider implements vscode.CodeActionProvider {
         return codeActions.length > 0 ? codeActions : undefined;
     }
 
+    /**
+     * A new array of the suggestions, alphabetized by statement or left in the
+     * order the extractor produced them. The input is not modified.
+     */
     private sortSuggestions(suggestions: ImportSuggestion[], sortAlphabetically: boolean): ImportSuggestion[] {
-        const sorted = [...suggestions]; // Create a copy
+        const sorted = [...suggestions];
 
         if (sortAlphabetically) {
-            // Sort alphabetically by import statement
             sorted.sort((a, b) => a.importStatement.localeCompare(b.importStatement));
         }
-        // If not sorting alphabetically, preserve the original order
 
         return sorted;
     }
 
     private createQuickFixAction(suggestion: ImportSuggestion, diagnostic: vscode.Diagnostic, document: vscode.TextDocument, isPreferred: boolean, showDescriptions: boolean): vscode.CodeAction {
-        // Create descriptive title
         let title = `Add import: ${suggestion.importStatement}`;
         if (showDescriptions && suggestion.description) {
             title += ` (${suggestion.description})`;
         }
 
-        // Add confidence indicator for multiple options
         if (showDescriptions && suggestion.confidence !== "high") {
             const indicator = suggestion.confidence === "medium" ? "[medium confidence]" : "[low confidence]";
             title = `${indicator} ${title}`;

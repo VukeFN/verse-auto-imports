@@ -6,10 +6,21 @@ import { ProjectPathCache } from "../services";
 import { ImportFormatter } from "./ImportFormatter";
 import { LINE_SPLIT, scanConvertibleImports } from "./ImportScanner";
 
+/** A conversion resolved but not yet written, ready for applyConversion. */
 interface ImportConversionResult {
     originalImport: string;
+    /**
+     * The statement to write in place of `originalImport`, whichever direction
+     * the conversion runs: convertToFullPath puts the absolute form here and
+     * convertFromFullPath the relative one, so the name reads true on only one
+     * of the two paths.
+     *
+     * Empty while `isAmbiguous`, where the statement cannot be built until the
+     * user has picked from `possiblePaths`.
+     */
     fullPathImport: string;
     moduleName: string;
+    /** Whether the module resolved to more than one location, listed in `possiblePaths`. */
     isAmbiguous: boolean;
     possiblePaths?: string[];
     /**
@@ -20,9 +31,16 @@ interface ImportConversionResult {
     line?: number;
 }
 
-/** Content folder name constant */
 const CONTENT_FOLDER = "Content";
 
+/**
+ * Converts a `using` between the absolute Verse path of a module and the
+ * relative reference to it, in either direction, and writes the result.
+ *
+ * Converting to an absolute path means finding where the module lives, which
+ * is a workspace search rather than a text transform, so only this direction
+ * can be ambiguous or fail outright.
+ */
 export class ImportPathConverter {
     private readonly projectPathHandler: ProjectPathHandler;
     private projectPathCache: ProjectPathCache | null = null;
@@ -36,15 +54,14 @@ export class ImportPathConverter {
     }
 
     /**
-     * Set the project path cache for faster lookups.
+     * Gives the converter a declaration cache to look module locations up in,
+     * sparing the workspace scan. Optional: with none, findModuleLocations
+     * scans every time.
      */
     setProjectPathCache(cache: ProjectPathCache): void {
         this.projectPathCache = cache;
     }
 
-    /**
-     * Helper function to check if a folder exists in the workspace
-     */
     private async folderExists(workspaceFolder: vscode.WorkspaceFolder, relativePath: string): Promise<boolean> {
         const folderUri = vscode.Uri.joinPath(workspaceFolder.uri, relativePath);
         try {
@@ -58,7 +75,7 @@ export class ImportPathConverter {
         }
     }
 
-    /** Checks whether a workspace-relative file still exists (guards against stale cache entries) */
+    /** Whether a workspace-relative path is still a file, which a cached declaration's source may no longer be. */
     private async sourceFileExists(workspaceFolder: vscode.WorkspaceFolder, relativePath: string): Promise<boolean> {
         try {
             const stat = await vscode.workspace.fs.stat(vscode.Uri.joinPath(workspaceFolder.uri, relativePath));
@@ -69,19 +86,21 @@ export class ImportPathConverter {
     }
 
     /**
-     * Builds the absolute Verse path for a module resolved at a location.
-     * `location` follows the location contract ("" or "/Dir/Sub" relative to
-     * the Content root); `modulePath` uses "/" separators.
+     * The absolute Verse path of a module resolved at a location.
+     *
+     * @param location Follows the findModuleLocations contract: "" or "/Dir/Sub", relative to the Content root
+     * @param modulePath Separated by "/", not by the dots the relative form is written with
      */
     static buildFullVersePath(projectVersePath: string, location: string, modulePath: string): string {
         return location === "/" || location === "" ? `${projectVersePath}/${modulePath}` : `${projectVersePath}${location}/${modulePath}`;
     }
 
     /**
-     * Builds a regex matching an explicit `Name := module:` declaration for the
-     * given module name. Non-global on purpose: this pattern is reused with
-     * `.test()` across many files, and a global flag would carry `lastIndex`
-     * between calls and skip valid definitions depending on file order.
+     * A regex matching an explicit `Name := module:` declaration of one module.
+     *
+     * Non-global on purpose: the pattern is reused with `.test()` across many
+     * files, and a global flag would carry `lastIndex` between calls and skip
+     * valid definitions depending on the order the files are read in.
      */
     static buildModuleDefinitionRegex(moduleName: string): RegExp {
         const escaped = moduleName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -89,7 +108,8 @@ export class ImportPathConverter {
     }
 
     /**
-     * Extracts the path string from an import statement, minus any trailing comment.
+     * The path a `using` statement names, with any trailing comment removed,
+     * or "" when the statement is in neither style.
      *
      * Anchored on the trimmed statement, and dotted before braced, to match
      * ImportFormatter. Unanchored, the braced pattern is free to match inside
@@ -118,24 +138,37 @@ export class ImportPathConverter {
         return ImportFormatter.stripTrailingComment(importStatement).includes("{");
     }
 
-    /** Checks if an import is already in full path format */
+    /** Whether an import already names an absolute path: a leading "/", or an Epic account somewhere in it. */
     isFullPathImport(importStatement: string): boolean {
         const path = this.extractPathFromImport(importStatement);
         return path.startsWith("/") || path.includes("@fortnite.com");
     }
 
-    /** Checks if an import is a built-in module from Fortnite.com, UnrealEngine.com, or Verse.org */
+    /**
+     * Whether an import comes from Fortnite.com, UnrealEngine.com or Verse.org,
+     * which have no relative form to convert to.
+     *
+     * The three are fixed here, unlike the digest prefixes ImportFormatter
+     * reads from `behavior.digestImportPrefixes`: a prefix the user adds is a
+     * grouping preference, not a claim that a module lives outside the project.
+     */
     isBuiltinModule(importStatement: string): boolean {
         const path = this.extractPathFromImport(importStatement);
         return path.startsWith("/Fortnite.com/") || path.startsWith("/UnrealEngine.com/") || path.startsWith("/Verse.org/");
     }
 
-    /** Extracts the module path and name from an import statement */
+    /**
+     * The module an import names, as a "/"-separated path and the last segment
+     * of it, or null when the statement names nothing.
+     *
+     * Both forms leave here separated the same way: an absolute path unchanged,
+     * and a relative `HUD.Textures` with its dots turned into "/". Which of the
+     * two it was is still readable from the leading "/".
+     */
     extractModuleFromImport(importStatement: string): { fullPath: string; moduleName: string } | null {
         const pathStr = this.extractPathFromImport(importStatement);
         if (!pathStr) return null;
 
-        // Full path format - extract last segment
         if (pathStr.startsWith("/")) {
             const segments = pathStr.split("/").filter((s) => s);
             const lastSegment = segments[segments.length - 1];
@@ -143,7 +176,7 @@ export class ImportPathConverter {
             return { fullPath: pathStr, moduleName };
         }
 
-        // Dot notation (e.g., HUD.Textures -> HUD/Textures)
+        // Dot notation: HUD.Textures becomes HUD/Textures.
         const identPattern = /[A-Za-z_][A-Za-z0-9_]*(?:'[^']*')?/g;
         const dotSegments: string[] = [];
         let match;
@@ -170,18 +203,22 @@ export class ImportPathConverter {
         };
     }
 
-    /** Returns module name for display (shows full dot notation for relative imports) */
+    /**
+     * The module name to put in front of a user, which for a relative import is
+     * the whole dotted reference rather than its last segment: `HUD.Textures`
+     * names the module more precisely than `Textures` does, and the lens has
+     * room for it.
+     */
     extractModuleName(importStatement: string): string | null {
         const result = this.extractModuleFromImport(importStatement);
         if (!result) return null;
 
         const pathStr = this.extractPathFromImport(importStatement);
-        // For relative imports, show full path as-is for display
         if (pathStr && !pathStr.startsWith("/")) return pathStr;
         return result.moduleName;
     }
 
-    /** Parses explicit module definitions from Verse file content */
+    /** The names a Verse file declares as modules with `Name := module:`. */
     parseExplicitModuleDefinition(content: string): string[] {
         const modules: string[] = [];
         const moduleDefPattern = /\b([A-Za-z_][A-Za-z0-9_]*(?:'[^']*')?)\s*(?:<\s*(?:public|private|internal|protected)\s*>)?\s*:=\s*module\s*[:>]/gm;
@@ -193,8 +230,13 @@ export class ImportPathConverter {
     }
 
     /**
-     * Phase 1: Search for folders (implicit modules) relative to the current file.
-     * Searches sibling folders, ascending directories, and Content root.
+     * Appends the locations where a folder of this name sits, searched outwards
+     * from the current file: siblings first, then each ancestor directory, then
+     * the Content root. A folder is an implicit module, so its presence is the
+     * whole of the evidence.
+     *
+     * Nearest first, because a module is far likelier to be the one beside the
+     * file importing it than a namesake elsewhere in the project.
      */
     private async searchImplicitModules(modulePath: string, currentFileUri: vscode.Uri, locations: string[]): Promise<void> {
         const workspaceFolder = vscode.workspace.getWorkspaceFolder(currentFileUri);
@@ -203,11 +245,11 @@ export class ImportPathConverter {
         const currentFilePath = path.relative(workspaceFolder.uri.fsPath, currentFileUri.fsPath).replace(/\\/g, "/");
         let currentFileDir = path.dirname(currentFilePath).replace(/\\/g, "/");
 
-        // Check if workspace IS the Content folder
         const workspaceFolderName = path.basename(workspaceFolder.uri.fsPath);
         const workspaceFolderIsContent = workspaceFolderName === CONTENT_FOLDER;
 
-        // Normalize paths when workspace IS Content
+        // Every path below is reasoned about with a leading Content/, so a
+        // workspace opened at Content itself has that segment put back on.
         if (workspaceFolderIsContent) {
             currentFileDir = currentFileDir === "" || currentFileDir === "." ? CONTENT_FOLDER : `${CONTENT_FOLDER}/${currentFileDir}`;
         }
@@ -218,7 +260,8 @@ export class ImportPathConverter {
 
         const dirSegments = currentFileDir.split("/");
 
-        // Helper to adjust path for filesystem checks
+        // The inverse of that: a filesystem check is made against the
+        // workspace, which in this layout is already inside Content.
         const getFsCheckPath = (logicalPath: string): string => {
             if (workspaceFolderIsContent && logicalPath.startsWith(`${CONTENT_FOLDER}/`)) {
                 return logicalPath.substring(CONTENT_FOLDER.length + 1);
@@ -226,7 +269,7 @@ export class ImportPathConverter {
             return logicalPath;
         };
 
-        // Check sibling modules
+        // Siblings.
         if (dirSegments.length > 1) {
             const parentPath = dirSegments.slice(0, dirSegments.length - 1).join("/");
             const siblingTestPath = `${parentPath}/${modulePath}`;
@@ -239,7 +282,7 @@ export class ImportPathConverter {
             }
         }
 
-        // Ascending directory traversal
+        // Ancestor directories, nearest outwards.
         for (let i = dirSegments.length - 2; i >= 0; i--) {
             const checkPath = dirSegments.slice(0, i + 1).join("/");
             const testPath = `${checkPath}/${modulePath}`;
@@ -252,7 +295,7 @@ export class ImportPathConverter {
             }
         }
 
-        // Check direct Content children
+        // The Content root.
         const contentDirectChild = `${CONTENT_FOLDER}/${modulePath}`;
         if (await this.folderExists(workspaceFolder, getFsCheckPath(contentDirectChild))) {
             if (!locations.includes("")) locations.push("");
@@ -260,8 +303,12 @@ export class ImportPathConverter {
     }
 
     /**
-     * Phase 2: Search for explicit module definitions in .verse files.
-     * Scans the project folder for files containing Name := module declarations.
+     * Appends the locations of the `.verse` files declaring this name with
+     * `Name := module:`, which is the other way a module comes to exist and
+     * the one no folder attests to.
+     *
+     * Capped at 100 files scanned, so a project larger than that resolves from
+     * whichever of them the search returned.
      */
     private async searchExplicitModuleDefinitions(modulePath: string, moduleName: string, pathSegments: string[], locations: string[]): Promise<void> {
         const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -293,17 +340,18 @@ export class ImportPathConverter {
             let relativePath = path.relative(workspaceFolder.uri.fsPath, file.fsPath).replace(/\\/g, "/");
             relativePath = path.dirname(relativePath).replace(/\\/g, "/");
 
-            // Normalize path when workspace IS Content
             if (workspaceIsContent) {
                 relativePath = relativePath === "" || relativePath === "." ? CONTENT_FOLDER : `${CONTENT_FOLDER}/${relativePath}`;
             }
 
             if (!relativePath.startsWith(CONTENT_FOLDER)) continue;
 
-            // Remove Content prefix
             relativePath = relativePath.startsWith(`${CONTENT_FOLDER}/`) ? relativePath.substring(CONTENT_FOLDER.length + 1) : relativePath === CONTENT_FOLDER ? "" : relativePath;
 
-            // For nested paths, verify parent path matches
+            // A dotted reference names the path to the module as well as the
+            // module, and only the last segment was searched for, so a
+            // declaration whose directory does not end in the rest of the
+            // reference declares a different module of the same name.
             if (pathSegments.length > 1) {
                 const parentPath = pathSegments.slice(0, -1).join("/");
                 if (!relativePath.endsWith(parentPath)) continue;
@@ -312,7 +360,6 @@ export class ImportPathConverter {
                 if (relativePath.endsWith("/")) relativePath = relativePath.substring(0, relativePath.length - 1);
             }
 
-            // Format path
             if (!relativePath.startsWith("/") && relativePath !== "") relativePath = "/" + relativePath;
 
             if (!locations.includes(relativePath)) {
@@ -321,7 +368,20 @@ export class ImportPathConverter {
         }
     }
 
-    /** Scans the workspace for possible locations of a module */
+    /**
+     * Every place in the workspace the module could be, as locations relative
+     * to the Content root: "" for the root itself, "/Dir/Sub" below it. Empty
+     * when the module is nowhere to be found, and longer than one entry when
+     * the name is ambiguous.
+     *
+     * Two searches, in preference order, and the second runs only if the first
+     * found nothing: a folder near the current file (searchImplicitModules),
+     * then an explicit declaration anywhere in the project
+     * (searchExplicitModuleDefinitions). Ordered that way because proximity is
+     * the better evidence of which module was meant, and because a folder
+     * module exists only on the filesystem, where no declaration cache can see
+     * it.
+     */
     async findModuleLocations(modulePath: string, currentFileUri?: vscode.Uri): Promise<string[]> {
         const locations: string[] = [];
         const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -332,10 +392,6 @@ export class ImportPathConverter {
 
         logger.debug("ImportPathConverter", `Searching for module '${modulePath}'`);
 
-        // Phase 1: Search for folders (implicit modules) in Content folder.
-        // This runs first because it is locality-aware (prefers modules near
-        // the current file) and folder modules are filesystem-only knowledge
-        // that the declaration cache cannot provide.
         if (currentFileUri) {
             try {
                 await this.searchImplicitModules(modulePath, currentFileUri, locations);
@@ -344,10 +400,10 @@ export class ImportPathConverter {
             }
         }
 
-        // Phase 2: Explicit module definitions. The cache accelerates this
-        // phase; every candidate is validated against the filesystem before
-        // being trusted, and the full scan still runs when the cache has
-        // nothing valid (empty, stale, or disabled).
+        // The cache stands in for the declaration search, never above it: every
+        // candidate is checked against the filesystem before it is trusted, and
+        // the full scan below still runs whenever the cache yields nothing
+        // valid - empty, stale, or never set.
         if (locations.length === 0 && this.projectPathCache) {
             const candidates = this.projectPathCache.lookupModuleLocations(modulePath);
             for (const candidate of candidates) {
@@ -386,7 +442,13 @@ export class ImportPathConverter {
     }
 
     /**
-     * Converts a full path import to a relative import
+     * The relative form of an absolute import, in the style the author wrote,
+     * or null when there is none to give: a built-in module, an import that
+     * was never absolute, or a workspace with no `.uefnproject` to take the
+     * project path from.
+     *
+     * Never ambiguous. Shortening a path the file already carries needs
+     * nothing looked up, unlike the other direction.
      */
     async convertFromFullPath(importStatement: string, line?: number): Promise<ImportConversionResult | null> {
         if (this.isBuiltinModule(importStatement)) {
@@ -400,11 +462,11 @@ export class ImportPathConverter {
         }
 
         // Read through extractPathFromImport rather than a second copy of its
-        // regexes, because that copy skipped the trailing-comment strip: the
-        // dotted capture runs to end of line, so `using. /A/B # note` yielded the
-        // path `/A/B # note` and re-emitted the comment inside the converted
-        // statement - which applyConversion, restoring the comment itself, would
-        // then write a second time.
+        // regexes, so the trailing-comment strip cannot be left out of the
+        // copy. The dotted capture runs to end of line, so `using. /A/B # note`
+        // yields the path `/A/B # note` without it - and applyConversion
+        // restores the comment itself, so a comment left in the path is written
+        // twice.
         const fullPath = this.extractPathFromImport(importStatement);
 
         if (!fullPath || !fullPath.startsWith("/")) {
@@ -437,7 +499,7 @@ export class ImportPathConverter {
 
         return {
             originalImport: importStatement,
-            fullPathImport: relativeImport, // In this case, it's actually the relative import
+            fullPathImport: relativeImport,
             moduleName: modulePathSegments[modulePathSegments.length - 1] || relativeImportPath,
             isAmbiguous: false,
             line,
@@ -445,7 +507,9 @@ export class ImportPathConverter {
     }
 
     /**
-     * Converts all full path imports in a document to relative imports
+     * A conversion for each absolute import in a document that has a relative
+     * form, in the order the lines run. Built-in modules and imports already
+     * relative contribute nothing.
      */
     async convertAllImportsFromFullPath(document: vscode.TextDocument): Promise<ImportConversionResult[]> {
         const results: ImportConversionResult[] = [];
@@ -465,7 +529,15 @@ export class ImportPathConverter {
     }
 
     /**
-     * Converts a relative import to a full path import
+     * The absolute form of a relative import, in the style the author wrote,
+     * or null when the import is already absolute, names no module, or names
+     * one the workspace search cannot place. The last two also put a message
+     * in front of the user, since both are a request that failed rather than
+     * one that did not apply.
+     *
+     * A module resolving to several locations comes back `isAmbiguous`, with
+     * the candidates in `possiblePaths` and no statement built yet - the caller
+     * picks, then hands the choice to applyConversion.
      */
     async convertToFullPath(importStatement: string, documentUri: vscode.Uri, line?: number): Promise<ImportConversionResult | null> {
         if (this.isFullPathImport(importStatement)) {
@@ -524,7 +596,7 @@ export class ImportPathConverter {
 
             return {
                 originalImport: importStatement,
-                fullPathImport: "", // Will be determined by user selection
+                fullPathImport: "",
                 moduleName,
                 isAmbiguous: true,
                 possiblePaths,
@@ -534,7 +606,9 @@ export class ImportPathConverter {
     }
 
     /**
-     * Converts all relative imports in a document to full path imports
+     * A conversion for each relative import in a document, in the order the
+     * lines run. Any of them may be ambiguous, so a caller applying the whole
+     * set has a choice to put to the user for each one.
      */
     async convertAllImportsInDocument(document: vscode.TextDocument): Promise<ImportConversionResult[]> {
         const results: ImportConversionResult[] = [];
@@ -564,9 +638,8 @@ export class ImportPathConverter {
      * longer holds the statement because the document changed while the
      * conversion was being resolved - resolving one spans a workspace scan, and
      * an ambiguous one also spans a quick pick. That search goes through the
-     * shared scanner rather than every line, so a fallback cannot land somewhere
-     * a lens would never have appeared: searching the raw lines is what let the
-     * commented-out copy absorb the edit in the first place.
+     * shared scanner rather than every line, so the fallback can only land where
+     * a lens would have appeared.
      *
      * Comparison is by trimmed text, so the recorded line still matches after
      * the user indents or outdents the import while the conversion resolves.
@@ -583,7 +656,12 @@ export class ImportPathConverter {
     }
 
     /**
-     * Applies a conversion result to the document
+     * Writes a conversion over the line it came from, keeping that line's
+     * indentation and trailing comment. False when the line is no longer
+     * findable or the edit is refused.
+     *
+     * @param selectedPath The path chosen for an ambiguous conversion. Without
+     *   it such a conversion writes its empty statement, erasing the import.
      */
     async applyConversion(document: vscode.TextDocument, conversion: ImportConversionResult, selectedPath?: string): Promise<boolean> {
         const text = document.getText();

@@ -83,6 +83,21 @@ describe("ImportCodeLensProvider.provideCodeLenses", () => {
             "$(arrow-swap)  Use absolute paths for all",
         ]);
     });
+
+    it("ends the lens range at the true end of a CRLF line", async () => {
+        // The end column comes from the split line's length, so splitting on
+        // "\n" puts it one past the end of the line on every CRLF document.
+        // Real VS Code clamps that overshoot, which is exactly why nothing here
+        // can be left resting on it.
+        const importLine = "using { Gadgets.Tools }";
+        const provider = new ImportCodeLensProvider(vscode.window.createOutputChannel("test"));
+
+        const lenses = await provider.provideCodeLenses(documentWith([importLine, "", "code()"].join("\r\n")), {} as vscode.CancellationToken);
+
+        expect(lenses).toHaveLength(1);
+        expect(lenses[0].range.start).toEqual({ line: 0, character: 0 });
+        expect(lenses[0].range.end).toEqual({ line: 0, character: importLine.length });
+    });
 });
 
 // Regression for #142: the provider discarded both listener Disposables and had

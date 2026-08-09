@@ -160,6 +160,33 @@ export class ImportFormatter {
     }
 
     /**
+     * A dotted `using` statement, capturing its content.
+     *
+     * The class covers every character Verse's path production admits outside a
+     * quoted suffix - a label may hold `.` and `-`, `@` introduces the account,
+     * `/` separates segments, and `(`, `)` and `:` are the qualifier form
+     * `(path:)ident` - together with the bare identifier and the dot-notation
+     * reference a `using` may name instead of a path.
+     *
+     * A quoted segment suffix, `Economy.Shop'Loc'`, is consumed whole by the
+     * alternative rather than by the class, because a suffix admits characters
+     * no identifier may hold and the capture therefore cannot stop at the `'`.
+     * Stopping there would report `Economy.Shop`, a different module that
+     * exists, and a writer asked for that module would then believe the file
+     * already imports it. An unbalanced `'` matches neither branch, so the
+     * capture ends before it and the remainder pins the line.
+     *
+     * A comment opener is outside the class, though a quoted group admits one.
+     * matchImport strips it regardless, so none reaches a path - but the strip
+     * cuts inside the group while `end` measures the unstripped capture, so on
+     * `using. Foo'a#b'` the path and the leftover disagree about where the
+     * statement ends. No caller reaches that: isModuleImport refuses `Foo'a`,
+     * and the leftover is read from the line's code, which has no comment left
+     * in it. Widening the class is what would make the two meet.
+     */
+    private static readonly DOTTED_STATEMENT = /^using\.\s*((?:[A-Za-z0-9_./@:()-]|'[^']*')*)/;
+
+    /**
      * The `using` statement written at the head of a string: its path, and how
      * much of the string it occupies.
      *
@@ -173,6 +200,14 @@ export class ImportFormatter {
      * ends cannot answer it from a looser second copy that, on the same input,
      * disagrees about which statement was read.
      *
+     * The dotted style closes with nothing, so its own content is what ends it:
+     * the capture stops at the first character a dotted content cannot hold,
+     * which is how Verse itself lexes a path - `/a/b-c` is the path `/a/b`, then
+     * `-`, then `c`. Reading to end of line instead is what let a statement
+     * written after a `;` be captured into the path and re-emitted inside the
+     * braces. See DOTTED_STATEMENT for what a dotted content may hold, and why
+     * ending the capture early is not the safe direction it looks.
+     *
      * @returns The path and the offset just past the statement **in the
      *   trimmed input**, or null when there is no statement (including one
      *   whose content is nothing but a comment)
@@ -180,7 +215,7 @@ export class ImportFormatter {
     private static matchImport(importStatement: string): { path: string; end: number } | null {
         const trimmed = importStatement.trim();
 
-        const dotMatch = trimmed.match(/^using\.\s*(.+)/);
+        const dotMatch = trimmed.match(ImportFormatter.DOTTED_STATEMENT);
         if (dotMatch) {
             const path = ImportFormatter.stripTrailingComment(dotMatch[1]);
             return path ? { path, end: dotMatch[0].length } : null;
@@ -222,11 +257,11 @@ export class ImportFormatter {
      * it. So no depth or string tracking is needed, which nothing in this file
      * does.
      *
-     * Only the braced style can answer usefully. The dotted style has no
-     * closing delimiter and its capture is greedy to end of line, so a
-     * statement sharing a line swallows what follows it into its path and
-     * nothing is left over to report - the weakness usingPathsOnLine documents,
-     * not one this repairs.
+     * Both styles can answer. The braced one ends at its `}`; the dotted one has
+     * no closing delimiter, so it ends where its content stops being content -
+     * see matchImport. Content this cannot lex, such as an unbalanced `'`, ends
+     * the statement early and reports the rest as leftover, which pins the line
+     * rather than rewriting it from a path that was never the whole of it.
      *
      * @param lineCode A line of Verse with its comments already removed. A
      *   trailing comment left on it reads as code written after the statement.

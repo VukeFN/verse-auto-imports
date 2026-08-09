@@ -205,6 +205,29 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, ["/X"], curlySorted)).toBeNull();
     });
 
+    // The dotted style closes with nothing, so the definition after the `;` was
+    // captured into the path and the line still read as one plain statement.
+    // Organizing rebuilt it as `using { /X; MyVal := 5 }` - MyVal not deleted
+    // this time but folded inside the braces, and the file stopped compiling.
+    it("leaves a line that writes a definition after its dotted import alone", () => {
+        const input = ["using. /X; MyVal := 5", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBeNull();
+    });
+
+    it("organizes the other imports around a line that writes a definition after its dotted import", () => {
+        const input = ["using. /X; MyVal := 5", "using { /B }", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /B }", "", "using. /X; MyVal := 5", "", "code()"].join("\n"));
+    });
+
+    // Under the swallowed path the line provided `/X; using { Economy.Shop }`
+    // and no `/X`, so a writer asked for `/X` wrote a second copy of an import
+    // the line was already making.
+    it("does not write a second copy of a path a dotted statement provides beside another", () => {
+        const input = ["using. /X; using { Economy.Shop }", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["/X"], curlySorted)).toBeNull();
+        expect(editor.buildOrganizedContent(input, ["Economy.Shop"], curlySorted)).toBeNull();
+    });
+
     // A module whose name merely ends in those five letters writes one
     // statement, and organizing has to keep treating it as one. Counted by
     // every occurrence of `using`, this line reads as two, and the file stops

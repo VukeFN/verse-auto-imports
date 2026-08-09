@@ -146,10 +146,46 @@ describe("ImportFormatter trailing comments on import statements", () => {
         expect(formatter.textAfterImport("using { /Verse.org/Simulation }")).toBe("");
     });
 
-    // The dotted capture is greedy to end of line, so a statement sharing a line
-    // swallows what follows it into its path and nothing is left over to report.
-    it("reports nothing after a dotted statement, which has no closing delimiter", () => {
-        expect(formatter.textAfterImport("using. /Verse.org/Simulation; MyVal := 5")).toBe("");
+    // The dotted capture used to run to end of line, so a statement sharing a
+    // line was swallowed into the path and nothing was left over to report -
+    // and the line read as rewritable.
+    it("reports the code written after a dotted statement, which has no closing delimiter", () => {
+        expect(formatter.textAfterImport("using. /Verse.org/Simulation; MyVal := 5")).toBe("; MyVal := 5");
+    });
+
+    it("reports nothing after a dotted statement that is the whole line", () => {
+        expect(formatter.textAfterImport("using. /Verse.org/Simulation")).toBe("");
+    });
+
+    // Every character a dotted content may hold, so the capture cannot end
+    // early on an ordinary path: `.` and `-` in a label, `@` before the account,
+    // `/` between segments, `_` and a digit in an identifier.
+    it("carries a whole path through the dotted capture", () => {
+        expect(formatter.extractPathFromImport("using. /mygame@fortnite.com/my-game_2/Economy.Shop")).toBe("/mygame@fortnite.com/my-game_2/Economy.Shop");
+        expect(formatter.textAfterImport("using. /mygame@fortnite.com/my-game_2/Economy.Shop")).toBe("");
+    });
+
+    // A quoted segment suffix admits nearly every printable character, `;` and
+    // a space included, so ending the capture at the `'` would report
+    // `Economy.Shop` - a different module that exists, which a writer asked for
+    // that module would then read as already imported.
+    it("carries a quoted segment suffix through the dotted capture", () => {
+        expect(formatter.extractPathFromImport("using. Economy.Shop'Loc'")).toBe("Economy.Shop'Loc'");
+        expect(formatter.textAfterImport("using. Economy.Shop'Loc'")).toBe("");
+        expect(formatter.extractPathFromImport("using. /a/b'; x := 5'")).toBe("/a/b'; x := 5'");
+    });
+
+    it("carries a qualified path through the dotted capture", () => {
+        expect(formatter.extractPathFromImport("using. (/A/M:)M")).toBe("(/A/M:)M");
+        expect(formatter.textAfterImport("using. (/A/M:)M")).toBe("");
+    });
+
+    // Neither branch matches an unbalanced `'`, so the capture ends before it.
+    // The path is then a prefix of the real one, which is why the remainder has
+    // to be left over: leftover text is what pins the line against a rebuild.
+    it("ends the capture before content it cannot lex, leaving the remainder over", () => {
+        expect(formatter.extractPathFromImport("using. /a/b'c")).toBe("/a/b");
+        expect(formatter.textAfterImport("using. /a/b'c")).toBe("'c");
     });
 
     it("reports nothing for a line that writes no statement", () => {

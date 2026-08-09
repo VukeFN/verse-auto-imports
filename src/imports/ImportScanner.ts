@@ -51,17 +51,19 @@ export interface ScannedImport {
      * still counts as present - only rewriting is off limits, exactly as for
      * anchorsCommentBelow, and rewritableImports filters on both.
      *
-     * `false` is "no loss known", not "provably none". Detection looks for a
-     * second `using` on the line, so two shapes carry the same hazard
-     * undetected:
+     * Detection asks two questions of the line: how many `using` statements it
+     * writes, and - where it writes one - whether any code is left over after
+     * it. What the leftover says does not matter, so a `;` followed by
+     * something that is not a `using` at all is caught by the second question
+     * rather than the first.
      *
-     * - a `;` followed by anything that is not a `using` at all,
-     *   `using { /X }; MyVal := 5`, where the rebuild deletes the definition
-     *   (#235)
-     * - `using. /X; using:`, where the dotted statement has no closing
-     *   delimiter and swallows the rest of the line into its path, so the pair
-     *   is pinned under a path that is not `/X` and `/X` itself goes
-     *   unreported - the same weakness usingPathsOnLine documents
+     * `false` is still "no loss known", not "provably none". One shape carries
+     * the hazard undetected: `using. /X; using:`, where the dotted statement
+     * has no closing delimiter and swallows the rest of the line into its path,
+     * so the pair is pinned under a path that is not `/X` and `/X` itself goes
+     * unreported - the same weakness usingPathsOnLine documents. Nothing is
+     * left over after a dotted statement, so the second question cannot see it
+     * either.
      *
      * `true` is likewise not a promise that every path on the span was
      * recorded. A line ending in a `using:` pair reports the statement at its
@@ -509,6 +511,26 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
             continue;
         }
 
+        // One statement, and the line is rewritable only if that statement is
+        // the whole of what it says. A `;` can be followed by something that is
+        // not a `using` at all, which neither branch above sees - the count of
+        // `using` statements is one - and rebuilding the line from its path
+        // then deletes the definition after it.
+        //
+        // Asked as "what is left over", never as "where is the `;`". The
+        // separator is not searched for, so a `;` inside the braces or in a
+        // path is part of the statement rather than a second one, and telling a
+        // separator from a `;` in a string literal never arises. What is left
+        // over is what a rebuild deletes, whatever put it there.
+        //
+        // Asked of the line's code, as the two branches above are. A trailing
+        // comment is left over on the raw text, and pinning on that would
+        // refuse to organize every annotated import in the file.
+        //
+        // A line ending in a bare `;` is pinned too, on text that means
+        // nothing. That is the safe direction: the cost is a line left as
+        // written, and the alternative trims the separator away before the test
+        // and has to be right about which separators mean nothing.
         const path = formatter.extractPathFromImport(trimmed);
         if (path) {
             imports.push({
@@ -516,7 +538,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
                 startLine: i,
                 endLine: i,
                 anchorsCommentBelow: anchorsCommentBelow(i, i),
-                rebuildLosesText: false,
+                rebuildLosesText: formatter.textAfterImport(code) !== "",
                 trailingComment: ImportFormatter.extractTrailingComment(trimmed),
             });
         }

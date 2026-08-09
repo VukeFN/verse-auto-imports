@@ -160,10 +160,8 @@ export class ImportFormatter {
     }
 
     /**
-     * Extracts the module path from an import statement.
-     * Handles both curly syntax (using { /path }) and dot syntax (using. /path).
-     * A trailing comment is stripped, so the returned path never carries trivia
-     * that would corrupt the statement when it is re-emitted.
+     * The `using` statement written at the head of a string: its path, and how
+     * much of the string it occupies.
      *
      * Anchored on the trimmed statement, and dotted before braced, following
      * isModuleImport. Unanchored, the braced pattern is free to match
@@ -171,24 +169,71 @@ export class ImportFormatter {
      * `using. Economy.Shop # was using { Inventory }` read as `Inventory`,
      * because the comment is only stripped afterwards, from that capture.
      *
+     * One home for the two patterns, so a caller asking where the statement
+     * ends cannot answer it from a looser second copy that disagrees with the
+     * path about which statement was read.
+     *
+     * @returns The path and the offset just past the statement **in the
+     *   trimmed input**, or null when there is no statement (including one
+     *   whose content is nothing but a comment)
+     */
+    private static matchImport(importStatement: string): { path: string; end: number } | null {
+        const trimmed = importStatement.trim();
+
+        const dotMatch = trimmed.match(/^using\.\s*(.+)/);
+        if (dotMatch) {
+            const path = ImportFormatter.stripTrailingComment(dotMatch[1]);
+            return path ? { path, end: dotMatch[0].length } : null;
+        }
+
+        const curlyMatch = trimmed.match(/^using\s*\{\s*([^}]+)\s*\}/);
+        if (curlyMatch) {
+            const path = ImportFormatter.stripTrailingComment(curlyMatch[1]);
+            return path ? { path, end: curlyMatch[0].length } : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Extracts the module path from an import statement.
+     * Handles both curly syntax (using { /path }) and dot syntax (using. /path).
+     * A trailing comment is stripped, so the returned path never carries trivia
+     * that would corrupt the statement when it is re-emitted.
+     *
      * @param importStatement The full import statement
      * @returns The extracted path, or null if there is none (including a
      *   statement whose content is nothing but a comment)
      */
     extractPathFromImport(importStatement: string): string | null {
+        return ImportFormatter.matchImport(importStatement)?.path ?? null;
+    }
+
+    /**
+     * The code written after the statement at the head of a line, or "" when
+     * the statement is the whole of it.
+     *
+     * A writer rebuilds an import line from its path, so whatever this reports
+     * is text that rebuild would delete. That makes it the question to ask
+     * about a line carrying a `;`: the separator itself is never searched for,
+     * so a `;` inside the braces or in a path is part of the statement and
+     * reported as nothing, and no string-literal tracking is needed to tell a
+     * separator from a character in a literal.
+     *
+     * Only the braced style can answer usefully. The dotted style has no
+     * closing delimiter and its capture is greedy to end of line, so a
+     * statement sharing a line swallows what follows it into its path and
+     * nothing is left over to report - the weakness usingPathsOnLine documents,
+     * not one this repairs.
+     *
+     * @param importStatement A line of Verse **with its comments already
+     *   removed**. A trailing comment left on it reads as code written after
+     *   the statement, which is exactly the wrong answer.
+     */
+    textAfterImport(importStatement: string): string {
         const trimmed = importStatement.trim();
-
-        const dotMatch = trimmed.match(/^using\.\s*(.+)/);
-        if (dotMatch) {
-            return ImportFormatter.stripTrailingComment(dotMatch[1]) || null;
-        }
-
-        const curlyMatch = trimmed.match(/^using\s*\{\s*([^}]+)\s*\}/);
-        if (curlyMatch) {
-            return ImportFormatter.stripTrailingComment(curlyMatch[1]) || null;
-        }
-
-        return null;
+        const match = ImportFormatter.matchImport(trimmed);
+        return match ? trimmed.slice(match.end).trim() : "";
     }
 
     /**

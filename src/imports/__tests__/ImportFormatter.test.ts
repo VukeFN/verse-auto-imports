@@ -138,6 +138,24 @@ describe("ImportFormatter trailing comments on import statements", () => {
         expect(formatter.extractPathFromImport("/mygame@fortnite.com/mygame/Housing.Shop")).toBeNull();
     });
 
+    it("reports the code written after a braced statement", () => {
+        expect(formatter.textAfterImport("using { /mygame@fortnite.com/mygame/Economy/Shop }; MyVal := 5")).toBe("; MyVal := 5");
+    });
+
+    it("reports nothing after a braced statement that is the whole line", () => {
+        expect(formatter.textAfterImport("using { /Verse.org/Simulation }")).toBe("");
+    });
+
+    // The dotted capture is greedy to end of line, so a statement sharing a line
+    // swallows what follows it into its path and nothing is left over to report.
+    it("reports nothing after a dotted statement, which has no closing delimiter", () => {
+        expect(formatter.textAfterImport("using. /Verse.org/Simulation; MyVal := 5")).toBe("");
+    });
+
+    it("reports nothing for a line that writes no statement", () => {
+        expect(formatter.textAfterImport("MyVal := 5")).toBe("");
+    });
+
     it("a trailing comment does not change module-import classification", () => {
         // Without stripping, the `.` in a comment such as `# see Foo.Bar` made a
         // bare local-scope using look like a dotted module import.

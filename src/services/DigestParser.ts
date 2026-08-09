@@ -64,8 +64,9 @@ export class DigestParser {
 
     /**
      * Entries whose identifier matches, the exact one first and then every
-     * case-insensitive substring match. This order survives into the quick-fix
-     * menu, so the exact match is what the user is offered first.
+     * case-insensitive substring match. Ranking beyond that order is the
+     * caller's: the quick-fix menu re-sorts alphabetically when
+     * `quickFix.sortAlphabetically` is on.
      */
     async lookupIdentifier(identifier: string): Promise<DigestEntry[]> {
         const index = await this.getDigestIndex();

@@ -107,7 +107,8 @@ export class ProjectPathScanner {
     /**
      * The declarations in a file's text, in source order.
      *
-     * `sourceLine` is 1-based, for direct use as an editor position. `fullPath`
+     * `sourceLine` is 1-based, so it is one more than the `vscode.Position`
+     * line for the same declaration. `fullPath`
      * carries the dotted chain of enclosing modules, so it equals `name` only at
      * file scope. Declarations nested in a class or struct body are not filtered
      * out here; only indentation-scoped module nesting is tracked.
@@ -134,9 +135,10 @@ export class ProjectPathScanner {
             if (!options.includePrivate && visibility === "private") {
                 return true;
             }
-            // A module is kept when it is public or internal, and no specifier
-            // at all means internal in Verse. Anything narrower - protected or
-            // scoped - cannot be imported from outside and is dropped.
+            // By default a module is kept only when it is public or internal,
+            // and no specifier at all means internal in Verse. Anything
+            // narrower cannot be imported from outside. includePrivate lifts
+            // this along with the private check above, keeping everything.
             if (isModuleType) {
                 const isPublic = visibility === "public";
                 const isInternal = !visibility || visibility === "internal";
@@ -149,9 +151,10 @@ export class ProjectPathScanner {
 
         // Every pattern below captures [1] the declared name and [2] the
         // specifiers attached to that name, matching the shape
-        // `Name<spec><spec> := type<typespec>(parent):`. Specifiers on the
+        // `Name<spec><spec> := type<typespec>(parent):`. Specifiers to the
         // right of `:=` belong to the type, not the name, and are skipped
-        // rather than captured.
+        // rather than captured - except by modulePattern, which allows none
+        // there and so does not match a module carrying them.
         const modulePattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*module\s*:/;
         const classPattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*class\s*(?:<[^>]+>)*\s*[\(:]?/;
         const structPattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*struct\s*(?:<[^>]+>)*\s*[\(:]?/;

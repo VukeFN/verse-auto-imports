@@ -156,8 +156,12 @@ export class ProjectPathCache {
     }
 
     /**
-     * Reparses the named files and swaps their declarations into the cache,
-     * keeping the previous nodes for any file that failed to parse.
+     * Reparses the named files and swaps their declarations into the cache.
+     *
+     * A file the scanner could not read yields no nodes rather than an error,
+     * so it is committed as empty and its previous declarations are dropped;
+     * only a failure raised outside the scanner keeps the old nodes. Both cases
+     * self-correct on the file's next change event.
      *
      * Parsing awaits, and `this.data` can be replaced while it does - the
      * .uefnproject watcher, watcher teardown and the Clear Project Path Cache
@@ -194,7 +198,8 @@ export class ProjectPathCache {
                 failedFiles.push(filePath);
                 // Staying out of parsedResults is what keeps this file's
                 // existing nodes: the commit below only replaces files it
-                // reparsed.
+                // reparsed. Reachable only for a throw from outside
+                // parseVerseFile, which swallows its own read and parse errors.
             }
         }
 

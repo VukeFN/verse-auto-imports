@@ -29,8 +29,8 @@ const INSTANCE_DECL = /^(\w+)(?:<[^>]*>)*\s*:\s*\w+\s*=\s*external\b/;
  * Assets.digest.verse.
  *
  * These names are what tells a dotted suggestion where the module ends: in
- * "Did you mean X.Y.Z.ClassName", a segment naming an asset class means
- * everything after it addresses members rather than modules.
+ * "Did you mean X.Y.Z.ClassName", a segment naming an asset class ends the
+ * module path, and that segment onward addresses members rather than modules.
  */
 export class AssetsDigestParser {
     private classNames: Set<string> = new Set();

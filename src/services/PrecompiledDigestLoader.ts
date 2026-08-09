@@ -41,9 +41,9 @@ export class PrecompiledDigestLoader {
      * Loads every digest file into memory, throwing if none of them could be
      * read.
      *
-     * Loaded state is all-or-nothing on purpose: a partial index would answer
-     * lookups with confident misses, so anything short of one successful file
-     * leaves {@link isLoaded} false and sends the caller to runtime parsing.
+     * One file is enough to count as loaded, so a caller that sees
+     * {@link isLoaded} true may still be holding a partial index. Only a total
+     * failure leaves it false and sends DigestParser to runtime parsing.
      * Calling again after success is a no-op.
      */
     async loadPrecompiledDigests(): Promise<void> {
@@ -59,8 +59,10 @@ export class PrecompiledDigestLoader {
             const dataDir = path.join(extensionPath, "src", "data");
             let successCount = 0;
 
-            // A packaged extension ships the data under out/, a source checkout
-            // under src/; neither layout is guaranteed, so both are tried.
+            // src/data is the live location in both a checkout and a .vsix -
+            // .vscodeignore excludes src/** but re-includes src/data/**, and
+            // nothing copies the JSON into out/. The out/data branch below is
+            // dormant, and stays only against a build that starts copying.
             if (!fs.existsSync(dataDir)) {
                 const outDataDir = path.join(extensionPath, "out", "data");
                 if (fs.existsSync(outDataDir)) {

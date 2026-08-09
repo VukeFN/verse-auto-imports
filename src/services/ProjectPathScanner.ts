@@ -53,7 +53,9 @@ export class ProjectPathScanner {
                 const batchResults = await Promise.all(
                     batch.map(async (fileUri) => {
                         try {
-                            return await this.parseVerseFile(fileUri, workspaceFolder, options);
+                            // A full scan has no previous declarations to keep,
+                            // so an unreadable file contributes nothing either way.
+                            return (await this.parseVerseFile(fileUri, workspaceFolder, options)) ?? [];
                         } catch (error) {
                             logger.error("ProjectPathScanner", `Error parsing ${fileUri.fsPath}`, error);
                             return [];
@@ -87,11 +89,13 @@ export class ProjectPathScanner {
     }
 
     /**
-     * The declarations in one .verse file, or [] when it could not be read or
-     * parsed. A failure here is logged and swallowed so one unreadable file
-     * cannot abandon a whole scan.
+     * The declarations in one .verse file, or null when it could not be read or
+     * parsed. Null and [] are different answers: [] is a file that was read and
+     * declares nothing, and a caller that conflates them treats an unreadable
+     * file as an emptied one. A failure here is logged and does not raise, so
+     * one unreadable file cannot abandon a whole scan.
      */
-    async parseVerseFile(fileUri: vscode.Uri, workspaceFolder: vscode.WorkspaceFolder, options: ProjectScanOptions = {}): Promise<ProjectPathNode[]> {
+    async parseVerseFile(fileUri: vscode.Uri, workspaceFolder: vscode.WorkspaceFolder, options: ProjectScanOptions = {}): Promise<ProjectPathNode[] | null> {
         try {
             const document = await vscode.workspace.openTextDocument(fileUri);
             const content = document.getText();
@@ -100,7 +104,7 @@ export class ProjectPathScanner {
             return this.extractDeclarations(content, relativePath, options);
         } catch (error) {
             logger.error("ProjectPathScanner", `Failed to parse ${fileUri.fsPath}`, error);
-            return [];
+            return null;
         }
     }
 

@@ -3,6 +3,14 @@ import * as path from "path";
 import * as fs from "fs";
 import { logger } from "../utils";
 
+/**
+ * The part of the on-disk `.uefnproject` JSON this file models. UEFN writes
+ * the file, so the optional markers are a guard against an editor version that
+ * omits a field, not a statement that the field is rare.
+ *
+ * Wider than what is actually consumed: only `bindings.projectVersePath`,
+ * `bindings.modules` and `title` have readers.
+ */
 interface UEFNProjectFile {
     bindings?: {
         projectVersePath?: string;
@@ -17,6 +25,14 @@ interface UEFNProjectFile {
     }>;
 }
 
+/**
+ * Resolves the project's Verse path, name and module list from its
+ * `.uefnproject` file.
+ *
+ * All three cached fields come from a single parse and are cleared together by
+ * `clearCache`; leaving one behind would answer from a project file that is no
+ * longer on disk.
+ */
 export class ProjectPathHandler {
     private projectVersePath: string | null = null;
     private projectName: string | null = null;
@@ -25,8 +41,14 @@ export class ProjectPathHandler {
     constructor(private outputChannel: vscode.OutputChannel) {}
 
     /**
-     * Finds and parses the .uefnproject file in the workspace
-     * @returns The parsed project file or null if not found
+     * The parsed `.uefnproject`, searched for in each workspace folder and then
+     * up to five directories above the first one: UEFN's older project layout
+     * nests the Verse code under `<project>/Plugins/<ProjectName>/Content`, so
+     * the folder the user opens is often below the project file rather than at
+     * it.
+     *
+     * Only a success is cached, so in a workspace with no `.uefnproject` every
+     * call redoes the folder scan and the parent walk from scratch.
      */
     async findAndParseProjectFile(): Promise<UEFNProjectFile | null> {
         if (this.cachedProjectFile) {
@@ -61,6 +83,9 @@ export class ProjectPathHandler {
 
                     return this.cachedProjectFile;
                 } catch (error) {
+                    // A project file that exists but will not parse ends the
+                    // search. Walking on would answer from some parent
+                    // project's paths, which is worse than answering nothing.
                     logger.debug("ProjectPathHandler", `Error parsing .uefnproject file: ${error}`);
                     return null;
                 }
@@ -112,7 +137,9 @@ export class ProjectPathHandler {
     }
 
     /**
-     * Gets the project's Verse path (e.g., /vukefn@fortnite.com/MyGame)
+     * The project's Verse path, the prefix every module in it is addressed
+     * under: `/vukefn@fortnite.com/MyGame`. Passed through exactly as UEFN
+     * wrote it - callers that join onto it add their own separator.
      */
     async getProjectVersePath(): Promise<string | null> {
         if (this.projectVersePath) {
@@ -124,7 +151,8 @@ export class ProjectPathHandler {
     }
 
     /**
-     * Gets the project name from the .uefnproject file
+     * The project's display title, which is not necessarily the name of the
+     * directory holding it.
      */
     async getProjectName(): Promise<string | null> {
         if (this.projectName) {
@@ -136,7 +164,8 @@ export class ProjectPathHandler {
     }
 
     /**
-     * Gets the modules defined in the project
+     * The project's `bindings.modules` map, verbatim. Nothing in `src/` calls
+     * this, so what the keys and values mean is UEFN's to define.
      */
     async getProjectModules(): Promise<Record<string, string> | null> {
         const projectFile = await this.findAndParseProjectFile();
@@ -144,7 +173,8 @@ export class ProjectPathHandler {
     }
 
     /**
-     * Clears the cached project file
+     * Drops the parsed project file and everything derived from it, so the
+     * next read re-runs the search.
      */
     clearCache(): void {
         this.cachedProjectFile = null;
@@ -154,7 +184,9 @@ export class ProjectPathHandler {
     }
 
     /**
-     * Watches for changes to .uefnproject files
+     * Starts clearing the cache whenever a `.uefnproject` file is created,
+     * changed or deleted. The caller owns the returned watcher and must
+     * dispose it.
      */
     setupFileWatcher(): vscode.Disposable {
         const watcher = vscode.workspace.createFileSystemWatcher("**/*.uefnproject");

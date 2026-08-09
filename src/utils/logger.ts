@@ -2,7 +2,8 @@ import * as vscode from "vscode";
 import { EnvironmentSnapshot, formatEnvironmentLines, readSessionState } from "./environment";
 
 /**
- * Log levels for the logger
+ * Severity, ordered: the numeric value is compared against INFO to decide
+ * whether an entry reaches the user channel, so the order is load-bearing.
  */
 export enum LogLevel {
     TRACE = 0,
@@ -13,17 +14,15 @@ export enum LogLevel {
     FATAL = 5,
 }
 
-/**
- * Interface for structured log data
- */
 interface LogData {
     [key: string]: unknown;
 }
 
 /**
- * Enhanced logger for VS Code extension with dual-channel output
- * - User channel: Shows INFO+ levels for end users
- * - Debug channel: Shows all levels for debugging
+ * Writes to two output channels at once: INFO and above reach the channel the
+ * user sees, while every level reaches the debug channel and the export
+ * buffer. Anything logged below INFO is therefore invisible in the UI but
+ * still present in an exported log.
  */
 export class Logger {
     private static instance: Logger;
@@ -40,7 +39,8 @@ export class Logger {
     }
 
     /**
-     * Get the singleton logger instance
+     * The one Logger, created on first call. Both output channels are created
+     * with it, so nothing may call this before the extension host is up.
      */
     public static getInstance(): Logger {
         if (!Logger.instance) {
@@ -50,7 +50,8 @@ export class Logger {
     }
 
     /**
-     * Initialize the logger and register channels with the extension context
+     * Hands both channels to the extension context so they are disposed on
+     * deactivation. Logging works without this; only cleanup depends on it.
      */
     public initialize(context: vscode.ExtensionContext): void {
         context.subscriptions.push(this.userChannel);
@@ -65,37 +66,22 @@ export class Logger {
         this.environment = snapshot;
     }
 
-    /**
-     * Log a TRACE level message (most detailed)
-     */
     public trace(module: string, message: string, data?: LogData): void {
         this.log(LogLevel.TRACE, module, message, data);
     }
 
-    /**
-     * Log a DEBUG level message
-     */
     public debug(module: string, message: string, data?: LogData): void {
         this.log(LogLevel.DEBUG, module, message, data);
     }
 
-    /**
-     * Log an INFO level message
-     */
     public info(module: string, message: string, data?: LogData): void {
         this.log(LogLevel.INFO, module, message, data);
     }
 
-    /**
-     * Log a WARN level message
-     */
     public warn(module: string, message: string, data?: LogData): void {
         this.log(LogLevel.WARN, module, message, data);
     }
 
-    /**
-     * Extract structured data from an error object
-     */
     private extractErrorData(error: Error | unknown): LogData {
         if (error instanceof Error) {
             return {
@@ -107,7 +93,8 @@ export class Logger {
     }
 
     /**
-     * Log an ERROR level message with optional error object
+     * @param error unwrapped into errorMessage and errorStack, which override
+     * keys of the same name in `data`
      */
     public error(module: string, message: string, error?: Error | unknown, data?: LogData): void {
         const logData = error ? { ...data, ...this.extractErrorData(error) } : { ...data };
@@ -115,22 +102,23 @@ export class Logger {
     }
 
     /**
-     * Log a FATAL level message with optional error object
+     * @param error unwrapped as in `error()`
      */
     public fatal(module: string, message: string, error?: Error | unknown, data?: LogData): void {
         const logData = error ? { ...data, ...this.extractErrorData(error) } : { ...data };
         this.log(LogLevel.FATAL, module, message, logData);
     }
 
-    /**
-     * Start a performance timer
-     */
     public startTimer(operationId: string): void {
         this.performanceTimers.set(operationId, Date.now());
     }
 
     /**
-     * End a performance timer and log the duration
+     * Stops the timer, logs the elapsed time and returns it in milliseconds.
+     * Anything over a second is logged at WARN rather than DEBUG, so a slow
+     * operation surfaces in the user's channel without a caller deciding.
+     *
+     * Returns 0 for an operation that was never started, having warned.
      */
     public endTimer(operationId: string, module: string, message: string): number {
         const startTime = this.performanceTimers.get(operationId);
@@ -148,22 +136,17 @@ export class Logger {
         return duration;
     }
 
-    /**
-     * Show the user output channel
-     */
     public showUserChannel(): void {
         this.userChannel.show();
     }
 
-    /**
-     * Show the debug output channel
-     */
     public showDebugChannel(): void {
         this.debugChannel.show();
     }
 
     /**
-     * Clear both output channels
+     * Clears what both channels display. The export buffer is untouched, so a
+     * log exported afterwards still holds everything.
      */
     public clearChannels(): void {
         this.userChannel.clear();
@@ -171,21 +154,20 @@ export class Logger {
     }
 
     /**
-     * Get the user output channel (for backward compatibility)
+     * The user channel itself, for the callers that need to show it or hand it
+     * on. Logging goes through this class, not through the returned channel.
      */
     public getUserChannel(): vscode.OutputChannel {
         return this.userChannel;
     }
 
-    /**
-     * Get the current number of log entries in the buffer
-     */
     public getBufferSize(): number {
         return this.logBuffer.length;
     }
 
     /**
-     * Get debug logs as a single string for file export
+     * The whole export: a header identifying the build, then every buffered
+     * entry.
      */
     public getDebugLogsAsString(): string {
         const header = [
@@ -204,8 +186,8 @@ export class Logger {
     }
 
     /**
-     * Export debug logs to a file chosen by the user
-     * @returns The URI of the saved file, or undefined if cancelled/failed
+     * Prompts for a location and writes the export there.
+     * @returns undefined when the user cancels; write failures throw
      */
     public async exportDebugLogs(): Promise<vscode.Uri | undefined> {
         const timestamp = this.formatTimestampForFilename(new Date());
@@ -223,7 +205,7 @@ export class Logger {
         });
 
         if (!uri) {
-            return undefined; // User cancelled
+            return undefined;
         }
 
         try {
@@ -239,9 +221,7 @@ export class Logger {
         }
     }
 
-    /**
-     * Format a timestamp for use in the export filename
-     */
+    /** Local time as `YYYYMMDD_HHMMSS`, safe for a filename on any platform. */
     private formatTimestampForFilename(date: Date): string {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -253,54 +233,47 @@ export class Logger {
         return `${year}${month}${day}_${hours}${minutes}${seconds}`;
     }
 
-    /**
-     * Core logging method
-     */
     private log(level: LogLevel, module: string, message: string, data?: LogData): void {
         const timestamp = new Date();
         const levelName = LogLevel[level];
 
-        // Format for user channel (INFO+ levels only)
         if (level >= LogLevel.INFO) {
             const userFormat = this.formatUserMessage(timestamp, levelName, message);
             this.userChannel.appendLine(userFormat);
         }
 
-        // Format for debug channel (all levels)
+        // The debug format is what gets buffered, so the export carries the
+        // module name and structured data that the user channel drops.
         const debugFormat = this.formatDebugMessage(timestamp, levelName, module, message, data);
         this.debugChannel.appendLine(debugFormat);
 
-        // Store in buffer for export
         this.addToBuffer(debugFormat);
     }
 
     /**
-     * Add a log entry to the circular buffer
+     * Appends to the export buffer, dropping the oldest entry once it holds
+     * MAX_LOG_ENTRIES. A long session therefore loses its activation entries,
+     * which is why the export header repeats the environment.
      */
     private addToBuffer(logEntry: string): void {
         if (this.logBuffer.length >= this.MAX_LOG_ENTRIES) {
-            this.logBuffer.shift(); // Remove oldest entry
+            this.logBuffer.shift();
         }
         this.logBuffer.push(logEntry);
     }
 
-    /**
-     * Format message for user channel (simpler format)
-     */
+    /** Wall-clock time, level and message. No module name and no data. */
     private formatUserMessage(timestamp: Date, level: string, message: string): string {
         const time = timestamp.toTimeString().substring(0, 8);
         return `[${time}] [${level}] ${message}`;
     }
 
-    /**
-     * Format message for debug channel (detailed format)
-     */
+    /** UTC time to the millisecond, level, module, message, then any data. */
     private formatDebugMessage(timestamp: Date, level: string, module: string, message: string, data?: LogData): string {
         const time = timestamp.toISOString().substring(11, 23);
         let formatted = `[${time}] [${level}] [${module}] ${message}`;
 
         if (data && Object.keys(data).length > 0) {
-            // Format data object, handling special cases
             const dataStr = this.formatLogData(data);
             if (dataStr) {
                 formatted += ` ${dataStr}`;
@@ -311,17 +284,17 @@ export class Logger {
     }
 
     /**
-     * Format log data for output
+     * Renders the data object into one line, dropping undefined and null
+     * entries. A stack trace breaks the line instead, indented under its own
+     * heading, so it stays readable in the channel.
      */
     private formatLogData(data: LogData): string {
         const parts: string[] = [];
 
         for (const [key, value] of Object.entries(data)) {
             if (key === "errorStack" && typeof value === "string") {
-                // Handle stack traces specially
                 parts.push(`\n  Stack trace:\n    ${value.replace(/\n/g, "\n    ")}`);
             } else if (value !== undefined && value !== null) {
-                // Handle other values
                 let valueStr: string;
                 if (typeof value === "string") {
                     valueStr = value;
@@ -342,5 +315,5 @@ export class Logger {
     }
 }
 
-// Export singleton instance for convenience
+/** The shared logger. Take this rather than calling `getInstance` again. */
 export const logger = Logger.getInstance();

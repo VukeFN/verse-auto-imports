@@ -53,17 +53,19 @@ export interface ScannedImport {
      *
      * Detection asks two questions of the line: how many `using` statements it
      * writes, and - where it writes one - whether any code is left over after
-     * it. What the leftover says does not matter, so a `;` followed by
-     * something that is not a `using` at all is caught by the second question
-     * rather than the first.
+     * it. What the leftover says does not matter, so a statement written after
+     * a `;` is caught by the second question when it is not a `using` and the
+     * first cannot count it.
      *
-     * `false` is still "no loss known", not "provably none". One shape carries
-     * the hazard undetected: `using. /X; using:`, where the dotted statement
-     * has no closing delimiter and swallows the rest of the line into its path,
-     * so the pair is pinned under a path that is not `/X` and `/X` itself goes
-     * unreported - the same weakness usingPathsOnLine documents. Nothing is
-     * left over after a dotted statement, so the second question cannot see it
-     * either.
+     * `false` is still "no loss known", not "provably none". Both questions are
+     * blind to the same shape, a dotted statement sharing its line: it has no
+     * closing delimiter, so it swallows the rest of the line into its path -
+     * leaving nothing over for the second question, and no second `using` for
+     * the first to find in `using. /X; MyVal := 5`. The path is then the whole
+     * of the line and rebuilding from it corrupts rather than deletes, which is
+     * the weakness usingPathsOnLine documents. Where the tail is a `using`, the
+     * line is pinned but under that swallowed path, so the path it really
+     * imports goes unreported and a writer may add a second copy of it.
      *
      * `true` is likewise not a promise that every path on the span was
      * recorded. A line ending in a `using:` pair reports the statement at its
@@ -512,25 +514,18 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
         }
 
         // One statement, and the line is rewritable only if that statement is
-        // the whole of what it says. A `;` can be followed by something that is
-        // not a `using` at all, which neither branch above sees - the count of
-        // `using` statements is one - and rebuilding the line from its path
-        // then deletes the definition after it.
+        // the whole of what it says. What follows a `;` need not be a `using`,
+        // and neither branch above counts it - so the leftover is what says the
+        // definition after it would be deleted. See textAfterImport for why the
+        // question is "what is left over" rather than "where is the `;`".
         //
-        // Asked as "what is left over", never as "where is the `;`". The
-        // separator is not searched for, so a `;` inside the braces or in a
-        // path is part of the statement rather than a second one, and telling a
-        // separator from a `;` in a string literal never arises. What is left
-        // over is what a rebuild deletes, whatever put it there.
-        //
-        // Asked of the line's code, as the two branches above are. A trailing
-        // comment is left over on the raw text, and pinning on that would
-        // refuse to organize every annotated import in the file.
+        // Asked of the line's code, as the two branches above are: a trailing
+        // comment is leftover text on the raw line, and pinning on that refuses
+        // to organize every annotated import in the file.
         //
         // A line ending in a bare `;` is pinned too, on text that means
-        // nothing. That is the safe direction: the cost is a line left as
-        // written, and the alternative trims the separator away before the test
-        // and has to be right about which separators mean nothing.
+        // nothing. The cost is one line left as written; trimming separators
+        // away first means being right about which ones mean nothing.
         const path = formatter.extractPathFromImport(trimmed);
         if (path) {
             imports.push({

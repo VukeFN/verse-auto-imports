@@ -170,8 +170,8 @@ export class ImportFormatter {
      * because the comment is only stripped afterwards, from that capture.
      *
      * One home for the two patterns, so a caller asking where the statement
-     * ends cannot answer it from a looser second copy that disagrees with the
-     * path about which statement was read.
+     * ends cannot answer it from a looser second copy that, on the same input,
+     * disagrees about which statement was read.
      *
      * @returns The path and the offset just past the statement **in the
      *   trimmed input**, or null when there is no statement (including one
@@ -214,11 +214,13 @@ export class ImportFormatter {
      * the statement is the whole of it.
      *
      * A writer rebuilds an import line from its path, so whatever this reports
-     * is text that rebuild would delete. That makes it the question to ask
-     * about a line carrying a `;`: the separator itself is never searched for,
-     * so a `;` inside the braces or in a path is part of the statement and
-     * reported as nothing, and no string-literal tracking is needed to tell a
-     * separator from a character in a literal.
+     * is text that rebuild would lose. Asking it this way rather than searching
+     * the line for the `;` that separates two statements is what keeps a
+     * separator apart from a `;` that is only a character - one inside the
+     * braces, or in a path, is part of the statement and leaves nothing over,
+     * and one inside a string literal cannot arise without leftover text around
+     * it. So no depth or string tracking is needed, which nothing in this file
+     * does.
      *
      * Only the braced style can answer usefully. The dotted style has no
      * closing delimiter and its capture is greedy to end of line, so a
@@ -226,12 +228,11 @@ export class ImportFormatter {
      * nothing is left over to report - the weakness usingPathsOnLine documents,
      * not one this repairs.
      *
-     * @param importStatement A line of Verse **with its comments already
-     *   removed**. A trailing comment left on it reads as code written after
-     *   the statement, which is exactly the wrong answer.
+     * @param lineCode A line of Verse with its comments already removed. A
+     *   trailing comment left on it reads as code written after the statement.
      */
-    textAfterImport(importStatement: string): string {
-        const trimmed = importStatement.trim();
+    textAfterImport(lineCode: string): string {
+        const trimmed = lineCode.trim();
         const match = ImportFormatter.matchImport(trimmed);
         return match ? trimmed.slice(match.end).trim() : "";
     }

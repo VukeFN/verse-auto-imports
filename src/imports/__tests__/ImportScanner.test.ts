@@ -317,7 +317,9 @@ describe("scanModuleImports", () => {
 
     // The separator is never searched for, only the text after the statement,
     // so a `;` the braces enclose is part of the path rather than a second
-    // statement - and no string-literal tracking is needed to tell the two apart.
+    // statement. A `;` in a string literal is covered by the same property
+    // without a case of its own: it can only ever sit inside leftover text,
+    // never be what decides there is any.
     it("leaves a single statement rewritable when a semicolon sits inside its braces", () => {
         expect(rewritableImports(scanModuleImports(["using { /X;Y }", "code()"]))).toEqual([
             { path: "/X;Y", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },

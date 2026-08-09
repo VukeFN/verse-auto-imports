@@ -12,20 +12,22 @@ export interface CommandsDependencies {
     importCodeLensProvider: ImportCodeLensProvider;
     /**
      * Absent when the cache setting is off, so the dependency is missing in
-     * fact and not only in type. The three cache commands refuse rather than
-     * build one: a cache constructed here would have no file watchers behind
-     * it and would be stale from the moment it was written.
+     * fact and not only in type. The commands that would build one refuse
+     * instead; only the status command carries on and reports the cache as
+     * disabled. See activation for why one constructed here would be stale
+     * from the moment it was written.
      */
     projectPathCache?: ProjectPathCache;
 }
 
 /**
- * A structural copy of ImportPathConverter's conversion result, which that
+ * A hand-maintained copy of ImportPathConverter's conversion result, which that
  * module does not export.
  *
- * The converter's return values are cast to this type rather than checked
- * against it, so the compiler will not report a drift between the two. Keep
- * them in step by hand.
+ * The converter's return values reach this type by a cast, so nothing checks
+ * the copy against the original at the point it is made. What does check it is
+ * passing one back to applyConversion, which is typed on the original: a field
+ * this copy lacks fails there, a field only this copy has fails nowhere.
  */
 interface PathConversionResult {
     originalImport: string;
@@ -53,8 +55,9 @@ export class CommandsHandler {
      * Each id here must also be declared in package.json under
      * `contributes.commands`, and the five that take caller-supplied arguments
      * must stay hidden from the Command Palette there - invoking one from the
-     * palette dereferences an undefined document. commandManifest.test.ts pins
-     * the package.json half of that; nothing pins this half.
+     * palette dereferences an undefined document. Both halves are pinned:
+     * commandManifest.test.ts checks the manifest, and the integration suite
+     * checks every id is registered once the extension has activated.
      */
     registerAll(context: vscode.ExtensionContext): void {
         const commands: Array<[string, (...args: any[]) => any]> = [

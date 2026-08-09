@@ -6,7 +6,9 @@ import { ImportHandler } from "../imports";
 
 /**
  * Turns the Verse compiler's diagnostics into imports: one debounce timer per
- * document, and on expiry, the high-confidence suggestions written into it.
+ * document, and on expiry, the suggestions it may act on without asking
+ * written into it. A lone suggestion has to be high confidence; one picked out
+ * of several by an auto_ strategy does not.
  *
  * Disposable, and registered as one during activation: the delay is
  * user-configurable, so an armed timer outlives teardown by that long unless it

@@ -30,8 +30,8 @@ export class StatusBarHandler {
     constructor(private outputChannel: vscode.OutputChannel) {
         this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, STATUS_BAR_PRIORITY);
         // Clicking the item invokes this id, which CommandsHandler registers.
-        // Nothing checks the two agree; a rename on either side leaves an item
-        // whose click does nothing.
+        // The registration is pinned by the integration suite, this literal by
+        // nothing: change it alone and the item stops responding to clicks.
         this.statusBarItem.command = "verseAutoImports.showStatusMenu";
         this.statusBarItem.name = "Verse Auto Imports";
 
@@ -59,9 +59,9 @@ export class StatusBarHandler {
     }
 
     /**
-     * Whether auto imports are currently suppressed by a snooze. This is the
-     * whole of the suppression signal: activation reads it directly and hands
-     * it to DiagnosticsHandler, so nothing else has to be consulted.
+     * Whether auto imports are currently suppressed by a snooze. Callers weigh
+     * this against the autoImport setting; a snooze suppresses imports without
+     * touching it, so neither answers the question alone.
      *
      * Snooze state is deliberately in-memory only: it is ephemeral and
      * time-boxed, so it must not outlive the extension host. Persisting it (or

@@ -169,17 +169,20 @@ export class ImportFormatter {
      * reference a `using` may name instead of a path.
      *
      * A quoted segment suffix, `Economy.Shop'Loc'`, is consumed whole by the
-     * alternative rather than by the class, because inside one nearly every
-     * printable character is legal - `;` and a space included. Stopping at the
-     * `'` instead would report `Economy.Shop`, a different module that exists,
-     * and a writer asked for that module would then believe the file already
-     * imports it. An unbalanced `'` matches neither branch, so the capture ends
-     * before it and the remainder pins the line.
+     * alternative rather than by the class, because a suffix admits characters
+     * no identifier may hold and the capture therefore cannot stop at the `'`.
+     * Stopping there would report `Economy.Shop`, a different module that
+     * exists, and a writer asked for that module would then believe the file
+     * already imports it. An unbalanced `'` matches neither branch, so the
+     * capture ends before it and the remainder pins the line.
      *
-     * A comment opener appears in neither branch, so a trailing comment ends
-     * the capture rather than entering it. matchImport strips one from the
-     * capture regardless, so widening this cannot quietly put a comment back
-     * into a path.
+     * A comment opener is outside the class, though a quoted group admits one.
+     * matchImport strips it regardless, so none reaches a path - but the strip
+     * cuts inside the group while `end` measures the unstripped capture, so on
+     * `using. Foo'a#b'` the path and the leftover disagree about where the
+     * statement ends. No caller reaches that: isModuleImport refuses `Foo'a`,
+     * and the leftover is read from the line's code, which has no comment left
+     * in it. Widening the class is what would make the two meet.
      */
     private static readonly DOTTED_STATEMENT = /^using\.\s*((?:[A-Za-z0-9_./@:()-]|'[^']*')*)/;
 

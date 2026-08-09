@@ -341,6 +341,9 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
+  "overrides": {
+    "serialize-javascript": "^7.0.5"
+  },
   "publisher": "vukefn",
   "repository": {
     "type": "git",

@@ -66,8 +66,10 @@ export function activate(context: vscode.ExtensionContext) {
     logger.info("Extension", `Verse Auto Imports ${environment.extensionVersion} is now active (${formatHostSummary(environment, sessionState)})`);
     logger.debug("Extension", "Settings at activation", sessionState.settings);
 
-    // Handlers predate the logger and still take an OutputChannel rather than
-    // reaching for the singleton themselves.
+    // Handlers take this channel but log through the `logger` singleton. The
+    // parameter survives from before the logger existed, and the only real
+    // uses left are StatusBarHandler showing the channel and ProjectPathCache
+    // passing it on to the scanner.
     const outputChannel = logger.getUserChannel();
 
     const config = vscode.workspace.getConfiguration("verseAutoImports");
@@ -177,8 +179,9 @@ export function activate(context: vscode.ExtensionContext) {
         ),
     );
 
-    // Clears the snooze timer on deactivation, so a snooze cannot expire and
-    // re-enable auto-import after the extension is torn down.
+    // Disposal is what removes the handler's own configuration listener, which
+    // would otherwise outlive the extension; it also stops the snooze countdown
+    // and disposes the status bar item.
     context.subscriptions.push(statusBarHandler);
 
     context.subscriptions.push(

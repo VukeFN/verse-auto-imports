@@ -154,8 +154,8 @@ export class Logger {
     }
 
     /**
-     * The user channel, for handlers that still take an OutputChannel rather
-     * than the logger.
+     * The user channel itself, for the callers that need to show it or hand it
+     * on. Logging goes through this class, not through the returned channel.
      */
     public getUserChannel(): vscode.OutputChannel {
         return this.userChannel;

@@ -40,7 +40,11 @@ export interface ProjectPathData {
 
     projectName: string;
 
-    /** Milliseconds since the epoch, restamped every time the data changes. */
+    /**
+     * Milliseconds since the epoch, stamped by a full scan and by invalidation.
+     * Deleting a file prunes `nodes` without restamping, so this is the age of
+     * the last scan and not a last-modified time.
+     */
     generatedAt: number;
 
     /** Every declaration in the project, flat: nesting lives in `fullPath`. */
@@ -68,7 +72,10 @@ export interface ProjectScanOptions {
     /** Globs; a match here is skipped even when the include pattern took it. */
     excludePatterns?: string[];
 
-    /** Off by default, which also excludes anything neither public nor internal. */
+    /**
+     * Off by default, dropping private declarations. Modules are held to more
+     * than that: one is kept only when it is public or internal.
+     */
     includePrivate?: boolean;
 
     /** Called per file scanned, with `file` relative to the workspace folder. */

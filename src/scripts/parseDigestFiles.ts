@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Precompiles the bundled `.verse` digests into JSON, so the runtime loads a
- * parsed index instead of parsing megabytes of Verse at activation.
+ * Precompiles the bundled `.verse` digests into JSON, so the first lookup
+ * loads a parsed index instead of parsing megabytes of Verse.
  *
  * Run with `npm run parse-digest`. Its output under `src/data` is generated and
  * checked in: refresh it by replacing the `.verse` inputs and re-running, never

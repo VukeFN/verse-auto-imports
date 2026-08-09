@@ -4,9 +4,12 @@ import * as fs from "fs";
 import { logger } from "../utils";
 
 /**
- * The subset of the on-disk `.uefnproject` JSON this extension reads. Every
- * field is optional because the file is written by UEFN, not by us, and an
- * older or newer editor may omit any of them.
+ * The part of the on-disk `.uefnproject` JSON this file models. UEFN writes
+ * the file, so the optional markers are a guard against an editor version that
+ * omits a field, not a statement that the field is rare.
+ *
+ * Wider than what is actually consumed: only `bindings.projectVersePath`,
+ * `bindings.modules` and `title` have readers.
  */
 interface UEFNProjectFile {
     bindings?: {
@@ -38,12 +41,14 @@ export class ProjectPathHandler {
     constructor(private outputChannel: vscode.OutputChannel) {}
 
     /**
-     * The parsed `.uefnproject`, from cache after the first call.
+     * The parsed `.uefnproject`, searched for in each workspace folder and then
+     * up to five directories above the first one: UEFN's older project layout
+     * nests the Verse code under `<project>/Plugins/<ProjectName>/Content`, so
+     * the folder the user opens is often below the project file rather than at
+     * it.
      *
-     * Searched in each workspace folder first, then up to five directories
-     * above the first one: UEFN's older project layout nests the Verse code
-     * under `<project>/Plugins/<ProjectName>/Content`, so the folder the user
-     * opens is often below the project file rather than at it.
+     * Only a success is cached. Every call that ends in null repeats the whole
+     * search, which matters on the paths that call this per document.
      */
     async findAndParseProjectFile(): Promise<UEFNProjectFile | null> {
         if (this.cachedProjectFile) {
@@ -133,7 +138,8 @@ export class ProjectPathHandler {
 
     /**
      * The project's Verse path, the prefix every module in it is addressed
-     * under: `/vukefn@fortnite.com/MyGame`, no trailing slash.
+     * under: `/vukefn@fortnite.com/MyGame`. Passed through exactly as UEFN
+     * wrote it - callers that join onto it add their own separator.
      */
     async getProjectVersePath(): Promise<string | null> {
         if (this.projectVersePath) {
@@ -158,7 +164,8 @@ export class ProjectPathHandler {
     }
 
     /**
-     * The project's module bindings, keyed by module name.
+     * The project's `bindings.modules` map, verbatim. Nothing in `src/` calls
+     * this, so what the keys and values mean is UEFN's to define.
      */
     async getProjectModules(): Promise<Record<string, string> | null> {
         const projectFile = await this.findAndParseProjectFile();

@@ -22,8 +22,9 @@ export type ImportSuggestionSource = "error_message" | "digest_lookup" | "infere
 export type ImportConfidence = "high" | "medium" | "low";
 
 /**
- * What to do when a diagnostic offers several import paths. Unused here: the
- * live setting is typed inline on `BehaviorConfig.multiOptionStrategy`.
+ * What to do when a diagnostic offers several import paths. Unused: the live
+ * setting is read as a plain string in `DiagnosticsHandler`, so adding a case
+ * here changes nothing on its own.
  */
 export type MultiOptionStrategy = "quickfix" | "auto_shortest" | "auto_first" | "disabled";
 

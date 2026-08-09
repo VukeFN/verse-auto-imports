@@ -90,6 +90,15 @@ export class ImportFormatter {
      *   at file scope a bare `using { X }` can only be the former. Pass this
      *   only when you know the line is not inside a function body.
      *
+     * Every style answers from the statement at the head of the line rather
+     * than from the whole of it, since a line may write more than one and a
+     * definition after a `;` belongs to none of the `using` before it. The
+     * dotted form reads matchImport's DOTTED_STATEMENT for that: its content is
+     * what ends it, and a second copy of the pattern is a second opinion about
+     * where it ended. A bare folder-module name is where the two answers differ:
+     * `Features; MyVal := 5` is neither a path nor an identifier, so a line
+     * read whole classifies as no import and is skipped rather than counted.
+     *
      * @param nextLine The following line, which carries the content for the
      *   indented style. When it is not given and the line is `using:`, this
      *   conservatively returns `true`.
@@ -123,7 +132,7 @@ export class ImportFormatter {
         }
 
         // Dotted style.
-        const dotMatch = trimmed.match(/^using\.\s+(.+)/);
+        const dotMatch = trimmed.match(ImportFormatter.DOTTED_STATEMENT);
         if (dotMatch) {
             return isModuleImportContent(ImportFormatter.stripTrailingComment(dotMatch[1]));
         }
@@ -148,6 +157,10 @@ export class ImportFormatter {
 
     /**
      * A dotted `using` statement, capturing its content.
+     *
+     * Matched by isModuleImport as well as matchImport, so the classifier and
+     * the reader cannot disagree about how much of a line the statement
+     * occupies. Widening the class widens both.
      *
      * The class covers every character Verse's path production admits outside a
      * quoted suffix - a label may hold `.` and `-`, `@` introduces the account,

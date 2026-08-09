@@ -40,6 +40,23 @@ describe("ImportFormatter.isModuleImport", () => {
         expect(ImportFormatter.isModuleImport("using. Features", undefined, { atFileScope: true })).toBe(true);
         expect(ImportFormatter.isModuleImport("using:", "    Features", { atFileScope: true })).toBe(true);
     });
+
+    // A bare identifier is the only dotted content the swallowed definition
+    // changes the answer for: read to end of line the content was
+    // `Features; MyVal := 5`, which is neither a path nor an identifier, so the
+    // line classified as no import at all and the scanner skipped it whole. The
+    // absolute and dot-notation forms keep the `/` or the `.` that decides them.
+    it("atFileScope: a bare dotted import sharing its line with a definition is a module import", () => {
+        expect(ImportFormatter.isModuleImport("using. Features; MyVal := 5", undefined, { atFileScope: true })).toBe(true);
+        expect(ImportFormatter.isModuleImport("using. /Verse.org/Simulation; MyVal := 5", undefined, { atFileScope: true })).toBe(true);
+        expect(ImportFormatter.isModuleImport("using. Economy.Shop; MyVal := 5", undefined, { atFileScope: true })).toBe(true);
+    });
+
+    // Ending the capture at the statement must not promote a local-scope using:
+    // outside file scope a bare identifier is an instance, whatever follows it.
+    it("default mode: a local-scope dotted using sharing its line stays a local-scope using", () => {
+        expect(ImportFormatter.isModuleImport("using. Instance; MyVal := 5")).toBe(false);
+    });
 });
 
 describe("ImportFormatter.stripTrailingComment", () => {

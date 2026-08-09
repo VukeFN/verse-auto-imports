@@ -170,6 +170,17 @@ describe("scanModuleImports", () => {
         ]);
     });
 
+    // The classification read the dotted content to end of line, so this one
+    // was `Features; MyVal := 5` - no path, no identifier, no import. The line
+    // was skipped whole and nothing recorded that the file imports Features, so
+    // a diagnostic asking for it wrote a second copy above a line already
+    // making that import.
+    it("records a bare dotted import that shares its line with a definition, pinned", () => {
+        expect(scanModuleImports(["using. Features; MyVal := 5", "", "code()"])).toEqual([
+            { path: "Features", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
     it("consumes the indented using: pair as one two-line entry", () => {
         expect(scanModuleImports(["using:", "    /Verse.org/Simulation", "code()"])).toEqual([
             { path: "/Verse.org/Simulation", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
@@ -184,6 +195,17 @@ describe("scanModuleImports", () => {
     it("consumes a using: pair opened after a semicolon, pinning both paths", () => {
         expect(scanModuleImports(["using { /X }; using:", "    Economy.Shop", "", "code()"])).toEqual([
             { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "Economy.Shop", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // The same pair opened after a bare dotted import, which the classification
+    // has to admit before this branch can see it: gated on the line read whole,
+    // the opener was skipped and its indented path was left in the body as a
+    // bare expression, imported by nothing.
+    it("consumes a using: pair opened after a bare dotted import, pinning both paths", () => {
+        expect(scanModuleImports(["using. Features; using:", "    Economy.Shop", "", "code()"])).toEqual([
+            { path: "Features", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
             { path: "Economy.Shop", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
         ]);
     });

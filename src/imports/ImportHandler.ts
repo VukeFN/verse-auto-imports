@@ -7,12 +7,11 @@ import { ImportDocumentEditor } from "./ImportDocumentEditor";
 
 /**
  * The way in to import handling: suggestion extraction, document editing and
- * formatting behind one object that owns their shared instances.
+ * formatting behind one object.
  *
- * Go through this rather than around it. The three collaborators are
- * constructed here and share one ImportFormatter, so reaching for
- * ImportSuggestionExtractor or ImportDocumentEditor directly builds a second
- * set that no longer agrees with this one.
+ * Go through this rather than around it. It is where the collaborators are
+ * wired to the extension context and the assets digest parser, so one built
+ * directly gets whichever of those the caller remembered to pass.
  */
 export class ImportHandler {
     private formatter: ImportFormatter;

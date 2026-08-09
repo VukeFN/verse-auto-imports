@@ -158,8 +158,7 @@ export class ImportSuggestionExtractor {
      *
      * Null and [] mean different things: null when no multi-option pattern
      * matched at all, [] when one matched but no option was importable, such as
-     * a list of bare identifiers. Callers use the difference to decide whether
-     * the single-option patterns still deserve a try.
+     * a list of bare identifiers.
      */
     private parseMultiOptionCandidates(errorMessage: string): ImportCandidate[] | null {
         const match1 = errorMessage.match(PATTERNS.DID_YOU_MEAN_ANY);

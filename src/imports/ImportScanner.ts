@@ -40,8 +40,9 @@ export interface ScannedImport {
      *
      * Neither value is a promise. `false` means no loss is known, not that none
      * is possible: content the statement patterns cannot lex, such as an
-     * unbalanced `'`, ends the capture early, so the reported path is a prefix
-     * of the real one - present, but never re-emitted. `true` does not promise
+     * unbalanced `'`, ends the capture early, which leaves a remainder over and
+     * so pins the line - the reported path is then a prefix of the real one,
+     * present but never re-emitted. `true` does not promise
      * every path on the span was recorded either: a line ending in a `using:`
      * pair reports the statement at its head and the path below, and none in
      * between. The line is pinned either way, so nothing is deleted; the cost is
@@ -74,9 +75,12 @@ interface LineScan {
      * reads a `using` written in trivia as the line's own statement.
      *
      * Nothing is put in a removed comment's place, so text on either side of
-     * one joins. Do not insert a space instead: `usingPathsOnLine` requires a
-     * `using` to begin a token, and every legal separator already survives the
-     * join because none of them is an identifier character.
+     * one joins. That is what the field is for: a comment splicing a token
+     * apart, `us<##>ing { /A }`, rejoins into a `using` the search can find,
+     * and a missed `using` is the one error its callers cannot survive. Putting
+     * a space there instead loses that, and buys only
+     * `X := 1<# note #>using { /A }` - a shape two statements with nothing
+     * between them do not compile as anyway.
      */
     code: string;
     /**

@@ -21,10 +21,11 @@ export class ImportFormatter {
      * The content of a `using` statement with any trailing comment removed,
      * trimmed.
      *
-     * The path captures are greedy to end of line, so a comment left on the
-     * content is captured as part of the path and re-emitted inside the braces
-     * - `using { /X # note }`, where the comment swallows the closing brace and
-     * the statement no longer parses.
+     * A comment left on the content is re-emitted inside the braces -
+     * `using { /X # note }`, where it swallows the closing brace and the
+     * statement no longer parses. Nothing upstream removes it: `#` and `<#` are
+     * both illegal in a module path, so a capture that runs to end of line
+     * takes the comment with it.
      */
     static stripTrailingComment(content: string): string {
         const commentStart = ImportFormatter.commentStartIndex(content);
@@ -161,10 +162,13 @@ export class ImportFormatter {
      * already imports it. An unbalanced `'` matches neither branch, so the
      * capture ends before it and the remainder pins the line.
      *
-     * Do not widen the class to admit a comment opener. matchImport strips a
-     * comment from the capture but measures `end` on the unstripped text, so a
-     * `#` reaching the capture makes the path and the leftover disagree about
-     * where the statement ends.
+     * A `#` reaching the capture makes the path and the leftover disagree about
+     * where the statement ends, because matchImport strips the comment from the
+     * capture but measures `end` on the unstripped text. The class keeps one
+     * out; the quoted alternative does not, so `using. Foo'a#b'` is only kept
+     * away by isModuleImport, which refuses `Foo'a` before the line is scanned.
+     * Relaxing that gate, or widening this class, brings the disagreement into
+     * reach.
      */
     private static readonly DOTTED_STATEMENT = /^using\.\s*((?:[A-Za-z0-9_./@:()-]|'[^']*')*)/;
 
@@ -335,6 +339,9 @@ export class ImportFormatter {
      * The formatted `using` statements for a set of paths, with an empty string
      * between the two groups when a grouping strategy puts imports in both.
      *
+     * @param sortAlphabetically Enables the rank sort, which is not alphabetical
+     *   order - see sortImportsByRank for why plain alphabetical order breaks
+     *   local imports.
      * @param importGrouping 'none', 'digestFirst' or 'localFirst'. Any other
      *   value falls back to 'none', so a setting typo or a renamed enum member
      *   degrades to ungrouped output rather than dropping imports.

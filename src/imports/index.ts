@@ -1,6 +1,7 @@
-// ImportHandler is the entry point for import handling. The collaborators below
-// it are exported for the providers and commands that construct one directly;
-// anything coordinating several of them goes through the facade.
+// ImportHandler is the entry point for import handling: outside this module,
+// take it, the converter and the two providers. ImportSuggestionExtractor and
+// ImportDocumentEditor are the facade's own collaborators and have no caller
+// outside it.
 export { ImportHandler } from "./ImportHandler";
 export { ImportFormatter } from "./ImportFormatter";
 export { ImportSuggestionExtractor } from "./ImportSuggestionExtractor";

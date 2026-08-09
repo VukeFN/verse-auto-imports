@@ -63,9 +63,10 @@ export interface ScannedImport {
      * `using` for the first to count in `using. /X; MyVal := 5` - so the path
      * was the whole of the line and a rebuild corrupted it rather than deleting
      * from it. matchImport now ends that capture where a dotted content stops,
-     * and both questions see what follows the separator. What remains is the
-     * two path forms that capture omits: they truncate, which leaves a
-     * remainder over and pins the line rather than mis-reporting it.
+     * and both questions see what follows the separator. What remains is content
+     * it cannot lex at all, such as an unbalanced `'`: the capture ends early,
+     * which leaves a remainder over and pins the line - so the path it reports
+     * is a prefix of the real one, present but never re-emitted.
      *
      * `true` is likewise not a promise that every path on the span was
      * recorded. A line ending in a `using:` pair reports the statement at its

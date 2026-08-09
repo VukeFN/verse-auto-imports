@@ -162,21 +162,26 @@ export class ImportFormatter {
     /**
      * A dotted `using` statement, capturing its content.
      *
-     * The content class is the union of the three things a dotted `using` can
-     * name: an absolute path, a dot-notation module reference such as
-     * `Economy.Shop`, and a bare folder-module identifier. Verse's path
-     * production allows two further forms this omits on purpose - a `'...'`
-     * segment suffix, which admits almost every printable character, and a
-     * `(path:)` qualifier - because admitting either means parsing where this
-     * only lexes, and truncating one costs the line nothing but its
-     * rewritability.
+     * The class covers every character Verse's path production admits outside a
+     * quoted suffix - a label may hold `.` and `-`, `@` introduces the account,
+     * `/` separates segments, and `(`, `)` and `:` are the qualifier form
+     * `(path:)ident` - together with the bare identifier and the dot-notation
+     * reference a `using` may name instead of a path.
      *
-     * A comment opener cannot appear in the class, so a trailing comment ends
+     * A quoted segment suffix, `Economy.Shop'Loc'`, is consumed whole by the
+     * alternative rather than by the class, because inside one nearly every
+     * printable character is legal - `;` and a space included. Stopping at the
+     * `'` instead would report `Economy.Shop`, a different module that exists,
+     * and a writer asked for that module would then believe the file already
+     * imports it. An unbalanced `'` matches neither branch, so the capture ends
+     * before it and the remainder pins the line.
+     *
+     * A comment opener appears in neither branch, so a trailing comment ends
      * the capture rather than entering it. matchImport strips one from the
-     * capture regardless, so widening the class cannot quietly put a comment
-     * back into a path.
+     * capture regardless, so widening this cannot quietly put a comment back
+     * into a path.
      */
-    private static readonly DOTTED_STATEMENT = /^using\.\s*([A-Za-z0-9_./@-]*)/;
+    private static readonly DOTTED_STATEMENT = /^using\.\s*((?:[A-Za-z0-9_./@:()-]|'[^']*')*)/;
 
     /**
      * The `using` statement written at the head of a string: its path, and how
@@ -197,7 +202,8 @@ export class ImportFormatter {
      * which is how Verse itself lexes a path - `/a/b-c` is the path `/a/b`, then
      * `-`, then `c`. Reading to end of line instead is what let a statement
      * written after a `;` be captured into the path and re-emitted inside the
-     * braces. See DOTTED_STATEMENT for what a dotted content may hold.
+     * braces. See DOTTED_STATEMENT for what a dotted content may hold, and why
+     * ending the capture early is not the safe direction it looks.
      *
      * @returns The path and the offset just past the statement **in the
      *   trimmed input**, or null when there is no statement (including one
@@ -248,11 +254,11 @@ export class ImportFormatter {
      * it. So no depth or string tracking is needed, which nothing in this file
      * does.
      *
-     * Both styles can answer. The braced one ends at its `}`; the dotted one
-     * has no closing delimiter, so it ends where its content stops being
-     * content - see matchImport. A dotted statement whose content is truncated
-     * there reports the remainder as leftover, which pins the line, so the
-     * shapes this cannot lex are refused rather than rewritten wrongly.
+     * Both styles can answer. The braced one ends at its `}`; the dotted one has
+     * no closing delimiter, so it ends where its content stops being content -
+     * see matchImport. Content this cannot lex, such as an unbalanced `'`, ends
+     * the statement early and reports the rest as leftover, which pins the line
+     * rather than rewriting it from a path that was never the whole of it.
      *
      * @param lineCode A line of Verse with its comments already removed. A
      *   trailing comment left on it reads as code written after the statement.

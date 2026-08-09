@@ -313,6 +313,24 @@ describe("scanModuleImports", () => {
         expect(rewritableImports(scanModuleImports(["using. /X;", "code()"]))).toEqual([]);
     });
 
+    // Ending the capture at the `'` would record `Economy.Shop`, a module that
+    // exists and is not the one this line imports - so a writer asked for
+    // `Economy.Shop` would read the file as already importing it and withhold
+    // the import the compiler asked for.
+    it("records the whole path of a dotted import carrying a quoted suffix", () => {
+        expect(rewritableImports(scanModuleImports(["using. Economy.Shop'Loc'", "code()"]))).toEqual([
+            { path: "Economy.Shop'Loc'", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
+        ]);
+        expect(allUsingPaths(["using. Economy.Shop'Loc'", "code()"])).toEqual(["Economy.Shop'Loc'"]);
+    });
+
+    // allUsingPaths reads an empty answer as permission to remove an import, so
+    // a content it cannot lex must still report a path rather than none.
+    it("records the whole path of a dotted import carrying a qualifier", () => {
+        expect(scanModuleImports(["using. (/A:)B.C", "code()"]).map((imp) => imp.path)).toEqual(["(/A:)B.C"]);
+        expect(allUsingPaths(["using. (/A:)B.C", "code()"])).toEqual(["(/A:)B.C"]);
+    });
+
     // The dotted capture ends at the first character a content cannot hold, so
     // a comment cannot enter the path and the statement stays rewritable.
     it("leaves an ordinary dotted import rewritable, with and without a comment", () => {

@@ -26,9 +26,7 @@ export interface ModuleLocationCandidate {
     sourceFile: string;
 }
 
-/**
- * Lookup indexes derived from the flat node list.
- */
+/** The lookup indexes derived from the flat node list. */
 export interface ProjectIndexes {
     /** Lowercased identifier name -> all declarations with that name */
     identifierIndex: Map<string, ProjectPathNode[]>;
@@ -41,7 +39,8 @@ export interface ProjectIndexes {
 }
 
 /**
- * Build all lookup indexes from the flat node list in one pass.
+ * Every lookup index, built from the node list in a single pass. Each index
+ * holds references into that list rather than copies.
  */
 export function buildProjectIndexes(nodes: readonly ProjectPathNode[]): ProjectIndexes {
     const identifierIndex = new Map<string, ProjectPathNode[]>();
@@ -80,7 +79,8 @@ export function buildProjectIndexes(nodes: readonly ProjectPathNode[]): ProjectI
 }
 
 /**
- * Resolve the possible locations of a module import path.
+ * The distinct locations a module import path could refer to, one entry per
+ * location with the first source file found for it.
  *
  * The requested path uses "/" separators as produced by
  * ImportPathConverter.extractModuleFromImport (e.g. "HUD/Textures" for the
@@ -168,10 +168,10 @@ export function resolveModuleLocations(modulePath: string, moduleNameIndex: Read
 }
 
 /**
- * Convert a workspace-relative source file path to its Content-relative
- * directory, or null when the file is not under the Content folder (such
- * files cannot provide importable module locations). Mirrors the path
- * normalization of the converter's filesystem scan.
+ * The Content-relative directory of a workspace-relative source file, or null
+ * when the file sits outside the Content folder and so cannot provide an
+ * importable module location. Mirrors the path normalization of the converter's
+ * filesystem scan.
  */
 function toContentRelativeDir(sourceFile: string, workspaceIsContent: boolean): string | null {
     const lastSlash = sourceFile.lastIndexOf("/");

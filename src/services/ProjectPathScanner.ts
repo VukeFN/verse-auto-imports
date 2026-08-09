@@ -7,8 +7,11 @@ import { ProjectPathData, ProjectPathNode, ProjectScanOptions } from "../types";
 const SCAN_CONCURRENCY = 8;
 
 /**
- * Scans .verse files in the project and extracts module, class, struct,
- * function, and variable declarations as a flat node list.
+ * Reads the project's .verse files into a flat list of the module, class,
+ * struct, interface, enum, function and variable declarations they make.
+ *
+ * The nesting a declaration sits in survives only as the dotted `fullPath` on
+ * each node; nothing here returns a tree.
  */
 export class ProjectPathScanner {
     constructor(
@@ -17,8 +20,9 @@ export class ProjectPathScanner {
     ) {}
 
     /**
-     * Scans all .verse files in the workspace and returns the project's
-     * declaration data, or null when no UEFN project is found.
+     * Every declaration across the workspace's .verse files, or null when no
+     * UEFN project was found and null again when the scan itself failed - a
+     * caller cannot tell the two apart, and neither raises.
      */
     async scanProject(workspaceFolder: vscode.WorkspaceFolder, options: ProjectScanOptions = {}): Promise<ProjectPathData | null> {
         const startTime = Date.now();
@@ -83,7 +87,9 @@ export class ProjectPathScanner {
     }
 
     /**
-     * Parses a single .verse file and extracts declarations.
+     * The declarations in one .verse file, or [] when it could not be read or
+     * parsed. A failure here is logged and swallowed so one unreadable file
+     * cannot abandon a whole scan.
      */
     async parseVerseFile(fileUri: vscode.Uri, workspaceFolder: vscode.WorkspaceFolder, options: ProjectScanOptions = {}): Promise<ProjectPathNode[]> {
         try {
@@ -99,32 +105,38 @@ export class ProjectPathScanner {
     }
 
     /**
-     * Extracts module, class, struct, and function declarations from Verse content.
+     * The declarations in a file's text, in source order.
+     *
+     * `sourceLine` is 1-based, for direct use as an editor position. `fullPath`
+     * carries the dotted chain of enclosing modules, so it equals `name` only at
+     * file scope. Declarations nested in a class or struct body are not filtered
+     * out here; only indentation-scoped module nesting is tracked.
      */
     extractDeclarations(content: string, filePath: string, options: ProjectScanOptions = {}): ProjectPathNode[] {
         const nodes: ProjectPathNode[] = [];
         const lines = content.split("\n");
 
-        // Track current module context with indentation levels
         let currentModulePath = "";
         const moduleStack: { name: string; indent: number }[] = [];
 
-        // Visibility specifiers in Verse: public, protected, private, internal, scoped
         const visibilitySpecifiers = "public|protected|private|internal|scoped";
 
-        // Helper to extract visibility from specifier string like "<native><public>"
+        // A declaration carries any number of stacked specifiers, of which at
+        // most one is a visibility; the rest (<native>, <final>, ...) are noise
+        // to this scan.
         const extractVisibility = (specifiers: string | undefined): string | undefined => {
             if (!specifiers) return undefined;
             const match = specifiers.match(new RegExp(`<(${visibilitySpecifiers})>`));
             return match ? match[1] : undefined;
         };
 
-        // Helper to check if a declaration should be skipped based on visibility
         const shouldSkipDeclaration = (visibility: string | undefined, isModuleType: boolean = false): boolean => {
             if (!options.includePrivate && visibility === "private") {
                 return true;
             }
-            // Modules have special logic: include public and internal (no visibility = internal)
+            // A module is kept when it is public or internal, and no specifier
+            // at all means internal in Verse. Anything narrower - protected or
+            // scoped - cannot be imported from outside and is dropped.
             if (isModuleType) {
                 const isPublic = visibility === "public";
                 const isInternal = !visibility || visibility === "internal";
@@ -135,17 +147,19 @@ export class ProjectPathScanner {
             return false;
         };
 
-        // Patterns for declarations
-        // Format: Name<specifier1><specifier2>... := type<typespec>...(parent):
-        // Captures: [1] = name, [2] = all specifiers after name (may contain visibility)
+        // Every pattern below captures [1] the declared name and [2] the
+        // specifiers attached to that name, matching the shape
+        // `Name<spec><spec> := type<typespec>(parent):`. Specifiers on the
+        // right of `:=` belong to the type, not the name, and are skipped
+        // rather than captured.
         const modulePattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*module\s*:/;
         const classPattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*class\s*(?:<[^>]+>)*\s*[\(:]?/;
         const structPattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*struct\s*(?:<[^>]+>)*\s*[\(:]?/;
         const interfacePattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*interface\s*(?:<[^>]+>)*\s*[\(:]?/;
         const enumPattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*enum\s*(?:<[^>]+>)?\s*:/;
-        // Standard function: Name<specifiers>(params)<effects>:
+        /** `Name<specifiers>(params)<effects>:` */
         const functionPattern = /^(\w+)((?:<[^>]+>)*)\s*\([^)]*\)\s*(?:<[^>]+>)*\s*:/;
-        // Extension method: (Type:type).Name<specifiers>(params)<effects>:
+        /** `(Type:type).Name<specifiers>(params)<effects>:` */
         const extensionMethodPattern = /^\([^)]+\)\.(\w+)((?:<[^>]+>)*)\s*\([^)]*\)/;
         const variablePattern = /^(\w+)((?:<[^>]+>)*)\s*:/;
 
@@ -153,27 +167,26 @@ export class ProjectPathScanner {
             const rawLine = lines[i];
             const line = rawLine.trim();
 
-            // Skip comments and empty lines
             if (line === "" || line.startsWith("#") || line.startsWith("//")) {
                 continue;
             }
 
-            // Skip using statements
             if (line.startsWith("using")) {
                 continue;
             }
 
-            // Calculate indentation (spaces or tabs converted to spaces)
+            // Each tab counts as four spaces so mixed indentation compares
+            // consistently.
             const indentMatch = rawLine.match(/^(\s*)/);
             const indent = indentMatch ? indentMatch[1].replace(/\t/g, "    ").length : 0;
 
-            // Pop modules from stack when indentation decreases
+            // Indentation alone closes a module: a line at or left of the open
+            // module's own indent is outside it.
             while (moduleStack.length > 0 && indent <= moduleStack[moduleStack.length - 1].indent) {
                 moduleStack.pop();
             }
             currentModulePath = moduleStack.length > 0 ? moduleStack[moduleStack.length - 1].name : "";
 
-            // Check for module declaration
             const moduleMatch = line.match(modulePattern);
             if (moduleMatch) {
                 const [, name, specifiers] = moduleMatch;
@@ -199,7 +212,6 @@ export class ProjectPathScanner {
                 continue;
             }
 
-            // Check for class declaration
             const classMatch = line.match(classPattern);
             if (classMatch) {
                 const [, name, specifiers] = classMatch;
@@ -223,7 +235,6 @@ export class ProjectPathScanner {
                 continue;
             }
 
-            // Check for struct declaration
             const structMatch = line.match(structPattern);
             if (structMatch) {
                 const [, name, specifiers] = structMatch;
@@ -247,7 +258,6 @@ export class ProjectPathScanner {
                 continue;
             }
 
-            // Check for interface declaration
             const interfaceMatch = line.match(interfacePattern);
             if (interfaceMatch) {
                 const [, name, specifiers] = interfaceMatch;
@@ -271,7 +281,6 @@ export class ProjectPathScanner {
                 continue;
             }
 
-            // Check for enum declaration
             const enumMatch = line.match(enumPattern);
             if (enumMatch) {
                 const [, name, specifiers] = enumMatch;
@@ -295,7 +304,6 @@ export class ProjectPathScanner {
                 continue;
             }
 
-            // Check for extension method first (before regular function)
             const extensionMatch = line.match(extensionMethodPattern);
             if (extensionMatch) {
                 const [, name, specifiers] = extensionMatch;
@@ -319,7 +327,6 @@ export class ProjectPathScanner {
                 continue;
             }
 
-            // Check for function declaration
             const functionMatch = line.match(functionPattern);
             if (functionMatch) {
                 const [, name, specifiers] = functionMatch;
@@ -343,7 +350,10 @@ export class ProjectPathScanner {
                 continue;
             }
 
-            // Check for variable declaration (should be last to avoid false positives)
+            // Last, and it must stay last. The `:` this pattern needs is also
+            // the first character of the `:=` that opens a type declaration, so
+            // it matches those too; the branches above only win by being asked
+            // first, and the guards below cover the shapes they did not match.
             const variableMatch = line.match(variablePattern);
             if (variableMatch) {
                 const [, name, specifiers] = variableMatch;
@@ -354,12 +364,15 @@ export class ProjectPathScanner {
                     continue;
                 }
 
-                // Skip if it looks like a function or type definition
+                // Both guards are backstops for a declaration whose specific
+                // pattern above did not match the exact shape written: a type,
+                // recognised by `:=` with a declaration keyword, and a function,
+                // recognised by a parameter list before the colon. Either would
+                // otherwise be recorded as a variable.
                 if (line.includes(":=") && (line.includes("class") || line.includes("struct") || line.includes("module") || line.includes("interface") || line.includes("enum"))) {
                     continue;
                 }
 
-                // Skip if it's a function (has parentheses before the colon)
                 if (/\([^)]*\)\s*(?:<[^>]+>)?\s*:/.test(line)) {
                     continue;
                 }

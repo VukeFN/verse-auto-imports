@@ -234,6 +234,19 @@ describe("scanModuleImports", () => {
         ]);
     });
 
+    // This branch has first refusal, so a line ending in `using:` never reaches
+    // the one that counts what a line writes. Reading only the head recorded
+    // `/X` and the indented path and left `/Y` out - not data loss, since the
+    // line is pinned, but a writer asked for `/Y` then writes a second copy of a
+    // path the file already imports.
+    it("records every statement written before the pair a line opens", () => {
+        expect(scanModuleImports(["using { /X }; using { /Y }; using:", "    Economy.Shop", "", "code()"])).toEqual([
+            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "/Y", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "Economy.Shop", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
     // A `using:` following something that is not a `using` writes no import
     // this scanner may touch: isModuleImport rejects the line, so it is skipped
     // whole and left exactly as written.

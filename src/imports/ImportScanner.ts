@@ -42,12 +42,12 @@ export interface ScannedImport {
      * is possible: content the statement patterns cannot lex, such as an
      * unbalanced `'`, ends the capture early, which leaves a remainder over and
      * so pins the line - the reported path is then a prefix of the real one,
-     * present but never re-emitted. `true` does not promise
-     * every path on the span was recorded either: a line ending in a `using:`
-     * pair reports the statement at its head and the path below, and none in
-     * between. The line is pinned either way, so nothing is deleted; the cost is
-     * a path that does not count as present, which lets a writer add a second
-     * copy of it.
+     * present but never re-emitted. `true` does not promise every path on the
+     * span was recorded either: a `using` glued to an identifier by a comment
+     * removed from between them, `using { /A }; Y<# note #>using { /B }`, is not
+     * a statement usingPathsOnLine offers. The line is pinned either way, so
+     * nothing is deleted; the cost is a path that does not count as present,
+     * which lets a writer add a second copy of it.
      */
     rebuildLosesText: boolean;
     /**
@@ -347,8 +347,8 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
         }
 
         // The same pair, opened after a `;` rather than at the head of its line.
-        // `;` separates definitions in a scope exactly as a newline does, so a
-        // statement can precede the `using:`. Without this branch such a line
+        // `;` separates definitions in a scope exactly as a newline does, so
+        // statements can precede the `using:`. Without this branch such a line
         // falls through to the single-statement branch below, which reports the
         // path before the `;` and a span of one line - and a writer rebuilding
         // that line from that path deletes the `; using:`, stranding its path in
@@ -374,12 +374,16 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
         // excludes a pinned entry; a reader of the unfiltered scan gets the
         // region reported once per path it carries.
         if (/\busing\s*:\s*$/.test(code)) {
-            // The statement before the `;`, when the line writes one. A
-            // `using:` following something that is not a `using` never reaches
-            // here - isModuleImport rejects the line above and it is skipped
-            // whole.
-            const precedingPath = formatter.extractPathFromImport(code);
-            if (precedingPath) {
+            // Every statement written before the pair. The `using:` contributes
+            // no path of its own, since neither statement pattern matches it,
+            // and a `using:` following something that is not a `using` never
+            // reaches here - isModuleImport rejects the line above and it is
+            // skipped whole.
+            //
+            // Counted with usingPathsOnLine because this branch holds first
+            // refusal over the one below, so a line ending in `using:` is
+            // counted here or nowhere.
+            for (const precedingPath of usingPathsOnLine(formatter, code)) {
                 imports.push({
                     path: precedingPath,
                     startLine: i,

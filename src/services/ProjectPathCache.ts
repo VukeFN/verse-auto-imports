@@ -158,10 +158,11 @@ export class ProjectPathCache {
     /**
      * Reparses the named files and swaps their declarations into the cache.
      *
-     * A file the scanner could not read yields no nodes rather than an error,
-     * so it is committed as empty and its previous declarations are dropped;
-     * only a failure raised outside the scanner keeps the old nodes. Both cases
-     * self-correct on the file's next change event.
+     * A file that could not be read keeps the declarations it already had,
+     * rather than committing as one that declares nothing; the next change
+     * event reparses it. A file that was read and declares nothing does commit
+     * as empty, which is what makes deleting the last declaration in a file
+     * take effect.
      *
      * Parsing awaits, and `this.data` can be replaced while it does - the
      * .uefnproject watcher, watcher teardown and the Clear Project Path Cache
@@ -192,14 +193,19 @@ export class ProjectPathCache {
             try {
                 const fileUri = vscode.Uri.joinPath(workspaceFolders[0].uri, filePath);
                 const nodes = await scanner.parseVerseFile(fileUri, workspaceFolders[0]);
+
+                // Staying out of parsedResults is what keeps this file's
+                // existing nodes: the commit below only replaces files it
+                // reparsed. The scanner logged the failure already.
+                if (nodes === null) {
+                    failedFiles.push(filePath);
+                    continue;
+                }
+
                 parsedResults.set(filePath, nodes);
             } catch (error) {
                 logger.error("ProjectPathCache", `Failed to reparse ${filePath}`, error);
                 failedFiles.push(filePath);
-                // Staying out of parsedResults is what keeps this file's
-                // existing nodes: the commit below only replaces files it
-                // reparsed. Reachable only for a throw from outside
-                // parseVerseFile, which swallows its own read and parse errors.
             }
         }
 
@@ -219,7 +225,7 @@ export class ProjectPathCache {
         this.rebuildIndexes();
 
         if (failedFiles.length > 0) {
-            logger.warn("ProjectPathCache", `Kept old cache for ${failedFiles.length} failed file(s): ${failedFiles.join(", ")}`);
+            logger.warn("ProjectPathCache", `Reparse failed for ${failedFiles.length} file(s), left as cached: ${failedFiles.join(", ")}`);
         }
 
         data.generatedAt = Date.now();

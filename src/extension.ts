@@ -67,9 +67,9 @@ export function activate(context: vscode.ExtensionContext) {
     logger.debug("Extension", "Settings at activation", sessionState.settings);
 
     // Handlers take this channel but log through the `logger` singleton. The
-    // parameter survives from before the logger existed, and the only real
-    // uses left are StatusBarHandler showing the channel and ProjectPathCache
-    // passing it on to the scanner.
+    // parameter survives from before the logger existed and is threaded down
+    // the whole handler tree; the only thing anyone does with it at the end is
+    // StatusBarHandler showing the channel.
     const outputChannel = logger.getUserChannel();
 
     const config = vscode.workspace.getConfiguration("verseAutoImports");

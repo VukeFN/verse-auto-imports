@@ -41,9 +41,9 @@ export interface ProjectPathData {
     projectName: string;
 
     /**
-     * Milliseconds since the epoch, stamped by a full scan and by invalidation.
-     * Deleting a file prunes `nodes` without restamping, so this is the age of
-     * the last scan and not a last-modified time.
+     * Milliseconds since the epoch, stamped by a full scan and by invalidation,
+     * whichever ran last. Deleting a file prunes `nodes` without restamping, so
+     * this is not a last-modified time for the data.
      */
     generatedAt: number;
 

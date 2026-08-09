@@ -47,8 +47,8 @@ export class ProjectPathHandler {
      * the folder the user opens is often below the project file rather than at
      * it.
      *
-     * Only a success is cached. Every call that ends in null repeats the whole
-     * search, which matters on the paths that call this per document.
+     * Only a success is cached, so in a workspace with no `.uefnproject` every
+     * call redoes the folder scan and the parent walk from scratch.
      */
     async findAndParseProjectFile(): Promise<UEFNProjectFile | null> {
         if (this.cachedProjectFile) {

@@ -142,12 +142,14 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
     }
 
     /**
-     * The conversion lenses for a document: one per convertible import, plus a
-     * "for all" lens beside each where the file holds more than one import of
-     * that direction.
+     * The conversion lenses for a document, and a "for all" lens beside each
+     * where the file holds more than one import of that direction.
      *
-     * Empty when the feature is off, and in "hover" mode when nothing in this
-     * document is hovered.
+     * An import gets a lens only where the conversion has somewhere to go: a
+     * built-in module has no relative form, and a statement no module name can
+     * be read out of has nothing to convert. So a file of nothing but Epic
+     * imports carries no lens at all, and neither does one where the feature is
+     * off or, in "hover" mode, nothing is hovered.
      */
     async provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CodeLens[]> {
         const codeLenses: vscode.CodeLens[] = [];

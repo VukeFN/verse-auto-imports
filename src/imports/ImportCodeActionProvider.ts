@@ -26,9 +26,9 @@ export class ImportCodeActionProvider implements vscode.CodeActionProvider {
         const codeActions: vscode.CodeAction[] = [];
         const config = vscode.workspace.getConfiguration("verseAutoImports");
         const sortAlphabetically = config.get<boolean>("quickFix.sortAlphabetically", false);
-        // false is what package.json registers, and config.get returns the
-        // registered default for a registered setting - so a fallback of true
-        // never reached production and only ever changed what the tests saw.
+        // Only a caller with no registered setting behind it, such as a test,
+        // ever sees this fallback - config.get returns the registered default
+        // otherwise, and package.json registers false.
         const showDescriptions = config.get<boolean>("quickFix.showDescriptions", false);
 
         for (const diagnostic of context.diagnostics) {
@@ -47,7 +47,7 @@ export class ImportCodeActionProvider implements vscode.CodeActionProvider {
                     suggestion,
                     diagnostic,
                     document,
-                    index === 0, // Mark first as preferred
+                    index === 0, // isPreferred
                     showDescriptions,
                 );
                 codeActions.push(action);

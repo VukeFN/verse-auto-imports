@@ -165,8 +165,9 @@ interface AnchoredBounds {
 }
 
 /**
- * Every write the extension makes to a document's imports: adding the ones a
- * diagnostic asked for, reorganizing the block, and the blank lines after it.
+ * Managing a document's import block: adding the imports a diagnostic asked
+ * for, reorganizing what is there, and the blank lines after it. Converting an
+ * existing import between path forms belongs to ImportPathConverter.
  *
  * The three share one set of placement rules, which is why they share a class:
  * where an import may go depends on the ranks of the imports already there and
@@ -203,10 +204,9 @@ export class ImportDocumentEditor {
             // is the marker that anchors it. Restoring that onto a rebuilt line
             // is what puts the marker somewhere it was not written, so it is
             // refused here rather than only by every caller passing a filtered
-            // list. Every caller does today; one that forgot would move the
-            // marker on its own. A statement sharing its span is refused for
-            // the same reason: what trails it is the rest of the span, not an
-            // annotation to re-emit.
+            // list. A statement sharing its span is refused for the same
+            // reason: what trails it is the rest of the span, not an annotation
+            // to re-emit.
             if (!imp.trailingComment || imp.anchorsCommentBelow || imp.rebuildLosesText) {
                 continue;
             }
@@ -885,10 +885,9 @@ export class ImportDocumentEditor {
         // resolves its own path top-down: a path that is not absolute needs its
         // first segment already in scope above it, which is why sorting ranks
         // them (see ImportFormatter.sortImportsByRank). The anchored line ends
-        // up below the rebuilt block, so withholding
-        // the copy above it can strand such a path - in the block, or further
-        // down the body where scanModuleImports does not even look, as in a
-        // module-definition body.
+        // up below the rebuilt block, so withholding the copy above it can
+        // strand such a path - in the block, or further down the body where
+        // scanModuleImports does not even look, as in a module-definition body.
         //
         // So this asks the whole file, every `using` at every indentation, and
         // withholds only where all of them are absolute. An absolute path needs

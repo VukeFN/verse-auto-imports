@@ -37,9 +37,9 @@ const CONTENT_FOLDER = "Content";
  * Converts a `using` between the absolute Verse path of a module and the
  * relative reference to it, in either direction, and writes the result.
  *
- * Converting to an absolute path means finding where the module lives, which
- * is a workspace search rather than a text transform, so only this direction
- * can be ambiguous or fail outright.
+ * The two directions are not mirror images. Going relative shortens a path the
+ * file already carries; going absolute has to find where the module lives,
+ * which is a workspace search, so only that direction can come back ambiguous.
  */
 export class ImportPathConverter {
     private readonly projectPathHandler: ProjectPathHandler;
@@ -176,7 +176,6 @@ export class ImportPathConverter {
             return { fullPath: pathStr, moduleName };
         }
 
-        // Dot notation: HUD.Textures becomes HUD/Textures.
         const identPattern = /[A-Za-z_][A-Za-z0-9_]*(?:'[^']*')?/g;
         const dotSegments: string[] = [];
         let match;
@@ -269,7 +268,6 @@ export class ImportPathConverter {
             return logicalPath;
         };
 
-        // Siblings.
         if (dirSegments.length > 1) {
             const parentPath = dirSegments.slice(0, dirSegments.length - 1).join("/");
             const siblingTestPath = `${parentPath}/${modulePath}`;
@@ -282,7 +280,6 @@ export class ImportPathConverter {
             }
         }
 
-        // Ancestor directories, nearest outwards.
         for (let i = dirSegments.length - 2; i >= 0; i--) {
             const checkPath = dirSegments.slice(0, i + 1).join("/");
             const testPath = `${checkPath}/${modulePath}`;
@@ -295,7 +292,6 @@ export class ImportPathConverter {
             }
         }
 
-        // The Content root.
         const contentDirectChild = `${CONTENT_FOLDER}/${modulePath}`;
         if (await this.folderExists(workspaceFolder, getFsCheckPath(contentDirectChild))) {
             if (!locations.includes("")) locations.push("");
@@ -444,11 +440,16 @@ export class ImportPathConverter {
     /**
      * The relative form of an absolute import, in the style the author wrote,
      * or null when there is none to give: a built-in module, an import that
-     * was never absolute, or a workspace with no `.uefnproject` to take the
-     * project path from.
+     * was never absolute, a workspace with no `.uefnproject` to take the
+     * project path from, or a path that shortens to nothing.
      *
-     * Never ambiguous. Shortening a path the file already carries needs
-     * nothing looked up, unlike the other direction.
+     * Never ambiguous, because one project path shortens one import exactly one
+     * way. The other direction has a whole workspace of candidate locations to
+     * choose between.
+     *
+     * A path belonging to another project is not refused, only left whole: with
+     * no project prefix to strip, every segment survives into the dotted form,
+     * which then names a module of this project that does not exist.
      */
     async convertFromFullPath(importStatement: string, line?: number): Promise<ImportConversionResult | null> {
         if (this.isBuiltinModule(importStatement)) {
@@ -530,10 +531,13 @@ export class ImportPathConverter {
 
     /**
      * The absolute form of a relative import, in the style the author wrote,
-     * or null when the import is already absolute, names no module, or names
-     * one the workspace search cannot place. The last two also put a message
-     * in front of the user, since both are a request that failed rather than
-     * one that did not apply.
+     * or null when there is none to give: an import that is already absolute,
+     * one naming no module at all, a workspace with no `.uefnproject` to take
+     * the project path from, or a module the search cannot place.
+     *
+     * The last two also put a message in front of the user, since a lookup that
+     * came back empty is a request that failed rather than one that did not
+     * apply.
      *
      * A module resolving to several locations comes back `isAmbiguous`, with
      * the candidates in `possiblePaths` and no statement built yet - the caller

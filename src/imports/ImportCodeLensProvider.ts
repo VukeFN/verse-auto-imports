@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { logger } from "../utils";
 import { ImportPathConverter } from "./ImportPathConverter";
-import { scanConvertibleImports } from "./ImportScanner";
+import { LINE_SPLIT, scanConvertibleImports } from "./ImportScanner";
 
 /**
  * Tracks hover state for a document's imports. An entry can exist purely to
@@ -161,7 +161,7 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
         }
 
         const text = document.getText();
-        const lines = text.split("\n");
+        const lines = text.split(LINE_SPLIT);
 
         // Membership is the shared scanner's call, not this provider's: a lens
         // must appear on exactly the lines a conversion would act on, which

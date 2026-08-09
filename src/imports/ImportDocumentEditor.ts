@@ -166,12 +166,14 @@ interface AnchoredBounds {
 
 /**
  * Managing a document's import block: adding the imports a diagnostic asked
- * for, reorganizing what is there, and the blank lines after it. Converting an
- * existing import between path forms belongs to ImportPathConverter.
+ * for, reorganizing what is there, and the blank lines after it.
  *
  * The three share one set of placement rules, which is why they share a class:
  * where an import may go depends on the ranks of the imports already there and
  * on which of them are pinned to their line.
+ *
+ * Converting an existing import between path forms is ImportPathConverter's,
+ * and is the one write into an import line that does not come from here.
  */
 export class ImportDocumentEditor {
     private readonly formatter: ImportFormatter;

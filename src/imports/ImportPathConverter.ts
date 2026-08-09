@@ -449,7 +449,7 @@ export class ImportPathConverter {
      *
      * A path belonging to another project is not refused, only left whole: with
      * no project prefix to strip, every segment survives into the dotted form,
-     * which then names a module of this project that does not exist.
+     * which this project cannot resolve.
      */
     async convertFromFullPath(importStatement: string, line?: number): Promise<ImportConversionResult | null> {
         if (this.isBuiltinModule(importStatement)) {

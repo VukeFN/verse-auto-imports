@@ -23,9 +23,10 @@ export class ImportFormatter {
      *
      * A comment left on the content is re-emitted inside the braces -
      * `using { /X # note }`, where it swallows the closing brace and the
-     * statement no longer parses. Nothing upstream removes it: `#` and `<#` are
-     * both illegal in a module path, so a capture that runs to end of line
-     * takes the comment with it.
+     * statement no longer parses. A path may hold no `#`, but the captures that
+     * produce one may: the braced capture stops only at its `}`, and the dotted
+     * and indented forms read to end of line. So the comment arrives here still
+     * attached, and this is where it comes off.
      */
     static stripTrailingComment(content: string): string {
         const commentStart = ImportFormatter.commentStartIndex(content);

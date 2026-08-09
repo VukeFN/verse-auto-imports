@@ -9,9 +9,10 @@ import { ImportDocumentEditor } from "./ImportDocumentEditor";
  * The way in to import handling: suggestion extraction, document editing and
  * formatting behind one object.
  *
- * Go through this rather than around it. It is where the collaborators are
- * wired to the extension context and the assets digest parser, so one built
- * directly gets whichever of those the caller remembered to pass.
+ * Go through this rather than around it. It is the only place the extension
+ * context and the assets digest parser are threaded into
+ * ImportSuggestionExtractor, so an extractor built directly gets whichever of
+ * the two the caller remembered to pass.
  */
 export class ImportHandler {
     private formatter: ImportFormatter;

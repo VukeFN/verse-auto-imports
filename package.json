@@ -210,7 +210,7 @@
           "order": 13
         },
         "verseAutoImports.behavior.emptyLinesAfterImports": {
-          "type": "number",
+          "type": "integer",
           "default": 1,
           "minimum": -1,
           "maximum": 5,

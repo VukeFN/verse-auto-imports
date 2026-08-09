@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { logger } from "../utils";
 
 interface QuickPickItemWithAction extends vscode.QuickPickItem {
+    /** What selecting the item does. Separators and labels carry none. */
     action?: () => void | Promise<void>;
 }
 
@@ -13,6 +14,13 @@ function toggleIcon(enabled: boolean, label: string): string {
     return enabled ? `$(check) ${label}` : `$(blank) ${label}`;
 }
 
+/**
+ * The extension's status bar item, the quick-pick menu behind it, and the
+ * snooze that suppresses auto-import for a few minutes at a time.
+ *
+ * Disposable, and registered as one during activation: an armed snooze holds a
+ * repeating interval that would otherwise keep running after teardown.
+ */
 export class StatusBarHandler {
     private statusBarItem: vscode.StatusBarItem;
     private snoozeEndTime: number | null = null;
@@ -21,13 +29,15 @@ export class StatusBarHandler {
 
     constructor(private outputChannel: vscode.OutputChannel) {
         this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, STATUS_BAR_PRIORITY);
+        // Clicking the item invokes this id, which CommandsHandler registers.
+        // Nothing checks the two agree; a rename on either side leaves an item
+        // whose click does nothing.
         this.statusBarItem.command = "verseAutoImports.showStatusMenu";
         this.statusBarItem.name = "Verse Auto Imports";
 
         this.updateDisplay();
         this.statusBarItem.show();
 
-        // Listen for configuration changes to update status bar
         this.configListener = vscode.workspace.onDidChangeConfiguration((event) => {
             if (event.affectsConfiguration("verseAutoImports")) {
                 // A snooze does not touch the setting, so this only fires when
@@ -40,7 +50,6 @@ export class StatusBarHandler {
                     const autoImportEnabled = config.get<boolean>("general.autoImport", true);
 
                     if (autoImportEnabled) {
-                        // User manually enabled auto imports - cancel the snooze silently
                         this.cancelSnoozeSilently();
                     }
                 }
@@ -50,11 +59,14 @@ export class StatusBarHandler {
     }
 
     /**
-     * Whether auto imports are currently suppressed by a snooze. Snooze state
-     * is deliberately in-memory only: it is ephemeral and time-boxed, so it
-     * must not outlive the extension host. Persisting it (or mirroring it into
-     * user settings) is what could leave auto imports off forever after a
-     * reload mid-snooze.
+     * Whether auto imports are currently suppressed by a snooze. This is the
+     * whole of the suppression signal: activation reads it directly and hands
+     * it to DiagnosticsHandler, so nothing else has to be consulted.
+     *
+     * Snooze state is deliberately in-memory only: it is ephemeral and
+     * time-boxed, so it must not outlive the extension host. Persisting it (or
+     * mirroring it into user settings) is what could leave auto imports off
+     * forever after a reload mid-snooze.
      */
     isSnoozeActive(): boolean {
         return this.snoozeEndTime !== null && Date.now() < this.snoozeEndTime;
@@ -62,15 +74,14 @@ export class StatusBarHandler {
 
     updateDisplay(): void {
         if (this.isSnoozeActive()) {
-            // Snooze is active - show text with countdown
             const remaining = this.getRemainingTime();
             this.statusBarItem.text = `Verse Auto Imports (${remaining})`;
         } else {
-            // Normal state - just show text
             this.statusBarItem.text = "Verse Auto Imports";
         }
     }
 
+    /** The time left on the snooze as `m:ss`, or "0:00" once it has run out. */
     private getRemainingTime(): string {
         if (this.snoozeEndTime === null) return "0:00";
 
@@ -82,6 +93,11 @@ export class StatusBarHandler {
         return `${minutes}:${seconds.toString().padStart(2, "0")}`;
     }
 
+    /**
+     * Shows the quick-pick menu and runs whatever the user picked. Every row
+     * reads its state from configuration at the moment the menu opens, so a
+     * setting changed elsewhere is reflected the next time it is shown.
+     */
     async showMenu(): Promise<void> {
         const config = vscode.workspace.getConfiguration("verseAutoImports");
         const autoImportEnabled = config.get<boolean>("general.autoImport", true);
@@ -95,7 +111,6 @@ export class StatusBarHandler {
 
         const items: QuickPickItemWithAction[] = [];
 
-        // ── Quick Actions ──
         items.push({
             label: "Quick Actions",
             kind: vscode.QuickPickItemKind.Separator,
@@ -109,14 +124,14 @@ export class StatusBarHandler {
             },
         });
 
-        // ── General ──
         items.push({
             label: "General",
             kind: vscode.QuickPickItemKind.Separator,
         });
 
-        // A snooze no longer flips the setting, so the row would otherwise
-        // report "Enabled" while imports are suppressed.
+        // Three states, not two: a snooze suppresses imports without touching
+        // the setting, so a row derived from the setting alone reads "Enabled"
+        // while nothing is being imported.
         let autoImportDescription: string;
         if (!autoImportEnabled) {
             autoImportDescription = "Disabled";
@@ -135,7 +150,6 @@ export class StatusBarHandler {
             },
         });
 
-        // Snooze section
         if (this.isSnoozeActive()) {
             const remaining = this.getRemainingTime();
 
@@ -164,7 +178,6 @@ export class StatusBarHandler {
             });
         }
 
-        // ── Import Behavior ──
         items.push({
             label: "Import Behavior",
             kind: vscode.QuickPickItemKind.Separator,
@@ -188,7 +201,6 @@ export class StatusBarHandler {
             },
         });
 
-        // Import Grouping option
         let groupingLabel = "";
         let groupingDescription = "";
 
@@ -215,7 +227,6 @@ export class StatusBarHandler {
             },
         });
 
-        // Import Syntax checkbox
         const isDotSyntax = importSyntax === "dot";
         items.push({
             label: toggleIcon(isDotSyntax, "Dot Syntax (using.)"),
@@ -227,7 +238,6 @@ export class StatusBarHandler {
             },
         });
 
-        // ── Path Conversion ──
         items.push({
             label: "Path Conversion",
             kind: vscode.QuickPickItemKind.Separator,
@@ -242,7 +252,6 @@ export class StatusBarHandler {
             },
         });
 
-        // CodeLens Visibility submenu
         const visibilityLabel = codeLensVisibility === "hover" ? "Hover Only" : "Always Visible";
         items.push({
             label: `$(list-unordered) CodeLens Visibility: ${visibilityLabel} $(chevron-right)`,
@@ -252,7 +261,6 @@ export class StatusBarHandler {
             },
         });
 
-        // ── Experimental ──
         items.push({
             label: "Experimental",
             kind: vscode.QuickPickItemKind.Separator,
@@ -267,7 +275,6 @@ export class StatusBarHandler {
             },
         });
 
-        // ── Utilities ──
         items.push({
             label: "Utilities",
             kind: vscode.QuickPickItemKind.Separator,
@@ -297,13 +304,11 @@ export class StatusBarHandler {
             },
         });
 
-        // Show the menu
         const selected = await vscode.window.showQuickPick(items, {
             placeHolder: "Verse Auto Imports - Quick Actions",
             matchOnDescription: true,
         });
 
-        // Execute the action if an item was selected
         if (selected?.action) {
             try {
                 await selected.action();
@@ -314,13 +319,13 @@ export class StatusBarHandler {
         }
     }
 
+    /** Shows the import-grouping submenu, and returns to the main menu on Back. */
     async showImportGroupingMenu(): Promise<void> {
         const config = vscode.workspace.getConfiguration("verseAutoImports");
         const currentGrouping = config.get<string>("behavior.importGrouping", "none");
 
         const items: QuickPickItemWithAction[] = [];
 
-        // Add back option
         items.push({
             label: "$(arrow-left) Back to main menu",
             description: "",
@@ -329,13 +334,11 @@ export class StatusBarHandler {
             },
         });
 
-        // Separator
         items.push({
             label: "",
             kind: vscode.QuickPickItemKind.Separator,
         });
 
-        // None option
         items.push({
             label: toggleIcon(currentGrouping === "none", "No Grouping"),
             description: "All imports mixed together (default)",
@@ -346,7 +349,6 @@ export class StatusBarHandler {
             },
         });
 
-        // Digest First option
         items.push({
             label: toggleIcon(currentGrouping === "digestFirst", "Digest First"),
             description: "Digest imports (/Verse.org, /Fortnite.com, /UnrealEngine.com), then local imports",
@@ -357,7 +359,6 @@ export class StatusBarHandler {
             },
         });
 
-        // Local First option
         items.push({
             label: toggleIcon(currentGrouping === "localFirst", "Local First"),
             description: "Local imports, then digest imports",
@@ -368,13 +369,11 @@ export class StatusBarHandler {
             },
         });
 
-        // Show the submenu
         const selected = await vscode.window.showQuickPick(items, {
             placeHolder: "Select Import Grouping Option",
             matchOnDescription: true,
         });
 
-        // Execute the action if an item was selected
         if (selected?.action) {
             try {
                 await selected.action();
@@ -385,13 +384,13 @@ export class StatusBarHandler {
         }
     }
 
+    /** Shows the CodeLens visibility submenu, and returns to the main menu on Back. */
     async showCodeLensVisibilityMenu(): Promise<void> {
         const config = vscode.workspace.getConfiguration("verseAutoImports");
         const currentVisibility = config.get<string>("pathConversion.codeLensVisibility", "hover");
 
         const items: QuickPickItemWithAction[] = [];
 
-        // Add back option
         items.push({
             label: "$(arrow-left) Back to main menu",
             description: "",
@@ -400,13 +399,11 @@ export class StatusBarHandler {
             },
         });
 
-        // Separator
         items.push({
             label: "",
             kind: vscode.QuickPickItemKind.Separator,
         });
 
-        // Hover Only option
         items.push({
             label: toggleIcon(currentVisibility === "hover", "Hover Only"),
             description: "Show only when hovering over imports (default)",
@@ -417,7 +414,6 @@ export class StatusBarHandler {
             },
         });
 
-        // Always Visible option
         items.push({
             label: toggleIcon(currentVisibility === "always", "Always Visible"),
             description: "Always show above import statements",
@@ -428,13 +424,11 @@ export class StatusBarHandler {
             },
         });
 
-        // Show the submenu
         const selected = await vscode.window.showQuickPick(items, {
             placeHolder: "Select CodeLens Visibility Option",
             matchOnDescription: true,
         });
 
-        // Execute the action if an item was selected
         if (selected?.action) {
             try {
                 await selected.action();
@@ -445,20 +439,22 @@ export class StatusBarHandler {
         }
     }
 
+    /**
+     * Suppresses auto imports for a number of minutes, restarting the snooze if
+     * one is already running.
+     */
     startSnooze(minutes: number): void {
         logger.debug("StatusBarHandler", `Starting snooze for ${minutes} minutes`);
 
-        // Clear any existing snooze first so re-invoking (e.g. the command
-        // palette while already snoozed) cannot orphan a running interval.
+        // Clear first so re-invoking (the command palette while already
+        // snoozed, say) cannot orphan a running interval.
         this.clearSnoozeState();
 
-        // Set snooze end time. This is the whole of the snooze state: the
-        // auto-import path consults isSnoozeActive(), and no user setting is
+        // The end time is the whole of the snooze state. No user setting is
         // touched, so nothing can survive the extension host and leave auto
         // imports disabled.
         this.snoozeEndTime = Date.now() + minutes * MS_PER_MINUTE;
 
-        // Start countdown interval
         this.snoozeInterval = setInterval(() => {
             if (this.snoozeEndTime && Date.now() >= this.snoozeEndTime) {
                 this.endSnooze();
@@ -467,7 +463,6 @@ export class StatusBarHandler {
             }
         }, SNOOZE_INTERVAL_MS);
 
-        // Update immediately
         this.updateDisplay();
 
         vscode.window.showInformationMessage(`Auto imports snoozed for ${minutes} minutes`);
@@ -491,6 +486,7 @@ export class StatusBarHandler {
         }
     }
 
+    /** Ends the snooze at the user's request, and says so. */
     cancelSnooze(): void {
         logger.debug("StatusBarHandler", "Cancelling snooze");
         this.clearSnoozeState();
@@ -499,6 +495,11 @@ export class StatusBarHandler {
         vscode.window.showInformationMessage("Auto imports resumed");
     }
 
+    /**
+     * Ends the snooze without a notification, for the case where the user has
+     * just turned auto import on themselves: they already know imports are
+     * back, and saying so again is noise on an action they took.
+     */
     private cancelSnoozeSilently(): void {
         if (this.snoozeEndTime === null) {
             return;
@@ -516,6 +517,12 @@ export class StatusBarHandler {
         vscode.window.showInformationMessage("Auto imports resumed automatically");
     }
 
+    /**
+     * Stops the countdown interval and releases the status bar item and the
+     * configuration listener. The interval repeats every second until it is
+     * cleared, so a snooze armed at deactivation would otherwise keep firing
+     * against a torn-down status bar item.
+     */
     dispose(): void {
         if (this.snoozeInterval) {
             clearInterval(this.snoozeInterval);

@@ -4,6 +4,14 @@ import { logger } from "../utils";
 import { ImportSuggestion } from "../types";
 import { ImportHandler } from "../imports";
 
+/**
+ * Turns the Verse compiler's diagnostics into imports: one debounce timer per
+ * document, and on expiry, the high-confidence suggestions written into it.
+ *
+ * Disposable, and registered as one during activation: the delay is
+ * user-configurable, so an armed timer outlives teardown by that long unless it
+ * is cancelled.
+ */
 export class DiagnosticsHandler {
     private importHandler: ImportHandler;
     private processingDocuments: Set<string> = new Set();
@@ -21,18 +29,21 @@ export class DiagnosticsHandler {
         // lose suppression silently at runtime instead of failing the build.
         private isAutoImportSuppressed: () => boolean,
     ) {
-        // Use the shared, fully-wired ImportHandler so the auto-import path has
-        // the same asset-class detection and precompiled digests as quick fixes.
+        // Injected rather than constructed so the auto-import path resolves
+        // through the same handler as quick fixes; one built here would carry
+        // neither the extension context nor the assets digest parser.
         this.importHandler = importHandler;
         logger.debug("DiagnosticsHandler", `Initialized with ${this.delayMs}ms delay`);
     }
 
     /**
-     * Decides whether a diagnostics URI should be processed at all, before any
-     * document is opened. Diagnostics events also carry VS Code internal
-     * documents (e.g. private: replace-preview buffers, git: views) that throw
-     * on openTextDocument, and Epic's generated *.digest.verse files, which
-     * hold permanent LSP errors and must never be edited by the extension.
+     * Whether a diagnostics URI is a Verse file the extension may edit, asked
+     * before any document is opened.
+     *
+     * A diagnostics event also carries VS Code's internal documents - private:
+     * replace-preview buffers, git: views - which throw on openTextDocument,
+     * and Epic's generated *.digest.verse files, which hold permanent LSP
+     * errors and must never be edited.
      */
     static shouldProcessUri(uri: { scheme: string; fsPath: string }): boolean {
         if (uri.scheme !== "file") {
@@ -43,28 +54,27 @@ export class DiagnosticsHandler {
     }
 
     /**
-     * Decides whether a diagnostics URI is inside the configured auto-import
-     * scope. The Verse LSP publishes diagnostics for the whole project, not
-     * only for what is on screen, so without this the extension edits any
-     * .verse file the compiler complains about.
+     * Whether a diagnostics URI is inside the configured auto-import scope. The
+     * Verse LSP publishes diagnostics for the whole project, not only for what
+     * is on screen, so without this the extension edits any .verse file the
+     * compiler complains about.
      *
-     * Callers must consult this before opening the document: opening one is
-     * itself the behaviour "openFiles" exists to prevent, since it pulls a file
-     * the user never opened into the workspace.
-     *
-     * URIs are compared by their string form, as the rest of the extension
-     * keys per-document state, never by fsPath - two URIs can share a path and
-     * differ in scheme or query.
-     *
-     * visibility.openUris must be built from the open tabs, not from
-     * vscode.workspace.textDocuments. That list holds every document opened
-     * programmatically by anything, and this extension's own ProjectPathScanner
-     * opens every .verse file in the project to build the path cache - so keyed
-     * on it, "openFiles" would admit the whole project and mean nothing.
+     * Call this before opening the document. Opening one is itself the
+     * behaviour "openFiles" exists to prevent, since it pulls a file the user
+     * never opened into the workspace.
      *
      * An unrecognized scope falls back to "allFiles", so a mistyped setting
-     * degrades to the previous behaviour instead of silently disabling
-     * auto-import altogether.
+     * degrades to the unrestricted scope rather than disabling auto-import
+     * altogether.
+     *
+     * @param visibility `openUris` must come from the open tabs, never from
+     *   vscode.workspace.textDocuments: that list holds every document opened
+     *   programmatically by anything, and this extension's own
+     *   ProjectPathScanner opens every .verse file in the project to build the
+     *   path cache, so keyed on it "openFiles" admits the whole project. Both
+     *   fields hold URI strings, as the rest of the extension keys
+     *   per-document state - never fsPath, since two URIs can share a path and
+     *   differ in scheme or query.
      */
     static isUriInScope(uri: { toString(): string }, scope: string, visibility: { openUris: readonly string[]; activeUri?: string }): boolean {
         if (!DiagnosticsHandler.scopeRestrictsDocuments(scope)) {
@@ -84,17 +94,22 @@ export class DiagnosticsHandler {
     }
 
     /**
-     * Whether a scope narrows anything at all. Callers use it to skip building
-     * a visibility snapshot they will not read.
+     * Whether a scope narrows anything at all, which is what lets a caller skip
+     * building a visibility snapshot it will not read.
      *
-     * It is the single definition of that question on purpose: expressing it
-     * again at the call site, in the opposite polarity, would make the cheap
-     * path correct only for as long as the two stayed exact complements.
+     * The single definition of that question on purpose: expressing it again at
+     * the call site, in the opposite polarity, leaves the cheap path correct
+     * only for as long as the two stay exact complements.
      */
     static scopeRestrictsDocuments(scope: string): boolean {
         return scope === "openFiles" || scope === "activeFile";
     }
 
+    /**
+     * Arms the debounce timer for a document, cancelling the one it already
+     * has, and does nothing while that document is already being processed. The
+     * import happens when the timer expires, long after this returns.
+     */
     async handle(document: vscode.TextDocument) {
         // The diagnostics listener awaits openTextDocument before calling in,
         // so a continuation can resume after teardown. Arming a timer here
@@ -113,7 +128,6 @@ export class DiagnosticsHandler {
 
         logger.trace("DiagnosticsHandler", `Received diagnostics for ${displayName}`);
 
-        // Cancel any pending timer for this document
         const existingTimer = this.pendingTimers.get(documentKey);
         if (existingTimer) {
             clearTimeout(existingTimer);
@@ -121,7 +135,6 @@ export class DiagnosticsHandler {
             logger.trace("DiagnosticsHandler", `Cancelled pending timer for ${displayName} (debouncing)`);
         }
 
-        // If already processing this document, don't start a new timer
         if (this.processingDocuments.has(documentKey)) {
             logger.debug("DiagnosticsHandler", `Already processing ${displayName}, skipping new timer`);
             return;
@@ -129,12 +142,8 @@ export class DiagnosticsHandler {
 
         logger.debug("DiagnosticsHandler", `Starting debounce timer (${this.delayMs}ms) for ${displayName}`);
 
-        // Create new timer with proper debouncing
         const timer = setTimeout(async () => {
-            // Remove from pending timers
             this.pendingTimers.delete(documentKey);
-
-            // Mark as processing
             this.processingDocuments.add(documentKey);
             try {
                 const currentDiagnostics = vscode.languages.getDiagnostics(document.uri);
@@ -152,28 +161,25 @@ export class DiagnosticsHandler {
                     const suggestions = await this.importHandler.extractImportSuggestions(diagnostic.message);
 
                     if (suggestions.length === 0) {
-                        // No suggestions found, skip this diagnostic
                         continue;
                     }
 
                     if (suggestions.length > 1) {
-                        // Multi-option scenario detected
                         hasMultiOptionSuggestions = true;
                         logger.debug("DiagnosticsHandler", `Multi-option diagnostic found with ${suggestions.length} suggestions - will use quick fixes`);
 
                         if (multiOptionStrategy.startsWith("auto_")) {
-                            // Auto-select one option for import
                             const selectedSuggestion = this.selectBestSuggestion(suggestions, multiOptionStrategy);
                             if (selectedSuggestion && autoImportEnabled) {
                                 autoImportSuggestions.add(selectedSuggestion.importStatement);
                                 logger.debug("DiagnosticsHandler", `Auto-selected: ${selectedSuggestion.importStatement}`);
                             }
                         }
-                        // For quickfix strategy, let ImportCodeActionProvider handle it
+                        // Under the quickfix strategy nothing is imported here:
+                        // ImportCodeActionProvider offers the options instead.
                         continue;
                     }
 
-                    // Single suggestion - can auto-import if enabled
                     const suggestion = suggestions[0];
                     if (autoImportEnabled && suggestion.confidence === "high") {
                         logger.debug("DiagnosticsHandler", `Adding high-confidence import: ${suggestion.importStatement}`);
@@ -192,7 +198,6 @@ export class DiagnosticsHandler {
                     return;
                 }
 
-                // Apply auto-imports if any were collected
                 if (autoImportSuggestions.size > 0) {
                     logger.info("DiagnosticsHandler", `Auto-importing ${autoImportSuggestions.size} statements`);
                     autoImportSuggestions.forEach((imp) => {
@@ -212,7 +217,6 @@ export class DiagnosticsHandler {
                     }
                 }
 
-                // Show status for multi-option diagnostics
                 if (hasMultiOptionSuggestions && multiOptionStrategy === "quickfix") {
                     vscode.window.setStatusBarMessage(`Multiple import options available - use quick fixes (Ctrl+.)`, 5000);
                 }
@@ -224,10 +228,14 @@ export class DiagnosticsHandler {
             }
         }, this.delayMs);
 
-        // Store the timer so it can be cancelled if needed
         this.pendingTimers.set(documentKey, timer);
     }
 
+    /**
+     * Picks the one suggestion to import from several. An unrecognized strategy
+     * takes the first, so a mistyped setting still imports something rather
+     * than nothing.
+     */
     private selectBestSuggestion(suggestions: ImportSuggestion[], strategy: string): ImportSuggestion | null {
         if (suggestions.length === 0) {
             return null;
@@ -235,25 +243,31 @@ export class DiagnosticsHandler {
 
         switch (strategy) {
             case "auto_shortest":
-                // Return the suggestion with the shortest import statement
                 return suggestions.reduce((shortest, current) => (current.importStatement.length < shortest.importStatement.length ? current : shortest));
             case "auto_first":
                 return suggestions[0];
             default:
-                return suggestions[0]; // fallback
+                return suggestions[0];
         }
     }
 
+    /**
+     * Sets the debounce delay for timers armed from now on. A timer already
+     * pending keeps the delay it was armed with.
+     */
     setDelay(delayMs: number) {
         this.delayMs = delayMs;
         logger.info("DiagnosticsHandler", `Diagnostic processing delay set to ${delayMs}ms`);
     }
 
     /**
-     * Cancels every armed debounce timer so none can fire after deactivation.
+     * Cancels every armed debounce timer so none can fire after deactivation,
+     * and refuses any further work.
+     *
      * The delay is user-configurable, so a timer armed by the last keystroke
      * before a reload would otherwise apply an edit to a document belonging to
-     * a torn-down extension.
+     * a torn-down extension. A callback that has already started cannot be
+     * cancelled, which is why `disposed` is re-checked before the edit.
      */
     dispose(): void {
         this.disposed = true;

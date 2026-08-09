@@ -6,8 +6,13 @@ import { ImportSuggestionExtractor } from "./ImportSuggestionExtractor";
 import { ImportDocumentEditor } from "./ImportDocumentEditor";
 
 /**
- * Facade class that coordinates import handling operations.
- * Maintains backward compatibility while delegating to specialized classes.
+ * The way in to import handling: suggestion extraction, document editing and
+ * formatting behind one object.
+ *
+ * Go through this rather than around it. It is the only place the extension
+ * context and the assets digest parser are threaded into
+ * ImportSuggestionExtractor, so an extractor built directly gets whichever of
+ * the two the caller remembered to pass.
  */
 export class ImportHandler {
     private formatter: ImportFormatter;
@@ -24,23 +29,14 @@ export class ImportHandler {
         this.documentEditor = new ImportDocumentEditor(outputChannel, this.formatter);
     }
 
-    /**
-     * Extracts existing import statements from a document.
-     */
     extractExistingImports(document: vscode.TextDocument): string[] {
         return this.documentEditor.extractExistingImports(document);
     }
 
-    /**
-     * Extracts import suggestions from an error message.
-     */
     async extractImportSuggestions(errorMessage: string): Promise<ImportSuggestion[]> {
         return this.suggestionExtractor.extractImportSuggestions(errorMessage);
     }
 
-    /**
-     * Adds import statements to a document.
-     */
     async addImportsToDocument(document: vscode.TextDocument, importStatements: string[]): Promise<boolean> {
         return this.documentEditor.addImportsToDocument(document, importStatements);
     }
@@ -54,9 +50,6 @@ export class ImportHandler {
         return this.documentEditor.organizeImports(document, additionalPaths);
     }
 
-    /**
-     * Extracts import suggestions from VS Code diagnostics.
-     */
     extractImportsFromDiagnostics(diagnostics: vscode.Diagnostic[]): string[] {
         return this.suggestionExtractor.extractImportsFromDiagnostics(diagnostics);
     }

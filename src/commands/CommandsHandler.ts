@@ -4,20 +4,30 @@ import { ImportHandler, ImportPathConverter, ImportCodeLensProvider } from "../i
 import { StatusBarHandler } from "../ui";
 import { ProjectPathCache } from "../services";
 
-/**
- * Dependencies required by CommandsHandler.
- */
+/** The collaborators the commands act on, wired once during activation. */
 export interface CommandsDependencies {
     importHandler: ImportHandler;
     statusBarHandler: StatusBarHandler;
     importPathConverter: ImportPathConverter;
     importCodeLensProvider: ImportCodeLensProvider;
+    /**
+     * Absent when the cache setting is off, so the dependency is missing in
+     * fact and not only in type. The commands that would build one refuse
+     * instead; only the status command carries on and reports the cache as
+     * disabled. See activation for why one constructed here would be stale
+     * from the moment it was written.
+     */
     projectPathCache?: ProjectPathCache;
 }
 
 /**
- * Result from path conversion operations.
- * Matches the shape returned by ImportPathConverter.
+ * A hand-maintained copy of ImportPathConverter's conversion result, which that
+ * module does not export.
+ *
+ * The converter's return values reach this type by a cast, so nothing checks
+ * the copy against the original at the point it is made. What does check it is
+ * passing one back to applyConversion, which is typed on the original: a field
+ * this copy lacks fails there, a field only this copy has fails nowhere.
  */
 interface PathConversionResult {
     originalImport: string;
@@ -29,53 +39,49 @@ interface PathConversionResult {
 }
 
 /**
- * Centralized handler for all extension commands.
- * Consolidates command logic that was previously scattered across extension.ts.
+ * The body of every command the extension contributes, and the one place they
+ * are registered.
  */
 export class CommandsHandler {
-    // Named constants for timing delays
     private static readonly STATUS_MESSAGE_DURATION_MS = 3000;
     private static readonly SNOOZE_DURATION_MINUTES = 5;
 
     constructor(private readonly deps: CommandsDependencies) {}
 
-    //==========================================================================
-    // Public Registration
-    //==========================================================================
-
     /**
-     * Registers all extension commands with VS Code.
+     * Registers every command against the extension context, which disposes
+     * them on deactivation.
+     *
+     * Each id here must also be declared in package.json under
+     * `contributes.commands`, and the five that take caller-supplied arguments
+     * must stay hidden from the Command Palette there - invoking one from the
+     * palette dereferences an undefined document. Both halves are pinned:
+     * commandManifest.test.ts checks the manifest, and the integration suite
+     * checks every id is registered once the extension has activated.
      */
     registerAll(context: vscode.ExtensionContext): void {
         const commands: Array<[string, (...args: any[]) => any]> = [
-            // Import operations
             ["verseAutoImports.addSingleImport", this.addSingleImport.bind(this)],
             ["verseAutoImports.optimizeImports", this.optimizeImports.bind(this)],
 
-            // UI/Menu
             ["verseAutoImports.showStatusMenu", this.showStatusMenu.bind(this)],
 
-            // Toggle commands
             ["verseAutoImports.toggleAutoImport", this.toggleAutoImport.bind(this)],
             ["verseAutoImports.togglePreserveLocations", this.togglePreserveLocations.bind(this)],
             ["verseAutoImports.toggleImportSyntax", this.toggleImportSyntax.bind(this)],
             ["verseAutoImports.toggleDigestFiles", this.toggleDigestFiles.bind(this)],
             ["verseAutoImports.toggleFullPathCodeLens", this.toggleFullPathCodeLens.bind(this)],
 
-            // Snooze
             ["verseAutoImports.snoozeAutoImport", this.snoozeAutoImport.bind(this)],
             ["verseAutoImports.cancelSnooze", this.cancelSnooze.bind(this)],
 
-            // Debug/Logs
             ["verseAutoImports.exportDebugLogs", this.exportDebugLogs.bind(this)],
             ["verseAutoImports.captureDiagnosticsCorpus", this.captureDiagnosticsCorpus.bind(this)],
 
-            // Cache
             ["verseAutoImports.rebuildPathCache", this.rebuildPathCache.bind(this)],
             ["verseAutoImports.clearPathCache", this.clearPathCache.bind(this)],
             ["verseAutoImports.showCacheStatus", this.showCacheStatus.bind(this)],
 
-            // Path conversion
             ["verseAutoImports.convertToFullPath", this.convertToFullPath.bind(this)],
             ["verseAutoImports.convertAllToFullPath", this.convertAllToFullPath.bind(this)],
             ["verseAutoImports.convertToRelativePath", this.convertToRelativePath.bind(this)],
@@ -87,13 +93,6 @@ export class CommandsHandler {
         }
     }
 
-    //==========================================================================
-    // Import Operations
-    //==========================================================================
-
-    /**
-     * Adds a single import statement to a document.
-     */
     async addSingleImport(document: vscode.TextDocument, importStatement: string): Promise<void> {
         // A false here means applyEdit was rejected - a stale document version
         // or a read-only file - and the document is unchanged. Reporting the
@@ -110,7 +109,8 @@ export class CommandsHandler {
     }
 
     /**
-     * Optimizes imports in the active document by removing, re-adding, and organizing them.
+     * Rebuilds the active document's import block and saves it. Anything the
+     * compiler currently reports as a missing import is added along the way.
      */
     async optimizeImports(): Promise<void> {
         logger.info("CommandsHandler", "Optimizing imports command triggered");
@@ -131,16 +131,15 @@ export class CommandsHandler {
         try {
             const document = editor.document;
 
-            // Anything the compiler currently reports as a missing import gets
-            // added during the rebuild. No waiting: the command does not race
-            // the auto-import debounce, it computes the result itself.
+            // Read straight from the current diagnostics rather than waiting on
+            // the auto-import debounce, so the command does not race it.
             const diagnostics = vscode.languages.getDiagnostics(document.uri);
             const missingImportPaths = this.deps.importHandler.extractImportsFromDiagnostics(diagnostics);
             logger.debug("CommandsHandler", `Found ${missingImportPaths.length} missing import(s) in current diagnostics`);
 
-            // Rebuild the import block in one atomic edit: existing imports plus
-            // missing ones, deduplicated, grouped, sorted, and written in the
-            // preferred syntax. The document is never left import-less.
+            // The missing paths are handed to the organizer rather than added
+            // first, so the block is rewritten once and the document is never
+            // left between the two states.
             const applied = await this.deps.importHandler.organizeImports(document, missingImportPaths);
 
             // Saving a document whose edit was rejected writes the unorganized
@@ -161,23 +160,16 @@ export class CommandsHandler {
         }
     }
 
-    //==========================================================================
-    // UI Commands
-    //==========================================================================
-
-    /**
-     * Shows the status bar menu.
-     */
     async showStatusMenu(): Promise<void> {
         await this.deps.statusBarHandler.showMenu();
     }
 
-    //==========================================================================
-    // Toggle Commands
-    //==========================================================================
-
     /**
-     * Generic helper for toggling configuration values.
+     * Writes the opposite of a setting's current value to global scope, then
+     * refreshes the status bar.
+     *
+     * @param toggleFn How to invert a value that is not a boolean. Omit it and
+     *   the current value is negated.
      */
     private async toggleConfig<T>(configKey: string, toggleFn?: (current: T) => T): Promise<void> {
         const config = vscode.workspace.getConfiguration("verseAutoImports");
@@ -207,10 +199,6 @@ export class CommandsHandler {
         await this.toggleConfig<boolean>("pathConversion.enableCodeLens");
     }
 
-    //==========================================================================
-    // Snooze Commands
-    //==========================================================================
-
     async snoozeAutoImport(): Promise<void> {
         this.deps.statusBarHandler.startSnooze(CommandsHandler.SNOOZE_DURATION_MINUTES);
     }
@@ -219,13 +207,6 @@ export class CommandsHandler {
         this.deps.statusBarHandler.cancelSnooze();
     }
 
-    //==========================================================================
-    // Debug/Logs
-    //==========================================================================
-
-    /**
-     * Exports debug logs to a file.
-     */
     async exportDebugLogs(): Promise<void> {
         try {
             const uri = await logger.exportDebugLogs();
@@ -243,9 +224,9 @@ export class CommandsHandler {
     }
 
     /**
-     * Captures the current Verse compiler diagnostics of all open documents to
-     * a JSON file. Used to maintain the message-format regression corpus in
-     * test-fixtures/corpus (see its README for the curation workflow).
+     * Writes the current Verse compiler diagnostics of every open document to a
+     * JSON file, which is how the message-format regression corpus in
+     * test-fixtures/corpus is maintained. Its README has the curation workflow.
      */
     async captureDiagnosticsCorpus(): Promise<void> {
         try {
@@ -294,13 +275,6 @@ export class CommandsHandler {
         }
     }
 
-    //==========================================================================
-    // Cache Commands
-    //==========================================================================
-
-    /**
-     * Rebuilds the project path cache.
-     */
     async rebuildPathCache(): Promise<void> {
         if (!this.deps.projectPathCache) {
             vscode.window.showWarningMessage("Project path cache is not enabled");
@@ -325,9 +299,8 @@ export class CommandsHandler {
     }
 
     /**
-     * Clears the project path cache without rebuilding it.
-     * Wipes both the in-memory state and the persisted workspace-storage copy;
-     * useful for testing cold-start behavior or recovering from a corrupt cache.
+     * Clears the project path cache without rebuilding it, wiping both the
+     * in-memory state and the persisted workspace-storage copy.
      */
     async clearPathCache(): Promise<void> {
         if (!this.deps.projectPathCache) {
@@ -347,9 +320,6 @@ export class CommandsHandler {
         }
     }
 
-    /**
-     * Shows the current cache status.
-     */
     async showCacheStatus(): Promise<void> {
         try {
             const cacheStats = this.deps.projectPathCache?.getStats();
@@ -381,20 +351,16 @@ export class CommandsHandler {
         }
     }
 
-    //==========================================================================
-    // Path Conversion Commands
-    //==========================================================================
-
     /**
-     * Prepares for a path conversion by keeping hover state active.
+     * Holds the CodeLens open across a conversion, by cancelling the pending
+     * hide timer and pinning the hover flag. Without it a conversion that takes
+     * longer than the hide delay - an ambiguous one waits on a quick pick -
+     * finishes against a lens that has already gone.
      */
     private prepareForConversion(documentUri: string): void {
         this.deps.importCodeLensProvider.keepHoverStateActive(documentUri);
     }
 
-    /**
-     * Finalizes a path conversion by forcing a CodeLens refresh.
-     */
     private finalizeConversion(documentUri: string): void {
         this.deps.importCodeLensProvider.forceRefreshAfterConversion(documentUri);
     }
@@ -428,7 +394,9 @@ export class CommandsHandler {
     }
 
     /**
-     * Shows a quick pick for selecting an ambiguous path.
+     * Asks which of several candidate paths to use, and returns undefined when
+     * the user dismisses the pick. A dismissal is a decline rather than a
+     * failure, and callers count it as neither converted nor failed.
      */
     private async selectAmbiguousPath(result: PathConversionResult): Promise<string | undefined> {
         if (!result.possiblePaths) return undefined;
@@ -447,9 +415,6 @@ export class CommandsHandler {
         return selected?.path;
     }
 
-    /**
-     * Converts a single import to absolute path format.
-     */
     async convertToFullPath(document: vscode.TextDocument, importStatement: string, lineNumber: number): Promise<void> {
         const documentUri = document.uri.toString();
         this.prepareForConversion(documentUri);
@@ -487,9 +452,6 @@ export class CommandsHandler {
         }
     }
 
-    /**
-     * Converts all imports in a document to absolute path format.
-     */
     async convertAllToFullPath(document: vscode.TextDocument): Promise<void> {
         const documentUri = document.uri.toString();
         this.prepareForConversion(documentUri);
@@ -505,7 +467,8 @@ export class CommandsHandler {
         let failedCount = 0;
         const ambiguousImports: PathConversionResult[] = [];
 
-        // First pass: handle non-ambiguous imports
+        // Every unambiguous conversion is applied before the first question is
+        // asked, so a user who dismisses the picks still gets the rest.
         for (const result of results) {
             if (!result.isAmbiguous) {
                 const success = await this.deps.importPathConverter.applyConversion(document, result);
@@ -516,8 +479,6 @@ export class CommandsHandler {
             }
         }
 
-        // Second pass: handle ambiguous imports interactively. A cancelled quick
-        // pick is a decline rather than a failure, so it counts as neither.
         for (const result of ambiguousImports) {
             const selectedPath = await this.selectAmbiguousPath(result);
             if (selectedPath) {
@@ -531,9 +492,6 @@ export class CommandsHandler {
         this.finalizeConversion(documentUri);
     }
 
-    /**
-     * Converts a single import to relative path format.
-     */
     async convertToRelativePath(document: vscode.TextDocument, importStatement: string, lineNumber: number): Promise<void> {
         const documentUri = document.uri.toString();
         this.prepareForConversion(documentUri);
@@ -555,9 +513,6 @@ export class CommandsHandler {
         this.finalizeConversion(documentUri);
     }
 
-    /**
-     * Converts all imports in a document to relative path format.
-     */
     async convertAllToRelativePath(document: vscode.TextDocument): Promise<void> {
         const documentUri = document.uri.toString();
         this.prepareForConversion(documentUri);

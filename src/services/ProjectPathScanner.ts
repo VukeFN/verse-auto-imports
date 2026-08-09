@@ -107,11 +107,11 @@ export class ProjectPathScanner {
     /**
      * The declarations in a file's text, in source order.
      *
-     * `sourceLine` is 1-based, so it is one more than the `vscode.Position`
-     * line for the same declaration. `fullPath`
-     * carries the dotted chain of enclosing modules, so it equals `name` only at
-     * file scope. Declarations nested in a class or struct body are not filtered
-     * out here; only indentation-scoped module nesting is tracked.
+     * `sourceLine` is 1-based, so it is one more than the `vscode.Position` line
+     * for the same declaration. `fullPath` carries the dotted chain of enclosing
+     * modules, so it equals `name` only at file scope. Declarations nested in a
+     * class or struct body are not filtered out here; only indentation-scoped
+     * module nesting is tracked.
      */
     extractDeclarations(content: string, filePath: string, options: ProjectScanOptions = {}): ProjectPathNode[] {
         const nodes: ProjectPathNode[] = [];

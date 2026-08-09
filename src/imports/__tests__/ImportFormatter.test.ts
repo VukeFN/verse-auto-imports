@@ -40,6 +40,32 @@ describe("ImportFormatter.isModuleImport", () => {
         expect(ImportFormatter.isModuleImport("using. Features", undefined, { atFileScope: true })).toBe(true);
         expect(ImportFormatter.isModuleImport("using:", "    Features", { atFileScope: true })).toBe(true);
     });
+
+    // A bare identifier is the only dotted content the swallowed definition
+    // changes the answer for: read to end of line the content was
+    // `Features; MyVal := 5`, which is neither a path nor an identifier, so the
+    // line classified as no import at all and the scanner skipped it whole. The
+    // absolute and dot-notation forms keep the `/` or the `.` that decides them.
+    it("atFileScope: a bare dotted import sharing its line with a definition is a module import", () => {
+        expect(ImportFormatter.isModuleImport("using. Features; MyVal := 5", undefined, { atFileScope: true })).toBe(true);
+        expect(ImportFormatter.isModuleImport("using. /Verse.org/Simulation; MyVal := 5", undefined, { atFileScope: true })).toBe(true);
+        expect(ImportFormatter.isModuleImport("using. Economy.Shop; MyVal := 5", undefined, { atFileScope: true })).toBe(true);
+    });
+
+    // Outside file scope a bare identifier is an instance, whatever follows it.
+    // Read to end of line, a dot anywhere in that leftover answered the content
+    // test instead and promoted the local-scope using to a module import.
+    it("default mode: a local-scope dotted using sharing its line stays a local-scope using", () => {
+        expect(ImportFormatter.isModuleImport("using. Instance; MyVal := 5")).toBe(false);
+        expect(ImportFormatter.isModuleImport("using. Instance; MyVal := Foo.Bar")).toBe(false);
+    });
+
+    // The shared pattern needs no space after the `.`, where the classifier's
+    // own copy required one - so this line read as an import to everything
+    // going through matchImport and as no import at all to the scanner.
+    it("atFileScope: a dotted import written without a space after the dot is a module import", () => {
+        expect(ImportFormatter.isModuleImport("using.Features", undefined, { atFileScope: true })).toBe(true);
+    });
 });
 
 describe("ImportFormatter.stripTrailingComment", () => {

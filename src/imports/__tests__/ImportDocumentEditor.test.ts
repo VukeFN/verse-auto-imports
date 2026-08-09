@@ -228,6 +228,20 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, ["Economy.Shop"], curlySorted)).toBeNull();
     });
 
+    // A bare folder-module name is the one dotted content the swallowed
+    // definition stopped classifying as an import, so the line was skipped and
+    // the path went unrecorded - and a writer asked for Features added a second
+    // copy of an import the line was already making.
+    it("does not write a second copy of a bare path a dotted statement provides beside a definition", () => {
+        const input = ["using. Features; MyVal := 5", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Features"], curlySorted)).toBeNull();
+    });
+
+    it("leaves a line that writes a definition after its bare dotted import alone", () => {
+        const input = ["using. Features; MyVal := 5", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBeNull();
+    });
+
     // A module whose name merely ends in those five letters writes one
     // statement, and organizing has to keep treating it as one. Counted by
     // every occurrence of `using`, this line reads as two, and the file stops

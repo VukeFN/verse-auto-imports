@@ -146,10 +146,31 @@ describe("ImportFormatter trailing comments on import statements", () => {
         expect(formatter.textAfterImport("using { /Verse.org/Simulation }")).toBe("");
     });
 
-    // The dotted capture is greedy to end of line, so a statement sharing a line
-    // swallows what follows it into its path and nothing is left over to report.
-    it("reports nothing after a dotted statement, which has no closing delimiter", () => {
-        expect(formatter.textAfterImport("using. /Verse.org/Simulation; MyVal := 5")).toBe("");
+    // The dotted capture used to run to end of line, so a statement sharing a
+    // line was swallowed into the path and nothing was left over to report -
+    // and the line read as rewritable.
+    it("reports the code written after a dotted statement, which has no closing delimiter", () => {
+        expect(formatter.textAfterImport("using. /Verse.org/Simulation; MyVal := 5")).toBe("; MyVal := 5");
+    });
+
+    it("reports nothing after a dotted statement that is the whole line", () => {
+        expect(formatter.textAfterImport("using. /Verse.org/Simulation")).toBe("");
+    });
+
+    // Every character a dotted content may hold, so the capture cannot end
+    // early on an ordinary path: `.` and `-` in a label, `@` before the account,
+    // `/` between segments, `_` and a digit in an identifier.
+    it("carries a whole path through the dotted capture", () => {
+        expect(formatter.extractPathFromImport("using. /my-game@fortnite.com/my_game2/Economy.Shop")).toBe("/my-game@fortnite.com/my_game2/Economy.Shop");
+        expect(formatter.textAfterImport("using. /my-game@fortnite.com/my_game2/Economy.Shop")).toBe("");
+    });
+
+    // A `'...'` segment suffix and a `(path:)` qualifier are legal Verse the
+    // dotted capture deliberately does not lex. Truncating leaves a remainder,
+    // which pins the line - the statement is refused, never rewritten wrongly.
+    it("truncates a path form it cannot lex, leaving the remainder over", () => {
+        expect(formatter.extractPathFromImport("using. /a/b'c'")).toBe("/a/b");
+        expect(formatter.textAfterImport("using. /a/b'c'")).toBe("'c'");
     });
 
     it("reports nothing for a line that writes no statement", () => {

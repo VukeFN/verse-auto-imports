@@ -78,11 +78,16 @@ describe("allUsingPaths", () => {
         expect(allUsingPaths(["using { /X }; using { Features }; using { Economy.Shop }", "code()"])).toEqual(["/X", "Features", "Economy.Shop"]);
     });
 
-    // A dotted statement has no closing delimiter, so it swallows what follows
-    // it into its path. The statement after it is still found and reported on
-    // its own, which is the guarantee that matters: nothing is missed.
-    it("still reports a statement written after a dotted one on the same line", () => {
-        expect(allUsingPaths(["using. /X; using { Economy.Shop }", "code()"])).toEqual(["/X; using { Economy.Shop }", "Economy.Shop"]);
+    // A dotted statement has no closing delimiter, so it used to swallow what
+    // followed it into its path and report `/X; using { Economy.Shop }`. The
+    // path it really imports has to be reported in its own right, or a writer
+    // adds a second copy of it.
+    it("reports both statements when the first of them is dotted", () => {
+        expect(allUsingPaths(["using. /X; using { Economy.Shop }", "code()"])).toEqual(["/X", "Economy.Shop"]);
+    });
+
+    it("reports both statements when a dotted one is written second", () => {
+        expect(allUsingPaths(["using { Economy.Shop }; using. /X", "code()"])).toEqual(["Economy.Shop", "/X"]);
     });
 
     it("collects a second statement written after a braced one in a module body", () => {
@@ -115,7 +120,7 @@ describe("allUsingPaths", () => {
 
     // Only a `using` beginning a token is a statement. `Housing` holds those
     // five letters, and the dotted pattern needs no space after its `.`, so
-    // offering every occurrence invented `Data }` as a second path.
+    // offering every occurrence invented `Data` as a second path.
     it("invents no second path from an identifier that merely contains using", () => {
         expect(allUsingPaths(["using { Housing.Data }", "code()"])).toEqual(["Housing.Data"]);
         expect(allUsingPaths(["using { A_using.B }", "code()"])).toEqual(["A_using.B"]);
@@ -266,7 +271,7 @@ describe("scanModuleImports", () => {
 
     // `using` is a substring of ordinary identifiers, and the dotted pattern
     // needs no space after its `.`, so offering every occurrence reads
-    // `Housing.Data` as `Housing.Data` and then `Data }` - two statements, on a
+    // `Housing.Data` as `Housing.Data` and then `Data` - two statements, on a
     // line that writes one. Pinning on that count stops the file being organized
     // at all, for a module whose name merely ends in those five letters.
     it("leaves a single statement rewritable when its path holds the word using", () => {
@@ -281,15 +286,41 @@ describe("scanModuleImports", () => {
         ]);
     });
 
-    // A dotted statement has no closing delimiter, so one sharing a line
-    // swallows what follows it into its path. Both are recorded, the malformed
-    // one included - what makes the line safe is that a second statement was
-    // found on it at all, which is what pins the line. Rewritable, it was
-    // rebuilt from the swallowed path into `using { /X; using { Economy.Shop } }`.
-    it("pins a line whose dotted statement swallows the one written after it", () => {
+    // Two statements, the first dotted. The line was pinned before, but under
+    // the swallowed path `/X; using { Economy.Shop }` - so `/X` did not count as
+    // imported and a writer was free to add a second copy of it.
+    it("pins a line whose dotted statement precedes another, under both real paths", () => {
         expect(scanModuleImports(["using. /X; using { Economy.Shop }", "code()"])).toEqual([
-            { path: "/X; using { Economy.Shop }", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
             { path: "Economy.Shop", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // The shape the two guards used to miss together: one `using` on the line,
+    // so counting them says one, and nothing left over, because the greedy
+    // capture had already taken it. The entry was rewritable, and organizing
+    // rebuilt the line from that path into `using { /X; MyVal := 5 }` - the
+    // definition folded inside the braces, and the file no longer compiled.
+    it("pins a line that writes a definition after its dotted import", () => {
+        expect(scanModuleImports(["using. /X; MyVal := 5", "", "code()"])).toEqual([{ path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" }]);
+    });
+
+    it("offers no rewritable import for a line that writes a definition after its dotted import", () => {
+        expect(rewritableImports(scanModuleImports(["using. /X; MyVal := 5", "", "code()"]))).toEqual([]);
+    });
+
+    it("pins a dotted import followed by a bare separator", () => {
+        expect(rewritableImports(scanModuleImports(["using. /X;", "code()"]))).toEqual([]);
+    });
+
+    // The dotted capture ends at the first character a content cannot hold, so
+    // a comment cannot enter the path and the statement stays rewritable.
+    it("leaves an ordinary dotted import rewritable, with and without a comment", () => {
+        expect(rewritableImports(scanModuleImports(["using. /Verse.org/Simulation", "code()"]))).toEqual([
+            { path: "/Verse.org/Simulation", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
+        ]);
+        expect(rewritableImports(scanModuleImports(["using. /Verse.org/Simulation # keep me", "code()"]))).toEqual([
+            { path: "/Verse.org/Simulation", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "# keep me" },
         ]);
     });
 
@@ -519,6 +550,12 @@ describe("scanConvertibleImports", () => {
 
     it("keeps the dotted style, which converts the same way as the braced one", () => {
         expect(scanConvertibleImports(["using. /Old/Path"])).toEqual([{ statement: "using. /Old/Path", line: 0 }]);
+    });
+
+    // Conversion rewrites the whole line around the path it reads, so a line
+    // carrying a definition after its dotted import must not be offered one.
+    it("excludes a dotted import that shares its line with a definition", () => {
+        expect(scanConvertibleImports(["using. /Old/Path; MyVal := 5", "", "code()"])).toEqual([]);
     });
 
     it("keeps a bare-identifier import, which is a folder module at file scope", () => {

@@ -57,15 +57,15 @@ export interface ScannedImport {
      * a `;` is caught by the second question when it is not a `using` and the
      * first cannot count it.
      *
-     * `false` is still "no loss known", not "provably none". Both questions are
-     * blind to the same shape, a dotted statement sharing its line: it has no
-     * closing delimiter, so it swallows the rest of the line into its path -
-     * leaving nothing over for the second question, and no second `using` for
-     * the first to find in `using. /X; MyVal := 5`. The path is then the whole
-     * of the line and rebuilding from it corrupts rather than deletes, which is
-     * the weakness usingPathsOnLine documents. Where the tail is a `using`, the
-     * line is pinned but under that swallowed path, so the path it really
-     * imports goes unreported and a writer may add a second copy of it.
+     * `false` is still "no loss known", not "provably none". The dotted style is
+     * what made that gap real: having no closing delimiter, it once ran to end
+     * of line, leaving nothing over for the second question and no second
+     * `using` for the first to count in `using. /X; MyVal := 5` - so the path
+     * was the whole of the line and a rebuild corrupted it rather than deleting
+     * from it. matchImport now ends that capture where a dotted content stops,
+     * and both questions see what follows the separator. What remains is the
+     * two path forms that capture omits: they truncate, which leaves a
+     * remainder over and pins the line rather than mis-reporting it.
      *
      * `true` is likewise not a promise that every path on the span was
      * recorded. A line ending in a `using:` pair reports the statement at its
@@ -582,16 +582,15 @@ export function rewritableImports(scannedImports: ScannedImport[]): ScannedImpor
  * rank-1 or rank-2 one on the same line hid it from the caller, which reads an
  * all-absolute answer as permission to remove an import.
  *
- * A dotted statement has no closing delimiter, so one sharing a line swallows
- * what follows it into its path. That malformed path is reported as well, but
- * the next iteration finds the statement after it and reports that path on its
- * own - which is the guarantee this owes its caller. Reading the swallowed copy
- * is not what makes the line safe; finding the statement inside it again is.
+ * A dotted statement has no closing delimiter, so where it ends is decided by
+ * its own content rather than by a delimiter - see matchImport. Each `using` on
+ * the line therefore contributes the path it actually writes, whatever style
+ * its neighbours are written in.
  *
  * Only a `using` that begins a token is offered. `using` is a substring of
  * ordinary identifiers - `Housing` holds one - and the dotted pattern needs no
  * space after its `.`, so `using { Housing.Data }` offered every occurrence
- * reports `Housing.Data` and then `Data }`, a path the line does not write. A
+ * reports `Housing.Data` and then `Data`, a path the line does not write. A
  * caller counting statements reads that as two.
  *
  * The cost is a `using` glued to an identifier by a comment removed from

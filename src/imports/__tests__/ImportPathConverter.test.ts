@@ -78,21 +78,6 @@ describe("ImportPathConverter.buildModuleDefinitionRegex", () => {
     });
 });
 
-describe("ImportPathConverter.parseExplicitModuleDefinition", () => {
-    // The parser is pure string work, so a channel is the whole of what it needs.
-    const converter = new ImportPathConverter(vscode.window.createOutputChannel("test"));
-
-    it("collects the names declared in each of the three styles", () => {
-        const source = ["Colon := module:", "    Value<public>:int = 0", "Brace := module { }", "Split := module", "{", "}", "Dotted := module. Inner := module{}"].join("\n");
-
-        expect(converter.parseExplicitModuleDefinition(source)).toEqual(["Colon", "Brace", "Split", "Dotted", "Inner"]);
-    });
-
-    it("leaves a non-module declaration out of the names", () => {
-        expect(converter.parseExplicitModuleDefinition("Widget := class:\n    Count:int = 0")).toEqual([]);
-    });
-});
-
 interface RecordedOperation {
     kind: "insert" | "delete" | "replace";
     range?: { start: { line: number; character: number }; end: { line: number; character: number } };

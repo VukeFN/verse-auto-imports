@@ -221,17 +221,6 @@ export class ImportPathConverter {
         return result.moduleName;
     }
 
-    /** The names a Verse file declares as modules, in any of the colon, brace and dotted styles. */
-    parseExplicitModuleDefinition(content: string): string[] {
-        const modules: string[] = [];
-        const moduleDefPattern = /\b([A-Za-z_][A-Za-z0-9_]*(?:'[^']*')?)\s*(?:<\s*(?:public|private|internal|protected)\s*>)?\s*:=\s*module\s*[:>{.]/gm;
-        let match;
-        while ((match = moduleDefPattern.exec(content)) !== null) {
-            modules.push(match[1]);
-        }
-        return modules;
-    }
-
     /**
      * Appends the locations where a folder of this name sits, searched outwards
      * from the current file: siblings first, then each ancestor directory, then

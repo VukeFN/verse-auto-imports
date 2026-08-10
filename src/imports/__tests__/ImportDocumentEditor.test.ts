@@ -420,6 +420,14 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
             expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { Features }", "using { Economy.Shop }", "", "using { /A }; X := 1", "code()"].join("\n"));
         });
 
+        // A stale diagnostic naming a path the buffer already imports is the
+        // ordinary case, and what lands below a pinned line is compared against
+        // nothing once it is out of the block.
+        it("does not write an additional path the file already imports below a pinned line", () => {
+            const input = ["using { Features }", "using { /A }; X := 1", "code()"].join("\n");
+            expect(editor.buildOrganizedContent(input, ["Features"], curlySorted)).toBe(["using { Features }", "", "using { /A }; X := 1", "code()"].join("\n"));
+        });
+
         it("writes a repeated additional path below the pinned provider once", () => {
             const input = ["using { Features } <#> note", "    body", "code()"].join("\n");
             expect(editor.buildOrganizedContent(input, ["Economy.Other", "Economy.Other"], curlySorted)).toBe(

@@ -373,9 +373,9 @@ export class ImportDocumentEditor {
 
     /**
      * The last line a pinned import forbids `path` from being hoisted above, or
-     * -1 where none does. For a path with no line of its own, so any pinned
-     * import that must precede it rules out the block and names where the path
-     * goes instead.
+     * -1 where none does. `path` has no line of its own to keep, so a pinned
+     * import that must precede it both rules the block out and names the line
+     * the path is written below instead.
      *
      * The floor is pinnedBounds', from the same belongsAbove, so a rebuilt
      * block and a singly added import read one rule rather than two. Only the
@@ -893,11 +893,13 @@ export class ImportDocumentEditor {
      * first segment against the copy being removed; see the withholdIsSafe
      * check.
      *
-     * A pinned import also bounds the block the file is organized around: a
-     * path it may have to precede is not hoisted above it. An import already
-     * written keeps its line, untidy but compiling; an additional path, which
-     * has no line to keep, is written directly below the pinned statement that
-     * constrains it. See hoistFloor.
+     * A pinned import also bounds the block the file is organized around:
+     * nothing is carried across a pinned import that has to precede it. One
+     * written above such a line is hoisted like any other, the block being
+     * above that line as well; one written below it keeps its line, untidy but
+     * compiling. An additional path has no line to keep, so it is written
+     * directly below the pinned statement that constrains it. See
+     * crossesPinnedProvider and hoistFloor.
      *
      * The result keeps the text's own line ending, so rebuilding an already
      * organized document reproduces it byte for byte and organizeImports can
@@ -940,11 +942,13 @@ export class ImportDocumentEditor {
         const groundedPaths = new Set(movableImports.filter((imp) => this.crossesPinnedProvider(pinned, imp)).map((imp) => imp.path));
         const hoistableImports = movableImports.filter((imp) => !groundedPaths.has(imp.path));
 
-        // A grounded import is a statement the file keeps, so a path one of them
-        // already covers is dropped here as a pinned path is. The block's own
-        // deduplication cannot do it: the grounded statement is not in the
-        // block, and neither is an additional path written below a pinned line.
-        const extraPaths = Array.from(new Set(additionalPaths.map((p) => p.trim()))).filter((p) => p.length > 0 && !pinnedPaths.has(p) && !groundedPaths.has(p));
+        // A path the file already imports is not written again, whichever
+        // statement holds it - pinned, grounded, or hoisted into the block. The
+        // block's own deduplication answers for none of them once a path can be
+        // written below a pinned line instead of into the block: what lands
+        // there is compared against nothing.
+        const importedPaths = new Set(allImports.map((imp) => imp.path));
+        const extraPaths = Array.from(new Set(additionalPaths.map((p) => p.trim()))).filter((p) => p.length > 0 && !importedPaths.has(p));
 
         // Module imports have file scope, so the names an anchored import brings
         // in are available to code anywhere in the file, however far down its

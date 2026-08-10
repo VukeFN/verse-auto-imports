@@ -58,9 +58,9 @@ export class PrecompiledDigestLoader {
             const extensionPath = this.extensionContext.extensionPath;
             const dataDir = path.join(extensionPath, "src", "data");
 
-            // The .vsix carries src/data only because .vscodeignore re-includes
-            // it with `!src/data/**` after excluding src/**. Remove that
-            // negation and the packaged extension ships no digest data at all.
+            // The .vsix carries src/data only because .vscodeignore negates it
+            // with `!src/data/**`. Drop that negation and the packaged
+            // extension ships no digest data at all.
             if (!fs.existsSync(dataDir)) {
                 throw new Error(`Pre-compiled digest directory not found: ${dataDir}`);
             }

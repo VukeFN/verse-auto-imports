@@ -392,7 +392,9 @@ export function classifyLines(lines: string[]): LineClassification[] {
  *   indented pair is not one of them - the path below it stays unrecorded, as
  *   it is for any `using:` the classification rejects.
  * - A path is only ever read from the line's statements, never from the text of
- *   a string or char literal it writes. See LineScan.codeOutsideLiterals.
+ *   a `"` string it writes. A `'` is not treated as opening literal text here,
+ *   because it also closes a path's quoted segment suffix; see
+ *   LineScan.codeOutsideLiterals for why that costs nothing.
  * - A collected import that itself opens a comment over the lines below it is
  *   flagged with `anchorsCommentBelow`. It is a real import and still counts
  *   as present, but no writer may rebuild or move its line, because where the

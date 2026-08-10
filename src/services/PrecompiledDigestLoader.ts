@@ -57,22 +57,15 @@ export class PrecompiledDigestLoader {
         try {
             const extensionPath = this.extensionContext.extensionPath;
             const dataDir = path.join(extensionPath, "src", "data");
-            let successCount = 0;
 
-            // src/data is the live location in both a checkout and a .vsix -
-            // .vscodeignore excludes src/** but re-includes src/data/**, and
-            // nothing copies the JSON into out/. The out/data branch below is
-            // dormant, and stays only against a build that starts copying.
+            // The .vsix carries src/data only because .vscodeignore re-includes
+            // it with `!src/data/**` after excluding src/**. Remove that
+            // negation and the packaged extension ships no digest data at all.
             if (!fs.existsSync(dataDir)) {
-                const outDataDir = path.join(extensionPath, "out", "data");
-                if (fs.existsSync(outDataDir)) {
-                    successCount = await this.loadFromDirectory(outDataDir);
-                } else {
-                    throw new Error(`Pre-compiled digest directory not found: ${dataDir}`);
-                }
-            } else {
-                successCount = await this.loadFromDirectory(dataDir);
+                throw new Error(`Pre-compiled digest directory not found: ${dataDir}`);
             }
+
+            const successCount = await this.loadFromDirectory(dataDir);
 
             if (successCount > 0) {
                 this.loaded = true;

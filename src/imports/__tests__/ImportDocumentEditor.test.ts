@@ -56,6 +56,22 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, [], curlyNoSort)).toBe("using { /A }\n\ncode()");
     });
 
+    // A path read out of string text counted as a pinned import of that path,
+    // and a pinned path is withheld from the block on the grounds that the line
+    // holding it already makes the import. No line did, so organizing deleted
+    // the file's only real `using { /A }` and left it importing one path fewer.
+    it("keeps an import whose path a string literal elsewhere in the file names", () => {
+        const input = 'using { /A }\nusing { /B }\nHint := "using { /A }"\ncode()';
+        expect(editor.buildOrganizedContent(input, [], curlyNoSort)).toBe('using { /A }\nusing { /B }\n\nHint := "using { /A }"\ncode()');
+    });
+
+    // The same loss reachable through a line that is itself an import, which is
+    // the shape that could hit it before a `using` after a definition counted.
+    it("keeps an import a literal on another import's line names", () => {
+        const input = 'using { /A }\nusing { /B }; Hint := "using { /A }"\ncode()';
+        expect(editor.buildOrganizedContent(input, [], curlyNoSort)).toContain("using { /A }");
+    });
+
     it("sorts alphabetically when enabled", () => {
         const input = "using { /Zebra }\nusing { /Apple }\ncode()";
         expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe("using { /Apple }\nusing { /Zebra }\n\ncode()");

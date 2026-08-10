@@ -84,6 +84,27 @@ interface LineScan {
      */
     code: string;
     /**
+     * `code` with the contents of every string and char literal replaced by
+     * spaces, so a `using` written as string text is not offered as a statement
+     * the line makes.
+     *
+     * Read this wherever a path is going to count as imported. The text of a
+     * literal is data, not a statement, and recording a path from it both
+     * suppresses an import the file needs and - because a path that counts as
+     * pinned withholds the movable import of the same path from the rebuilt
+     * block - deletes the real `using` the author wrote.
+     *
+     * Spaces rather than nothing, so the text on either side of a literal does
+     * not join into a token neither side wrote. `code` removes comments without
+     * replacement on purpose, for the opposite reason; the two differ because a
+     * comment can splice a token apart and a literal cannot.
+     *
+     * Equal to `code` on a line that ended inside an open literal, which the
+     * second lexing pass reads with literal tracking off: nothing there can be
+     * classified, so nothing is masked.
+     */
+    codeOutsideLiterals: string;
+    /**
      * Whether the line holds a `<#>` marker, which makes every line below it
      * indented past it part of the comment it opens.
      */
@@ -144,6 +165,7 @@ function lexLine(line: string, depth: number, trackLiterals: boolean): LineScan 
     let nesting = depth;
     let hasCode = false;
     let code = "";
+    let codeOutsideLiterals = "";
     let i = 0;
     // What is open at this point, innermost last, and empty at code scope. A
     // stack rather than one quote because interpolation alternates the two:
@@ -168,7 +190,7 @@ function lexLine(line: string, depth: number, trackLiterals: boolean): LineScan 
         }
 
         if (line.startsWith("<#>", i)) {
-            return { depth: nesting, hasCode, code, opensIndentedComment: true };
+            return { depth: nesting, hasCode, code, codeOutsideLiterals, opensIndentedComment: true };
         }
 
         const innermost = trackLiterals ? open[open.length - 1] : undefined;
@@ -179,7 +201,7 @@ function lexLine(line: string, depth: number, trackLiterals: boolean): LineScan 
         // pass ends at the first `#` on the line, which may sit further back
         // inside string text this pass has already read as content.
         if (line[i] === "#" && innermost?.kind !== "literal") {
-            return { depth: nesting, hasCode, code, opensIndentedComment: false };
+            return { depth: nesting, hasCode, code, codeOutsideLiterals, opensIndentedComment: false };
         }
 
         if (line.startsWith("<#", i)) {
@@ -195,6 +217,7 @@ function lexLine(line: string, depth: number, trackLiterals: boolean): LineScan 
             // from opening an interpolation.
             if (line[i] === "\\") {
                 code += line.slice(i, i + 2);
+                codeOutsideLiterals += "  ";
                 i += 2;
                 continue;
             }
@@ -226,10 +249,11 @@ function lexLine(line: string, depth: number, trackLiterals: boolean): LineScan 
             hasCode = true;
         }
         code += line[i];
+        codeOutsideLiterals += innermost?.kind === "literal" ? " " : line[i];
         i += 1;
     }
 
-    return open.length === 0 ? { depth: nesting, hasCode, code, opensIndentedComment: false } : null;
+    return open.length === 0 ? { depth: nesting, hasCode, code, codeOutsideLiterals, opensIndentedComment: false } : null;
 }
 
 function indentWidth(line: string): number {
@@ -261,6 +285,12 @@ export interface LineClassification {
      * `using` written in its trivia reads as the line's own statement.
      */
     code: string;
+    /**
+     * `code` with every literal's contents masked. Read this, not `code`,
+     * wherever a path found on the line is going to count as imported; see
+     * LineScan.codeOutsideLiterals.
+     */
+    codeOutsideLiterals: string;
 }
 
 /**
@@ -303,6 +333,7 @@ export function classifyLines(lines: string[]): LineClassification[] {
             insideBlockComment,
             continuesCommentAbove: insideBlockComment || insideIndentedComment,
             code: scan.code,
+            codeOutsideLiterals: scan.codeOutsideLiterals,
         };
 
         if (!insideBlockComment && !insideIndentedComment && scan.opensIndentedComment) {
@@ -343,8 +374,12 @@ export function classifyLines(lines: string[]): LineClassification[] {
  *   can never be a legal local-scope using.
  *   That classification reads the line from its head, so it rejects a line
  *   whose `using` follows a definition. Such a line is not skipped: every
- *   `using` it writes is recorded, pinned, because the path is imported and
- *   writing it again would duplicate it.
+ *   complete `using` statement it writes is recorded, pinned, because the path
+ *   is imported and writing it again would duplicate it. A `using:` opening an
+ *   indented pair is not one of them - the path below it stays unrecorded, as
+ *   it is for any `using:` the classification rejects.
+ * - A path is only ever read from the line's statements, never from the text of
+ *   a string or char literal it writes. See LineScan.codeOutsideLiterals.
  * - A collected import that itself opens a comment over the lines below it is
  *   flagged with `anchorsCommentBelow`. It is a real import and still counts
  *   as present, but no writer may rebuild or move its line, because where the
@@ -401,6 +436,12 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
 
         const trimmed = line.trim();
         const code = classifications[i].code.trim();
+        // Every path recorded below is read from this rather than from `code`,
+        // because every one of them counts as imported. See
+        // LineScan.codeOutsideLiterals for what a path read out of string text
+        // costs. `code` still answers what text the line holds, which is a
+        // question about the whole line and not about its statements.
+        const statements = classifications[i].codeOutsideLiterals.trim();
         const nextLine = i + 1 < lines.length ? lines[i + 1] : undefined;
 
         if (!ImportFormatter.isModuleImport(trimmed, nextLine, { atFileScope: true })) {
@@ -420,7 +461,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
             // than widened to admit them. Everything below it may then keep
             // testing the raw line, as the `using:` branch does - see the note
             // there on why the two inputs have to agree.
-            for (const linePath of usingPathsOnLine(formatter, code)) {
+            for (const linePath of usingPathsOnLine(formatter, statements)) {
                 imports.push({
                     path: linePath,
                     startLine: i,
@@ -484,7 +525,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
         // never see that, because they all read rewritableImports, which
         // excludes a pinned entry; a reader of the unfiltered scan gets the
         // region reported once per path it carries.
-        if (/\busing\s*:\s*$/.test(code)) {
+        if (/\busing\s*:\s*$/.test(statements)) {
             // Every statement written before the pair. The `using:` contributes
             // no path of its own, since neither statement pattern matches it,
             // and a `using:` following something that is not a `using` never
@@ -495,7 +536,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
             // Counted with usingPathsOnLine because this branch holds first
             // refusal over the one below, so a line ending in `using:` is
             // counted here or nowhere.
-            for (const precedingPath of usingPathsOnLine(formatter, code)) {
+            for (const precedingPath of usingPathsOnLine(formatter, statements)) {
                 imports.push({
                     path: precedingPath,
                     startLine: i,
@@ -548,7 +589,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
         // agree on how many statements a line writes. Counting a second way
         // here would be the looser copy its doc warns against, and this caller
         // needs the count exact in both directions.
-        const pathsOnLine = usingPathsOnLine(formatter, code);
+        const pathsOnLine = usingPathsOnLine(formatter, statements);
         if (pathsOnLine.length > 1) {
             for (const linePath of pathsOnLine) {
                 imports.push({

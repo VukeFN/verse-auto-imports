@@ -398,6 +398,32 @@ describe("scanModuleImports", () => {
         expect(scanModuleImports(["MyModule := module:", "    X := 1; using { /A }", "code()"])).toEqual([]);
     });
 
+    // Literal text is data, not a statement. Recorded as an import it counts as
+    // present, which both withholds the path from a file that needs it and -
+    // since a pinned path is withheld from the rebuilt block - deletes the real
+    // `using` the author wrote elsewhere in the file.
+    it("records nothing for a using written inside a string literal", () => {
+        expect(scanModuleImports(['Hint := "using { /A }"', "code()"])).toEqual([]);
+    });
+
+    it("records nothing for a using written inside a char literal", () => {
+        expect(scanModuleImports(["Hint := 'using { /A }'", "code()"])).toEqual([]);
+    });
+
+    // The same rule on a line that is itself an import: the statement counts,
+    // the literal beside it does not.
+    it("records only the statement a line writes beside a literal naming a path", () => {
+        expect(scanModuleImports(['using { /A }; Hint := "using { /B }"', "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // An interpolation is code scope again, so a `using` written in one is a
+    // statement the line really does make and stays recorded.
+    it("records a using written inside a string interpolation", () => {
+        expect(scanModuleImports(['X := "a{using { /A }}b"', "code()"])).toEqual([{ path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" }]);
+    });
+
     // extractPathFromImport reads the statement at the head of what it is given
     // and reports nothing about the rest, so the line used to be recorded as
     // `/X` alone, spanning one line and rewritable. Organizing rebuilt it from

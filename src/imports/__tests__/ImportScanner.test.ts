@@ -155,6 +155,36 @@ describe("allUsingPaths", () => {
     it("reports a using whose token a comment splits, rather than risking a miss", () => {
         expect(allUsingPaths(["us<# c #>ing { /B }", "using { /A }"])).toEqual(["/B", "/A"]);
     });
+
+    // A bare `#` inside a literal is content, not a comment opener: both
+    // `" # "` and `'#'` are literals the language's own test suite compiles.
+    // Ending the scan there hides every statement written after it on the line.
+    it("collects a using written after a string literal holding a #", () => {
+        expect(allUsingPaths(['X := "a#b"; using { Economy.Shop }', "using { /A }", "code()"])).toEqual(["Economy.Shop", "/A"]);
+    });
+
+    it("collects a using written after a char literal holding a #", () => {
+        expect(allUsingPaths(["C := '#'; using { Features }", "using { /A }"])).toEqual(["Features", "/A"]);
+    });
+
+    it("does not end a string literal at an escaped quote", () => {
+        expect(allUsingPaths(['X := "a\\"#b"; using { Economy.Shop }', "using { /A }"])).toEqual(["Economy.Shop", "/A"]);
+    });
+
+    // The other half of the rule, and the one that was already right: a
+    // `<# ... #>` written inside a string really is a comment there, since
+    // "abc<#def#>ghi" is the string "abcghi".
+    it("still reads a block comment written inside a string literal as a comment", () => {
+        expect(allUsingPaths(['X := "a<# using { /B } #>c"', "using { /A }"])).toEqual(["/A"]);
+    });
+
+    // A line may legitimately end inside a string, because an interpolation
+    // block spans lines. Nothing can be lexed past that point, so such a line is
+    // read as it was before literals were tracked at all - which is what keeps a
+    // `using` named after its `#` the comment text it is.
+    it("does not read a using out of the trailing comment of a line whose literal never closes", () => {
+        expect(allUsingPaths(['X := "ab{ # see using { /B }', "using { /A }"])).toEqual(["/A"]);
+    });
 });
 
 describe("scanModuleImports", () => {
@@ -692,6 +722,20 @@ describe("classifyLines", () => {
 
     it("does not mistake a block opener inside a line comment for one", () => {
         expect(kinds(["# see <# below", "code()"])).toEqual(["comment", "code"]);
+    });
+
+    it("keeps a # inside a string literal in the line's code", () => {
+        expect(classifyLines(['X := "a#b"; using { /A }'])[0].code).toBe('X := "a#b"; using { /A }');
+    });
+
+    it("keeps a # inside a char literal in the line's code", () => {
+        expect(classifyLines(["C := '#'; using { /A }"])[0].code).toBe("C := '#'; using { /A }");
+    });
+
+    // A block comment opened inside a string does not end the string:
+    // "a<#c#>#b" is the string "a#b", so the `#` after the `#>` is content too.
+    it("keeps a string open across a block comment written inside it", () => {
+        expect(classifyLines(['X := "a<#c#>#b"; using { /A }'])[0].code).toBe('X := "a#b"; using { /A }');
     });
 
     it("marks only the lines a block comment was opened above", () => {

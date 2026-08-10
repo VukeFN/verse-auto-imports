@@ -6,7 +6,7 @@ import { appendDeclarationBlock, buildDeclarationBlock } from "./definitionsCont
 import { findExplicitModuleDeclarations } from "./moduleDeclarations";
 import { ModuleVisibilityRequest } from "./ModuleVisibilityMessage";
 import { planVisibility, toContentSegments } from "./ModuleVisibilityPlanner";
-import { FoundDeclaration, resolveVisibility, SpecifierEdit } from "./visibilityResolution";
+import { FoundDeclaration, resolveVisibility, SpecifierEdit, VisibilityConflict } from "./visibilityResolution";
 
 /** The Content folder that anchors every module path, as in ImportPathConverter. */
 const CONTENT_FOLDER = "Content";
@@ -40,9 +40,10 @@ export class ModuleVisibilityWriter {
      * Makes the requested module reachable from the importing scope, and
      * reports what it did.
      *
-     * Refuses rather than half-applying: a module already narrowed to
-     * `<private>`, `<protected>` or `<scoped>` is left alone, and so is
-     * everything else the same request would have changed.
+     * Refuses rather than half-applying: a module declared anything but
+     * `<public>` or `<internal>` is left alone, whether it is the one to
+     * publicize or one a new declaration would sit inside, and so is everything
+     * else the same request would have changed.
      */
     async makeModulePublic(request: ModuleVisibilityRequest): Promise<void> {
         const outcome = await this.buildEdit(request);
@@ -105,8 +106,7 @@ export class ModuleVisibilityWriter {
         const resolved = resolveVisibility(prefix, segments, declarations);
 
         if (resolved.conflicts.length > 0) {
-            const listed = resolved.conflicts.map((conflict) => `${conflict.path} is <${conflict.keyword}>`).join(", ");
-            return { reason: `making '${request.moduleName}' public would widen a deliberate restriction: ${listed}. Change it by hand if that is intended.` };
+            return { reason: refusalForConflicts(request.moduleName, resolved.conflicts) };
         }
 
         if (resolved.edits.length === 0 && resolved.chain.length === 0) {
@@ -326,6 +326,26 @@ export class ModuleVisibilityWriter {
         }
         return `made '${moduleName}' public in the definitions file.`;
     }
+}
+
+/**
+ * Why a request was refused, naming what each conflicting module would have
+ * needed. The two kinds are phrased apart because they ask different things of
+ * the user, and one sentence carries both so a notification does not clip the
+ * second remedy before it is read.
+ */
+function refusalForConflicts(moduleName: string, conflicts: readonly VisibilityConflict[]): string {
+    const listed = (reason: VisibilityConflict["reason"]) =>
+        conflicts
+            .filter((conflict) => conflict.reason === reason)
+            .map((conflict) => `${conflict.path}, declared ${conflict.keyword}`)
+            .join(" and ");
+
+    const widen = listed("widen");
+    const nest = listed("nest");
+    const clauses = [widen && `widening ${widen}`, nest && `declaring a module inside ${nest}`].filter(Boolean);
+
+    return `making '${moduleName}' reachable would mean ${clauses.join(", and ")}. Make the change by hand if that is intended.`;
 }
 
 /** The text with every specifier rewrite applied, taken last-first so earlier offsets stay valid. */

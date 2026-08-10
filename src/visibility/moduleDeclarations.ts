@@ -20,8 +20,16 @@
  */
 const MODULE_DECLARATION = /\b([A-Za-z_][A-Za-z0-9_]*(?:'[^']*')?)((?:\s*<[^>]+>)*)\s*:=\s*module\s*[:>{.]/g;
 
-/** The visibility entry inside a stacked specifier block. */
-const VISIBILITY_SPECIFIER = /<\s*(public|protected|private|internal|scoped)\b[^>]*>/;
+/**
+ * The visibility entry inside a stacked specifier block. Group 1 is the keyword
+ * alone; the span covers the whole entry, `scoped`'s module list included.
+ *
+ * A specifier the alternation does not name reads as no specifier at all, and a
+ * caller then stacks its own beside the real one - two access specifiers on one
+ * definition, which is error 3543. That is why `epic_internal` is here despite
+ * being unreachable in user Content.
+ */
+const VISIBILITY_SPECIFIER = /<\s*(public|protected|private|internal|epic_internal|scoped)\b[^>]*>/;
 
 /** A half-open character span in the source text. */
 export interface SourceSpan {

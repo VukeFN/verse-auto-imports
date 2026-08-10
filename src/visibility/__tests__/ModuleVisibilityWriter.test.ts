@@ -150,7 +150,22 @@ describe("ModuleVisibilityWriter", () => {
         await writer().makeModulePublic(REQUEST);
 
         expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
-        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("Gadgets/Tools is <private>"));
+        // "widening" is what separates this refusal from the nesting one below;
+        // the module name alone appears in both.
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("widening Gadgets/Tools, declared private"));
+    });
+
+    it("refuses to declare a module inside a scoped one, without quoting it as a specifier it is not", async () => {
+        givenProject({ "Content/systems.verse": "Gadgets<scoped{Scripts}> := module:\n    X:int = 1\n" });
+
+        await writer().makeModulePublic(REQUEST);
+
+        expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
+        const [warning] = (vscode.window.showWarningMessage as jest.Mock).mock.calls[0];
+        expect(warning).toContain("declaring a module inside Gadgets, declared scoped");
+        // The declaration reads `<scoped{Scripts}>`; printing `<scoped>` would
+        // quote the file as saying something that does not compile.
+        expect(warning).not.toContain("<scoped>");
     });
 
     it("does nothing when the module is already public", async () => {

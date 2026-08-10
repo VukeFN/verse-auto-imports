@@ -43,11 +43,30 @@ describe("ImportPathConverter.buildModuleDefinitionRegex", () => {
         expect(ImportPathConverter.buildModuleDefinitionRegex("Item").test(source)).toBe(true);
     });
 
+    it("matches any specifier the language allows, not a fixed keyword list", () => {
+        const re = ImportPathConverter.buildModuleDefinitionRegex("Inventory");
+
+        // A scope list holds module references, so the specifier does not end
+        // at the keyword.
+        expect(re.test("Inventory<scoped{ModuleA, ModuleB}> := module:")).toBe(true);
+        expect(re.test("Inventory<epic_internal> := module:")).toBe(true);
+    });
+
+    it("matches a stacked specifier block, not one specifier", () => {
+        const re = ImportPathConverter.buildModuleDefinitionRegex("Inventory");
+        expect(re.test("Inventory<internal><final> := module:")).toBe(true);
+        expect(re.test("Inventory<public><scoped{ModuleA}> := module { }")).toBe(true);
+    });
+
     it("does not match a different module or a non-module declaration", () => {
         const re = ImportPathConverter.buildModuleDefinitionRegex("Inventory");
         expect(re.test("MyInventory := module:")).toBe(false);
         expect(re.test("Inventory := class:")).toBe(false);
         expect(re.test("InventoryItem := module:")).toBe(false);
+
+        // A specifier block is not what makes a declaration a module, so one
+        // must not carry a non-module declaration into a match.
+        expect(re.test("Inventory<public> := class:")).toBe(false);
 
         // What follows `module` is a character class, so a keyword that merely
         // starts with it is not a declaration. Written as a bare `.` instead,

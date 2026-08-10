@@ -102,13 +102,21 @@ export class ImportPathConverter {
      * `module. Inner := ...`. A `>` after the keyword is accepted alongside
      * them.
      *
+     * The declared name may carry any number of stacked specifiers, and no
+     * keyword list appears here: the answer is only whether this file declares
+     * the module, never which specifier it carries, and a list is a standing
+     * invitation to drift from the spellings in moduleDeclarations'
+     * MODULE_DECLARATION and ProjectPathScanner. Accepting any `<...>` entry
+     * also covers a `scoped{A, B}` scope list, whose specifier does not end at
+     * its keyword.
+     *
      * Non-global on purpose: the pattern is reused with `.test()` across many
      * files, and a global flag would carry `lastIndex` between calls and skip
      * valid definitions depending on the order the files are read in.
      */
     static buildModuleDefinitionRegex(moduleName: string): RegExp {
         const escaped = moduleName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        return new RegExp(`\\b${escaped}(?:'[^']*')?\\s*(?:<\\s*(?:public|private|internal|protected)\\s*>)?\\s*:=\\s*module\\s*[:>{.]`, "m");
+        return new RegExp(`\\b${escaped}(?:'[^']*')?(?:\\s*<[^>]+>)*\\s*:=\\s*module\\s*[:>{.]`, "m");
     }
 
     /**

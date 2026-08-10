@@ -262,12 +262,9 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A }", "", "using { /A } <#> note", "    body", "using { Economy.Shop }", "code()"].join("\n"));
     });
 
-    // The duplicate is hoisted rather than withheld, because a path cannot be
-    // resolving against itself. Its dotted consumer stays below the anchored
-    // line, which is a different question - see the hoisting tests below.
-    it("keeps a duplicate of a bare anchored path, leaving its dotted consumer below the anchor", () => {
+    it("keeps a duplicate of a bare anchored path when its dotted consumer is in the block", () => {
         const input = ["using { Features }", "using { Economy.Shop }", "using { Features } <#> note", "    body", "code()"].join("\n");
-        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { Features }", "", "using { Economy.Shop }", "using { Features } <#> note", "    body", "code()"].join("\n"));
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { Features }", "using { Economy.Shop }", "", "using { Features } <#> note", "    body", "code()"].join("\n"));
     });
 
     it("keeps a duplicate when the consumer is itself anchored above the provider", () => {
@@ -381,8 +378,11 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
             expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(input);
         });
 
+        // An absolute import exposes the public member modules of what it
+        // imports under their bare names, so a bare reference below one can be
+        // resolving through it.
         it("leaves a bare consumer below the pinned import carrying an indented comment marker", () => {
-            const input = ["using { /game/TestUsing } <#> pinned", "    note", "using { WithASubmodule }", "code()"].join("\n");
+            const input = ["using { /A } <#> pinned", "    note", "using { Features }", "code()"].join("\n");
             expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(input);
         });
 
@@ -409,6 +409,22 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
             const organized = ["using { /Apple }", "using { /Zebra }", "", "using { Features } <#> note", "    body", "using { Economy.Other }", "code()"].join("\n");
             expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(organized);
             expect(editor.buildOrganizedContent(organized, [], curlySorted)).toBe(organized);
+        });
+
+        // Hoisting only carries an import across the pinned lines above it, so
+        // one already written above them all is sorted as it always was. Held
+        // back on the presence of a pinned provider rather than on crossing it,
+        // this file would keep an order that does not compile.
+        it("still sorts the imports written above the pinned line", () => {
+            const input = ["using { Economy.Shop }", "using { Features }", "using { /A }; X := 1", "code()"].join("\n");
+            expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { Features }", "using { Economy.Shop }", "", "using { /A }; X := 1", "code()"].join("\n"));
+        });
+
+        it("writes a repeated additional path below the pinned provider once", () => {
+            const input = ["using { Features } <#> note", "    body", "code()"].join("\n");
+            expect(editor.buildOrganizedContent(input, ["Economy.Other", "Economy.Other"], curlySorted)).toBe(
+                ["using { Features } <#> note", "    body", "using { Economy.Other }", "code()"].join("\n"),
+            );
         });
 
         it("sorts a provider above its consumer as before when no import is pinned", () => {

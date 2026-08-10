@@ -351,24 +351,40 @@ export class ImportDocumentEditor {
     }
 
     /**
+     * Whether hoisting `imp` into a block at the top of the file would carry it
+     * above a pinned import that has to precede it.
+     *
+     * Position is the whole question, not the presence of such an import. The
+     * block is written above every pinned line, so an import already above
+     * every pinned one that must precede it lands in the same relation to them
+     * afterwards and can be sorted freely; one written below such a line would
+     * cross it, and a `using` that crosses the import bringing its first
+     * segment into scope stops resolving. Holding back an import that was never
+     * at risk would leave a file the sort could have repaired unrepaired.
+     *
+     * A pinned import never constrains its own path: nothing needs itself in
+     * scope, and the duplicate of a pinned path the withhold rules deliberately
+     * keep would be stranded in the body rather than organized.
+     */
+    private crossesPinnedProvider(pinned: ScannedImport[], imp: ScannedImport): boolean {
+        const rank = this.formatter.importRank(imp.path);
+        return pinned.some((other) => other.path !== imp.path && other.startLine < imp.startLine && this.belongsAbove(this.formatter.importRank(other.path), rank));
+    }
+
+    /**
      * The last line a pinned import forbids `path` from being hoisted above, or
-     * -1 where none does.
+     * -1 where none does. For a path with no line of its own, so any pinned
+     * import that must precede it rules out the block and names where the path
+     * goes instead.
      *
-     * A rebuilt block is written above every pinned line, so a pinned import
-     * that has to precede `path` rules the block out for it altogether. The
-     * floor is therefore read as a yes or no first, and only then as the line a
-     * path with none of its own is written below.
+     * The floor is pinnedBounds', from the same belongsAbove, so a rebuilt
+     * block and a singly added import read one rule rather than two. Only the
+     * floor: the ceiling pinnedBounds returns with it answers a question this
+     * caller has already answered, since a block above every pinned line, and a
+     * path written directly below this floor, both precede every pinned import
+     * further down.
      *
-     * Taken from pinnedBounds so that the writer that rebuilds a block and the
-     * writer that adds a single import cannot disagree about what precedes
-     * what: the same floor, from the same belongsAbove. The ceiling that comes
-     * with it says nothing here - a block above every pinned line already
-     * satisfies one, and a path written directly below this floor is above
-     * every pinned import further down.
-     *
-     * A pinned import never bounds its own path. Nothing needs itself in scope,
-     * and the duplicate of a pinned path the withhold rules deliberately keep
-     * would otherwise be stranded in the body instead of being organized.
+     * Exempts the path from itself for the reason crossesPinnedProvider does.
      */
     private hoistFloor(pinned: ScannedImport[], classifications: LineClassification[], path: string): number {
         return this.pinnedBounds(
@@ -915,20 +931,20 @@ export class ImportDocumentEditor {
         const pinned = pinnedImports(allImports);
         const pinnedPaths = new Set(pinned.map((imp) => imp.path));
 
-        // The block goes above every pinned line, so an import a pinned one may
-        // have to precede is left on the line it was written on rather than
-        // hoisted into it. Untidy, and the alternative is a file that no longer
+        // The block goes above every pinned line, so an import that hoisting
+        // would carry above a pinned one it needs is left on the line it was
+        // written on. Untidy, and the alternative is a file that no longer
         // compiles: a `using` resolves its own path top-down, so a path whose
         // first segment the pinned import brings into scope has to stay below
-        // it. See hoistFloor.
-        const groundedImports = movableImports.filter((imp) => this.hoistFloor(pinned, classifications, imp.path) !== -1);
-        const groundedPaths = new Set(groundedImports.map((imp) => imp.path));
+        // it. See crossesPinnedProvider.
+        const groundedPaths = new Set(movableImports.filter((imp) => this.crossesPinnedProvider(pinned, imp)).map((imp) => imp.path));
         const hoistableImports = movableImports.filter((imp) => !groundedPaths.has(imp.path));
 
         // A grounded import is a statement the file keeps, so a path one of them
         // already covers is dropped here as a pinned path is. The block's own
-        // deduplication cannot do it: the grounded statement is not in the block.
-        const extraPaths = additionalPaths.map((p) => p.trim()).filter((p) => p.length > 0 && !pinnedPaths.has(p) && !groundedPaths.has(p));
+        // deduplication cannot do it: the grounded statement is not in the
+        // block, and neither is an additional path written below a pinned line.
+        const extraPaths = Array.from(new Set(additionalPaths.map((p) => p.trim()))).filter((p) => p.length > 0 && !pinnedPaths.has(p) && !groundedPaths.has(p));
 
         // Module imports have file scope, so the names an anchored import brings
         // in are available to code anywhere in the file, however far down its
@@ -980,6 +996,11 @@ export class ImportDocumentEditor {
         // directly below the pinned statement that constrains it, since it has
         // no line of its own to keep. Declining to write it at all would make
         // organizing a file with such an import silently add nothing.
+        //
+        // Grouped by line as groupByPlacementLine groups the add path's, and
+        // deliberately not through it: that one places a run against a document
+        // being edited, honouring a ceiling as well, while these are spliced
+        // into text being rebuilt and hoistFloor says why no ceiling binds.
         const topExtraPaths: string[] = [];
         const groundedExtrasByLine = new Map<number, string[]>();
         for (const path of extraPaths) {

@@ -259,12 +259,15 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
     // holds a bare or dotted import anywhere.
     it("keeps a duplicate when a dotted import could resolve against it", () => {
         const input = ["using { /A } <#> note", "    body", "using { /A }", "using { Economy.Shop }", "code()"].join("\n");
-        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A }", "using { Economy.Shop }", "", "using { /A } <#> note", "    body", "code()"].join("\n"));
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A }", "", "using { /A } <#> note", "    body", "using { Economy.Shop }", "code()"].join("\n"));
     });
 
-    it("keeps a duplicate of a bare anchored path when its dotted consumer is in the block", () => {
+    // The duplicate is hoisted rather than withheld, because a path cannot be
+    // resolving against itself. Its dotted consumer stays below the anchored
+    // line, which is a different question - see the hoisting tests below.
+    it("keeps a duplicate of a bare anchored path, leaving its dotted consumer below the anchor", () => {
         const input = ["using { Features }", "using { Economy.Shop }", "using { Features } <#> note", "    body", "code()"].join("\n");
-        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { Features }", "using { Economy.Shop }", "", "using { Features } <#> note", "    body", "code()"].join("\n"));
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { Features }", "", "using { Economy.Shop }", "using { Features } <#> note", "    body", "code()"].join("\n"));
     });
 
     it("keeps a duplicate when the consumer is itself anchored above the provider", () => {
@@ -367,6 +370,51 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
     it("returns null when the only import carries an indented comment marker", () => {
         const input = ["using { /A } <#> why this is here", "    it brings the module into scope", "code()"].join("\n");
         expect(editor.buildOrganizedContent(input, [], curlySorted)).toBeNull();
+    });
+
+    // The block is rebuilt above every pinned line, so hoisting a path a pinned
+    // import brings into scope puts the consumer above its provider and the
+    // file stops compiling. Both pin reasons reach it, so both are pinned here.
+    describe("hoisting past an import pinned to its line", () => {
+        it("leaves a dotted consumer below the pinned import opening a block comment over it", () => {
+            const input = ["using { Features } <# note", "using { Old }", "#>", "using { Economy.Other }", "", "code()"].join("\n");
+            expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(input);
+        });
+
+        it("leaves a bare consumer below the pinned import carrying an indented comment marker", () => {
+            const input = ["using { /game/TestUsing } <#> pinned", "    note", "using { WithASubmodule }", "code()"].join("\n");
+            expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(input);
+        });
+
+        // The other pin reason: a `;` puts two statements on one span, so the
+        // line may not be rebuilt from any one path.
+        it("leaves a dotted consumer below the pinned import sharing its span with another statement", () => {
+            const input = ["using { Features }; using:", "    Economy.Shop", "using { Economy.Other }", "code()"].join("\n");
+            expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(input);
+        });
+
+        // An added path has no line of its own to keep, so it is written below
+        // the statement that constrains it - past the body of the comment that
+        // pins it, which is where the marker's own body ends.
+        it("writes an added consumer below the pinned provider instead of into the block", () => {
+            const input = ["using { Features } <#> note", "    body", "code()"].join("\n");
+            expect(editor.buildOrganizedContent(input, ["Economy.Other"], curlySorted)).toBe(["using { Features } <#> note", "    body", "using { Economy.Other }", "code()"].join("\n"));
+        });
+
+        // Only the paths the pinned import could provide are held back. An
+        // absolute path needs nothing in scope, so the file is still organized
+        // around what stays.
+        it("still hoists the absolute imports past a pinned bare provider", () => {
+            const input = ["using { Features } <#> note", "    body", "using { Economy.Other }", "using { /Zebra }", "using { /Apple }", "code()"].join("\n");
+            const organized = ["using { /Apple }", "using { /Zebra }", "", "using { Features } <#> note", "    body", "using { Economy.Other }", "code()"].join("\n");
+            expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(organized);
+            expect(editor.buildOrganizedContent(organized, [], curlySorted)).toBe(organized);
+        });
+
+        it("sorts a provider above its consumer as before when no import is pinned", () => {
+            const input = ["using { Economy.Other }", "using { Features }", "code()"].join("\n");
+            expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { Features }", "using { Economy.Other }", "", "code()"].join("\n"));
+        });
     });
 
     // Excluding an import with an ordinary trailing comment from rewriting

@@ -1,11 +1,12 @@
 import * as fs from "fs";
 import * as path from "path";
 
-// Regression for #136: five commands need caller-supplied arguments - the quick
-// fix passes them to addSingleImport, the CodeLens passes them to the four
-// conversion commands. Without a commandPalette entry hiding them, every
-// declared command is palette-visible, and invoking one of these from the
-// palette dereferences an undefined document.
+// Regression for #136: six commands need caller-supplied arguments - the import
+// quick fix passes them to addSingleImport, the CodeLens passes them to the four
+// conversion commands, and the module-visibility quick fix passes the parsed
+// diagnostic to makeModulePublic. Without a commandPalette entry hiding them,
+// every declared command is palette-visible, and invoking one of these from the
+// palette dereferences an undefined argument.
 
 interface CommandContribution {
     command: string;
@@ -30,6 +31,7 @@ const ARGUMENT_REQUIRING_COMMANDS = [
     "verseAutoImports.convertAllToFullPath",
     "verseAutoImports.convertToRelativePath",
     "verseAutoImports.convertAllToRelativePath",
+    "verseAutoImports.makeModulePublic",
 ];
 
 const manifest: Manifest = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "..", "..", "package.json"), "utf8"));

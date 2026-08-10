@@ -3,6 +3,7 @@ import { logger } from "../utils";
 import { ImportHandler, ImportPathConverter, ImportCodeLensProvider } from "../imports";
 import { StatusBarHandler } from "../ui";
 import { ProjectPathCache } from "../services";
+import { ModuleVisibilityRequest, ModuleVisibilityWriter } from "../visibility";
 
 /** The collaborators the commands act on, wired once during activation. */
 export interface CommandsDependencies {
@@ -10,6 +11,7 @@ export interface CommandsDependencies {
     statusBarHandler: StatusBarHandler;
     importPathConverter: ImportPathConverter;
     importCodeLensProvider: ImportCodeLensProvider;
+    moduleVisibilityWriter: ModuleVisibilityWriter;
     /**
      * Absent when the cache setting is off, so the dependency is missing in
      * fact and not only in type. The commands that would build one refuse
@@ -72,6 +74,7 @@ export class CommandsHandler {
             ...this.debugCommands(),
             ...this.pathCacheCommands(),
             ...this.pathConversionCommands(),
+            ...this.moduleVisibilityCommands(),
         ];
 
         for (const [commandId, handler] of commands) {
@@ -84,6 +87,22 @@ export class CommandsHandler {
             ["verseAutoImports.addSingleImport", this.addSingleImport.bind(this)],
             ["verseAutoImports.optimizeImports", this.optimizeImports.bind(this)],
         ];
+    }
+
+    private moduleVisibilityCommands(): CommandEntry[] {
+        return [["verseAutoImports.makeModulePublic", this.makeModulePublic.bind(this)]];
+    }
+
+    /**
+     * Declares the module an import could not reach `<public>`, so the import
+     * compiles.
+     *
+     * The argument comes from the quick fix that parsed it out of the compiler
+     * diagnostic, which is why the command is hidden from the Command Palette.
+     */
+    async makeModulePublic(request: ModuleVisibilityRequest): Promise<void> {
+        logger.info("CommandsHandler", `Make module public command triggered for ${request.targetPath}`);
+        await this.deps.moduleVisibilityWriter.makeModulePublic(request);
     }
 
     async addSingleImport(document: vscode.TextDocument, importStatement: string): Promise<void> {

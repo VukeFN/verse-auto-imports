@@ -36,7 +36,7 @@ describe("ImportPathConverter.buildModuleDefinitionRegex", () => {
         expect(re.test("Inventory := module\n{\n    Count<public>:int = 0\n}")).toBe(true);
     });
 
-    it("matches the dotted form, for the outer module and the one it heads", () => {
+    it("matches the dotted form, for either name declared on the line", () => {
         const source = "Inventory := module. Item := module{}";
 
         expect(ImportPathConverter.buildModuleDefinitionRegex("Inventory").test(source)).toBe(true);

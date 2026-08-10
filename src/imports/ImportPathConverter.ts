@@ -97,8 +97,10 @@ export class ImportPathConverter {
 
     /**
      * A regex matching an explicit declaration of one named module, in any of
-     * the styles Verse accepts after `module`: a colon, a brace on either that
-     * line or the next, and the dotted `Name := module. Inner := ...`.
+     * the three styles Verse writes a macro body in: `module:`, `module { }`
+     * with the brace on either that line or the next, and the dotted
+     * `module. Inner := ...`. A `>` after the keyword is accepted alongside
+     * them.
      *
      * Non-global on purpose: the pattern is reused with `.test()` across many
      * files, and a global flag would carry `lastIndex` between calls and skip
@@ -301,9 +303,9 @@ export class ImportPathConverter {
     }
 
     /**
-     * Appends the locations of the `.verse` files declaring this name with
-     * `Name := module:`, which is the other way a module comes to exist and
-     * the one no folder attests to.
+     * Appends the locations of the `.verse` files explicitly declaring this
+     * name as a module, which is the other way a module comes to exist and the
+     * one no folder attests to.
      *
      * Capped at 100 files scanned, so a project larger than that resolves from
      * whichever of them the search returned.

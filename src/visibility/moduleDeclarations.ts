@@ -114,69 +114,100 @@ export function findExplicitModuleDeclarations(content: string): ModuleDeclarati
 }
 
 /**
- * The text with every comment and string literal replaced by spaces, so
- * offsets still address the original.
+ * The text with every comment replaced by spaces, so offsets still address the
+ * original.
  *
- * Handles the `#` line comment, the nesting `<# #>` block comment and the
- * double-quoted string, which is where `#` is content rather than a comment.
- * Two shapes are deliberately not tracked: the `<#>` indented comment, whose
- * body is indented under the marker where a declaration reads as nested
- * anyway, and the single-quoted char literal, because a single quote also
- * opens an identifier's quoted suffix and the two cannot be told apart here.
+ * Verse has three comment forms and they do not compose the way a reader
+ * expects, so the order of the tests below is the whole of this function:
+ *
+ * - `<#>` is the INDENTED comment marker, not a block that closes on the `#>`
+ *   inside it. The rest of its line is comment text, and so is every line
+ *   indented past it, blank lines included. It must therefore be tested before
+ *   `<#`, or a declaration commented out this way reads as live code.
+ * - `<# ... #>` nests, and beats a string literal: a `<#` inside a string
+ *   really does open a comment there.
+ * - `#` runs to the end of the line, but inside a string it is content. This
+ *   is the one place string tracking is needed, and the only reason it is
+ *   here.
+ *
+ * ImportScanner encodes the same three rules for its own line scan. The single
+ * quote is deliberately not tracked: it opens a char literal and an
+ * identifier's quoted suffix alike, and nothing here can tell the two apart.
  */
 function maskCommentsAndStrings(content: string): string {
     const masked = content.split("");
+    const lines = content.split("\n");
     let blockDepth = 0;
-    let inString = false;
+    let markerIndent: number | null = null;
+    let lineStart = 0;
 
-    for (let i = 0; i < content.length; i++) {
-        const character = content[i];
+    for (const line of lines) {
+        const lineEnd = lineStart + line.length;
+        const indent = indentOf(content, lineStart);
 
-        if (blockDepth > 0) {
-            if (content.startsWith("<#", i)) {
-                blockDepth++;
-            } else if (content.startsWith("#>", i)) {
-                blockDepth--;
-            }
-            blank(masked, content, i);
-            continue;
-        }
-
-        if (inString) {
-            if (character === "\\") {
-                blank(masked, content, i);
-                i++;
-                if (i < content.length) blank(masked, content, i);
+        // The marker's body runs while lines stay indented past it; a blank
+        // line does not end it.
+        if (markerIndent !== null) {
+            if (line.trim().length === 0 || indent > markerIndent) {
+                blankRange(masked, content, lineStart, lineEnd);
+                lineStart = lineEnd + 1;
                 continue;
             }
-            if (character === '"') {
-                inString = false;
-            }
-            blank(masked, content, i);
-            continue;
+            markerIndent = null;
         }
 
-        if (content.startsWith("<#", i)) {
-            blockDepth++;
-            blank(masked, content, i);
-            continue;
-        }
+        let inString = false;
 
-        if (character === '"') {
-            inString = true;
-            blank(masked, content, i);
-            continue;
-        }
-
-        // A line comment is a `#` not preceded by `<` and not followed by `>`;
-        // the other two shapes are the block and indented comment openers.
-        if (character === "#" && content[i + 1] !== ">") {
-            while (i < content.length && content[i] !== "\n") {
+        for (let i = lineStart; i < lineEnd; i++) {
+            if (blockDepth > 0) {
+                if (content.startsWith("<#", i)) {
+                    blockDepth++;
+                } else if (content.startsWith("#>", i)) {
+                    blockDepth--;
+                }
                 blank(masked, content, i);
-                i++;
+                continue;
             }
-            i--;
+
+            if (content.startsWith("<#>", i)) {
+                markerIndent = indent;
+                blankRange(masked, content, i, lineEnd);
+                break;
+            }
+
+            if (content.startsWith("<#", i)) {
+                blockDepth++;
+                blank(masked, content, i);
+                continue;
+            }
+
+            if (inString) {
+                if (content[i] === "\\") {
+                    blank(masked, content, i);
+                    i++;
+                    if (i < lineEnd) blank(masked, content, i);
+                    continue;
+                }
+                if (content[i] === '"') {
+                    inString = false;
+                }
+                blank(masked, content, i);
+                continue;
+            }
+
+            if (content[i] === '"') {
+                inString = true;
+                blank(masked, content, i);
+                continue;
+            }
+
+            if (content[i] === "#") {
+                blankRange(masked, content, i, lineEnd);
+                break;
+            }
         }
+
+        lineStart = lineEnd + 1;
     }
 
     return masked.join("");
@@ -186,6 +217,13 @@ function maskCommentsAndStrings(content: string): string {
 function blank(masked: string[], content: string, index: number): void {
     if (content[index] !== "\n") {
         masked[index] = " ";
+    }
+}
+
+/** Blanks a half-open range. */
+function blankRange(masked: string[], content: string, start: number, end: number): void {
+    for (let i = start; i < end; i++) {
+        blank(masked, content, i);
     }
 }
 

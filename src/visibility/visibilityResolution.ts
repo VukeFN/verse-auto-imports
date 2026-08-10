@@ -19,15 +19,14 @@ export interface FoundDeclaration {
     declaration: ModuleDeclaration;
 }
 
-/** One specifier rewrite: replacing `span` when present, inserting at `offset` when not. */
+/** One specifier rewrite. An empty span is an insertion at that offset. */
 export interface SpecifierEdit {
     file: string;
 
     /** Content-relative path of the module being rewritten, for the report to the user. */
     path: string;
 
-    span?: SourceSpan;
-    offset: number;
+    span: SourceSpan;
     text: string;
 }
 
@@ -120,8 +119,7 @@ export function resolveVisibility(prefix: readonly string[], segments: readonly 
                 edits.push({
                     file: entry.file,
                     path: modulePath,
-                    span: visibility ? { start: visibility.start, end: visibility.end } : undefined,
-                    offset: visibility ? visibility.start : insertionPoint,
+                    span: visibility ? { start: visibility.start, end: visibility.end } : { start: insertionPoint, end: insertionPoint },
                     text: PUBLIC_SPECIFIER,
                 });
             }

@@ -93,6 +93,9 @@ export class ModuleVisibilityWriter {
         }
 
         const definitionsUri = this.definitionsUri(contentRoot);
+        if (!definitionsUri) {
+            return { reason: "the configured definitions file name is not a plain file name." };
+        }
         const definitionsKey = definitionsUri.toString();
 
         // Every module on the path is looked up, the reachable prefix included:
@@ -148,10 +151,11 @@ export class ModuleVisibilityWriter {
                 continue;
             }
 
-            if (specifierEdit.span) {
-                edit.replace(file.uri, new vscode.Range(positionAt(file.text, specifierEdit.span.start), positionAt(file.text, specifierEdit.span.end)), specifierEdit.text);
+            const { start, end } = specifierEdit.span;
+            if (start === end) {
+                edit.insert(file.uri, positionAt(file.text, start), specifierEdit.text);
             } else {
-                edit.insert(file.uri, positionAt(file.text, specifierEdit.offset), specifierEdit.text);
+                edit.replace(file.uri, new vscode.Range(positionAt(file.text, start), positionAt(file.text, end)), specifierEdit.text);
             }
         }
     }
@@ -171,9 +175,22 @@ export class ModuleVisibilityWriter {
         }
     }
 
-    /** The configured definitions file, at the Content root. */
-    private definitionsUri(contentRoot: vscode.Uri): vscode.Uri {
-        const fileName = vscode.workspace.getConfiguration("verseAutoImports").get<string>("moduleVisibility.definitionsFileName", "definitions.verse");
+    /**
+     * The configured definitions file, at the Content root, or null when the
+     * setting does not name one.
+     *
+     * The setting is a file NAME, so a value carrying a separator is refused
+     * rather than resolved: `Uri.joinPath` would happily place the file in
+     * another directory, or outside Content entirely, and an empty value would
+     * address the Content directory itself.
+     */
+    private definitionsUri(contentRoot: vscode.Uri): vscode.Uri | null {
+        const fileName = vscode.workspace.getConfiguration("verseAutoImports").get<string>("moduleVisibility.definitionsFileName", "definitions.verse").trim();
+
+        if (fileName.length === 0 || /[\\/]/.test(fileName) || fileName === "." || fileName === "..") {
+            return null;
+        }
+
         return vscode.Uri.joinPath(contentRoot, fileName);
     }
 
@@ -208,7 +225,9 @@ export class ModuleVisibilityWriter {
      * rather than what is currently on disk.
      *
      * @param definitionsKey the definitions file, whose text is kept even when
-     * it declares nothing, because the caller appends to it
+     * it declares none of these modules, because the caller appends to it. A
+     * file holding no module declaration at all is skipped before that, and
+     * reaches the caller through readDefinitions instead.
      */
     private async findDeclarations(
         workspaceFolder: vscode.WorkspaceFolder,
@@ -309,13 +328,7 @@ export class ModuleVisibilityWriter {
 
 /** The text with every specifier rewrite applied, taken last-first so earlier offsets stay valid. */
 function applySpecifierEdits(text: string, edits: readonly SpecifierEdit[]): string {
-    const ordered = [...edits].sort((a, b) => (b.span?.start ?? b.offset) - (a.span?.start ?? a.offset));
-
-    return ordered.reduce((current, edit) => {
-        const start = edit.span?.start ?? edit.offset;
-        const end = edit.span?.end ?? edit.offset;
-        return current.slice(0, start) + edit.text + current.slice(end);
-    }, text);
+    return [...edits].sort((a, b) => b.span.start - a.span.start).reduce((current, edit) => current.slice(0, edit.span.start) + edit.text + current.slice(edit.span.end), text);
 }
 
 /** The position an offset falls at in the text the offset was taken from. */

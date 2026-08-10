@@ -178,6 +178,39 @@ describe("ModuleVisibilityWriter", () => {
         expect(appliedOperations()[0]).toMatchObject({ kind: "createFile" });
     });
 
+    it("refuses a configured file name that is not a plain file name", async () => {
+        givenProject({ "Content/Scripts/main.verse": "" });
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+            get: jest.fn().mockImplementation((key: string, fallback?: unknown) => (key === "moduleVisibility.definitionsFileName" ? "../outside.verse" : fallback)),
+            update: jest.fn(),
+        });
+
+        await writer().makeModulePublic(REQUEST);
+
+        expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("not a plain file name"));
+    });
+
+    it("refuses an empty configured file name, which would address the Content folder", async () => {
+        givenProject({ "Content/Scripts/main.verse": "" });
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+            get: jest.fn().mockImplementation((key: string, fallback?: unknown) => (key === "moduleVisibility.definitionsFileName" ? "   " : fallback)),
+            update: jest.fn(),
+        });
+
+        await writer().makeModulePublic(REQUEST);
+
+        expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
+    });
+
+    it("ignores a declaration commented out with the `<#>` marker", async () => {
+        givenProject({ "Content/Gadgets/tools.verse": "<#> Tools := module {}\n" });
+
+        await writer().makeModulePublic(REQUEST);
+
+        expect(appliedOperations()[0]).toMatchObject({ kind: "createFile" });
+    });
+
     it("refuses when no project file resolves the module paths", async () => {
         givenProject({ "Content/Scripts/main.verse": "" });
         const handler = { getProjectVersePath: jest.fn().mockResolvedValue(null) } as unknown as ProjectPathHandler;

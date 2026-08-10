@@ -17,6 +17,29 @@ describe("findExplicitModuleDeclarations comment and string masking", () => {
         expect(findExplicitModuleDeclarations("<# outer <# Tools := module {} #> still comment #>\nReal := module {}\n").map((declaration) => declaration.name)).toEqual(["Real"]);
     });
 
+    it("ignores a declaration commented out with the `<#>` marker", () => {
+        // `<#>` is the indented-comment marker, not a block that closes on the
+        // `#>` inside it. Read as a block, it opens and shuts on itself and
+        // leaves the declaration looking live.
+        expect(findExplicitModuleDeclarations("<#> Tools := module {}\nReal := module {}\n").map((declaration) => declaration.name)).toEqual(["Real"]);
+    });
+
+    it("ignores the indented body of a `<#>` marker", () => {
+        expect(findExplicitModuleDeclarations("<#>\n    Tools := module {}\nReal := module {}\n").map((declaration) => declaration.name)).toEqual(["Real"]);
+    });
+
+    it("keeps a blank line inside a `<#>` body", () => {
+        expect(findExplicitModuleDeclarations("<#>\n    still comment\n\n    Tools := module {}\nReal := module {}\n").map((declaration) => declaration.name)).toEqual(["Real"]);
+    });
+
+    it("ends a `<#>` body at the first line back at the marker's indent", () => {
+        expect(findExplicitModuleDeclarations("    <#>\n        hidden\n    Tools := module {}\n").map((declaration) => declaration.name)).toEqual(["Tools"]);
+    });
+
+    it("lets a `<#` inside a string open a comment, which Verse says it does", () => {
+        expect(findExplicitModuleDeclarations('Note:string = "a<#b"\nTools := module {}\n')).toEqual([]);
+    });
+
     it("still finds a declaration after a `#` inside a string literal", () => {
         const declarations = findExplicitModuleDeclarations('Tag:string = "a#b"\nTools := module {}\n');
 
@@ -28,6 +51,14 @@ describe("findExplicitModuleDeclarations comment and string masking", () => {
         const declarations = findExplicitModuleDeclarations(content);
 
         expect(declarations.map((declaration) => declaration.name)).toContain("Tools");
+    });
+
+    it("does not carry an unterminated string past its line", () => {
+        expect(findExplicitModuleDeclarations('Broken:string = "oops\nTools := module {}\n').map((declaration) => declaration.name)).toEqual(["Tools"]);
+    });
+
+    it("treats an unterminated block comment as running to the end", () => {
+        expect(findExplicitModuleDeclarations("<# open\nTools := module {}\n")).toEqual([]);
     });
 
     it("ignores a declaration inside a string literal", () => {

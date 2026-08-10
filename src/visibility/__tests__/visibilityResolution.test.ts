@@ -30,7 +30,9 @@ describe("resolveVisibility", () => {
         const resolved = resolveVisibility([], segments(["Gadgets", false], ["Tools", true]), found);
 
         expect(resolved.chain).toEqual([]);
-        expect(resolved.edits).toEqual([{ file: "file://a", path: "Gadgets/Tools", span: undefined, offset: 5, text: "<public>" }]);
+        // An empty span at the end of the name is the insertion of a specifier
+        // where the declaration carries none.
+        expect(resolved.edits).toEqual([{ file: "file://a", path: "Gadgets/Tools", span: { start: 5, end: 5 }, text: "<public>" }]);
     });
 
     it("rewrites every part of a module, since later parts must repeat the specifier", () => {
@@ -46,7 +48,7 @@ describe("resolveVisibility", () => {
 
         const resolved = resolveVisibility([], segments(["Gadgets", false], ["Tools", true]), found);
 
-        expect(resolved.edits).toEqual([{ file: "file://a", path: "Gadgets/Tools", span: { start: 5, end: 15 }, offset: 5, text: "<public>" }]);
+        expect(resolved.edits).toEqual([{ file: "file://a", path: "Gadgets/Tools", span: { start: 5, end: 15 }, text: "<public>" }]);
     });
 
     it("does nothing for a module already declared public", () => {

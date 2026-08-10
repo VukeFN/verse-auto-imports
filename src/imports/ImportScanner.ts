@@ -504,6 +504,19 @@ export function rewritableImports(scannedImports: ScannedImport[]): ScannedImpor
 }
 
 /**
+ * The scanned imports staying on the line they were written on, for either
+ * reason - the complement of rewritableImports.
+ *
+ * Kept beside it so the two halves of the partition are edited together. A
+ * reader that collects one pin reason and not the other sees an import that is
+ * in no block, because blocks are built from the rewritable ones, and in no list
+ * of its own either.
+ */
+export function pinnedImports(scannedImports: ScannedImport[]): ScannedImport[] {
+    return scannedImports.filter((imp) => imp.anchorsCommentBelow || imp.rebuildLosesText);
+}
+
+/**
  * The path of every `using` written anywhere in a line of live code, in written
  * order, or [] when it writes none.
  *

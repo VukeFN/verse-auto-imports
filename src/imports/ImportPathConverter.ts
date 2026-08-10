@@ -96,7 +96,9 @@ export class ImportPathConverter {
     }
 
     /**
-     * A regex matching an explicit `Name := module:` declaration of one module.
+     * A regex matching an explicit declaration of one named module, in any of
+     * the styles Verse accepts after `module`: a colon, a brace on either that
+     * line or the next, and the dotted `Name := module. Inner := ...`.
      *
      * Non-global on purpose: the pattern is reused with `.test()` across many
      * files, and a global flag would carry `lastIndex` between calls and skip
@@ -104,7 +106,7 @@ export class ImportPathConverter {
      */
     static buildModuleDefinitionRegex(moduleName: string): RegExp {
         const escaped = moduleName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        return new RegExp(`\\b${escaped}(?:'[^']*')?\\s*(?:<\\s*(?:public|private|internal|protected)\\s*>)?\\s*:=\\s*module\\s*[:>]`, "m");
+        return new RegExp(`\\b${escaped}(?:'[^']*')?\\s*(?:<\\s*(?:public|private|internal|protected)\\s*>)?\\s*:=\\s*module\\s*[:>{.]`, "m");
     }
 
     /**
@@ -217,10 +219,10 @@ export class ImportPathConverter {
         return result.moduleName;
     }
 
-    /** The names a Verse file declares as modules with `Name := module:`. */
+    /** The names a Verse file declares as modules, in any of the colon, brace and dotted styles. */
     parseExplicitModuleDefinition(content: string): string[] {
         const modules: string[] = [];
-        const moduleDefPattern = /\b([A-Za-z_][A-Za-z0-9_]*(?:'[^']*')?)\s*(?:<\s*(?:public|private|internal|protected)\s*>)?\s*:=\s*module\s*[:>]/gm;
+        const moduleDefPattern = /\b([A-Za-z_][A-Za-z0-9_]*(?:'[^']*')?)\s*(?:<\s*(?:public|private|internal|protected)\s*>)?\s*:=\s*module\s*[:>{.]/gm;
         let match;
         while ((match = moduleDefPattern.exec(content)) !== null) {
             modules.push(match[1]);

@@ -29,11 +29,30 @@ describe("ImportPathConverter.buildModuleDefinitionRegex", () => {
         expect(re.test("Inventory := module>")).toBe(true);
     });
 
+    it("matches the brace form, with the brace on the declaration line or the next", () => {
+        const re = ImportPathConverter.buildModuleDefinitionRegex("Inventory");
+        expect(re.test("Inventory := module{}")).toBe(true);
+        expect(re.test("Inventory<public> := module { }")).toBe(true);
+        expect(re.test("Inventory := module\n{\n    Count<public>:int = 0\n}")).toBe(true);
+    });
+
+    it("matches the dotted form, for the outer module and the one it heads", () => {
+        const source = "Inventory := module. Item := module{}";
+
+        expect(ImportPathConverter.buildModuleDefinitionRegex("Inventory").test(source)).toBe(true);
+        expect(ImportPathConverter.buildModuleDefinitionRegex("Item").test(source)).toBe(true);
+    });
+
     it("does not match a different module or a non-module declaration", () => {
         const re = ImportPathConverter.buildModuleDefinitionRegex("Inventory");
         expect(re.test("MyInventory := module:")).toBe(false);
         expect(re.test("Inventory := class:")).toBe(false);
         expect(re.test("InventoryItem := module:")).toBe(false);
+
+        // What follows `module` is a character class, so a keyword that merely
+        // starts with it is not a declaration. Written as a bare `.` instead,
+        // the dotted style would accept any character and match this.
+        expect(re.test("Inventory := modulex")).toBe(false);
     });
 
     it("is not global, so repeated .test() calls are order-independent", () => {
@@ -56,6 +75,21 @@ describe("ImportPathConverter.buildModuleDefinitionRegex", () => {
         const re = ImportPathConverter.buildModuleDefinitionRegex("a.b");
         expect(re.test("a.b := module:")).toBe(true);
         expect(re.test("axb := module:")).toBe(false);
+    });
+});
+
+describe("ImportPathConverter.parseExplicitModuleDefinition", () => {
+    // The parser is pure string work, so a channel is the whole of what it needs.
+    const converter = new ImportPathConverter(vscode.window.createOutputChannel("test"));
+
+    it("collects the names declared in each of the three styles", () => {
+        const source = ["Colon := module:", "    Value<public>:int = 0", "Brace := module { }", "Split := module", "{", "}", "Dotted := module. Inner := module{}"].join("\n");
+
+        expect(converter.parseExplicitModuleDefinition(source)).toEqual(["Colon", "Brace", "Split", "Dotted", "Inner"]);
+    });
+
+    it("leaves a non-module declaration out of the names", () => {
+        expect(converter.parseExplicitModuleDefinition("Widget := class:\n    Count:int = 0")).toEqual([]);
     });
 });
 

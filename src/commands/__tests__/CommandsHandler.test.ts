@@ -42,41 +42,53 @@ afterEach(() => {
     setActiveEditor(undefined);
 });
 
-/** Every id registerAll registers, in the order its seven groups are spread. */
-const REGISTERED_COMMAND_IDS = [
-    "verseAutoImports.addSingleImport",
-    "verseAutoImports.optimizeImports",
-    "verseAutoImports.showStatusMenu",
-    "verseAutoImports.toggleAutoImport",
-    "verseAutoImports.togglePreserveLocations",
-    "verseAutoImports.toggleImportSyntax",
-    "verseAutoImports.toggleDigestFiles",
-    "verseAutoImports.toggleFullPathCodeLens",
-    "verseAutoImports.snoozeAutoImport",
-    "verseAutoImports.cancelSnooze",
-    "verseAutoImports.exportDebugLogs",
-    "verseAutoImports.captureDiagnosticsCorpus",
-    "verseAutoImports.rebuildPathCache",
-    "verseAutoImports.clearPathCache",
-    "verseAutoImports.showCacheStatus",
-    "verseAutoImports.convertToFullPath",
-    "verseAutoImports.convertAllToFullPath",
-    "verseAutoImports.convertToRelativePath",
-    "verseAutoImports.convertAllToRelativePath",
+/** Every command registerAll registers, with the method it binds, in the order its groups are spread. */
+const REGISTERED_COMMANDS: Array<[string, string]> = [
+    ["verseAutoImports.addSingleImport", "addSingleImport"],
+    ["verseAutoImports.optimizeImports", "optimizeImports"],
+    ["verseAutoImports.showStatusMenu", "showStatusMenu"],
+    ["verseAutoImports.toggleAutoImport", "toggleAutoImport"],
+    ["verseAutoImports.togglePreserveLocations", "togglePreserveLocations"],
+    ["verseAutoImports.toggleImportSyntax", "toggleImportSyntax"],
+    ["verseAutoImports.toggleDigestFiles", "toggleDigestFiles"],
+    ["verseAutoImports.toggleFullPathCodeLens", "toggleFullPathCodeLens"],
+    ["verseAutoImports.snoozeAutoImport", "snoozeAutoImport"],
+    ["verseAutoImports.cancelSnooze", "cancelSnooze"],
+    ["verseAutoImports.exportDebugLogs", "exportDebugLogs"],
+    ["verseAutoImports.captureDiagnosticsCorpus", "captureDiagnosticsCorpus"],
+    ["verseAutoImports.rebuildPathCache", "rebuildPathCache"],
+    ["verseAutoImports.clearPathCache", "clearPathCache"],
+    ["verseAutoImports.showCacheStatus", "showCacheStatus"],
+    ["verseAutoImports.convertToFullPath", "convertToFullPath"],
+    ["verseAutoImports.convertAllToFullPath", "convertAllToFullPath"],
+    ["verseAutoImports.convertToRelativePath", "convertToRelativePath"],
+    ["verseAutoImports.convertAllToRelativePath", "convertAllToRelativePath"],
 ];
+
+function registeredCommands(): Array<[string, string]> {
+    return (vscode.commands.registerCommand as jest.Mock).mock.calls.map(([commandId, handler]) => [commandId, handler.name]);
+}
 
 // The integration suite asserts the same ids are registered, but only with an
 // extension host running - so nothing in this suite would catch a command lost
-// from one of registerAll's group tables.
+// from one of registerAll's group tables, or bound to the wrong method.
 describe("CommandsHandler.registerAll", () => {
     it("registers every command id once, in group order", () => {
         const context = { subscriptions: [] } as unknown as vscode.ExtensionContext;
 
         makeHandler({}).registerAll(context);
 
-        const registered = (vscode.commands.registerCommand as jest.Mock).mock.calls.map(([commandId]) => commandId);
+        expect(registeredCommands().map(([commandId]) => commandId)).toEqual(REGISTERED_COMMANDS.map(([commandId]) => commandId));
+    });
 
-        expect(registered).toEqual(REGISTERED_COMMAND_IDS);
+    it("binds each id to its own method", () => {
+        const context = { subscriptions: [] } as unknown as vscode.ExtensionContext;
+
+        makeHandler({}).registerAll(context);
+
+        // bind() names its result "bound <method>", which is the only trace of
+        // the original method left on a registered handler.
+        expect(registeredCommands()).toEqual(REGISTERED_COMMANDS.map(([commandId, method]) => [commandId, `bound ${method}`]));
     });
 
     it("hands every registration to the context for disposal", () => {
@@ -84,7 +96,7 @@ describe("CommandsHandler.registerAll", () => {
 
         makeHandler({}).registerAll(context);
 
-        expect(context.subscriptions).toHaveLength(REGISTERED_COMMAND_IDS.length);
+        expect(context.subscriptions).toHaveLength(REGISTERED_COMMANDS.length);
     });
 });
 

@@ -42,6 +42,64 @@ afterEach(() => {
     setActiveEditor(undefined);
 });
 
+/** Every command registerAll registers, with the method it binds, in the order its groups are spread. */
+const REGISTERED_COMMANDS: Array<[string, string]> = [
+    ["verseAutoImports.addSingleImport", "addSingleImport"],
+    ["verseAutoImports.optimizeImports", "optimizeImports"],
+    ["verseAutoImports.showStatusMenu", "showStatusMenu"],
+    ["verseAutoImports.toggleAutoImport", "toggleAutoImport"],
+    ["verseAutoImports.togglePreserveLocations", "togglePreserveLocations"],
+    ["verseAutoImports.toggleImportSyntax", "toggleImportSyntax"],
+    ["verseAutoImports.toggleDigestFiles", "toggleDigestFiles"],
+    ["verseAutoImports.toggleFullPathCodeLens", "toggleFullPathCodeLens"],
+    ["verseAutoImports.snoozeAutoImport", "snoozeAutoImport"],
+    ["verseAutoImports.cancelSnooze", "cancelSnooze"],
+    ["verseAutoImports.exportDebugLogs", "exportDebugLogs"],
+    ["verseAutoImports.captureDiagnosticsCorpus", "captureDiagnosticsCorpus"],
+    ["verseAutoImports.rebuildPathCache", "rebuildPathCache"],
+    ["verseAutoImports.clearPathCache", "clearPathCache"],
+    ["verseAutoImports.showCacheStatus", "showCacheStatus"],
+    ["verseAutoImports.convertToFullPath", "convertToFullPath"],
+    ["verseAutoImports.convertAllToFullPath", "convertAllToFullPath"],
+    ["verseAutoImports.convertToRelativePath", "convertToRelativePath"],
+    ["verseAutoImports.convertAllToRelativePath", "convertAllToRelativePath"],
+];
+
+function registeredCommands(): Array<[string, string]> {
+    return (vscode.commands.registerCommand as jest.Mock).mock.calls.map(([commandId, handler]) => [commandId, handler.name]);
+}
+
+// The integration suite asserts the same ids are registered, but only with an
+// extension host running - so nothing in this suite would catch a command lost
+// from one of registerAll's group tables, or bound to the wrong method.
+describe("CommandsHandler.registerAll", () => {
+    it("registers every command id once, in group order", () => {
+        const context = { subscriptions: [] } as unknown as vscode.ExtensionContext;
+
+        makeHandler({}).registerAll(context);
+
+        expect(registeredCommands().map(([commandId]) => commandId)).toEqual(REGISTERED_COMMANDS.map(([commandId]) => commandId));
+    });
+
+    it("binds each id to its own method", () => {
+        const context = { subscriptions: [] } as unknown as vscode.ExtensionContext;
+
+        makeHandler({}).registerAll(context);
+
+        // bind() names its result "bound <method>", which is the only trace of
+        // the original method left on a registered handler.
+        expect(registeredCommands()).toEqual(REGISTERED_COMMANDS.map(([commandId, method]) => [commandId, `bound ${method}`]));
+    });
+
+    it("hands every registration to the context for disposal", () => {
+        const context = { subscriptions: [] } as unknown as vscode.ExtensionContext;
+
+        makeHandler({}).registerAll(context);
+
+        expect(context.subscriptions).toHaveLength(REGISTERED_COMMANDS.length);
+    });
+});
+
 describe("CommandsHandler.addSingleImport", () => {
     it("warns and reports no success when the edit is rejected", async () => {
         const handler = makeHandler({ addImportsToDocument: jest.fn().mockResolvedValue(false) });

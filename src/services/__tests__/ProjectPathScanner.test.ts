@@ -51,6 +51,17 @@ describe("ProjectPathScanner.extractDeclarations module forms", () => {
         ]);
     });
 
+    it("leaves the members of a next-line brace module unnested", () => {
+        // Pins the limit rather than endorsing it: indentation alone closes a
+        // module, and the bare brace sits at the declaration's own indent, so
+        // it pops the module before the body is read.
+        const nested = declare("Inventory := module\n{\n    Item := class {}\n}\n");
+        expect(nested.map((node) => [node.type, node.fullPath])).toEqual([
+            ["module", "Inventory"],
+            ["class", "Item"],
+        ]);
+    });
+
     it("keeps reading the visibility specifier attached to the name", () => {
         const [declared] = declare("Inventory<public> := module {}\n");
         expect(declared).toMatchObject({ name: "Inventory", type: "module", isPublic: true, sourceLine: 1 });

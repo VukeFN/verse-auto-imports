@@ -5,7 +5,8 @@
  *
  * This overlaps ImportPathConverter's declaration regexes, which answer only
  * "does this file declare a module of this name", and ProjectPathScanner's,
- * which records a position but matches the colon form alone.
+ * which records a position but matches one line at a time and reads no
+ * quoted suffix.
  */
 
 /**

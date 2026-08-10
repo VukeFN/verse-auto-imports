@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { logger } from "../utils";
 import { ImportFormatter } from "./ImportFormatter";
-import { allUsingPaths, classifyLines, LINE_SPLIT, LineClassification, rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
+import { allUsingPaths, classifyLines, LINE_SPLIT, LineClassification, pinnedImports, rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
 
 /**
  * A run of import statements on consecutive lines. Any gap starts a new block,
@@ -113,21 +113,22 @@ function attachedCommentStart(importStartLine: number, classifications: LineClas
 }
 
 /**
- * The last line an import anchored by a comment marker owns: its own statement,
- * plus the body of the comment it opens below it.
+ * The last line a pinned import owns: its own statement, plus the body of any
+ * comment it opens below it.
  *
  * Placement needs the whole span rather than the statement, because the line
- * directly below the marker is comment text. A `<#>` marker's body is the lines
- * indented past it, and a `<#` leaves every line comment until a matching `#>`,
- * so writing a new import at column 0 on the line after the statement lands it
- * inside the author's comment - which for `<#>` also truncates that comment at
- * the new line, silently discarding the rest of what they wrote.
+ * directly below a comment marker is comment text. A `<#>` marker's body is the
+ * lines indented past it, and a `<#` leaves every line comment until a matching
+ * `#>`, so writing a new import at column 0 on the line after the statement
+ * lands it inside the author's comment - which for `<#>` also truncates that
+ * comment at the new line, silently discarding the rest of what they wrote.
  *
  * `continuesCommentAbove` is exactly this question already answered: it marks a
  * line whose comment was opened above it, under either marker. So the span ends
- * at the last line still carrying it.
+ * at the last line still carrying it, and an import pinned only by the
+ * statements sharing its line owns its span alone.
  */
-function anchoredCommentEnd(imp: ScannedImport, classifications: LineClassification[]): number {
+function pinnedSpanEnd(imp: ScannedImport, classifications: LineClassification[]): number {
     let end = imp.endLine;
     while (end + 1 < classifications.length && classifications[end + 1].continuesCommentAbove) {
         end++;
@@ -136,20 +137,22 @@ function anchoredCommentEnd(imp: ScannedImport, classifications: LineClassificat
 }
 
 /**
- * The lines an anchored import forbids a newly added `path` from crossing.
+ * The lines a pinned import forbids a newly added `path` from crossing.
  *
- * An anchored import is in no ImportBlock - blocks are built from the movable
- * imports alone, since a writer may not rebuild an anchored line - so every
+ * A pinned import is in no ImportBlock - blocks are built from the movable
+ * imports alone, since a writer may not rebuild a pinned line - so every
  * placement decision that reads `importBlocks` is blind to it. It is still a
  * real import that a `using` below it resolves against, so it constrains where
- * a new one may go exactly as the imports inside a block do.
+ * a new one may go exactly as the imports inside a block do. Both pin reasons
+ * bound placement the same way, for the same reason: the line stays put, so
+ * whichever of the two put it there changes nothing about what may cross it.
  *
- * Both bounds read the ranks selectTargetBlockIndex compares, so anchored and
+ * Both bounds read the ranks selectTargetBlockIndex compares, so pinned and
  * blocked imports cannot disagree about what precedes what:
  *
- * - `floor` - the last line owned by the lowest anchored import that belongs
+ * - `floor` - the last line owned by the lowest pinned import that belongs
  *   above the new one (belongsAbove). The new import goes below it.
- * - `ceiling` - the first line of the highest anchored import that could be
+ * - `ceiling` - the first line of the highest pinned import that could be
  *   resolving against the new one (couldResolveAgainst). The new import goes
  *   directly above it.
  *
@@ -159,7 +162,7 @@ function anchoredCommentEnd(imp: ScannedImport, classifications: LineClassificat
  *
  * `-1` means unconstrained in that direction.
  */
-interface AnchoredBounds {
+interface PinnedBounds {
     floor: number;
     ceiling: number;
 }
@@ -348,18 +351,18 @@ export class ImportDocumentEditor {
     }
 
     /**
-     * Where the imports anchored by a comment marker allow a new `path` to be
-     * written. See AnchoredBounds.
+     * Where the imports pinned to their line allow a new `path` to be written.
+     * See PinnedBounds.
      */
-    private anchoredBounds(anchoredImports: ScannedImport[], classifications: LineClassification[], path: string): AnchoredBounds {
+    private pinnedBounds(pinned: ScannedImport[], classifications: LineClassification[], path: string): PinnedBounds {
         const rank = this.formatter.importRank(path);
 
         let floor = -1;
         let ceiling = -1;
-        for (const imp of anchoredImports) {
+        for (const imp of pinned) {
             const existing = this.formatter.importRank(imp.path);
             if (this.belongsAbove(existing, rank)) {
-                floor = Math.max(floor, anchoredCommentEnd(imp, classifications));
+                floor = Math.max(floor, pinnedSpanEnd(imp, classifications));
             }
             if (this.couldResolveAgainst(existing, rank)) {
                 ceiling = ceiling === -1 ? imp.startLine : Math.min(ceiling, imp.startLine);
@@ -377,14 +380,14 @@ export class ImportDocumentEditor {
      * Both halves matter:
      *
      * - The ceiling wins over the floor. Only couldResolveAgainst raises one,
-     *   so a ceiling is always a scope requirement - an anchored dotted import
+     *   so a ceiling is always a scope requirement - a pinned dotted import
      *   whose first segment this new import is being added to provide. A floor
      *   disagreeing with it is usually the rank-0-before-rank-1 preference,
-     *   raised by an anchored absolute path that brings nothing into scope, and
+     *   raised by a pinned absolute path that brings nothing into scope, and
      *   honouring a preference over a requirement writes the provider below its
      *   consumer: the defect this whole path exists to prevent. The one
-     *   disagreement that is not a preference - an anchored bare parent below
-     *   an anchored dotted consumer - is a file where the consumer already sits
+     *   disagreement that is not a preference - a pinned bare parent below a
+     *   pinned dotted consumer - is a file where the consumer already sits
      *   above the chain it resolves through, so no line satisfies both and
      *   neither choice makes it compile.
      * - Taken exactly, because the ceiling is the *lowest* legal line: the new
@@ -395,15 +398,15 @@ export class ImportDocumentEditor {
      *   above the file header - which headerLineCount calls the one place a
      *   header must never be.
      */
-    private placementLine(desired: number, bounds: AnchoredBounds): number {
+    private placementLine(desired: number, bounds: PinnedBounds): number {
         if (bounds.ceiling !== -1) {
             return bounds.ceiling;
         }
         return Math.max(desired, bounds.floor + 1);
     }
 
-    /** Whether a block sits entirely inside the space the anchored imports leave for `path`. */
-    private blockIsWithin(block: ImportBlock, bounds: AnchoredBounds): boolean {
+    /** Whether a block sits entirely inside the space the pinned imports leave for `path`. */
+    private blockIsWithin(block: ImportBlock, bounds: PinnedBounds): boolean {
         return block.start > bounds.floor && (bounds.ceiling === -1 || block.end < bounds.ceiling);
     }
 
@@ -430,12 +433,12 @@ export class ImportDocumentEditor {
     /**
      * Groups paths no block can take by the line each has to be written on,
      * starting from the line the site would have used had no import been
-     * anchored. Paths wanting the same line are written together.
+     * pinned. Paths wanting the same line are written together.
      */
-    private groupByPlacementLine(paths: string[], desired: number, anchoredImports: ScannedImport[], classifications: LineClassification[]): Map<number, string[]> {
+    private groupByPlacementLine(paths: string[], desired: number, pinned: ScannedImport[], classifications: LineClassification[]): Map<number, string[]> {
         const byLine = new Map<number, string[]>();
         for (const path of paths) {
-            const line = this.placementLine(desired, this.anchoredBounds(anchoredImports, classifications, path));
+            const line = this.placementLine(desired, this.pinnedBounds(pinned, classifications, path));
             byLine.set(line, [...(byLine.get(line) ?? []), path]);
         }
         return new Map([...byLine].sort(([a], [b]) => a - b));
@@ -493,12 +496,16 @@ export class ImportDocumentEditor {
         const lines = text.split(LINE_SPLIT);
         const scannedImports = scanModuleImports(lines);
 
-        // Blocks are built from the movable imports below, so an anchored one
-        // is in none of them and no placement decision can see it. Kept here,
-        // with the comment structure a placement needs to read its span, so
-        // every site can bound itself against them. See AnchoredBounds.
+        // Blocks are built from the movable imports below, so a pinned one is
+        // in none of them and no placement decision can see it. Kept here, with
+        // the comment structure a placement needs to read its span, so every
+        // site can bound itself against them. See PinnedBounds.
+        //
+        // Both pin reasons, because the two are indistinguishable to placement:
+        // either way the line stays where it was written, and a new import may
+        // not cross it.
         const classifications = classifyLines(lines);
-        const anchoredImports = scannedImports.filter((imp) => imp.anchorsCommentBelow);
+        const pinned = pinnedImports(scannedImports);
 
         const importBlocks: ImportBlock[] = [];
         for (const imp of rewritableImports(scannedImports)) {
@@ -515,11 +522,11 @@ export class ImportDocumentEditor {
 
         logger.debug("ImportDocumentEditor", `Found ${scannedImports.length} existing imports in ${importBlocks.length} blocks`);
 
-        // Existence is judged from every import, including one anchored by a
-        // comment marker: it is imported, so nothing needs adding for it.
+        // Existence is judged from every import, a pinned one included: it is
+        // imported, so nothing needs adding for it.
         const existingPaths = new Set<string>(scannedImports.map((imp) => imp.path));
-        // Relocation is judged only from the movable ones. Re-emitting an
-        // anchored path at the top while its own line necessarily stays put
+        // Relocation is judged only from the movable ones. Re-emitting a
+        // pinned path at the top while its own line necessarily stays put
         // would duplicate the import rather than move it.
         const relocatablePaths = new Set<string>(rewritableImports(scannedImports).map((imp) => imp.path));
 
@@ -581,11 +588,11 @@ export class ImportDocumentEditor {
                     }
                 }
 
-                // A block can only take a new import where the anchored imports
+                // A block can only take a new import where the pinned imports
                 // leave room for it. Rebuilding a block writes the new
                 // statement at that block's lines, so which block absorbs a
                 // path is a placement decision like any other, and a block
-                // sitting above an anchored provider cannot make one.
+                // sitting above a pinned provider cannot make one.
                 //
                 // Partitioned in one pass rather than filtered twice, so taken
                 // and unhandled are complements by construction: two filters
@@ -595,7 +602,7 @@ export class ImportDocumentEditor {
                     const taken: string[] = [];
                     const unhandled: string[] = [];
                     for (const path of paths) {
-                        const canTake = blockIndex >= 0 && this.blockIsWithin(importBlocks[blockIndex], this.anchoredBounds(anchoredImports, classifications, path));
+                        const canTake = blockIndex >= 0 && this.blockIsWithin(importBlocks[blockIndex], this.pinnedBounds(pinned, classifications, path));
                         (canTake ? taken : unhandled).push(path);
                     }
                     return { taken, unhandled };
@@ -612,20 +619,20 @@ export class ImportDocumentEditor {
                     this.createBlockReplacementEdit(edit, document, importBlocks[localBlockIndex], local.taken, preferDotSyntax, sortAlphabetically, eol);
                 }
 
-                // Imports no block took: one with no matching block, and one an
-                // anchored import keeps out of the block it would have matched.
+                // Imports no block took: one with no matching block, and one a
+                // pinned import keeps out of the block it would have matched.
                 const unhandledPaths = [...digest.unhandled, ...local.unhandled];
 
                 if (unhandledPaths.length > 0) {
                     const desired = importBlocks.length > 0 ? importBlocks[importBlocks.length - 1].end + 1 : 0;
-                    for (const [line, paths] of this.groupByPlacementLine(unhandledPaths, desired, anchoredImports, classifications)) {
+                    for (const [line, paths] of this.groupByPlacementLine(unhandledPaths, desired, pinned, classifications)) {
                         this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, importBlocks.length === 0);
                     }
                 }
             } else {
                 if (importGrouping !== "none" && existingPaths.size > 0) {
                     // Grouping is wanted and the file has none, so the imports
-                    // are regrouped in place. A new path an anchored import
+                    // are regrouped in place. A new path a pinned import
                     // keeps out of the rebuilt block is written on its own line
                     // below that import instead, rather than into a group that
                     // sits above it. Only the new paths are asked: this branch
@@ -633,7 +640,7 @@ export class ImportDocumentEditor {
                     // hasGrouping branch above), so every relocated path is
                     // already inside the block being rebuilt in place.
                     const displacedPaths =
-                        importBlocks.length > 0 ? Array.from(newImportPaths).filter((path) => !this.blockIsWithin(importBlocks[0], this.anchoredBounds(anchoredImports, classifications, path))) : [];
+                        importBlocks.length > 0 ? Array.from(newImportPaths).filter((path) => !this.blockIsWithin(importBlocks[0], this.pinnedBounds(pinned, classifications, path))) : [];
                     const displaced = new Set(displacedPaths);
 
                     const allPaths = new Set<string>([...relocatablePaths, ...newImportPaths].filter((path) => !displaced.has(path)));
@@ -656,16 +663,16 @@ export class ImportDocumentEditor {
                             edit.delete(document.uri, new vscode.Range(new vscode.Position(block.start, 0), new vscode.Position(block.end + 1, 0)));
                         }
 
-                        for (const [line, paths] of this.groupByPlacementLine(displacedPaths, firstBlock.end + 1, anchoredImports, classifications)) {
+                        for (const [line, paths] of this.groupByPlacementLine(displacedPaths, firstBlock.end + 1, pinned, classifications)) {
                             this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, false);
                         }
                     } else {
                         // No existing block - write the imports at the top, or
-                        // below an anchored import that has to precede one of
+                        // below a pinned import that has to precede one of
                         // them. Split by line like every other site rather than
                         // written as one run under a merged bound: paths of
                         // different ranks take their bounds from different
-                        // anchored imports, and one path's floor can sit below
+                        // pinned imports, and one path's floor can sit below
                         // another's ceiling, leaving the group no line it can
                         // legally occupy at all.
                         //
@@ -673,7 +680,7 @@ export class ImportDocumentEditor {
                         // rewritable import opens or extends a block, so no
                         // block means none of them, which is also why the
                         // trailing comments here are always empty.
-                        for (const [line, paths] of this.groupByPlacementLine(allImportsArray, 0, anchoredImports, classifications)) {
+                        for (const [line, paths] of this.groupByPlacementLine(allImportsArray, 0, pinned, classifications)) {
                             this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, true);
                         }
                     }
@@ -696,15 +703,15 @@ export class ImportDocumentEditor {
                         // which leaves a consumer in another block free to sit
                         // above its provider (see selectTargetBlockIndex).
                         //
-                        // Only a block inside the space the anchored imports
+                        // Only a block inside the space the pinned imports
                         // leave is eligible, and the selector chooses among
-                        // those. An anchored import is in no block, so offering
+                        // those. A pinned import is in no block, so offering
                         // the selector every block lets it merge an import into
-                        // one above the anchored provider that import needs.
+                        // one above the pinned provider that import needs.
                         const pathsByBlock = new Map<number, string[]>();
                         const unblockedPaths: string[] = [];
                         for (const path of newImportPathsArray) {
-                            const bounds = this.anchoredBounds(anchoredImports, classifications, path);
+                            const bounds = this.pinnedBounds(pinned, classifications, path);
                             const eligible = importBlocks.map((block, index) => ({ block, index })).filter(({ block }) => this.blockIsWithin(block, bounds));
 
                             if (eligible.length === 0) {
@@ -732,25 +739,25 @@ export class ImportDocumentEditor {
 
                         // Blocks are disjoint, so the replacements never overlap.
                         // Neither can a standalone line below collide with one.
-                        // placementLine returns one of two things, and an
-                        // anchored import's span holds no block line either way:
-                        // its own line breaks the contiguity a block is built
-                        // from, and the comment body below it is comment, so no
-                        // column-0 import the scanner would collect can be in
-                        // it.
+                        // placementLine returns one of two things, and a pinned
+                        // import's span holds no block line either way: its own
+                        // line breaks the contiguity a block is built from, and
+                        // wherever the span runs past that line the rest of it
+                        // is comment body, so no column-0 import the scanner
+                        // would collect can be in it.
                         //
-                        // - A ceiling, which is an anchored import's own line.
+                        // - A ceiling, which is a pinned import's own line.
                         // - floor + 1, reached only when every block was
                         //   refused, which for a path with no ceiling means
                         //   every block starts at or below the floor. The floor
-                        //   is the end of an anchored span, so a block starting
+                        //   is the end of a pinned span, so a block starting
                         //   at or below it ends before that span begins, and
                         //   floor + 1 is past the end of the block.
                         for (const index of [...pathsByBlock.keys()].sort((a, b) => a - b)) {
                             this.createBlockReplacementEdit(edit, document, importBlocks[index], pathsByBlock.get(index)!, preferDotSyntax, true, eol);
                         }
 
-                        for (const [line, paths] of this.groupByPlacementLine(unblockedPaths, 0, anchoredImports, classifications)) {
+                        for (const [line, paths] of this.groupByPlacementLine(unblockedPaths, 0, pinned, classifications)) {
                             this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, true, importGrouping), eol, true);
                         }
                     } else {
@@ -770,14 +777,14 @@ export class ImportDocumentEditor {
                         // behind.
                         //
                         // With no block at all the top of the file is where a
-                        // new import goes - unless an anchored import that has
-                        // to precede it sits there, which is the one case a file
-                        // whose only import is anchored always reaches. That is
+                        // new import goes - unless a pinned import that has to
+                        // precede it sits there, which is the one case a file
+                        // whose only import is pinned always reaches. That is
                         // what groupByPlacementLine answers, from either start.
                         const desired = importBlocks.length > 0 ? importBlocks[importBlocks.length - 1].end + 1 : 0;
                         const blankLineAfter = importBlocks.length === 0;
 
-                        for (const [line, paths] of this.groupByPlacementLine(newImportPathsArray, desired, anchoredImports, classifications)) {
+                        for (const [line, paths] of this.groupByPlacementLine(newImportPathsArray, desired, pinned, classifications)) {
                             this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, blankLineAfter);
                         }
                     }
@@ -869,7 +876,7 @@ export class ImportDocumentEditor {
         // why it does; see ScannedImport.rebuildLosesText.
         const allImports = scanModuleImports(lines);
         const movableImports = rewritableImports(allImports);
-        const pinnedPaths = new Set(allImports.filter((imp) => imp.anchorsCommentBelow || imp.rebuildLosesText).map((imp) => imp.path));
+        const pinnedPaths = new Set(pinnedImports(allImports).map((imp) => imp.path));
 
         const extraPaths = additionalPaths.map((p) => p.trim()).filter((p) => p.length > 0 && !pinnedPaths.has(p));
 

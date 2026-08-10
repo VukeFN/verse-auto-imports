@@ -54,6 +54,9 @@ describe("ProjectPathScanner.extractDeclarations comment and string masking", ()
     });
 
     it("does not let a `#` inside a string literal hide the declaration on that line", () => {
+        // The default's closing `)` and the `:` after it are what the function
+        // pattern matches on, and a `#` read as a line comment takes both.
+        expect(names('Greet(Name:string = "a#b")<transacts>:void =\nInventory := module {}\n')).toEqual(["Greet", "Inventory"]);
         expect(names('Tag:string = "a#b"\nInventory := module {}\n')).toEqual(["Tag", "Inventory"]);
     });
 
@@ -70,7 +73,7 @@ describe("ProjectPathScanner.extractDeclarations comment and string masking", ()
         // indentation it puts the declaration inside the module above.
         const declared = declare("Outer := module:\n    Inner := module:\n        Count:int = 0\n    <# note #> Sibling := module {}\n");
 
-        expect(declared.map((node) => node.fullPath)).toContain("Outer.Sibling");
+        expect(declared.map((node) => node.fullPath)).toEqual(["Outer", "Outer.Inner", "Outer.Inner.Count", "Outer.Sibling"]);
     });
 
     it("keeps the source line of a declaration below a block comment", () => {

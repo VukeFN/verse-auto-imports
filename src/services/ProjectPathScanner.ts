@@ -191,9 +191,9 @@ export class ProjectPathScanner {
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
 
-            // A comment is blank by the time it arrives here, so the empty test
-            // is what skips one. `//` is not a Verse comment form and masking
-            // leaves it alone, so its own test stays.
+            // A Verse comment is already blank here, so the empty test is what
+            // skips one; `//` is not a Verse comment form and masking leaves it
+            // alone.
             if (line === "" || line.startsWith("//")) {
                 continue;
             }

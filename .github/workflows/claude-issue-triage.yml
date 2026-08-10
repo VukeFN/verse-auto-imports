@@ -58,6 +58,8 @@ jobs:
                - "module: path-conversion" - the path conversion CodeLens
                - "module: config" - settings behavior, defaults, migration
                - "module: ui" - status bar, commands, quick fix menu appearance
+               - "module: visibility" - module visibility quick fix, declaration
+                 scanning, definitions file writing
                - "area: ci" - workflows, releases, repo automation
                - "area: docs" - README, wiki, changelog
                If the area is genuinely unclear from the report, skip this label

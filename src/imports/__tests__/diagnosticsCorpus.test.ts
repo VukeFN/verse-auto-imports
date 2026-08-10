@@ -9,6 +9,13 @@ interface CorpusEntry {
     source: "captured" | "book" | "synthetic";
     context?: string;
     message: string;
+    /**
+     * Per-entry config overrides, keyed the way config.get() is called (e.g.
+     * "behavior.ambiguousImports"). Applied only to suggestion extraction -
+     * extractImportsFromDiagnostics never reads configuration, so a settings
+     * override has no effect on the optimize-path assertion below.
+     */
+    settings?: Record<string, unknown>;
     expected: {
         suggestions: string[];
         optimizePaths: string[];
@@ -47,6 +54,13 @@ describe("diagnostics corpus", () => {
             });
 
             it.each(corpus.entries.map((entry) => [entry.id, entry] as const))("%s: suggestion extraction", async (_id, entry) => {
+                if (entry.settings) {
+                    const settings = entry.settings;
+                    (vscode.workspace.getConfiguration as jest.Mock).mockReturnValueOnce({
+                        get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => (key in settings ? settings[key] : defaultValue)),
+                        update: jest.fn().mockResolvedValue(undefined),
+                    });
+                }
                 const suggestions = await extractor.extractImportSuggestions(entry.message);
                 expect(suggestions.map((suggestion) => suggestion.importStatement)).toEqual(entry.expected.suggestions);
             });

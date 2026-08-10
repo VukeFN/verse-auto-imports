@@ -28,9 +28,11 @@ describe("configuration resolution regressions (issues #76/#77)", () => {
         // the fixture's own workspace value) and clear any legacy override.
         await setWorkspaceSetting("general.autoImportDebounceDelay", FIXTURE_DEBOUNCE_MS);
         await setWorkspaceSetting("general.diagnosticDelay", undefined);
+        await setWorkspaceSetting("behavior.ambiguousImports", undefined);
     });
 
-    it("#77: the default behavior.ambiguousImports mapping drives auto-import for a bare unknown identifier", async () => {
+    it("#77: a configured behavior.ambiguousImports mapping drives auto-import for a bare unknown identifier", async () => {
+        await setWorkspaceSetting("behavior.ambiguousImports", { vector3: "/UnrealEngine.com/Temporary/SpatialMath" });
         const document = await openFixture("r77_ambiguous_mapping.verse");
         injector.inject(document, [corpusMessage("unknown-identifier-bare-ambiguous")], "vector3");
 

@@ -46,10 +46,12 @@
           - "src/services/__tests__/ProjectPath*"
           - "src/types/projectCache.ts"
 
+# No config module exists - the settings readers sit in every module - so the
+# drift guard is the only file whose subject is the settings surface itself.
 "module: config":
   - changed-files:
       - any-glob-to-any-file:
-          - "src/types/configuration.ts"
+          - "src/__tests__/configurationDefaults.test.ts"
 
 "module: ui":
   - changed-files:

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { logger } from "../utils";
-import { maskCommentsAndStrings } from "../utils/verseText";
+import { indentOf, maskCommentsAndStrings } from "../utils/verseText";
 import { ProjectPathHandler } from "../project";
 import { ProjectPathData, ProjectPathNode, ProjectScanOptions } from "../types";
 
@@ -124,8 +124,12 @@ export class ProjectPathScanner {
      */
     extractDeclarations(content: string, filePath: string, options: ProjectScanOptions = {}): ProjectPathNode[] {
         const nodes: ProjectPathNode[] = [];
-        // Masking is space-for-character and keeps newlines, so a line's index,
-        // its length and its indentation all still address the original file.
+        // Masking is space-for-character and keeps newlines, so a masked line
+        // holds the index and the length of the line it replaces. It does not
+        // hold the indentation: a comment in the leading columns masks to
+        // spaces and reads as indentation, which is why the module stack
+        // measures the unmasked line instead.
+        const sourceLines = content.split("\n");
         const lines = maskCommentsAndStrings(content).split("\n");
 
         let currentModulePath = "";
@@ -185,8 +189,7 @@ export class ProjectPathScanner {
         const variablePattern = /^(\w+)((?:<[^>]+>)*)\s*:/;
 
         for (let i = 0; i < lines.length; i++) {
-            const rawLine = lines[i];
-            const line = rawLine.trim();
+            const line = lines[i].trim();
 
             // A comment is blank by the time it arrives here, so the empty test
             // is what skips one. `//` is not a Verse comment form and masking
@@ -199,10 +202,7 @@ export class ProjectPathScanner {
                 continue;
             }
 
-            // Each tab counts as four spaces so mixed indentation compares
-            // consistently.
-            const indentMatch = rawLine.match(/^(\s*)/);
-            const indent = indentMatch ? indentMatch[1].replace(/\t/g, "    ").length : 0;
+            const indent = indentOf(sourceLines[i], 0);
 
             // Indentation alone closes a module: a line at or left of the open
             // module's own indent is outside it.

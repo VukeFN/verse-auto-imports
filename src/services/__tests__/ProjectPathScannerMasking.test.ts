@@ -65,6 +65,14 @@ describe("ProjectPathScanner.extractDeclarations comment and string masking", ()
         expect(declared.map((node) => [node.type, node.fullPath])).toEqual([["class", "Item"]]);
     });
 
+    it("measures indentation on the unmasked line, so a comment before a declaration does not nest it", () => {
+        // A comment in the leading columns masks to spaces. Read as
+        // indentation it puts the declaration inside the module above.
+        const declared = declare("Outer := module:\n    Inner := module:\n        Count:int = 0\n    <# note #> Sibling := module {}\n");
+
+        expect(declared.map((node) => node.fullPath)).toContain("Outer.Sibling");
+    });
+
     it("keeps the source line of a declaration below a block comment", () => {
         // Masking is space-for-character and keeps every newline. Anything
         // that blanked a comment wholesale would pass every test above and

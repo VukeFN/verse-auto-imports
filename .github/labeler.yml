@@ -57,6 +57,11 @@
           - "src/ui/**"
           - "src/commands/**"
 
+"module: visibility":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/visibility/**"
+
 "area: ci":
   - changed-files:
       - any-glob-to-any-file:

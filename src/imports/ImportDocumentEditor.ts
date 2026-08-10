@@ -351,6 +351,50 @@ export class ImportDocumentEditor {
     }
 
     /**
+     * Whether hoisting `imp` into a block at the top of the file would carry it
+     * above a pinned import that has to precede it.
+     *
+     * Position is the whole question, not the presence of such an import. The
+     * block is written above every pinned line, so an import already above
+     * every pinned one that must precede it lands in the same relation to them
+     * afterwards and can be sorted freely; one written below such a line would
+     * cross it, and a `using` that crosses the import bringing its first
+     * segment into scope stops resolving. Holding back an import that was never
+     * at risk would leave a file the sort could have repaired unrepaired.
+     *
+     * A pinned import never constrains its own path: nothing needs itself in
+     * scope, and the duplicate of a pinned path the withhold rules deliberately
+     * keep would be stranded in the body rather than organized.
+     */
+    private crossesPinnedProvider(pinned: ScannedImport[], imp: ScannedImport): boolean {
+        const rank = this.formatter.importRank(imp.path);
+        return pinned.some((other) => other.path !== imp.path && other.startLine < imp.startLine && this.belongsAbove(this.formatter.importRank(other.path), rank));
+    }
+
+    /**
+     * The last line a pinned import forbids `path` from being hoisted above, or
+     * -1 where none does. `path` has no line of its own to keep, so a pinned
+     * import that must precede it both rules the block out and names the line
+     * the path is written below instead.
+     *
+     * The floor is pinnedBounds', from the same belongsAbove, so a rebuilt
+     * block and a singly added import read one rule rather than two. Only the
+     * floor: the ceiling pinnedBounds returns with it answers a question this
+     * caller has already answered, since a block above every pinned line, and a
+     * path written directly below this floor, both precede every pinned import
+     * further down.
+     *
+     * Exempts the path from itself for the reason crossesPinnedProvider does.
+     */
+    private hoistFloor(pinned: ScannedImport[], classifications: LineClassification[], path: string): number {
+        return this.pinnedBounds(
+            pinned.filter((imp) => imp.path !== path),
+            classifications,
+            path,
+        ).floor;
+    }
+
+    /**
      * Where the imports pinned to their line allow a new `path` to be written.
      * See PinnedBounds.
      */
@@ -849,6 +893,14 @@ export class ImportDocumentEditor {
      * first segment against the copy being removed; see the withholdIsSafe
      * check.
      *
+     * A pinned import also bounds the block the file is organized around:
+     * nothing is carried across a pinned import that has to precede it. One
+     * written above such a line is hoisted like any other, the block being
+     * above that line as well; one written below it keeps its line, untidy but
+     * compiling. An additional path has no line to keep, so it is written
+     * directly below the pinned statement that constrains it. See
+     * crossesPinnedProvider and hoistFloor.
+     *
      * The result keeps the text's own line ending, so rebuilding an already
      * organized document reproduces it byte for byte and organizeImports can
      * skip the edit.
@@ -866,6 +918,8 @@ export class ImportDocumentEditor {
     ): string | null {
         const eol = detectEol(text) ?? options.fallbackEol ?? "\n";
         const lines = text.split(LINE_SPLIT);
+        const classifications = classifyLines(lines);
+        const headerEnd = headerLineCount(classifications);
         // A pinned import - one anchored by a comment marker, or one sharing its
         // span with another statement - is neither hoisted nor removed from the
         // body: its line stays exactly where it is, and the rest of the file is
@@ -876,9 +930,25 @@ export class ImportDocumentEditor {
         // why it does; see ScannedImport.rebuildLosesText.
         const allImports = scanModuleImports(lines);
         const movableImports = rewritableImports(allImports);
-        const pinnedPaths = new Set(pinnedImports(allImports).map((imp) => imp.path));
+        const pinned = pinnedImports(allImports);
+        const pinnedPaths = new Set(pinned.map((imp) => imp.path));
 
-        const extraPaths = additionalPaths.map((p) => p.trim()).filter((p) => p.length > 0 && !pinnedPaths.has(p));
+        // The block goes above every pinned line, so an import that hoisting
+        // would carry above a pinned one it needs is left on the line it was
+        // written on. Untidy, and the alternative is a file that no longer
+        // compiles: a `using` resolves its own path top-down, so a path whose
+        // first segment the pinned import brings into scope has to stay below
+        // it. See crossesPinnedProvider.
+        const groundedPaths = new Set(movableImports.filter((imp) => this.crossesPinnedProvider(pinned, imp)).map((imp) => imp.path));
+        const hoistableImports = movableImports.filter((imp) => !groundedPaths.has(imp.path));
+
+        // A path the file already imports is not written again, whichever
+        // statement holds it - pinned, grounded, or hoisted into the block. The
+        // block's own deduplication answers for none of them once a path can be
+        // written below a pinned line instead of into the block: what lands
+        // there is compared against nothing.
+        const importedPaths = new Set(allImports.map((imp) => imp.path));
+        const extraPaths = Array.from(new Set(additionalPaths.map((p) => p.trim()))).filter((p) => p.length > 0 && !importedPaths.has(p));
 
         // Module imports have file scope, so the names an anchored import brings
         // in are available to code anywhere in the file, however far down its
@@ -916,7 +986,7 @@ export class ImportDocumentEditor {
         // direction: the duplicate left behind is legal Verse, and a stranded
         // provider is a file that stops compiling.
         const withholdIsSafe = [...allUsingPaths(lines), ...extraPaths].every((path) => this.formatter.importRank(path) === 0);
-        const blockImports = withholdIsSafe ? movableImports.filter((imp) => !pinnedPaths.has(imp.path)) : movableImports;
+        const blockImports = withholdIsSafe ? hoistableImports.filter((imp) => !pinnedPaths.has(imp.path)) : hoistableImports;
 
         const paths = blockImports.map((imp) => imp.path);
         // Keyed on the unfiltered set: a file whose only rewritable import is
@@ -926,15 +996,34 @@ export class ImportDocumentEditor {
             return null;
         }
 
-        const classifications = classifyLines(lines);
-        const headerEnd = headerLineCount(classifications);
+        // An additional path the block cannot take is written on its own line
+        // directly below the pinned statement that constrains it, since it has
+        // no line of its own to keep. Declining to write it at all would make
+        // organizing a file with such an import silently add nothing.
+        //
+        // Grouped by line as groupByPlacementLine groups the add path's, and
+        // deliberately not through it: that one places a run against a document
+        // being edited, honouring a ceiling as well, while these are spliced
+        // into text being rebuilt and hoistFloor says why no ceiling binds.
+        const topExtraPaths: string[] = [];
+        const groundedExtrasByLine = new Map<number, string[]>();
+        for (const path of extraPaths) {
+            const floor = this.hoistFloor(pinned, classifications, path);
+            if (floor === -1) {
+                topExtraPaths.push(path);
+                continue;
+            }
+            groundedExtrasByLine.set(floor, [...(groundedExtrasByLine.get(floor) ?? []), path]);
+        }
 
         // Every line the rebuilt block accounts for: the import statements
         // themselves, and the comment lines written above them, which are part
-        // of the statement they annotate rather than of the body.
+        // of the statement they annotate rather than of the body. A grounded
+        // import is in neither list - its statement and its comments stay in
+        // the body, where they already read correctly.
         const hoistedLines = new Set<number>();
         const commentsByPath = new Map<string, string[]>();
-        for (const imp of movableImports) {
+        for (const imp of hoistableImports) {
             for (let line = imp.startLine; line <= imp.endLine; line++) {
                 hoistedLines.add(line);
             }
@@ -954,9 +1043,22 @@ export class ImportDocumentEditor {
         }
 
         const header = lines.slice(0, headerEnd);
-        const body = lines.filter((_, index) => index >= headerEnd && !hoistedLines.has(index));
+        const body: string[] = [];
+        for (let index = headerEnd; index < lines.length; index++) {
+            if (!hoistedLines.has(index)) {
+                body.push(lines[index]);
+            }
+            const groundedExtras = groundedExtrasByLine.get(index);
+            if (groundedExtras) {
+                // Grouping is a property of the block at the top, so a run
+                // written between two body lines is emitted ungrouped: the
+                // separator a strategy puts between its two groups would read
+                // as a gap in the code around it.
+                body.push(...this.formatter.groupAndFormatImports(groundedExtras, options.preferDotSyntax, options.sortAlphabetically, "none"));
+            }
+        }
 
-        const uniquePaths = Array.from(new Set([...paths, ...extraPaths]));
+        const uniquePaths = Array.from(new Set([...paths, ...topExtraPaths]));
         const formatted = this.formatter.groupAndFormatImports(uniquePaths, options.preferDotSyntax, options.sortAlphabetically, options.importGrouping);
 
         // Put each comment back above the statement it was written for,

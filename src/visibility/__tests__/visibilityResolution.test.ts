@@ -76,7 +76,7 @@ describe("resolveVisibility", () => {
 
         const resolved = resolveVisibility([], segments(["Gadgets", false], ["Tools", true]), found);
 
-        expect(resolved.conflicts).toEqual([{ path: "Gadgets/Tools", keyword: "private" }]);
+        expect(resolved.conflicts).toEqual([{ path: "Gadgets/Tools", keyword: "private", reason: "widen" }]);
         expect(resolved.edits).toEqual([]);
     });
 
@@ -85,7 +85,7 @@ describe("resolveVisibility", () => {
 
         const resolved = resolveVisibility([], segments(["Systems", false], ["Deep", true], ["Tools", true]), found);
 
-        expect(resolved.conflicts).toEqual([{ path: "Systems", keyword: "scoped" }]);
+        expect(resolved.conflicts).toEqual([{ path: "Systems", keyword: "scoped", reason: "nest" }]);
         // `<scoped>` alone is not the declared specifier and does not compile;
         // the nesting part is written bare, and the conflict stops it anyway.
         expect(resolved.chain[0]).toEqual({ name: "Systems" });
@@ -97,8 +97,18 @@ describe("resolveVisibility", () => {
 
         const resolved = resolveVisibility([], segments(["Systems", false], ["Deep", true], ["Tools", true]), found);
 
-        expect(resolved.conflicts).toEqual([{ path: "Systems", keyword: "epic_internal" }]);
+        expect(resolved.conflicts).toEqual([{ path: "Systems", keyword: "epic_internal", reason: "nest" }]);
         expect(resolved.chain[0]).toEqual({ name: "Systems" });
+    });
+
+    it("reports a private module the chain would nest through, which used to be nested into silently", () => {
+        const found = declarationsIn("file://a", "", "Systems<private> := module:\n    X:int = 1\n");
+
+        const resolved = resolveVisibility([], segments(["Systems", false], ["Deep", true], ["Tools", true]), found);
+
+        // A part repeating `<private>` compiles, so this one went unnoticed, but
+        // nothing outside Systems can reach what it declares either way.
+        expect(resolved.conflicts).toEqual([{ path: "Systems", keyword: "private", reason: "nest" }]);
     });
 
     it("leaves a scoped module alone when no written chain nests through it", () => {

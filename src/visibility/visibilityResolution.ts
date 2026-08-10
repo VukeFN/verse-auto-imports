@@ -30,6 +30,27 @@ export interface SpecifierEdit {
     text: string;
 }
 
+/** A module whose declared access stops the request, and what about it stops it. */
+export interface VisibilityConflict {
+    /** Content-relative path of the module, for the report to the user. */
+    path: string;
+
+    /**
+     * The declared visibility keyword alone. `scoped` carries a module list the
+     * scanner does not capture, so this is not the specifier as written and
+     * must not be reported as if it were.
+     */
+    keyword: string;
+
+    /**
+     * `widen` where the module itself has to become public, `nest` where a new
+     * part would be written inside it. The remedies differ: one is a change to
+     * this module's specifier, the other a declaration the user must make
+     * inside it by hand.
+     */
+    reason: "widen" | "nest";
+}
+
 /** Everything that has to happen for the target to become reachable. */
 export interface ResolvedVisibility {
     /** Specifier rewrites against declarations that already exist. */
@@ -41,8 +62,8 @@ export interface ResolvedVisibility {
      */
     chain: DeclarationSpec[];
 
-    /** Modules that could not be made public, with the specifier blocking each. */
-    conflicts: { path: string; keyword: string }[];
+    /** Modules that could not be made public, with what blocks each. */
+    conflicts: VisibilityConflict[];
 }
 
 const PUBLIC_SPECIFIER = "<public>";
@@ -57,13 +78,13 @@ const PUBLIC_SPECIFIER = "<public>";
  * into the definitions file, each of its modules repeats whatever specifier the
  * project already declares for that module.
  *
- * A module already declared `<private>`, `<protected>` or `<scoped>` is
- * reported as a conflict instead of being rewritten: those are deliberate
- * narrowings, and widening one silently is a decision that belongs to whoever
- * wrote it. Nesting the chain THROUGH such a module conflicts too, even where
- * the module itself needs no marking - the part that would be written repeats
- * the specifier from a keyword alone, and a keyword alone is not the specifier
- * for `scoped`, which carries a module list.
+ * A module declared anything other than `<public>` or `<internal>` is reported
+ * as a conflict rather than rewritten, and so is one the chain would merely
+ * nest a new part inside. Both are deliberate narrowings, and the second is a
+ * conflict for a mechanical reason as well: a written part has to repeat the
+ * declaration's specifier exactly, and `scoped`'s module list resolves against
+ * the scope that declared it, so it cannot be copied into a file at the Content
+ * root at all.
  *
  * @param prefix Content-relative segments above the planned ones. They are
  * already reachable, but the chain is written at the Content root, so it has to
@@ -110,9 +131,8 @@ export function resolveVisibility(prefix: readonly string[], segments: readonly 
 
         if (blocking) {
             blocked.push({ chainIndex: chain.length, path: modulePath, keyword: blocking.declaration.visibility!.keyword, needsPublic: segment.needsPublic });
-            // Written bare so the chain still nests, and never carrying the
-            // blocking keyword: `<scoped>` without its module list does not
-            // compile. Whether any of this is applied is decided below.
+            // Bare so the chain still nests, and never carrying the blocking
+            // keyword: `<scoped>` without its module list does not compile.
             chain.push({ name: segment.name });
             written.push(false);
             continue;
@@ -149,7 +169,9 @@ export function resolveVisibility(prefix: readonly string[], segments: readonly 
     // A narrowed module blocks when it is the one to publicize, and equally
     // when the retained chain nests through it. Anything trimmed away is never
     // written, so a narrowing there is nobody's business.
-    const conflicts = blocked.filter((entry) => entry.needsPublic || entry.chainIndex <= deepestWritten).map(({ path, keyword }) => ({ path, keyword }));
+    const conflicts: VisibilityConflict[] = blocked
+        .filter((entry) => entry.needsPublic || entry.chainIndex <= deepestWritten)
+        .map(({ path, keyword, needsPublic }) => ({ path, keyword, reason: needsPublic ? "widen" : "nest" }));
 
     return {
         edits,

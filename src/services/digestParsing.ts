@@ -3,10 +3,9 @@
  * `Verse.digest.verse`, `UnrealEngine.digest.verse`) into a module-scoped
  * identifier index.
  *
- * This module is shared by the build-time precompiler
- * (`src/scripts/parseDigestFiles.ts`, run under ts-node) and the runtime fallback
- * parser (`DigestParser.parseDigestFile`). It must never import `vscode` so it can
- * run outside the extension host.
+ * The build-time precompiler (`src/scripts/parseDigestFiles.ts`, run under
+ * ts-node) is the only caller; its output in `src/data` is what the extension
+ * reads. It must never import `vscode` so it can run outside the extension host.
  *
  * The parser tracks indentation like `AssetsDigestParser.parseDigestContent`:
  * modules form a stack scoped by indent, and class/struct/interface/enum bodies

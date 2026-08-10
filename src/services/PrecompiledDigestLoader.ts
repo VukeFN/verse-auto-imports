@@ -23,9 +23,9 @@ export interface PrecompiledDigest {
  * `src/scripts/parseDigestFiles.ts` generates at build time rather than parsed
  * from Verse source at startup.
  *
- * This is DigestParser's fast path. It reports failure by throwing from
- * {@link loadPrecompiledDigests} and by leaving {@link isLoaded} false, which is
- * the signal DigestParser falls back on.
+ * This is DigestParser's only source. It reports failure by throwing from
+ * {@link loadPrecompiledDigests} and by leaving {@link isLoaded} false; there is
+ * no second source to fall back to, so DigestParser surfaces that to the user.
  */
 export class PrecompiledDigestLoader {
     private digestCache: Map<string, DigestEntry> = new Map();
@@ -43,8 +43,7 @@ export class PrecompiledDigestLoader {
      *
      * One file is enough to count as loaded, so a caller that sees
      * {@link isLoaded} true may still be holding a partial index. Only a total
-     * failure leaves it false and sends DigestParser to runtime parsing.
-     * Calling again after success is a no-op.
+     * failure leaves it false. Calling again after success is a no-op.
      */
     async loadPrecompiledDigests(): Promise<void> {
         if (this.loaded) {
@@ -101,9 +100,8 @@ export class PrecompiledDigestLoader {
                 const content = fs.readFileSync(filePath, "utf8");
                 const digest: PrecompiledDigest = JSON.parse(content);
 
-                // First file to declare an identifier wins, matching
-                // DigestParser's runtime merge. DIGEST_FILES order is therefore
-                // the precedence between the three domains.
+                // First file to declare an identifier wins, so DIGEST_FILES
+                // order is the precedence between the three domains.
                 for (const [identifier, entry] of Object.entries(digest.entries)) {
                     if (!this.digestCache.has(identifier)) {
                         this.digestCache.set(identifier, entry);

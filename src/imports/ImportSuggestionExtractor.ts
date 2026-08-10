@@ -360,8 +360,8 @@ export class ImportSuggestionExtractor {
      * unless `experimental.useDigestFiles` is on, and empty rather than
      * throwing when the lookup fails.
      *
-     * Confidence is high only for an exact identifier match; a near match is
-     * medium.
+     * Always high confidence: the lookup matches the identifier exactly, so an
+     * entry it returns declares the name the compiler could not resolve.
      */
     private async lookupIdentifierInDigest(identifier: string): Promise<ImportSuggestion[]> {
         const config = vscode.workspace.getConfiguration("verseAutoImports");
@@ -382,10 +382,9 @@ export class ImportSuggestionExtractor {
                 }
 
                 const importStatement = this.formatter.formatImportStatement(entry.modulePath, preferDotSyntax);
-                const confidence: ImportConfidence = entry.identifier === identifier ? "high" : "medium";
                 const description = `${entry.type} from ${entry.modulePath}`;
 
-                suggestions.push(this.createImportSuggestion(importStatement, "digest_lookup", confidence, description));
+                suggestions.push(this.createImportSuggestion(importStatement, "digest_lookup", "high", description));
             }
 
             if (suggestions.length > 0) {

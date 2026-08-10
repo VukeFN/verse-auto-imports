@@ -22,6 +22,10 @@ export interface FoundDeclaration {
 /** One specifier rewrite: replacing `span` when present, inserting at `offset` when not. */
 export interface SpecifierEdit {
     file: string;
+
+    /** Content-relative path of the module being rewritten, for the report to the user. */
+    path: string;
+
     span?: SourceSpan;
     offset: number;
     text: string;
@@ -47,21 +51,21 @@ const PUBLIC_SPECIFIER = "<public>";
 /**
  * The edits and the declaration chain that make the planned segments reachable.
  *
- * Two rules keep this from producing `ErrSemantic_MismatchedPartialAttributes`,
- * which is what sank the 0.4.x attempt at this feature. A module's access level
- * comes from its first explicit part, and every later part must repeat the same
- * specifier - so where a module is already declared, EVERY part of it is
- * rewritten rather than one, and where a chain is written into the definitions
- * file, each of its modules repeats whatever specifier the project already
- * declares for that module.
+ * Two rules keep this from producing `ErrSemantic_MismatchedPartialAttributes`.
+ * A module's access level comes from its first explicit part, and every later
+ * part must repeat the same specifier - so where a module is already declared,
+ * EVERY part of it is rewritten rather than one, and where a chain is written
+ * into the definitions file, each of its modules repeats whatever specifier the
+ * project already declares for that module.
  *
  * A module already declared `<private>`, `<protected>` or `<scoped>` is
  * reported as a conflict instead of being rewritten: those are deliberate
  * narrowings, and widening one silently is a decision that belongs to whoever
  * wrote it.
  *
- * @param prefix Content-relative segments above the planned ones, needed to
- * address a planned segment by its full path
+ * @param prefix Content-relative segments above the planned ones. They are
+ * already reachable, but the chain is written at the Content root, so it has to
+ * carry them or the declaration it nests would name a different module.
  */
 export function resolveVisibility(prefix: readonly string[], segments: readonly VisibilitySegment[], found: readonly FoundDeclaration[]): ResolvedVisibility {
     const byPath = new Map<string, FoundDeclaration[]>();
@@ -79,9 +83,13 @@ export function resolveVisibility(prefix: readonly string[], segments: readonly 
     const chain: DeclarationSpec[] = [];
     const written: boolean[] = [];
 
-    const pathSegments = [...prefix];
+    // The prefix modules are reachable already, so they are walked purely as
+    // the nesting the chain needs - never marked, but still matched against
+    // what the project declares so a written part cannot disagree with one.
+    const walk: VisibilitySegment[] = [...prefix.map((name) => ({ name, needsPublic: false })), ...segments];
+    const pathSegments: string[] = [];
 
-    for (const segment of segments) {
+    for (const segment of walk) {
         pathSegments.push(segment.name);
         const modulePath = pathSegments.join("/");
         const declarations = byPath.get(modulePath) ?? [];
@@ -111,6 +119,7 @@ export function resolveVisibility(prefix: readonly string[], segments: readonly 
                 }
                 edits.push({
                     file: entry.file,
+                    path: modulePath,
                     span: visibility ? { start: visibility.start, end: visibility.end } : undefined,
                     offset: visibility ? visibility.start : insertionPoint,
                     text: PUBLIC_SPECIFIER,

@@ -5,8 +5,7 @@
  *
  * This overlaps ImportPathConverter's declaration regexes, which answer only
  * "does this file declare a module of this name", and ProjectPathScanner's,
- * which records a position but matches the colon form alone. #45 is where the
- * three should converge on one parser.
+ * which records a position but matches the colon form alone.
  */
 
 /**
@@ -60,28 +59,26 @@ export interface ModuleDeclaration {
  * otherwise indentation decides, as it does for the colon style and for a
  * brace opened on the following line. A one-line `module {}` followed by a
  * MORE indented sibling is therefore read as nesting - invalid Verse anyway,
- * and the alternative is tracking brace depth through strings and comments.
+ * and the alternative is tracking brace depth as well.
  *
- * Declarations inside a line comment are skipped. One inside a `<# #>` block
- * comment is not: block comments are not tracked here, and the cost of
- * matching a commented-out declaration is a specifier edit inside dead text.
+ * Text inside comments and string literals is masked before matching, so a
+ * commented-out declaration is not reported and a `#` inside a string does not
+ * hide a real one. Both directions matter to the caller: a declaration
+ * reported where none exists makes it edit dead text and believe the module is
+ * declared, and one missed makes it write a second, possibly conflicting part.
  */
 export function findExplicitModuleDeclarations(content: string): ModuleDeclaration[] {
     const declarations: ModuleDeclaration[] = [];
+    const searchable = maskCommentsAndStrings(content);
     const pattern = new RegExp(MODULE_DECLARATION.source, "g");
     const lineStarts = buildLineStarts(content);
     const open: { chain: string[]; indent: number; line: number }[] = [];
 
     let match: RegExpExecArray | null;
-    while ((match = pattern.exec(content)) !== null) {
+    while ((match = pattern.exec(searchable)) !== null) {
         const [, name, specifierBlock] = match;
         const nameStart = match.index;
         const line = lineOf(lineStarts, nameStart);
-
-        if (isInLineComment(content, lineStarts[line - 1], nameStart)) {
-            continue;
-        }
-
         const indent = indentOf(content, lineStarts[line - 1]);
         while (open.length > 0 && open[open.length - 1].line !== line && indent <= open[open.length - 1].indent) {
             open.pop();
@@ -114,6 +111,82 @@ export function findExplicitModuleDeclarations(content: string): ModuleDeclarati
     }
 
     return declarations;
+}
+
+/**
+ * The text with every comment and string literal replaced by spaces, so
+ * offsets still address the original.
+ *
+ * Handles the `#` line comment, the nesting `<# #>` block comment and the
+ * double-quoted string, which is where `#` is content rather than a comment.
+ * Two shapes are deliberately not tracked: the `<#>` indented comment, whose
+ * body is indented under the marker where a declaration reads as nested
+ * anyway, and the single-quoted char literal, because a single quote also
+ * opens an identifier's quoted suffix and the two cannot be told apart here.
+ */
+function maskCommentsAndStrings(content: string): string {
+    const masked = content.split("");
+    let blockDepth = 0;
+    let inString = false;
+
+    for (let i = 0; i < content.length; i++) {
+        const character = content[i];
+
+        if (blockDepth > 0) {
+            if (content.startsWith("<#", i)) {
+                blockDepth++;
+            } else if (content.startsWith("#>", i)) {
+                blockDepth--;
+            }
+            blank(masked, content, i);
+            continue;
+        }
+
+        if (inString) {
+            if (character === "\\") {
+                blank(masked, content, i);
+                i++;
+                if (i < content.length) blank(masked, content, i);
+                continue;
+            }
+            if (character === '"') {
+                inString = false;
+            }
+            blank(masked, content, i);
+            continue;
+        }
+
+        if (content.startsWith("<#", i)) {
+            blockDepth++;
+            blank(masked, content, i);
+            continue;
+        }
+
+        if (character === '"') {
+            inString = true;
+            blank(masked, content, i);
+            continue;
+        }
+
+        // A line comment is a `#` not preceded by `<` and not followed by `>`;
+        // the other two shapes are the block and indented comment openers.
+        if (character === "#" && content[i + 1] !== ">") {
+            while (i < content.length && content[i] !== "\n") {
+                blank(masked, content, i);
+                i++;
+            }
+            i--;
+        }
+    }
+
+    return masked.join("");
+}
+
+/** Replaces one character with a space, keeping newlines so line numbers still hold. */
+function blank(masked: string[], content: string, index: number): void {
+    if (content[index] !== "\n") {
+        masked[index] = " ";
+    }
 }
 
 /** Offset of the first character of every line, so a line number is a binary search. */
@@ -155,9 +228,4 @@ function indentOf(content: string, lineStart: number): number {
         }
     }
     return width;
-}
-
-/** Whether an offset sits after a `#` on its own line. */
-function isInLineComment(content: string, lineStart: number, offset: number): boolean {
-    return content.slice(lineStart, offset).includes("#");
 }

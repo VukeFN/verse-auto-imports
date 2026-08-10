@@ -17,6 +17,12 @@ const SCAN_CONCURRENCY = 8;
 /** Why an attempt to publicize a module produced no edit. */
 type Refusal = { reason: string };
 
+/** A scanned file, and the exact text every offset taken from it addresses. */
+interface ScannedFile {
+    uri: vscode.Uri;
+    text: string;
+}
+
 /**
  * Applies the `<public>` declarations that make an internal module reachable.
  *
@@ -81,10 +87,18 @@ export class ModuleVisibilityWriter {
             return { reason: `'${request.moduleName}' is already reachable from the importing module.` };
         }
 
-        const { declarations, files } = await this.findDeclarations(
-            workspaceFolder,
-            segments.map((segment) => segment.name),
-        );
+        const contentRoot = await this.findContentRoot(workspaceFolder);
+        if (!contentRoot) {
+            return { reason: `no '${CONTENT_FOLDER}' folder was found in the workspace, so there is nowhere to declare the module.` };
+        }
+
+        const definitionsUri = this.definitionsUri(contentRoot);
+        const definitionsKey = definitionsUri.toString();
+
+        // Every module on the path is looked up, the reachable prefix included:
+        // the chain written into the definitions file has to nest through them,
+        // and a part it writes must repeat whatever they already declare.
+        const { declarations, scanned } = await this.findDeclarations(workspaceFolder, [...prefix, ...segments.map((segment) => segment.name)], definitionsKey);
         const resolved = resolveVisibility(prefix, segments, declarations);
 
         if (resolved.conflicts.length > 0) {
@@ -97,138 +111,165 @@ export class ModuleVisibilityWriter {
         }
 
         const edit = new vscode.WorkspaceEdit();
-        await this.addSpecifierEdits(edit, resolved.edits, files);
 
-        let wroteDefinitions = false;
+        // A specifier edit inside the definitions file would overlap the
+        // whole-file replace below, which VS Code rejects, so it is folded into
+        // that replacement's text instead of being applied separately.
+        const inDefinitions = resolved.chain.length > 0 ? resolved.edits.filter((specifierEdit) => specifierEdit.file === definitionsKey) : [];
+        const elsewhere = resolved.edits.filter((specifierEdit) => !inDefinitions.includes(specifierEdit));
+
+        this.addSpecifierEdits(edit, elsewhere, scanned);
+
         if (resolved.chain.length > 0) {
-            wroteDefinitions = await this.addDefinitionsEdit(edit, workspaceFolder, buildDeclarationBlock(resolved.chain));
-            if (!wroteDefinitions) {
+            const existing = scanned.get(definitionsKey)?.text ?? (await this.readDefinitions(definitionsUri));
+            if (existing === undefined) {
                 return { reason: "the definitions file could not be read." };
             }
+
+            const withEdits = applySpecifierEdits(existing, inDefinitions);
+            const content = appendDeclarationBlock(withEdits, buildDeclarationBlock(resolved.chain));
+
+            if (existing.length === 0 && !scanned.has(definitionsKey)) {
+                edit.createFile(definitionsUri, { ignoreIfExists: true });
+                edit.insert(definitionsUri, new vscode.Position(0, 0), content);
+            } else {
+                edit.replace(definitionsUri, new vscode.Range(new vscode.Position(0, 0), positionAt(existing, existing.length)), content);
+            }
         }
 
-        return { edit, summary: this.summarize(request.moduleName, resolved.edits.length, wroteDefinitions) };
+        return { edit, summary: this.summarize(request.moduleName, resolved.edits, resolved.chain.length > 0) };
     }
 
-    /** Adds one specifier rewrite per existing declaration, resolving each file's offsets to positions. */
-    private async addSpecifierEdits(edit: vscode.WorkspaceEdit, specifierEdits: readonly SpecifierEdit[], files: ReadonlyMap<string, vscode.Uri>): Promise<void> {
-        const byFile = new Map<string, SpecifierEdit[]>();
+    /** Adds one specifier rewrite per existing declaration, resolving offsets against the text they came from. */
+    private addSpecifierEdits(edit: vscode.WorkspaceEdit, specifierEdits: readonly SpecifierEdit[], scanned: ReadonlyMap<string, ScannedFile>): void {
         for (const specifierEdit of specifierEdits) {
-            const existing = byFile.get(specifierEdit.file);
-            if (existing) {
-                existing.push(specifierEdit);
-            } else {
-                byFile.set(specifierEdit.file, [specifierEdit]);
-            }
-        }
-
-        for (const [file, fileEdits] of byFile) {
-            const uri = files.get(file);
-            if (!uri) {
+            const file = scanned.get(specifierEdit.file);
+            if (!file) {
                 continue;
             }
-            const document = await vscode.workspace.openTextDocument(uri);
 
-            for (const fileEdit of fileEdits) {
-                if (fileEdit.span) {
-                    edit.replace(uri, new vscode.Range(document.positionAt(fileEdit.span.start), document.positionAt(fileEdit.span.end)), fileEdit.text);
-                } else {
-                    edit.insert(uri, document.positionAt(fileEdit.offset), fileEdit.text);
-                }
+            if (specifierEdit.span) {
+                edit.replace(file.uri, new vscode.Range(positionAt(file.text, specifierEdit.span.start), positionAt(file.text, specifierEdit.span.end)), specifierEdit.text);
+            } else {
+                edit.insert(file.uri, positionAt(file.text, specifierEdit.offset), specifierEdit.text);
             }
         }
+    }
+
+    /** The Content folder the project's modules hang off, or null when the workspace has none. */
+    private async findContentRoot(workspaceFolder: vscode.WorkspaceFolder): Promise<vscode.Uri | null> {
+        if (path.basename(workspaceFolder.uri.fsPath) === CONTENT_FOLDER) {
+            return workspaceFolder.uri;
+        }
+
+        const candidate = vscode.Uri.joinPath(workspaceFolder.uri, CONTENT_FOLDER);
+        try {
+            const stat = await vscode.workspace.fs.stat(candidate);
+            return stat.type === vscode.FileType.Directory ? candidate : null;
+        } catch {
+            return null;
+        }
+    }
+
+    /** The configured definitions file, at the Content root. */
+    private definitionsUri(contentRoot: vscode.Uri): vscode.Uri {
+        const fileName = vscode.workspace.getConfiguration("verseAutoImports").get<string>("moduleVisibility.definitionsFileName", "definitions.verse");
+        return vscode.Uri.joinPath(contentRoot, fileName);
     }
 
     /**
-     * Adds the definitions-file write, creating the file when it does not exist
-     * yet. False when an existing file could not be read, which must not be
-     * treated as an empty one - that would discard whatever it holds.
+     * The definitions file's text, "" when it does not exist, or undefined when
+     * it exists but could not be read - which must not be treated as empty,
+     * since that would discard whatever it holds.
      */
-    private async addDefinitionsEdit(edit: vscode.WorkspaceEdit, workspaceFolder: vscode.WorkspaceFolder, block: string): Promise<boolean> {
-        const fileName = vscode.workspace.getConfiguration("verseAutoImports").get<string>("moduleVisibility.definitionsFileName", "definitions.verse");
-        const contentRoot = path.basename(workspaceFolder.uri.fsPath) === CONTENT_FOLDER ? workspaceFolder.uri : vscode.Uri.joinPath(workspaceFolder.uri, CONTENT_FOLDER);
-        const uri = vscode.Uri.joinPath(contentRoot, fileName);
-
-        const existing = await vscode.workspace.fs.readFile(uri).then(
-            (buffer) => Buffer.from(buffer).toString("utf8"),
-            () => null,
-        );
-
-        if (existing === null) {
-            edit.createFile(uri, { ignoreIfExists: true });
-            edit.insert(uri, new vscode.Position(0, 0), appendDeclarationBlock("", block));
-            return true;
+    private async readDefinitions(uri: vscode.Uri): Promise<string | undefined> {
+        try {
+            await vscode.workspace.fs.stat(uri);
+        } catch {
+            return "";
         }
 
-        const document = await vscode.workspace.openTextDocument(uri).then(
-            (opened) => opened,
-            () => null,
-        );
-        if (!document) {
-            return false;
+        try {
+            return (await vscode.workspace.openTextDocument(uri)).getText();
+        } catch {
+            return undefined;
         }
-
-        edit.replace(uri, new vscode.Range(new vscode.Position(0, 0), document.positionAt(document.getText().length)), appendDeclarationBlock(existing, block));
-        return true;
     }
 
     /**
      * Every explicit declaration of any of these module names in the project,
-     * bound to its Content-relative path.
+     * bound to its Content-relative path, with the text each was read from.
      *
      * The whole project is read rather than a capped sample: a declaration
      * missed here becomes a second, possibly conflicting part written into the
      * definitions file, which is a compile error rather than a worse
-     * suggestion.
+     * suggestion. Text comes from openTextDocument, as ProjectPathScanner's
+     * does, so an offset addresses the buffer the edit will be applied to
+     * rather than what is currently on disk.
+     *
+     * @param definitionsKey the definitions file, whose text is kept even when
+     * it declares nothing, because the caller appends to it
      */
-    private async findDeclarations(workspaceFolder: vscode.WorkspaceFolder, names: readonly string[]): Promise<{ declarations: FoundDeclaration[]; files: Map<string, vscode.Uri> }> {
+    private async findDeclarations(
+        workspaceFolder: vscode.WorkspaceFolder,
+        names: readonly string[],
+        definitionsKey: string,
+    ): Promise<{ declarations: FoundDeclaration[]; scanned: Map<string, ScannedFile> }> {
         const workspaceIsContent = path.basename(workspaceFolder.uri.fsPath) === CONTENT_FOLDER;
         const searchPattern = workspaceIsContent ? "**/*.verse" : `${CONTENT_FOLDER}/**/*.verse`;
         const verseFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(workspaceFolder, searchPattern), "**/*.digest.verse");
         const wanted = new Set(names);
         const declarations: FoundDeclaration[] = [];
-        const files = new Map<string, vscode.Uri>();
+        const scanned = new Map<string, ScannedFile>();
 
         for (let i = 0; i < verseFiles.length; i += SCAN_CONCURRENCY) {
             const batch = await Promise.all(verseFiles.slice(i, i + SCAN_CONCURRENCY).map((file) => this.readDeclarations(file, workspaceFolder, workspaceIsContent, wanted)));
-            for (const [index, fileDeclarations] of batch.entries()) {
-                if (fileDeclarations.length > 0) {
-                    const file = verseFiles[i + index];
-                    files.set(file.toString(), file);
-                    declarations.push(...fileDeclarations);
+            for (const result of batch) {
+                if (!result) {
+                    continue;
+                }
+                const key = result.file.uri.toString();
+                if (result.declarations.length > 0 || key === definitionsKey) {
+                    scanned.set(key, result.file);
+                    declarations.push(...result.declarations);
                 }
             }
         }
 
         logger.debug("ModuleVisibilityWriter", `Scanned ${verseFiles.length} file(s), found ${declarations.length} matching declaration(s)`);
-        return { declarations, files };
+        return { declarations, scanned };
     }
 
-    /** The wanted declarations in one file, or none when it cannot be read or sits outside Content. */
-    private async readDeclarations(file: vscode.Uri, workspaceFolder: vscode.WorkspaceFolder, workspaceIsContent: boolean, wanted: ReadonlySet<string>): Promise<FoundDeclaration[]> {
-        const content = await vscode.workspace.fs.readFile(file).then(
-            (buffer) => Buffer.from(buffer).toString("utf8"),
-            () => null,
-        );
-
-        if (!content || !content.includes("module")) {
-            return [];
+    /** The wanted declarations in one file, or null when it holds none, cannot be read, or sits outside Content. */
+    private async readDeclarations(
+        uri: vscode.Uri,
+        workspaceFolder: vscode.WorkspaceFolder,
+        workspaceIsContent: boolean,
+        wanted: ReadonlySet<string>,
+    ): Promise<{ file: ScannedFile; declarations: FoundDeclaration[] } | null> {
+        const directory = this.contentRelativeDirectory(uri, workspaceFolder, workspaceIsContent);
+        if (directory === null) {
+            return null;
         }
 
-        const directory = this.contentRelativeDirectory(file, workspaceFolder, workspaceIsContent);
-        if (directory === null) {
-            return [];
+        const text = await vscode.workspace.openTextDocument(uri).then(
+            (document) => document.getText(),
+            () => null,
+        );
+        if (text === null || !text.includes("module")) {
+            return null;
         }
 
         const prefix = directory.length > 0 ? directory.split("/") : [];
-
-        return findExplicitModuleDeclarations(content)
+        const declarations = findExplicitModuleDeclarations(text)
             .filter((declaration) => wanted.has(declaration.name))
             .map((declaration) => ({
                 path: [...prefix, ...declaration.chain].join("/"),
-                file: file.toString(),
+                file: uri.toString(),
                 declaration,
             }));
+
+        return { file: { uri, text }, declarations };
     }
 
     /**
@@ -237,7 +278,7 @@ export class ModuleVisibilityWriter {
      * ImportPathConverter's declaration scan.
      */
     private contentRelativeDirectory(file: vscode.Uri, workspaceFolder: vscode.WorkspaceFolder, workspaceIsContent: boolean): string | null {
-        let directory = path.dirname(path.relative(workspaceFolder.uri.fsPath, file.fsPath)).replace(/\\/g, "/");
+        const directory = path.dirname(path.relative(workspaceFolder.uri.fsPath, file.fsPath)).replace(/\\/g, "/");
 
         if (workspaceIsContent) {
             return directory === "" || directory === "." ? "" : directory;
@@ -247,20 +288,38 @@ export class ModuleVisibilityWriter {
             return "";
         }
         if (directory.startsWith(`${CONTENT_FOLDER}/`)) {
-            directory = directory.substring(CONTENT_FOLDER.length + 1);
-            return directory;
+            return directory.substring(CONTENT_FOLDER.length + 1);
         }
         return null;
     }
 
-    /** What the user is told happened, which differs by whether an existing declaration was edited. */
-    private summarize(moduleName: string, editCount: number, wroteDefinitions: boolean): string {
-        if (editCount > 0 && wroteDefinitions) {
-            return `made '${moduleName}' public: updated ${editCount} existing declaration(s) and wrote the definitions file.`;
+    /** What the user is told happened, naming the declarations that were rewritten. */
+    private summarize(moduleName: string, edits: readonly SpecifierEdit[], wroteDefinitions: boolean): string {
+        const rewritten = [...new Set(edits.map((edit) => edit.path))];
+
+        if (rewritten.length > 0 && wroteDefinitions) {
+            return `made '${moduleName}' public: declared ${rewritten.join(", ")} public in place and wrote the definitions file.`;
         }
-        if (editCount > 0) {
-            return `made '${moduleName}' public by updating ${editCount} existing declaration(s).`;
+        if (rewritten.length > 0) {
+            return `made '${moduleName}' public by declaring ${rewritten.join(", ")} public in place.`;
         }
         return `made '${moduleName}' public in the definitions file.`;
     }
+}
+
+/** The text with every specifier rewrite applied, taken last-first so earlier offsets stay valid. */
+function applySpecifierEdits(text: string, edits: readonly SpecifierEdit[]): string {
+    const ordered = [...edits].sort((a, b) => (b.span?.start ?? b.offset) - (a.span?.start ?? a.offset));
+
+    return ordered.reduce((current, edit) => {
+        const start = edit.span?.start ?? edit.offset;
+        const end = edit.span?.end ?? edit.offset;
+        return current.slice(0, start) + edit.text + current.slice(end);
+    }, text);
+}
+
+/** The position an offset falls at in the text the offset was taken from. */
+function positionAt(text: string, offset: number): vscode.Position {
+    const before = text.slice(0, offset).split("\n");
+    return new vscode.Position(before.length - 1, before[before.length - 1].length);
 }

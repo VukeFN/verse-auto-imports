@@ -11,27 +11,28 @@ const REQUEST = {
     moduleName: "Tools",
 };
 
-/** The workspace as one map of workspace-relative path to file text. */
-const givenProject = (files: Record<string, string>): void => {
-    (vscode.workspace as any).workspaceFolders = [{ uri: vscode.Uri.file(ROOT), name: "repo", index: 0 }];
+/**
+ * Stands the workspace up from one map of workspace-relative path to file text.
+ *
+ * Text is served through openTextDocument, which is where production reads it,
+ * so an offset a test asserts on addresses the same string the writer parsed.
+ */
+const givenProject = (files: Record<string, string>, root = ROOT): void => {
+    (vscode.workspace as any).workspaceFolders = [{ uri: vscode.Uri.file(root), name: root.split("/").pop(), index: 0 }];
 
-    const uris = Object.keys(files).map((relative) => vscode.Uri.file(`${ROOT}/${relative}`));
+    const uris = Object.keys(files).map((relative) => vscode.Uri.file(`${root}/${relative}`));
     const byUri = new Map(uris.map((uri, index) => [uri.toString(), files[Object.keys(files)[index]]]));
 
     (vscode.workspace.findFiles as jest.Mock).mockResolvedValue(uris);
-    (vscode.workspace.fs.readFile as jest.Mock).mockImplementation((uri: vscode.Uri) => {
-        const content = byUri.get(uri.toString());
-        return content === undefined ? Promise.reject(new Error("ENOENT")) : Promise.resolve(Buffer.from(content, "utf8"));
+    (vscode.workspace.fs.stat as jest.Mock).mockImplementation((uri: vscode.Uri) => {
+        if (uri.fsPath.replace(/\\/g, "/").endsWith("/Content")) {
+            return Promise.resolve({ type: vscode.FileType.Directory });
+        }
+        return byUri.has(uri.toString()) ? Promise.resolve({ type: vscode.FileType.File }) : Promise.reject(new Error("ENOENT"));
     });
     (vscode.workspace.openTextDocument as jest.Mock).mockImplementation((uri: vscode.Uri) => {
-        const content = byUri.get(uri.toString()) ?? "";
-        return Promise.resolve({
-            getText: () => content,
-            positionAt: (offset: number) => {
-                const before = content.slice(0, offset).split("\n");
-                return new vscode.Position(before.length - 1, before[before.length - 1].length);
-            },
-        });
+        const content = byUri.get(uri.toString());
+        return content === undefined ? Promise.reject(new Error("ENOENT")) : Promise.resolve({ getText: () => content });
     });
 };
 
@@ -45,6 +46,8 @@ const appliedOperations = (): any[] => {
     const calls = (vscode.workspace.applyEdit as jest.Mock).mock.calls;
     return calls.length === 0 ? [] : calls[calls.length - 1][0].operations;
 };
+
+const forwardSlashed = (uri: { fsPath: string }): string => String(uri.fsPath).replace(/\\/g, "/");
 
 describe("ModuleVisibilityWriter", () => {
     beforeEach(() => {
@@ -63,8 +66,22 @@ describe("ModuleVisibilityWriter", () => {
 
         const operations = appliedOperations();
         expect(operations[0]).toMatchObject({ kind: "createFile" });
-        expect(String(operations[0].uri.fsPath).replace(/\\/g, "/")).toBe(`${ROOT}/Content/definitions.verse`);
+        expect(forwardSlashed(operations[0].uri)).toBe(`${ROOT}/Content/definitions.verse`);
         expect(operations[1]).toMatchObject({ kind: "insert", text: "Gadgets := module:\n    Tools<public> := module {}\n" });
+    });
+
+    it("nests the block through the ancestors the target shares with the importer", async () => {
+        // Written at the Content root, so a block that skipped Systems would
+        // declare an unrelated /proj/Gadgets/Tools and fix nothing.
+        givenProject({ "Content/Systems/Scripts/main.verse": "" });
+
+        await writer().makeModulePublic({
+            targetPath: `${PROJECT}/Systems/Gadgets/Tools`,
+            importerPath: `${PROJECT}/Systems/Scripts`,
+            moduleName: "Tools",
+        });
+
+        expect(appliedOperations()[1].text).toBe("Systems := module:\n    Gadgets := module:\n        Tools<public> := module {}\n");
     });
 
     it("honours the configured definitions file name", async () => {
@@ -76,7 +93,7 @@ describe("ModuleVisibilityWriter", () => {
 
         await writer().makeModulePublic(REQUEST);
 
-        expect(String(appliedOperations()[0].uri.fsPath).replace(/\\/g, "/")).toBe(`${ROOT}/Content/visibility.verse`);
+        expect(forwardSlashed(appliedOperations()[0].uri)).toBe(`${ROOT}/Content/visibility.verse`);
     });
 
     it("extends an existing definitions file rather than replacing it", async () => {
@@ -91,6 +108,23 @@ describe("ModuleVisibilityWriter", () => {
         expect(replace.text).toBe("Other<public> := module {}\n\nGadgets := module:\n    Tools<public> := module {}\n");
     });
 
+    it("folds a specifier edit inside the definitions file into the same replacement", async () => {
+        // Two operations on one file would overlap, which VS Code rejects, and
+        // half-applying would leave two parts of Deep disagreeing.
+        givenProject({ "Content/definitions.verse": "Gadgets := module:\n    Deep := module {}\n" });
+
+        await writer().makeModulePublic({
+            targetPath: `${PROJECT}/Gadgets/Deep/Tools`,
+            importerPath: `${PROJECT}/Scripts`,
+            moduleName: "Tools",
+        });
+
+        const operations = appliedOperations();
+        expect(operations).toHaveLength(1);
+        expect(operations[0].kind).toBe("replace");
+        expect(operations[0].text).toBe("Gadgets := module:\n    Deep<public> := module {}\n\nGadgets := module:\n    Deep<public> := module:\n        Tools<public> := module {}\n");
+    });
+
     it("edits an existing declaration instead of writing a second part", async () => {
         givenProject({ "Content/Gadgets/tools.verse": "Tools := module:\n    X:int = 1\n" });
 
@@ -100,6 +134,14 @@ describe("ModuleVisibilityWriter", () => {
         expect(operations).toHaveLength(1);
         expect(operations[0]).toMatchObject({ kind: "insert", text: "<public>" });
         expect(operations[0].position).toEqual(new vscode.Position(0, 5));
+    });
+
+    it("names the declaration it rewrote", async () => {
+        givenProject({ "Content/Gadgets/tools.verse": "Tools := module {}\n" });
+
+        await writer().makeModulePublic(REQUEST);
+
+        expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(expect.stringContaining("declaring Gadgets/Tools public in place"));
     });
 
     it("refuses to widen a module the project deliberately narrowed", async () => {
@@ -128,6 +170,14 @@ describe("ModuleVisibilityWriter", () => {
         expect(appliedOperations()[0]).toMatchObject({ kind: "createFile" });
     });
 
+    it("ignores a declaration that is only inside a block comment", async () => {
+        givenProject({ "Content/Gadgets/tools.verse": "<# Tools := module {} #>\n" });
+
+        await writer().makeModulePublic(REQUEST);
+
+        expect(appliedOperations()[0]).toMatchObject({ kind: "createFile" });
+    });
+
     it("refuses when no project file resolves the module paths", async () => {
         givenProject({ "Content/Scripts/main.verse": "" });
         const handler = { getProjectVersePath: jest.fn().mockResolvedValue(null) } as unknown as ProjectPathHandler;
@@ -136,6 +186,16 @@ describe("ModuleVisibilityWriter", () => {
 
         expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
         expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining(".uefnproject"));
+    });
+
+    it("refuses rather than creating a Content folder the workspace does not have", async () => {
+        givenProject({ "Scripts/main.verse": "" });
+        (vscode.workspace.fs.stat as jest.Mock).mockRejectedValue(new Error("ENOENT"));
+
+        await writer().makeModulePublic(REQUEST);
+
+        expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("no 'Content' folder"));
     });
 
     it("warns when the edit is rejected", async () => {
@@ -148,16 +208,7 @@ describe("ModuleVisibilityWriter", () => {
     });
 
     it("resolves paths without the Content prefix when the workspace is Content itself", async () => {
-        (vscode.workspace as any).workspaceFolders = [{ uri: vscode.Uri.file("/repo/Content"), name: "Content", index: 0 }];
-        const uri = vscode.Uri.file("/repo/Content/Gadgets/tools.verse");
-        (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([uri]);
-        (vscode.workspace.fs.readFile as jest.Mock).mockImplementation((target: vscode.Uri) =>
-            target.toString() === uri.toString() ? Promise.resolve(Buffer.from("Tools := module {}\n", "utf8")) : Promise.reject(new Error("ENOENT")),
-        );
-        (vscode.workspace.openTextDocument as jest.Mock).mockResolvedValue({
-            getText: () => "Tools := module {}\n",
-            positionAt: (offset: number) => new vscode.Position(0, offset),
-        });
+        givenProject({ "Gadgets/tools.verse": "Tools := module {}\n" }, "/repo/Content");
 
         await writer().makeModulePublic(REQUEST);
 

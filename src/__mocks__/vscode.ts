@@ -363,6 +363,13 @@ const EndOfLine = {
     CRLF: 2,
 };
 
+const FileType = {
+    Unknown: 0,
+    File: 1,
+    Directory: 2,
+    SymbolicLink: 64,
+};
+
 /**
  * A code action kind, as vscode.CodeActionKind models one: a dotted string
  * that append() extends. Only the value matters to the providers; nothing
@@ -407,6 +414,7 @@ export {
     ConfigurationTarget,
     ProgressLocation,
     EndOfLine,
+    FileType,
     Position,
     Range,
     TextEdit,

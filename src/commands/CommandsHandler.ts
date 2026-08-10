@@ -101,7 +101,7 @@ export class CommandsHandler {
      * diagnostic, which is why the command is hidden from the Command Palette.
      */
     async makeModulePublic(request: ModuleVisibilityRequest): Promise<void> {
-        logger.info("CommandsHandler", `Make module public command triggered for ${request?.targetPath}`);
+        logger.info("CommandsHandler", `Make module public command triggered for ${request.targetPath}`);
         await this.deps.moduleVisibilityWriter.makeModulePublic(request);
     }
 

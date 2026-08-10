@@ -30,7 +30,7 @@ describe("resolveVisibility", () => {
         const resolved = resolveVisibility([], segments(["Gadgets", false], ["Tools", true]), found);
 
         expect(resolved.chain).toEqual([]);
-        expect(resolved.edits).toEqual([{ file: "file://a", span: undefined, offset: 5, text: "<public>" }]);
+        expect(resolved.edits).toEqual([{ file: "file://a", path: "Gadgets/Tools", span: undefined, offset: 5, text: "<public>" }]);
     });
 
     it("rewrites every part of a module, since later parts must repeat the specifier", () => {
@@ -46,7 +46,7 @@ describe("resolveVisibility", () => {
 
         const resolved = resolveVisibility([], segments(["Gadgets", false], ["Tools", true]), found);
 
-        expect(resolved.edits).toEqual([{ file: "file://a", span: { start: 5, end: 15 }, offset: 5, text: "<public>" }]);
+        expect(resolved.edits).toEqual([{ file: "file://a", path: "Gadgets/Tools", span: { start: 5, end: 15 }, offset: 5, text: "<public>" }]);
     });
 
     it("does nothing for a module already declared public", () => {
@@ -96,6 +96,36 @@ describe("resolveVisibility", () => {
         const resolved = resolveVisibility(["A", "B"], segments(["C", false], ["D", true]), found);
 
         expect(resolved.edits.map((edit) => edit.file)).toEqual(["file://a"]);
+    });
+
+    it("carries the shared prefix into the chain, which is written at the Content root", () => {
+        // Without the prefix the block would declare /proj/Gadgets/Tools, a
+        // module unrelated to the target under Systems.
+        const resolved = resolveVisibility(["Systems"], segments(["Gadgets", false], ["Tools", true]), []);
+
+        expect(resolved.chain).toEqual([
+            { name: "Systems", specifier: undefined },
+            { name: "Gadgets", specifier: undefined },
+            { name: "Tools", specifier: "public" },
+        ]);
+    });
+
+    it("repeats a prefix module's declared specifier, so the nesting part cannot disagree", () => {
+        const found = declarationsIn("file://a", "", "Systems<public> := module:\n    X:int = 1\n");
+
+        const resolved = resolveVisibility(["Systems"], segments(["Gadgets", false], ["Tools", true]), found);
+
+        expect(resolved.chain[0]).toEqual({ name: "Systems", specifier: "public" });
+        // The prefix is reachable already, so nothing about it is rewritten.
+        expect(resolved.edits).toEqual([]);
+    });
+
+    it("names the module path on each edit, for the report to the user", () => {
+        const found = declarationsIn("file://a", "Gadgets", "Tools := module {}\n");
+
+        const resolved = resolveVisibility([], segments(["Gadgets", false], ["Tools", true]), found);
+
+        expect(resolved.edits.map((edit) => edit.path)).toEqual(["Gadgets/Tools"]);
     });
 
     it("trims the chain to the deepest module it actually has to write", () => {

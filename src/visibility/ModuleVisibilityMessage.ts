@@ -18,7 +18,7 @@ const INTERNAL_MODULE_HELP = /to make it accessible from other modules within yo
 
 /**
  * The inaccessible module, written as a parenthesized parent path followed by
- * the module's own name: "`(/Account@fortnite.com/Project/Gadgets:)Tools`".
+ * the module's own name: "`(/vukefn@fortnite.com/MyGame/Gadgets:)Tools`".
  */
 const TARGET_QUALIFIED = /`\((\/[^:)]+):\)([A-Za-z_][A-Za-z0-9_]*(?:'[^']*')?)`/;
 

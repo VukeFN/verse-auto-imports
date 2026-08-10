@@ -353,6 +353,84 @@ describe("scanModuleImports", () => {
         expect(scanModuleImports(["X := 1; using:", "    Economy.Shop", "code()"])).toEqual([]);
     });
 
+    // The classification reads a line from its head, so this one was rejected
+    // and skipped whole. Nothing recorded that the file imports the path, and a
+    // diagnostic asking for it wrote a second copy above a line already making
+    // the import. `allUsingPaths` saw it throughout, so only deduplication was
+    // affected.
+    it("records a using written after a definition on its line, pinned", () => {
+        expect(scanModuleImports(["X := 1; using { /Verse.org/Random }", "code()"])).toEqual([
+            { path: "/Verse.org/Random", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    it("records a dotted using written after a definition on its line", () => {
+        expect(scanModuleImports(["X := 1; using. /Verse.org/Random", "code()"])).toEqual([
+            { path: "/Verse.org/Random", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    it("records every using written after a definition, in written order", () => {
+        expect(scanModuleImports(["X := 1; using { /X }; using { Economy.Shop }", "code()"])).toEqual([
+            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "Economy.Shop", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // The definition sharing the line is what no rebuild from a path can
+    // reproduce, so the entry counts as present and nothing more. A writer
+    // handed it would rebuild the line as a bare import and delete `X := 1`.
+    it("offers no rewritable import for a using written after a definition", () => {
+        expect(rewritableImports(scanModuleImports(["X := 1; using { /Verse.org/Random }", "code()"]))).toEqual([]);
+    });
+
+    // Read from the line's code, so a path named in a comment is not an import.
+    // Searching the raw text records `/A` as present and the file never gets the
+    // import a diagnostic asked for.
+    it("records nothing for a using written in a comment after a definition", () => {
+        expect(scanModuleImports(["X := 1 # using { /A }", "code()"])).toEqual([]);
+    });
+
+    // Indented lines are skipped before the classification runs, and have to
+    // stay that way: a `using` in a module body is module-scoped, and counting
+    // it as present suppresses the file-level import the diagnostic asked for.
+    it("skips a using written after a definition inside a module body", () => {
+        expect(scanModuleImports(["MyModule := module:", "    X := 1; using { /A }", "code()"])).toEqual([]);
+    });
+
+    // Literal text is data, not a statement. Recorded as an import it counts as
+    // present, which both withholds the path from a file that needs it and -
+    // since a pinned path is withheld from the rebuilt block - deletes the real
+    // `using` the author wrote elsewhere in the file.
+    it("records nothing for a using written inside a string literal", () => {
+        expect(scanModuleImports(['Hint := "using { /A }"', "code()"])).toEqual([]);
+    });
+
+    // The same rule on a line that is itself an import: the statement counts,
+    // the literal beside it does not.
+    it("records only the statement a line writes beside a literal naming a path", () => {
+        expect(scanModuleImports(['using { /A }; Hint := "using { /B }"', "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // The masking must not reach a `'`. The lexer opens a char literal on one,
+    // but the same character closes a path's quoted segment suffix, and a
+    // masked suffix leaves `Economy.Shop` - a module that exists and is not the
+    // one the line imports. A writer asked for it reads the file as already
+    // importing it; organizing withholds the real import and deletes it.
+    it("records the whole quoted suffix of a path written beside another statement", () => {
+        expect(scanModuleImports(["using { /A }; using. Economy.Shop'Loc'", "code()"]).map((imp) => imp.path)).toEqual(["/A", "Economy.Shop'Loc'"]);
+    });
+
+    it("records the whole quoted suffix of a path written after a definition", () => {
+        expect(scanModuleImports(["X := 1; using. Economy.Shop'Loc'", "code()"]).map((imp) => imp.path)).toEqual(["Economy.Shop'Loc'"]);
+    });
+
+    it("records the whole quoted suffix of a braced path written after a definition", () => {
+        expect(scanModuleImports(["X := 1; using { Economy.Shop'Loc' }", "code()"]).map((imp) => imp.path)).toEqual(["Economy.Shop'Loc'"]);
+    });
+
     // extractPathFromImport reads the statement at the head of what it is given
     // and reports nothing about the rest, so the line used to be recorded as
     // `/X` alone, spanning one line and rewritable. Organizing rebuilt it from

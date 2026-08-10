@@ -56,6 +56,30 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, [], curlyNoSort)).toBe("using { /A }\n\ncode()");
     });
 
+    // A path read out of string text counted as a pinned import of that path,
+    // and a pinned path is withheld from the block on the grounds that the line
+    // holding it already makes the import. No line did, so organizing deleted
+    // the file's only real `using { /A }` and left it importing one path fewer.
+    it("keeps an import whose path a string literal elsewhere in the file names", () => {
+        const input = 'using { /A }\nusing { /B }\nHint := "using { /A }"\ncode()';
+        expect(editor.buildOrganizedContent(input, [], curlyNoSort)).toBe('using { /A }\nusing { /B }\n\nHint := "using { /A }"\ncode()');
+    });
+
+    // The same loss reachable through a line that is itself an import, which is
+    // the shape that could hit it before a `using` after a definition counted.
+    it("keeps an import a literal on another import's line names", () => {
+        const input = 'using { /A }\nusing { /B }; Hint := "using { /A }"\ncode()';
+        expect(editor.buildOrganizedContent(input, [], curlyNoSort)).toContain("using { /A }");
+    });
+
+    // Reading a path's quoted suffix as a char literal truncated it to the
+    // module named before the `'`, which the file does import - so organizing
+    // withheld that import as already made and deleted the line making it.
+    it("keeps an import a quoted path suffix on another line truncates to", () => {
+        const input = "using { /Verse.org/Random }\nX := 1; using. /Verse.org/Random'Loc'\ncode()";
+        expect(editor.buildOrganizedContent(input, [], curlyNoSort)).toContain("using { /Verse.org/Random }");
+    });
+
     it("sorts alphabetically when enabled", () => {
         const input = "using { /Zebra }\nusing { /Apple }\ncode()";
         expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe("using { /Apple }\nusing { /Zebra }\n\ncode()");
@@ -797,6 +821,17 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const input = ["using { Features }", "", "hello := 1"].join("\n");
 
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
+
+        expect(success).toBe(true);
+        expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
+    // The scan rejected the line for not opening with `using`, so the path read
+    // as absent and this wrote a second copy of an import the file already made.
+    it("counts a using written after a definition on its line as already present", async () => {
+        const input = ["X := 1; using { /Verse.org/Random }", "", "code()"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Verse.org/Random }"]);
 
         expect(success).toBe(true);
         expect(applyEditMock()).not.toHaveBeenCalled();

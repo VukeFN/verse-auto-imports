@@ -205,9 +205,10 @@ describe("allUsingPaths", () => {
     });
 
     // A `}` closing a block written inside an interpolation does not close the
-    // interpolation, or the string's remaining text is lexed as code.
+    // interpolation. Read as the end of it, the string's closing quote is taken
+    // for an opening one and the `#` after it ends the line at code scope.
     it("keeps a string open across a block written inside its interpolation", () => {
-        expect(allUsingPaths(['X := "a{M{1=>2}}#b"; using { /A }'])).toEqual(["/A"]);
+        expect(allUsingPaths(['X := "a{F({1=>2}, "#")}b"; using { /A }'])).toEqual(["/A"]);
     });
 
     // `\{` is an escaped brace, so it opens no interpolation and the `#` after
@@ -218,15 +219,18 @@ describe("allUsingPaths", () => {
 
     // A char literal is one character or one escape and takes no interpolation,
     // so the `{` of `'{'` is content and the literal closes at the next quote.
+    // The `"#"` after it is what tells the two readings apart: taking the `{`
+    // for an interpolation leaves the quotes paired the other way round.
     it("does not open an interpolation inside a char literal", () => {
-        expect(allUsingPaths(["C := '{'; using { Features }", "using { /A }"])).toEqual(["Features", "/A"]);
+        expect(allUsingPaths(["C := '{'; X := \"#\"; using { Features }"])).toEqual(["Features"]);
     });
 
     // The interpolation is code scope, so a `#` written directly in one opens a
-    // comment as it would anywhere else - and leaves the interpolation open,
-    // which is the case the fallback pass already covers.
-    it("does not read a using out of a comment opened inside an interpolation", () => {
-        expect(allUsingPaths(['X := "a{ # see using { /B }', "using { /A }"])).toEqual(["/A"]);
+    // comment as it would anywhere else. This narrows what the scanner reads:
+    // the `using` here really is inside that comment, because the comment runs
+    // to the end of the line and the interpolation is still open at it.
+    it("reads a # written directly in an interpolation as a comment opener", () => {
+        expect(allUsingPaths(['X := "a{M{1=>2}#}b"; using { /A }'])).toEqual([]);
     });
 });
 

@@ -174,9 +174,10 @@ function lexLine(line: string, depth: number, trackLiterals: boolean): LineScan 
         const innermost = trackLiterals ? open[open.length - 1] : undefined;
 
         // Inside an interpolation this is code scope again, so a `#` there ends
-        // the line as one at the head of it would. Such a line leaves the
-        // interpolation open, and so falls back to the pass that ignores
-        // literals - which reads no further than this `#` either.
+        // the line as one at the head of it would. Returning the line read so
+        // far, rather than null, is what keeps the text before it: the fallback
+        // pass ends at the first `#` on the line, which may sit further back
+        // inside string text this pass has already read as content.
         if (line[i] === "#" && innermost?.kind !== "literal") {
             return { depth: nesting, hasCode, code, opensIndentedComment: false };
         }

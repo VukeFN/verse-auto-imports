@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { logger } from "../utils";
+import { maskCommentsAndStrings } from "../utils/verseText";
 import { ProjectPathHandler } from "../project";
 import { ProjectPathData, ProjectPathNode, ProjectScanOptions } from "../types";
 
@@ -116,10 +117,16 @@ export class ProjectPathScanner {
      * modules, so it equals `name` only at file scope. Declarations nested in a
      * class or struct body are not filtered out here; only indentation-scoped
      * module nesting is tracked.
+     *
+     * Comments and string literals are masked before the scan, so a
+     * commented-out declaration is neither recorded nor pushed onto the module
+     * stack, where it would prefix the `fullPath` of everything below it.
      */
     extractDeclarations(content: string, filePath: string, options: ProjectScanOptions = {}): ProjectPathNode[] {
         const nodes: ProjectPathNode[] = [];
-        const lines = content.split("\n");
+        // Masking is space-for-character and keeps newlines, so a line's index,
+        // its length and its indentation all still address the original file.
+        const lines = maskCommentsAndStrings(content).split("\n");
 
         let currentModulePath = "";
         const moduleStack: { name: string; indent: number }[] = [];
@@ -181,7 +188,10 @@ export class ProjectPathScanner {
             const rawLine = lines[i];
             const line = rawLine.trim();
 
-            if (line === "" || line.startsWith("#") || line.startsWith("//")) {
+            // A comment is blank by the time it arrives here, so the empty test
+            // is what skips one. `//` is not a Verse comment form and masking
+            // leaves it alone, so its own test stays.
+            if (line === "" || line.startsWith("//")) {
                 continue;
             }
 

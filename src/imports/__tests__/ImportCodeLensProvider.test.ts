@@ -172,6 +172,27 @@ describe("ImportCodeLensProvider hide timers and teardown", () => {
         expect(lenses).toHaveLength(1);
     });
 
+    it("clears the pending hide when a conversion holds the lenses open", async () => {
+        // A conversion is driven from a lens and takes long enough for a hide
+        // armed just before it to fire mid-way. The timer has to be cleared
+        // rather than merely outrun, so the assertion is made before the delay
+        // elapses as well as after.
+        const provider = new ImportCodeLensProvider(vscode.window.createOutputChannel("test"));
+        const document = documentWith("using { Gadgets.Tools }\n\ncode()");
+        const documentUri = document.uri.toString();
+
+        provider.setHoverState(documentUri, true, 0);
+        provider.setHoverState(documentUri, false);
+        expect(jest.getTimerCount()).toBe(1);
+
+        provider.keepHoverStateActive(documentUri);
+        expect(jest.getTimerCount()).toBe(0);
+
+        jest.advanceTimersByTime(DEFAULT_HIDE_DELAY_MS);
+
+        await expect(provider.provideCodeLenses(document, {} as vscode.CancellationToken)).resolves.toHaveLength(1);
+    });
+
     it("clears a hide timer armed without a preceding hover", () => {
         // The hover provider reports every non-import line as hovering=false,
         // so this is the path the extension takes most. The timer used to be

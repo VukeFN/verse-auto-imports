@@ -4,20 +4,6 @@ import { ImportPathConverter } from "./ImportPathConverter";
 import { LINE_SPLIT, scanConvertibleImports } from "./ImportScanner";
 
 /**
- * What one document's lenses are doing: the import line under the pointer, and
- * the timer that will hide them.
- *
- * An entry can exist purely to hold that timer, with no line hovered, so
- * lineNumber is optional: a hide can be scheduled for a document that was never
- * entered through the hovering branch - after a conversion, for instance, which
- * sets isHoveringImport directly.
- */
-interface HoverState {
-    lineNumber?: number;
-    timeout: NodeJS.Timeout | null;
-}
-
-/**
  * The path-conversion lenses on a document's import lines, and the hover state
  * that decides whether they are shown at all.
  *
@@ -29,7 +15,8 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
     public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
 
     private readonly importPathConverter: ImportPathConverter;
-    private readonly hoverState = new Map<string, HoverState>();
+    /** The pending hide timer per document; an entry exists only while one is armed. */
+    private readonly hideTimers = new Map<string, NodeJS.Timeout>();
     private readonly isHoveringImport = new Map<string, boolean>();
     private refreshTimeout: NodeJS.Timeout | null = null;
     private readonly disposables: vscode.Disposable[] = [];
@@ -76,48 +63,45 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
      * once the hide delay elapses. A no-op in "always" mode, where visibility
      * does not follow the pointer.
      *
-     * @param lineNumber The hovered line; required for `hovering`, since a
-     *   hover reported without one leaves the state as it was.
+     * @param lineNumber The hovered line. Only its presence is read: it is what
+     *   marks the hover as landing on an import, and a `hovering` call without
+     *   one leaves the state as it was.
      */
     setHoverState(documentUri: string, hovering: boolean, lineNumber?: number): void {
         if (this.getVisibilityMode() === "always") {
             return;
         }
 
-        const currentState = this.hoverState.get(documentUri);
-
         if (hovering && lineNumber !== undefined) {
-            if (currentState?.timeout) {
-                clearTimeout(currentState.timeout);
-            }
+            this.clearPendingHide(documentUri);
 
-            this.hoverState.set(documentUri, {
-                lineNumber,
-                timeout: null,
-            });
             this.isHoveringImport.set(documentUri, true);
             this._onDidChangeCodeLenses.fire();
         } else if (!hovering) {
-            if (currentState?.timeout) {
-                clearTimeout(currentState.timeout);
-            }
+            this.clearPendingHide(documentUri);
 
             const hideDelay = this.getHideDelay();
             const timeout = setTimeout(() => {
                 this.isHoveringImport.set(documentUri, false);
-                this.hoverState.delete(documentUri);
+                this.hideTimers.delete(documentUri);
                 this._onDidChangeCodeLenses.fire();
             }, hideDelay);
 
-            // Recorded whether or not a state already existed. The commonest
+            // An armed timer left out of the map is one nothing can clear
+            // afterwards - not clearPendingHide, and not dispose. The commonest
             // caller is the hover provider reporting a non-import line, which
-            // reaches here with nothing stored, and a timer left out of the map
-            // is one nothing can clear afterwards - not keepHoverStateActive,
-            // and not dispose.
-            this.hoverState.set(documentUri, {
-                ...currentState,
-                timeout,
-            });
+            // reaches here with nothing stored at all.
+            this.hideTimers.set(documentUri, timeout);
+        }
+    }
+
+    /** Cancels a document's pending hide, and drops the entry that held it. */
+    private clearPendingHide(documentUri: string): void {
+        const pendingHide = this.hideTimers.get(documentUri);
+
+        if (pendingHide) {
+            clearTimeout(pendingHide);
+            this.hideTimers.delete(documentUri);
         }
     }
 
@@ -126,15 +110,7 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
      * lens and which takes long enough for a pending hide to fire mid-way.
      */
     keepHoverStateActive(documentUri: string): void {
-        const currentState = this.hoverState.get(documentUri);
-
-        // Clear any pending timeout, and record that it is gone: leaving the
-        // spent handle in the map makes the stored state contradict the real
-        // timer state, and entries now exist on paths where they did not.
-        if (currentState?.timeout) {
-            clearTimeout(currentState.timeout);
-            this.hoverState.set(documentUri, { ...currentState, timeout: null });
-        }
+        this.clearPendingHide(documentUri);
 
         this.isHoveringImport.set(documentUri, true);
 
@@ -279,12 +255,10 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
             this.refreshTimeout = null;
         }
 
-        for (const state of this.hoverState.values()) {
-            if (state.timeout) {
-                clearTimeout(state.timeout);
-            }
+        for (const timeout of this.hideTimers.values()) {
+            clearTimeout(timeout);
         }
-        this.hoverState.clear();
+        this.hideTimers.clear();
         this.isHoveringImport.clear();
 
         this._onDidChangeCodeLenses.dispose();

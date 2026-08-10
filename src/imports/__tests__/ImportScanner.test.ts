@@ -180,8 +180,8 @@ describe("allUsingPaths", () => {
 
     // A line may legitimately end inside a string, because an interpolation
     // block spans lines. Nothing can be lexed past that point, so such a line is
-    // read as it was before literals were tracked at all - which is what keeps a
-    // `using` named after its `#` the comment text it is.
+    // read with literals ignored - which is what keeps a `using` named after its
+    // `#` the comment text it is.
     it("does not read a using out of the trailing comment of a line whose literal never closes", () => {
         expect(allUsingPaths(['X := "ab{ # see using { /B }', "using { /A }"])).toEqual(["/A"]);
     });

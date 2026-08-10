@@ -104,18 +104,18 @@ interface LineScan {
  * - A `#` line comment runs to the end of the line, so a `<#` inside one is
  *   text rather than an opener.
  * - A bare `#` inside a string or char literal is content, so a line is lexed
- *   far enough to tell the two apart. `<# ... #>` is the exception in both
- *   directions: it really does open a comment inside a string, so the markers
- *   are read before the literal state is consulted, and a literal survives
- *   across the comment written into it.
+ *   far enough to tell the two apart, and no further: a quote inside a string's
+ *   `{ ... }` interpolation ends the literal here, so a `#` after one still
+ *   reads as an opener. `<#` is the exception in both directions - it really
+ *   does open a comment inside a string, so it is read before the literal state
+ *   is consulted, and a literal survives across the comment written into it.
  *
- * A line that ends inside a literal is read again with literals ignored, which
- * is how this read every line before they were tracked at all. Nothing was
- * lexed past the point the literal was left open - a string may legitimately be
- * open there, since an interpolation block spans lines - so the rest of the
- * line is trivia this cannot classify, and treating it as literal content is
- * what would let a `using` written in a trailing comment read as the line's own
- * statement.
+ * A line still inside a literal at its end is read again with literals ignored.
+ * Nothing could be lexed past the point the literal was left open - a string may
+ * legitimately be open there, since an interpolation block spans lines - so the
+ * rest of that line is trivia this cannot classify, and treating it as literal
+ * content is what would let a `using` written in a trailing comment read as the
+ * line's own statement.
  */
 function scanLine(line: string, depth: number): LineScan {
     return lexLine(line, depth, true) ?? lexLine(line, depth, false)!;
@@ -170,7 +170,6 @@ function lexLine(line: string, depth: number, trackLiterals: boolean): LineScan 
             // closes at the quote it escapes and the rest of the line is read
             // as code.
             if (quote !== "" && line[i] === "\\") {
-                hasCode = true;
                 code += line.slice(i, i + 2);
                 i += 2;
                 continue;

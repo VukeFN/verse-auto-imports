@@ -185,6 +185,53 @@ describe("allUsingPaths", () => {
     it("does not read a using out of the trailing comment of a line whose literal never closes", () => {
         expect(allUsingPaths(['X := "ab{ # see using { /B }', "using { /A }"])).toEqual(["/A"]);
     });
+
+    // A string's `{ ... }` interpolation holds code, so a `"` inside one opens a
+    // fresh string: `"abc {"def"} ghi"` is `"abc def ghi"`. Reading that quote
+    // as the close of the string around it puts the `#` after it back at code
+    // scope, and the live `using` following it is lost with the rest of the line.
+    it("collects a using written after a string whose interpolation holds a quoted #", () => {
+        expect(allUsingPaths(['X := "a{F("#")}b"; using { /A }'])).toEqual(["/A"]);
+    });
+
+    it("collects a using written after a string holding a plain interpolation", () => {
+        expect(allUsingPaths(['X := "abc {"def"} ghi"; using { Economy.Shop }', "using { /A }"])).toEqual(["Economy.Shop", "/A"]);
+    });
+
+    // `"{"{"{3}"}"}"` is the string "3": interpolation nests as deeply as it is
+    // written, so one flag for "inside a literal" cannot describe it.
+    it("collects a using written after nested interpolations", () => {
+        expect(allUsingPaths(['X := "{"{"{3}#"}"}"; using { /A }'])).toEqual(["/A"]);
+    });
+
+    // A `}` closing a block written inside an interpolation does not close the
+    // interpolation. Read as the end of it, the string's closing quote is taken
+    // for an opening one and the `#` after it ends the line at code scope.
+    it("keeps a string open across a block written inside its interpolation", () => {
+        expect(allUsingPaths(['X := "a{F({1=>2}, "#")}b"; using { /A }'])).toEqual(["/A"]);
+    });
+
+    // `\{` is an escaped brace, so it opens no interpolation and the `#` after
+    // it is still string content.
+    it("does not open an interpolation at an escaped brace", () => {
+        expect(allUsingPaths(['X := "a\\{#b"; using { /A }'])).toEqual(["/A"]);
+    });
+
+    // A char literal is one character or one escape and takes no interpolation,
+    // so the `{` of `'{'` is content and the literal closes at the next quote.
+    // The `"#"` after it is what tells the two readings apart: taking the `{`
+    // for an interpolation leaves the quotes paired the other way round.
+    it("does not open an interpolation inside a char literal", () => {
+        expect(allUsingPaths(["C := '{'; X := \"#\"; using { Features }"])).toEqual(["Features"]);
+    });
+
+    // The interpolation is code scope, so a `#` written directly in one opens a
+    // comment as it would anywhere else. This narrows what the scanner reads:
+    // the `using` here really is inside that comment, because the comment runs
+    // to the end of the line and the interpolation is still open at it.
+    it("reads a # written directly in an interpolation as a comment opener", () => {
+        expect(allUsingPaths(['X := "a{M{1=>2}#}b"; using { /A }'])).toEqual([]);
+    });
 });
 
 describe("scanModuleImports", () => {
@@ -736,6 +783,13 @@ describe("classifyLines", () => {
     // "a<#c#>#b" is the string "a#b", so the `#` after the `#>` is content too.
     it("keeps a string open across a block comment written inside it", () => {
         expect(classifyLines(['X := "a<#c#>#b"; using { /A }'])[0].code).toBe('X := "a#b"; using { /A }');
+    });
+
+    // The quote opening a string inside an interpolation does not close the
+    // string around it, so the `#` between them is still content and the code
+    // keeps everything the line writes after the literal.
+    it("keeps a # inside a string nested in an interpolation in the line's code", () => {
+        expect(classifyLines(['X := "a{F("#")}b"; using { /A }'])[0].code).toBe('X := "a{F("#")}b"; using { /A }');
     });
 
     it("marks only the lines a block comment was opened above", () => {

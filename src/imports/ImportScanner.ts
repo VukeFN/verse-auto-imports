@@ -104,26 +104,39 @@ interface LineScan {
  * - A `#` line comment runs to the end of the line, so a `<#` inside one is
  *   text rather than an opener.
  * - A bare `#` inside a string or char literal is content, so a line is lexed
- *   far enough to tell the two apart, and no further: a quote inside a string's
- *   `{ ... }` interpolation ends the literal here, so a `#` after one still
- *   reads as an opener. `<#` is the exception in both directions - it really
- *   does open a comment inside a string, so it is read before the literal state
- *   is consulted, and a literal survives across the comment written into it.
+ *   far enough to tell the two apart, and no further. A string's `{ ... }`
+ *   interpolation holds ordinary code, so the two alternate: a `"` inside one
+ *   opens a fresh literal rather than closing the literal around it, and a `#`
+ *   written directly in one opens a comment exactly as it would at code scope.
+ *   `<#` is the exception in both directions - it really does open a comment
+ *   inside a string, so it is read before the literal state is consulted, and a
+ *   literal survives across the comment written into it.
  *
- * A line still inside a literal at its end is read again with literals ignored.
- * Nothing could be lexed past the point the literal was left open - a string may
- * legitimately be open there, since an interpolation block spans lines - so the
- * rest of that line is trivia this cannot classify, and treating it as literal
- * content is what would let a `using` written in a trailing comment read as the
- * line's own statement.
+ * A line still inside a literal or an interpolation at its end is read again
+ * with literals ignored. Nothing could be lexed past the point it was left open
+ * - a string may legitimately be open there, since an interpolation block spans
+ * lines - so the rest of that line is trivia this cannot classify, and treating
+ * it as literal content is what would let a `using` written in a trailing
+ * comment read as the line's own statement.
  */
 function scanLine(line: string, depth: number): LineScan {
     return lexLine(line, depth, true) ?? lexLine(line, depth, false)!;
 }
 
+/** One literal or interpolation open at a point in a line. */
+type LexFrame =
+    | { kind: "literal"; quote: string }
+    /**
+     * The `{ ... }` blocks written inside the interpolation, which a `}` has to
+     * close before one can close the interpolation itself. Without the count a
+     * `}` ending a map or a block, `"a{map{1=>2}}b"`, reads as the end of the
+     * interpolation and the string's remaining text is lexed as code.
+     */
+    | { kind: "interpolation"; braces: number };
+
 /**
  * One pass of scanLine, or null when literal tracking was asked for and the
- * line ended inside a literal.
+ * line ended inside a literal or an interpolation.
  *
  * @param trackLiterals false reads a `#` as a comment opener wherever it sits.
  */
@@ -132,10 +145,13 @@ function lexLine(line: string, depth: number, trackLiterals: boolean): LineScan 
     let hasCode = false;
     let code = "";
     let i = 0;
-    // The quote that opened the literal being read, or "" outside one. Kept
-    // across the `nesting > 0` branch, because a block comment written inside a
-    // string does not end it: `"a<#c#>#b"` is the string `"a#b"`.
-    let quote = "";
+    // What is open at this point, innermost last, and empty at code scope. A
+    // stack rather than one quote because interpolation alternates the two:
+    // `"a{F("b")}c"` writes a string inside the interpolation of a string.
+    //
+    // Kept across the `nesting > 0` branch, because a block comment written
+    // inside a string does not end it: `"a<#c#>#b"` is the string `"a#b"`.
+    const open: LexFrame[] = [];
 
     while (i < line.length) {
         if (nesting > 0) {
@@ -155,7 +171,14 @@ function lexLine(line: string, depth: number, trackLiterals: boolean): LineScan 
             return { depth: nesting, hasCode, code, opensIndentedComment: true };
         }
 
-        if (line[i] === "#" && quote === "") {
+        const innermost = trackLiterals ? open[open.length - 1] : undefined;
+
+        // Inside an interpolation this is code scope again, so a `#` there ends
+        // the line as one at the head of it would. Returning the line read so
+        // far, rather than null, is what keeps the text before it: the fallback
+        // pass ends at the first `#` on the line, which may sit further back
+        // inside string text this pass has already read as content.
+        if (line[i] === "#" && innermost?.kind !== "literal") {
             return { depth: nesting, hasCode, code, opensIndentedComment: false };
         }
 
@@ -165,22 +188,37 @@ function lexLine(line: string, depth: number, trackLiterals: boolean): LineScan 
             continue;
         }
 
-        if (trackLiterals) {
+        if (innermost?.kind === "literal") {
             // An escape and the character it escapes are one unit, or `"a\"b"`
             // closes at the quote it escapes and the rest of the line is read
-            // as code.
-            if (quote !== "" && line[i] === "\\") {
+            // as code. `\{` is the same rule, and is what keeps an escaped brace
+            // from opening an interpolation.
+            if (line[i] === "\\") {
                 code += line.slice(i, i + 2);
                 i += 2;
                 continue;
             }
 
-            if (quote === "") {
-                if (line[i] === '"' || line[i] === "'") {
-                    quote = line[i];
+            if (line[i] === innermost.quote) {
+                open.pop();
+            } else if (line[i] === "{" && innermost.quote === '"') {
+                // Only a `"` string interpolates. A char literal is one
+                // character or one escape, so the `{` of `'{'` is content.
+                open.push({ kind: "interpolation", braces: 0 });
+            }
+        } else if (trackLiterals) {
+            if (line[i] === '"' || line[i] === "'") {
+                open.push({ kind: "literal", quote: line[i] });
+            } else if (innermost?.kind === "interpolation") {
+                if (line[i] === "{") {
+                    innermost.braces += 1;
+                } else if (line[i] === "}") {
+                    if (innermost.braces > 0) {
+                        innermost.braces -= 1;
+                    } else {
+                        open.pop();
+                    }
                 }
-            } else if (line[i] === quote) {
-                quote = "";
             }
         }
 
@@ -191,7 +229,7 @@ function lexLine(line: string, depth: number, trackLiterals: boolean): LineScan 
         i += 1;
     }
 
-    return quote === "" ? { depth: nesting, hasCode, code, opensIndentedComment: false } : null;
+    return open.length === 0 ? { depth: nesting, hasCode, code, opensIndentedComment: false } : null;
 }
 
 function indentWidth(line: string): number {

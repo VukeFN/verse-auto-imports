@@ -123,9 +123,11 @@ export function findExplicitModuleDeclarations(content: string): ModuleDeclarati
  * - `<#>` is the INDENTED comment marker, not a block that closes on the `#>`
  *   inside it. The rest of its line is comment text, and so is every line
  *   indented past it, blank lines included. It must therefore be tested before
- *   `<#`, or a declaration commented out this way reads as live code.
+ *   `<#`, or a declaration commented out this way reads as live code. A `<#`
+ *   written inside its body is still a real opener, and outlives the body.
  * - `<# ... #>` nests, and beats a string literal: a `<#` inside a string
- *   really does open a comment there.
+ *   really does open a comment there. Both digraphs are consumed whole, so the
+ *   `#` of a `<#` cannot also be read as closing one.
  * - `#` runs to the end of the line, but inside a string it is content. This
  *   is the one place string tracking is needed, and the only reason it is
  *   here.
@@ -146,10 +148,12 @@ function maskCommentsAndStrings(content: string): string {
         const indent = indentOf(content, lineStart);
 
         // The marker's body runs while lines stay indented past it; a blank
-        // line does not end it.
+        // line does not end it. The body is still scanned rather than blanked
+        // wholesale, because a block comment opened inside it survives the
+        // body's end and swallows what follows.
         if (markerIndent !== null) {
             if (line.trim().length === 0 || indent > markerIndent) {
-                blankRange(masked, content, lineStart, lineEnd);
+                blockDepth = blankCommentRange(masked, content, lineStart, lineEnd, blockDepth);
                 lineStart = lineEnd + 1;
                 continue;
             }
@@ -160,10 +164,12 @@ function maskCommentsAndStrings(content: string): string {
 
         for (let i = lineStart; i < lineEnd; i++) {
             if (blockDepth > 0) {
-                if (content.startsWith("<#", i)) {
-                    blockDepth++;
-                } else if (content.startsWith("#>", i)) {
-                    blockDepth--;
+                if (content.startsWith("<#", i) || content.startsWith("#>", i)) {
+                    blockDepth += content[i] === "<" ? 1 : -1;
+                    blank(masked, content, i);
+                    blank(masked, content, i + 1);
+                    i++;
+                    continue;
                 }
                 blank(masked, content, i);
                 continue;
@@ -178,6 +184,8 @@ function maskCommentsAndStrings(content: string): string {
             if (content.startsWith("<#", i)) {
                 blockDepth++;
                 blank(masked, content, i);
+                blank(masked, content, i + 1);
+                i++;
                 continue;
             }
 
@@ -225,6 +233,24 @@ function blankRange(masked: string[], content: string, start: number, end: numbe
     for (let i = start; i < end; i++) {
         blank(masked, content, i);
     }
+}
+
+/** Blanks a half-open range that is comment text, returning the block-comment depth it leaves behind. */
+function blankCommentRange(masked: string[], content: string, start: number, end: number, depth: number): number {
+    let blockDepth = depth;
+
+    for (let i = start; i < end; i++) {
+        if (content.startsWith("<#", i) || content.startsWith("#>", i)) {
+            blockDepth = Math.max(0, blockDepth + (content[i] === "<" ? 1 : -1));
+            blank(masked, content, i);
+            blank(masked, content, i + 1);
+            i++;
+            continue;
+        }
+        blank(masked, content, i);
+    }
+
+    return blockDepth;
 }
 
 /** Offset of the first character of every line, so a line number is a binary search. */

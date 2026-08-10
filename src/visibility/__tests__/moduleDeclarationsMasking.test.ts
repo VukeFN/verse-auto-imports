@@ -61,6 +61,16 @@ describe("findExplicitModuleDeclarations comment and string masking", () => {
         expect(findExplicitModuleDeclarations("<# open\nTools := module {}\n")).toEqual([]);
     });
 
+    it("lets a block comment opened inside a `<#>` body outlive the body", () => {
+        expect(findExplicitModuleDeclarations("<#>\n    see <# note\nTools := module {} #>\nReal := module {}\n").map((declaration) => declaration.name)).toEqual(["Real"]);
+    });
+
+    it("finds a declaration with a block comment between its name and the keyword", () => {
+        // The `#` of `<#` must not also be read as closing the comment it opens,
+        // or the block never ends and the declaration is lost.
+        expect(findExplicitModuleDeclarations("Tools<# note #> := module {}\n").map((declaration) => declaration.name)).toEqual(["Tools"]);
+    });
+
     it("ignores a declaration inside a string literal", () => {
         expect(findExplicitModuleDeclarations('Snippet:string = "Tools := module {}"\n')).toEqual([]);
     });

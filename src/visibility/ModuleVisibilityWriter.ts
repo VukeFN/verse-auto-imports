@@ -94,7 +94,7 @@ export class ModuleVisibilityWriter {
 
         const definitionsUri = this.definitionsUri(contentRoot);
         if (!definitionsUri) {
-            return { reason: "the configured definitions file name is not a plain file name." };
+            return { reason: "verseAutoImports.moduleVisibility.definitionsFileName must be a plain file name ending in .verse." };
         }
         const definitionsKey = definitionsUri.toString();
 
@@ -179,15 +179,17 @@ export class ModuleVisibilityWriter {
      * The configured definitions file, at the Content root, or null when the
      * setting does not name one.
      *
-     * The setting is a file NAME, so a value carrying a separator is refused
-     * rather than resolved: `Uri.joinPath` would happily place the file in
-     * another directory, or outside Content entirely, and an empty value would
-     * address the Content directory itself.
+     * The setting is a file NAME, so anything carrying a path is refused rather
+     * than resolved: `Uri.joinPath` would place the file in another directory,
+     * or outside Content entirely, and an empty value would address the Content
+     * directory itself. The `.verse` suffix is required because a file the
+     * compiler does not read would leave the error standing while the quick fix
+     * reported success.
      */
     private definitionsUri(contentRoot: vscode.Uri): vscode.Uri | null {
         const fileName = vscode.workspace.getConfiguration("verseAutoImports").get<string>("moduleVisibility.definitionsFileName", "definitions.verse").trim();
 
-        if (fileName.length === 0 || /[\\/]/.test(fileName) || fileName === "." || fileName === "..") {
+        if (!/^[^\\/:*?"<>|]+\.verse$/.test(fileName)) {
             return null;
         }
 

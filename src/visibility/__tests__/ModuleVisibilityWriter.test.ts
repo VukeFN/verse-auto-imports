@@ -188,7 +188,19 @@ describe("ModuleVisibilityWriter", () => {
         await writer().makeModulePublic(REQUEST);
 
         expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
-        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("not a plain file name"));
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("definitionsFileName must be a plain file name"));
+    });
+
+    it("refuses a configured file name the compiler would not read", async () => {
+        givenProject({ "Content/Scripts/main.verse": "" });
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+            get: jest.fn().mockImplementation((key: string, fallback?: unknown) => (key === "moduleVisibility.definitionsFileName" ? "definitions.txt" : fallback)),
+            update: jest.fn(),
+        });
+
+        await writer().makeModulePublic(REQUEST);
+
+        expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
     });
 
     it("refuses an empty configured file name, which would address the Content folder", async () => {

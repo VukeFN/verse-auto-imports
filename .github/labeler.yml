@@ -46,10 +46,10 @@
           - "src/services/__tests__/ProjectPath*"
           - "src/types/projectCache.ts"
 
-"module: config":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "src/types/configuration.ts"
+# "module: config" is issue-side only, applied by claude-issue-triage.yml from
+# the prose. It has no entry here because no path expression selects a config
+# PR: labeler matches paths, not hunks, so package.json cannot be narrowed to
+# its contributes.configuration block and would tag every dependency bump.
 
 "module: ui":
   - changed-files:

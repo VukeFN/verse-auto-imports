@@ -42,6 +42,52 @@ afterEach(() => {
     setActiveEditor(undefined);
 });
 
+/** Every id registerAll registers, in the order its seven groups are spread. */
+const REGISTERED_COMMAND_IDS = [
+    "verseAutoImports.addSingleImport",
+    "verseAutoImports.optimizeImports",
+    "verseAutoImports.showStatusMenu",
+    "verseAutoImports.toggleAutoImport",
+    "verseAutoImports.togglePreserveLocations",
+    "verseAutoImports.toggleImportSyntax",
+    "verseAutoImports.toggleDigestFiles",
+    "verseAutoImports.toggleFullPathCodeLens",
+    "verseAutoImports.snoozeAutoImport",
+    "verseAutoImports.cancelSnooze",
+    "verseAutoImports.exportDebugLogs",
+    "verseAutoImports.captureDiagnosticsCorpus",
+    "verseAutoImports.rebuildPathCache",
+    "verseAutoImports.clearPathCache",
+    "verseAutoImports.showCacheStatus",
+    "verseAutoImports.convertToFullPath",
+    "verseAutoImports.convertAllToFullPath",
+    "verseAutoImports.convertToRelativePath",
+    "verseAutoImports.convertAllToRelativePath",
+];
+
+// The integration suite asserts the same ids are registered, but only with an
+// extension host running - so nothing in this suite would catch a command lost
+// from one of registerAll's group tables.
+describe("CommandsHandler.registerAll", () => {
+    it("registers every command id once, in group order", () => {
+        const context = { subscriptions: [] } as unknown as vscode.ExtensionContext;
+
+        makeHandler({}).registerAll(context);
+
+        const registered = (vscode.commands.registerCommand as jest.Mock).mock.calls.map(([commandId]) => commandId);
+
+        expect(registered).toEqual(REGISTERED_COMMAND_IDS);
+    });
+
+    it("hands every registration to the context for disposal", () => {
+        const context = { subscriptions: [] } as unknown as vscode.ExtensionContext;
+
+        makeHandler({}).registerAll(context);
+
+        expect(context.subscriptions).toHaveLength(REGISTERED_COMMAND_IDS.length);
+    });
+});
+
 describe("CommandsHandler.addSingleImport", () => {
     it("warns and reports no success when the edit is rejected", async () => {
         const handler = makeHandler({ addImportsToDocument: jest.fn().mockResolvedValue(false) });

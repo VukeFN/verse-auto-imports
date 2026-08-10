@@ -38,6 +38,9 @@ interface PathConversionResult {
     line?: number;
 }
 
+/** A command id paired with the method that runs it. */
+type CommandEntry = [string, (...args: any[]) => any];
+
 /**
  * The body of every command the extension contributes, and the one place they
  * are registered.
@@ -56,41 +59,31 @@ export class CommandsHandler {
      * `contributes.commands`, and the five that take caller-supplied arguments
      * must stay hidden from the Command Palette there - invoking one from the
      * palette dereferences an undefined document. Both halves are pinned:
-     * commandManifest.test.ts checks the manifest, and the integration suite
-     * checks every id is registered once the extension has activated.
+     * commandManifest.test.ts checks the manifest, CommandsHandler.test.ts
+     * checks this method registers every id once, and the integration suite
+     * checks they are registered once the extension has activated.
      */
     registerAll(context: vscode.ExtensionContext): void {
-        const commands: Array<[string, (...args: any[]) => any]> = [
-            ["verseAutoImports.addSingleImport", this.addSingleImport.bind(this)],
-            ["verseAutoImports.optimizeImports", this.optimizeImports.bind(this)],
-
-            ["verseAutoImports.showStatusMenu", this.showStatusMenu.bind(this)],
-
-            ["verseAutoImports.toggleAutoImport", this.toggleAutoImport.bind(this)],
-            ["verseAutoImports.togglePreserveLocations", this.togglePreserveLocations.bind(this)],
-            ["verseAutoImports.toggleImportSyntax", this.toggleImportSyntax.bind(this)],
-            ["verseAutoImports.toggleDigestFiles", this.toggleDigestFiles.bind(this)],
-            ["verseAutoImports.toggleFullPathCodeLens", this.toggleFullPathCodeLens.bind(this)],
-
-            ["verseAutoImports.snoozeAutoImport", this.snoozeAutoImport.bind(this)],
-            ["verseAutoImports.cancelSnooze", this.cancelSnooze.bind(this)],
-
-            ["verseAutoImports.exportDebugLogs", this.exportDebugLogs.bind(this)],
-            ["verseAutoImports.captureDiagnosticsCorpus", this.captureDiagnosticsCorpus.bind(this)],
-
-            ["verseAutoImports.rebuildPathCache", this.rebuildPathCache.bind(this)],
-            ["verseAutoImports.clearPathCache", this.clearPathCache.bind(this)],
-            ["verseAutoImports.showCacheStatus", this.showCacheStatus.bind(this)],
-
-            ["verseAutoImports.convertToFullPath", this.convertToFullPath.bind(this)],
-            ["verseAutoImports.convertAllToFullPath", this.convertAllToFullPath.bind(this)],
-            ["verseAutoImports.convertToRelativePath", this.convertToRelativePath.bind(this)],
-            ["verseAutoImports.convertAllToRelativePath", this.convertAllToRelativePath.bind(this)],
+        const commands: CommandEntry[] = [
+            ...this.importCommands(),
+            ...this.menuCommands(),
+            ...this.toggleCommands(),
+            ...this.snoozeCommands(),
+            ...this.debugCommands(),
+            ...this.pathCacheCommands(),
+            ...this.pathConversionCommands(),
         ];
 
         for (const [commandId, handler] of commands) {
             context.subscriptions.push(vscode.commands.registerCommand(commandId, handler));
         }
+    }
+
+    private importCommands(): CommandEntry[] {
+        return [
+            ["verseAutoImports.addSingleImport", this.addSingleImport.bind(this)],
+            ["verseAutoImports.optimizeImports", this.optimizeImports.bind(this)],
+        ];
     }
 
     async addSingleImport(document: vscode.TextDocument, importStatement: string): Promise<void> {
@@ -160,8 +153,22 @@ export class CommandsHandler {
         }
     }
 
+    private menuCommands(): CommandEntry[] {
+        return [["verseAutoImports.showStatusMenu", this.showStatusMenu.bind(this)]];
+    }
+
     async showStatusMenu(): Promise<void> {
         await this.deps.statusBarHandler.showMenu();
+    }
+
+    private toggleCommands(): CommandEntry[] {
+        return [
+            ["verseAutoImports.toggleAutoImport", this.toggleAutoImport.bind(this)],
+            ["verseAutoImports.togglePreserveLocations", this.togglePreserveLocations.bind(this)],
+            ["verseAutoImports.toggleImportSyntax", this.toggleImportSyntax.bind(this)],
+            ["verseAutoImports.toggleDigestFiles", this.toggleDigestFiles.bind(this)],
+            ["verseAutoImports.toggleFullPathCodeLens", this.toggleFullPathCodeLens.bind(this)],
+        ];
     }
 
     /**
@@ -199,12 +206,26 @@ export class CommandsHandler {
         await this.toggleConfig<boolean>("pathConversion.enableCodeLens");
     }
 
+    private snoozeCommands(): CommandEntry[] {
+        return [
+            ["verseAutoImports.snoozeAutoImport", this.snoozeAutoImport.bind(this)],
+            ["verseAutoImports.cancelSnooze", this.cancelSnooze.bind(this)],
+        ];
+    }
+
     async snoozeAutoImport(): Promise<void> {
         this.deps.statusBarHandler.startSnooze(CommandsHandler.SNOOZE_DURATION_MINUTES);
     }
 
     async cancelSnooze(): Promise<void> {
         this.deps.statusBarHandler.cancelSnooze();
+    }
+
+    private debugCommands(): CommandEntry[] {
+        return [
+            ["verseAutoImports.exportDebugLogs", this.exportDebugLogs.bind(this)],
+            ["verseAutoImports.captureDiagnosticsCorpus", this.captureDiagnosticsCorpus.bind(this)],
+        ];
     }
 
     async exportDebugLogs(): Promise<void> {
@@ -273,6 +294,14 @@ export class CommandsHandler {
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to capture diagnostics: ${error instanceof Error ? error.message : String(error)}`);
         }
+    }
+
+    private pathCacheCommands(): CommandEntry[] {
+        return [
+            ["verseAutoImports.rebuildPathCache", this.rebuildPathCache.bind(this)],
+            ["verseAutoImports.clearPathCache", this.clearPathCache.bind(this)],
+            ["verseAutoImports.showCacheStatus", this.showCacheStatus.bind(this)],
+        ];
     }
 
     async rebuildPathCache(): Promise<void> {
@@ -349,6 +378,15 @@ export class CommandsHandler {
             logger.error("CommandsHandler", "Error showing cache status", error);
             vscode.window.showErrorMessage(`Failed to show cache status: ${error instanceof Error ? error.message : String(error)}`);
         }
+    }
+
+    private pathConversionCommands(): CommandEntry[] {
+        return [
+            ["verseAutoImports.convertToFullPath", this.convertToFullPath.bind(this)],
+            ["verseAutoImports.convertAllToFullPath", this.convertAllToFullPath.bind(this)],
+            ["verseAutoImports.convertToRelativePath", this.convertToRelativePath.bind(this)],
+            ["verseAutoImports.convertAllToRelativePath", this.convertAllToRelativePath.bind(this)],
+        ];
     }
 
     /**

@@ -50,6 +50,11 @@ describe("ImportPathConverter.buildModuleDefinitionRegex", () => {
         // at the keyword.
         expect(re.test("Inventory<scoped{ModuleA, ModuleB}> := module:")).toBe(true);
         expect(re.test("Inventory<epic_internal> := module:")).toBe(true);
+
+        // A named scope is an arbitrary identifier, qualified or not, which no
+        // keyword list could cover.
+        expect(re.test("Inventory<scoped_X> := module:")).toBe(true);
+        expect(re.test("Inventory<Systems.scoped_to_A> := module:")).toBe(true);
     });
 
     it("matches a stacked specifier block, not one specifier", () => {

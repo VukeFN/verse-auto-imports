@@ -111,6 +111,8 @@ export class ImportPathConverter {
      * whole-file content, so a body free to span lines lets a comparison
      * operator or a `<` in a comment run on to the `>` of a LATER
      * declaration's specifier, reporting a file that declares no such module.
+     * MODULE_DECLARATION affords the wider `[^>]` because it masks comments
+     * and strings first; this does not, so the two cannot be synchronized.
      *
      * Non-global on purpose: the pattern is reused with `.test()` across many
      * files, and a global flag would carry `lastIndex` between calls and skip

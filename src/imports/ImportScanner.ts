@@ -103,15 +103,39 @@ interface LineScan {
  *   The rest of its line is comment text.
  * - A `#` line comment runs to the end of the line, so a `<#` inside one is
  *   text rather than an opener.
+ * - A bare `#` inside a string or char literal is content, so a line is lexed
+ *   far enough to tell the two apart, and no further: a quote inside a string's
+ *   `{ ... }` interpolation ends the literal here, so a `#` after one still
+ *   reads as an opener. `<#` is the exception in both directions - it really
+ *   does open a comment inside a string, so it is read before the literal state
+ *   is consulted, and a literal survives across the comment written into it.
  *
- * Inside a block comment nothing else is special: a `<#` in a string literal
- * really does open a comment in Verse, so no string tracking is needed.
+ * A line still inside a literal at its end is read again with literals ignored.
+ * Nothing could be lexed past the point the literal was left open - a string may
+ * legitimately be open there, since an interpolation block spans lines - so the
+ * rest of that line is trivia this cannot classify, and treating it as literal
+ * content is what would let a `using` written in a trailing comment read as the
+ * line's own statement.
  */
 function scanLine(line: string, depth: number): LineScan {
+    return lexLine(line, depth, true) ?? lexLine(line, depth, false)!;
+}
+
+/**
+ * One pass of scanLine, or null when literal tracking was asked for and the
+ * line ended inside a literal.
+ *
+ * @param trackLiterals false reads a `#` as a comment opener wherever it sits.
+ */
+function lexLine(line: string, depth: number, trackLiterals: boolean): LineScan | null {
     let nesting = depth;
     let hasCode = false;
     let code = "";
     let i = 0;
+    // The quote that opened the literal being read, or "" outside one. Kept
+    // across the `nesting > 0` branch, because a block comment written inside a
+    // string does not end it: `"a<#c#>#b"` is the string `"a#b"`.
+    let quote = "";
 
     while (i < line.length) {
         if (nesting > 0) {
@@ -131,7 +155,7 @@ function scanLine(line: string, depth: number): LineScan {
             return { depth: nesting, hasCode, code, opensIndentedComment: true };
         }
 
-        if (line[i] === "#") {
+        if (line[i] === "#" && quote === "") {
             return { depth: nesting, hasCode, code, opensIndentedComment: false };
         }
 
@@ -141,6 +165,25 @@ function scanLine(line: string, depth: number): LineScan {
             continue;
         }
 
+        if (trackLiterals) {
+            // An escape and the character it escapes are one unit, or `"a\"b"`
+            // closes at the quote it escapes and the rest of the line is read
+            // as code.
+            if (quote !== "" && line[i] === "\\") {
+                code += line.slice(i, i + 2);
+                i += 2;
+                continue;
+            }
+
+            if (quote === "") {
+                if (line[i] === '"' || line[i] === "'") {
+                    quote = line[i];
+                }
+            } else if (line[i] === quote) {
+                quote = "";
+            }
+        }
+
         if (!/\s/.test(line[i])) {
             hasCode = true;
         }
@@ -148,7 +191,7 @@ function scanLine(line: string, depth: number): LineScan {
         i += 1;
     }
 
-    return { depth: nesting, hasCode, code, opensIndentedComment: false };
+    return quote === "" ? { depth: nesting, hasCode, code, opensIndentedComment: false } : null;
 }
 
 function indentWidth(line: string): number {

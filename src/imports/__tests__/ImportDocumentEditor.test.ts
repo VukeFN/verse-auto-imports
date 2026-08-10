@@ -282,6 +282,14 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A }", "", "<# note #> using { Economy.Shop }", "using { /A } <#> anchor", "    body", "code()"].join("\n"));
     });
 
+    // The same miss, made by a string literal rather than by comment trivia: a
+    // bare `#` inside one is content, so the `using` after it is live code the
+    // guard has to see.
+    it("keeps a duplicate when a using behind a string literal could resolve against it", () => {
+        const input = ['X := "a#b"; using { Economy.Shop }', "using { /A }", "using { /A } <#> anchor", "    body", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A }", "", 'X := "a#b"; using { Economy.Shop }', "using { /A } <#> anchor", "    body", "code()"].join("\n"));
+    });
+
     // scanModuleImports skips indented lines, so a module-body `using` is
     // invisible to it - a guard reading only the scanned imports would drop the
     // provider and leave this file with its consumer above it.

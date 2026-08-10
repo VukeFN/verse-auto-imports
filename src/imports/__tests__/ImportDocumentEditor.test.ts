@@ -72,6 +72,14 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, [], curlyNoSort)).toContain("using { /A }");
     });
 
+    // Reading a path's quoted suffix as a char literal truncated it to the
+    // module named before the `'`, which the file does import - so organizing
+    // withheld that import as already made and deleted the line making it.
+    it("keeps an import a quoted path suffix on another line truncates to", () => {
+        const input = "using { /Verse.org/Random }\nX := 1; using. /Verse.org/Random'Loc'\ncode()";
+        expect(editor.buildOrganizedContent(input, [], curlyNoSort)).toContain("using { /Verse.org/Random }");
+    });
+
     it("sorts alphabetically when enabled", () => {
         const input = "using { /Zebra }\nusing { /Apple }\ncode()";
         expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe("using { /Apple }\nusing { /Zebra }\n\ncode()");

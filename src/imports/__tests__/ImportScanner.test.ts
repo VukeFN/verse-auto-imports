@@ -406,10 +406,6 @@ describe("scanModuleImports", () => {
         expect(scanModuleImports(['Hint := "using { /A }"', "code()"])).toEqual([]);
     });
 
-    it("records nothing for a using written inside a char literal", () => {
-        expect(scanModuleImports(["Hint := 'using { /A }'", "code()"])).toEqual([]);
-    });
-
     // The same rule on a line that is itself an import: the statement counts,
     // the literal beside it does not.
     it("records only the statement a line writes beside a literal naming a path", () => {
@@ -418,10 +414,21 @@ describe("scanModuleImports", () => {
         ]);
     });
 
-    // An interpolation is code scope again, so a `using` written in one is a
-    // statement the line really does make and stays recorded.
-    it("records a using written inside a string interpolation", () => {
-        expect(scanModuleImports(['X := "a{using { /A }}b"', "code()"])).toEqual([{ path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" }]);
+    // The masking must not reach a `'`. The lexer opens a char literal on one,
+    // but the same character closes a path's quoted segment suffix, and a
+    // masked suffix leaves `Economy.Shop` - a module that exists and is not the
+    // one the line imports. A writer asked for it reads the file as already
+    // importing it; organizing withholds the real import and deletes it.
+    it("records the whole quoted suffix of a path written beside another statement", () => {
+        expect(scanModuleImports(["using { /A }; using. Economy.Shop'Loc'", "code()"]).map((imp) => imp.path)).toEqual(["/A", "Economy.Shop'Loc'"]);
+    });
+
+    it("records the whole quoted suffix of a path written after a definition", () => {
+        expect(scanModuleImports(["X := 1; using. Economy.Shop'Loc'", "code()"]).map((imp) => imp.path)).toEqual(["Economy.Shop'Loc'"]);
+    });
+
+    it("records the whole quoted suffix of a braced path written after a definition", () => {
+        expect(scanModuleImports(["X := 1; using { Economy.Shop'Loc' }", "code()"]).map((imp) => imp.path)).toEqual(["Economy.Shop'Loc'"]);
     });
 
     // extractPathFromImport reads the statement at the head of what it is given

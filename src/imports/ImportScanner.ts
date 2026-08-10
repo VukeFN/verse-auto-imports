@@ -84,24 +84,32 @@ interface LineScan {
      */
     code: string;
     /**
-     * `code` with the contents of every string and char literal replaced by
-     * spaces, so a `using` written as string text is not offered as a statement
-     * the line makes.
+     * `code` with the contents of every `"` string replaced by spaces, so a
+     * `using` written as string text is not offered as a statement the line
+     * makes.
      *
      * Read this wherever a path is going to count as imported. The text of a
-     * literal is data, not a statement, and recording a path from it both
+     * string is data, not a statement, and recording a path from it both
      * suppresses an import the file needs and - because a path that counts as
      * pinned withholds the movable import of the same path from the rebuilt
      * block - deletes the real `using` the author wrote.
      *
-     * Spaces rather than nothing, so the text on either side of a literal does
+     * A `'` is deliberately not masked, though the lexer opens a char literal
+     * on one. The same character closes a path's quoted segment suffix,
+     * `Economy.Shop'Loc'`, and masking it truncates the path to `Economy.Shop`,
+     * a different module that exists; see ImportFormatter.DOTTED_STATEMENT.
+     * Nothing is lost by that, because a char literal holds one character and a
+     * `using` cannot fit in one.
+     *
+     * Spaces rather than nothing, so the text on either side of a string does
      * not join into a token neither side wrote. `code` removes comments without
      * replacement on purpose, for the opposite reason; the two differ because a
-     * comment can splice a token apart and a literal cannot.
+     * comment can splice a token apart and a string cannot.
      *
-     * Equal to `code` on a line that ended inside an open literal, which the
-     * second lexing pass reads with literal tracking off: nothing there can be
-     * classified, so nothing is masked.
+     * Equal to `code` on a line that ended inside an open literal or
+     * interpolation, which the second lexing pass reads with literal tracking
+     * off. Nothing there can be classified, so nothing is masked, and a `using`
+     * written in an unterminated string on such a line still counts as present.
      */
     codeOutsideLiterals: string;
     /**
@@ -217,7 +225,7 @@ function lexLine(line: string, depth: number, trackLiterals: boolean): LineScan 
             // from opening an interpolation.
             if (line[i] === "\\") {
                 code += line.slice(i, i + 2);
-                codeOutsideLiterals += "  ";
+                codeOutsideLiterals += innermost.quote === '"' ? "  " : line.slice(i, i + 2);
                 i += 2;
                 continue;
             }
@@ -249,7 +257,12 @@ function lexLine(line: string, depth: number, trackLiterals: boolean): LineScan 
             hasCode = true;
         }
         code += line[i];
-        codeOutsideLiterals += innermost?.kind === "literal" ? " " : line[i];
+        // Only a `"` string. A `'` opens a char literal here, but the same
+        // character ends a path's quoted segment suffix, `Economy.Shop'Loc'`,
+        // and masking that truncates the path to `Economy.Shop` - a different
+        // module that exists. Nothing is lost by leaving `'` alone: a char
+        // literal holds one character, which cannot be a `using`.
+        codeOutsideLiterals += innermost?.kind === "literal" && innermost.quote === '"' ? " " : line[i];
         i += 1;
     }
 

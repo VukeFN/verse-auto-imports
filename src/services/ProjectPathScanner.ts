@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { logger } from "../utils";
+import { indentOf, maskCommentsAndStrings } from "../utils/verseText";
 import { ProjectPathHandler } from "../project";
 import { ProjectPathData, ProjectPathNode, ProjectScanOptions } from "../types";
 
@@ -116,10 +117,20 @@ export class ProjectPathScanner {
      * modules, so it equals `name` only at file scope. Declarations nested in a
      * class or struct body are not filtered out here; only indentation-scoped
      * module nesting is tracked.
+     *
+     * Comments and string literals are masked before the scan, so a
+     * commented-out declaration is neither recorded nor pushed onto the module
+     * stack, where it would prefix the `fullPath` of everything below it.
      */
     extractDeclarations(content: string, filePath: string, options: ProjectScanOptions = {}): ProjectPathNode[] {
         const nodes: ProjectPathNode[] = [];
-        const lines = content.split("\n");
+        // Masking is space-for-character and keeps newlines, so a masked line
+        // holds the index and the length of the line it replaces. It does not
+        // hold the indentation: a comment in the leading columns masks to
+        // spaces and reads as indentation, which is why the module stack
+        // measures the unmasked line instead.
+        const sourceLines = content.split("\n");
+        const lines = maskCommentsAndStrings(content).split("\n");
 
         let currentModulePath = "";
         const moduleStack: { name: string; indent: number }[] = [];
@@ -178,10 +189,12 @@ export class ProjectPathScanner {
         const variablePattern = /^(\w+)((?:<[^>]+>)*)\s*:/;
 
         for (let i = 0; i < lines.length; i++) {
-            const rawLine = lines[i];
-            const line = rawLine.trim();
+            const line = lines[i].trim();
 
-            if (line === "" || line.startsWith("#") || line.startsWith("//")) {
+            // A Verse comment is already blank here, so the empty test is what
+            // skips one; `//` is not a Verse comment form and masking leaves it
+            // alone.
+            if (line === "" || line.startsWith("//")) {
                 continue;
             }
 
@@ -189,10 +202,7 @@ export class ProjectPathScanner {
                 continue;
             }
 
-            // Each tab counts as four spaces so mixed indentation compares
-            // consistently.
-            const indentMatch = rawLine.match(/^(\s*)/);
-            const indent = indentMatch ? indentMatch[1].replace(/\t/g, "    ").length : 0;
+            const indent = indentOf(sourceLines[i], 0);
 
             // Indentation alone closes a module: a line at or left of the open
             // module's own indent is outside it.

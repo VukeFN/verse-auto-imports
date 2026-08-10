@@ -44,15 +44,11 @@ const QUALIFIED_NAME = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/;
 
 /**
  * Fallback for behavior.ambiguousImports. package.json is the source of truth
- * and registers exactly these three mappings; keep the two in step. Only a
- * caller with no registered setting behind it, such as a test, ever sees this
- * value - config.get returns the registered default otherwise.
+ * and registers {} as the default; keep the two in step. Only a caller with
+ * no registered setting behind it, such as a test, ever sees this value -
+ * config.get returns the registered default otherwise.
  */
-export const DEFAULT_AMBIGUOUS_IMPORTS: Record<string, string> = {
-    vector3: "/UnrealEngine.com/Temporary/SpatialMath",
-    vector2: "/UnrealEngine.com/Temporary/SpatialMath",
-    rotation: "/UnrealEngine.com/Temporary/SpatialMath",
-};
+export const DEFAULT_AMBIGUOUS_IMPORTS: Record<string, string> = {};
 
 /** A resolvable import extracted from a compiler message. */
 interface ImportCandidate {

@@ -123,17 +123,28 @@ describe("ImportSuggestionExtractor", () => {
             expect(suggestions[0].description).toBe("Configured import for player");
         });
 
-        // Regression for #135: the fallback passed for behavior.ambiguousImports
-        // was {} where package.json registers three mappings. config.get returns
-        // the registered default for a registered setting, so production always
-        // had them - but the vscode mock returns the passed fallback, so the
-        // suite ran against no mappings at all.
-        it("should apply the registered ambiguous mappings when the user has set none", async () => {
+        it("should resolve a bare unknown identifier from a configured ambiguous mapping", async () => {
+            (vscode.workspace.getConfiguration as jest.Mock).mockReturnValueOnce({
+                get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => {
+                    if (key === "behavior.ambiguousImports") {
+                        return { vector3: "/UnrealEngine.com/Temporary/SpatialMath" };
+                    }
+                    return defaultValue;
+                }),
+                update: jest.fn().mockResolvedValue(undefined),
+            });
+
             const suggestions = await extractor.extractImportSuggestions("Unknown identifier `vector3`");
 
             expect(suggestions).toHaveLength(1);
             expect(suggestions[0].importStatement).toBe("using { /UnrealEngine.com/Temporary/SpatialMath }");
             expect(suggestions[0].description).toBe("Configured import for vector3");
+        });
+
+        it("should return nothing for a bare unknown identifier when no ambiguous mapping is configured", async () => {
+            const suggestions = await extractor.extractImportSuggestions("Unknown identifier `vector3`");
+
+            expect(suggestions).toHaveLength(0);
         });
 
         it("should return nothing for messages without import-related content", async () => {

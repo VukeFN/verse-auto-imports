@@ -228,11 +228,7 @@
         },
         "verseAutoImports.behavior.ambiguousImports": {
           "type": "object",
-          "default": {
-            "vector3": "/UnrealEngine.com/Temporary/SpatialMath",
-            "vector2": "/UnrealEngine.com/Temporary/SpatialMath",
-            "rotation": "/UnrealEngine.com/Temporary/SpatialMath"
-          },
+          "default": {},
           "description": "Mappings for class names that appear in multiple modules. Format: {\"className\": \"preferredModulePath\"}",
           "order": 15
         },

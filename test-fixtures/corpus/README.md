@@ -34,6 +34,9 @@ and asserts, for each entry, the output of both extraction paths.
             "source": "captured | book | synthetic",
             "context": "optional: where the message came from",
             "message": "verbatim compiler message, newlines preserved",
+            "settings": {
+                "behavior.ambiguousImports": { "className": "/preferred/module/path" }
+            },
             "expected": {
                 "suggestions": ["using { /Fortnite.com/Devices }"],
                 "optimizePaths": ["/Fortnite.com/Devices"]
@@ -48,6 +51,12 @@ and asserts, for each entry, the output of both extraction paths.
 - `expected.optimizePaths`: paths `extractImportsFromDiagnostics` must return
   (the Optimize Imports path). Ambiguous multi-option messages expect `[]`
   here by design.
+- `settings`: optional, per-entry config overrides keyed the way `config.get`
+  is called (e.g. `"behavior.ambiguousImports"`). Applies only to the
+  suggestion-extraction assertion - `extractImportsFromDiagnostics` never
+  reads configuration, so a `settings` override has no effect on
+  `expected.optimizePaths`. Omit it entirely when an entry should run against
+  the real registered defaults.
 - `source`: `captured` = recorded from a live UEFN session (highest value),
   `book` = preserved compiler output from the Book of Verse, `synthetic` =
   hand-written shape awaiting live capture. Replace synthetic entries with

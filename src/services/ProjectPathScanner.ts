@@ -159,7 +159,14 @@ export class ProjectPathScanner {
         // right of `:=` belong to the type, not the name, and are skipped
         // rather than captured - except by modulePattern, which allows none
         // there and so does not match a module carrying them.
-        const modulePattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*module\s*:/;
+        //
+        // A module body takes any of the three styles Verse gives a macro, so
+        // the keyword ends at `:`, `{` or `.` - or at the line end, which is
+        // how a next-line brace reaches a scan that sees one line at a time.
+        // `>` holds parity with the two other spellings of this grammar,
+        // ImportPathConverter.buildModuleDefinitionRegex and
+        // moduleDeclarations' MODULE_DECLARATION.
+        const modulePattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*module\s*(?:[:>{.]|$)/;
         const classPattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*class\s*(?:<[^>]+>)*\s*[\(:]?/;
         const structPattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*struct\s*(?:<[^>]+>)*\s*[\(:]?/;
         const interfacePattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*interface\s*(?:<[^>]+>)*\s*[\(:]?/;

@@ -22,6 +22,13 @@ const PATTERNS = {
     UNKNOWN_IDENTIFIER: /Unknown identifier `([^`]+)`/,
     /** "Did you mean X" (single suggestion) */
     DID_YOU_MEAN_SINGLE: /Did you mean ([^`\n]+)/,
+    /**
+     * The " or did you forget to specify " that joins same-package suggestions
+     * to external ones inside a single message. Either case of "did" matches:
+     * the compiler composes this phrase inline rather than at a sentence start,
+     * and which case it uses there is not established.
+     */
+    MIXED_JOINER: / or [Dd]id you forget to specify /,
     /** Extracts path from "using { /Path }" */
     USING_PATH: /using \{ (\/[^}]+) \}/g,
     /** Extracts path from "(/Path:)" format */
@@ -154,39 +161,90 @@ export class ImportSuggestionExtractor {
     }
 
     /**
+     * The importable candidates among a "Did you mean" option list, one option
+     * per line. Non-importable entries are dropped rather than rejected, so a
+     * list mixing importable and bare entries still yields the importable ones.
+     */
+    private candidatesFromOptionList(optionBlock: string): ImportCandidate[] {
+        const options = optionBlock
+            .split("\n")
+            .map((line) => line.trim())
+            .filter((line) => line.length > 0);
+        logger.debug("ImportSuggestionExtractor", `Parsing ${options.length} suggestion options: ${options.join(", ")}`);
+
+        const candidates: ImportCandidate[] = [];
+        for (const option of options) {
+            if (option.startsWith("/")) {
+                candidates.push({ path: option, description: `Import from ${option}` });
+                continue;
+            }
+            // A fully qualified name, "Module.ClassName" or
+            // "Module.AssetClass.Member".
+            const result = this.findCorrectModulePath(option);
+            if (result && result.modulePath) {
+                candidates.push({ path: result.modulePath, description: `${result.className} from ${result.modulePath}` });
+            } else {
+                // A bare identifier, such as a local definition echoed in
+                // the option list, carries no module path to import.
+                logger.debug("ImportSuggestionExtractor", `Dropping non-importable multi-option entry: ${option}`);
+            }
+        }
+        return candidates;
+    }
+
+    /**
+     * The candidates of a message carrying both same-package suggestions and
+     * external `using` suggestions, or null when it carries only one kind.
+     *
+     * The compiler joins the two lists inline, so the last same-package path
+     * and the joiner share a line. Neither half parses while they are together:
+     * the joined line fails QUALIFIED_NAME and the using lines are not options.
+     */
+    private parseMixedCandidates(errorMessage: string): ImportCandidate[] | null {
+        const joiner = errorMessage.match(PATTERNS.MIXED_JOINER);
+        if (!joiner || joiner.index === undefined) {
+            return null;
+        }
+
+        const samePackageHalf = errorMessage.slice(0, joiner.index);
+        const usingHalf = errorMessage.slice(joiner.index + joiner[0].length);
+
+        // The single-suggestion form goes through the same option list as the
+        // "any of" form, so one menu describes both halves the same way.
+        const listed = samePackageHalf.match(PATTERNS.DID_YOU_MEAN_ANY) ?? samePackageHalf.match(PATTERNS.DID_YOU_MEAN_SINGLE);
+        const candidates = listed ? this.candidatesFromOptionList(listed[1]) : [];
+
+        // Covers both tails the joiner can introduce: "one of:" with a list, and
+        // a bare "using { /Path }".
+        for (const path of this.extractUsingPaths(usingHalf)) {
+            candidates.push({ path, description: `Import from ${path}` });
+        }
+
+        logger.debug("ImportSuggestionExtractor", `Found ${candidates.length} mixed same-package and using candidates: ${candidates.map((candidate) => candidate.path).join(", ")}`);
+        return candidates;
+    }
+
+    /**
      * The importable candidates offered by a message that lists several.
      *
      * Null and [] mean different things: null when no multi-option pattern
      * matched at all, [] when one matched but no option was importable, such as
      * a list of bare identifiers.
+     *
+     * The mixed pattern is tried first and stands in front of all three below,
+     * because a non-null result never falls back into the cascade. A mixed
+     * message also matches the same-package pattern, which would read the
+     * joined tail as options and drop every candidate but the first.
      */
     private parseMultiOptionCandidates(errorMessage: string): ImportCandidate[] | null {
+        const mixed = this.parseMixedCandidates(errorMessage);
+        if (mixed !== null) {
+            return mixed;
+        }
+
         const match1 = errorMessage.match(PATTERNS.DID_YOU_MEAN_ANY);
         if (match1) {
-            const options = match1[1]
-                .split("\n")
-                .map((line) => line.trim())
-                .filter((line) => line.length > 0);
-            logger.debug("ImportSuggestionExtractor", `Found ${options.length} multi-options (pattern 1): ${options.join(", ")}`);
-
-            const candidates: ImportCandidate[] = [];
-            for (const option of options) {
-                if (option.startsWith("/")) {
-                    candidates.push({ path: option, description: `Import from ${option}` });
-                    continue;
-                }
-                // A fully qualified name, "Module.ClassName" or
-                // "Module.AssetClass.Member".
-                const result = this.findCorrectModulePath(option);
-                if (result && result.modulePath) {
-                    candidates.push({ path: result.modulePath, description: `${result.className} from ${result.modulePath}` });
-                } else {
-                    // A bare identifier, such as a local definition echoed in
-                    // the option list, carries no module path to import.
-                    logger.debug("ImportSuggestionExtractor", `Dropping non-importable multi-option entry: ${option}`);
-                }
-            }
-            return candidates;
+            return this.candidatesFromOptionList(match1[1]);
         }
 
         const match2 = errorMessage.match(PATTERNS.FORGET_ONE_OF);

@@ -171,6 +171,65 @@ describe("ImportSuggestionExtractor", () => {
             expect(suggestions).toHaveLength(0);
         });
 
+        it("should offer every candidate when a message mixes an option list with a using list", async () => {
+            // The compiler joins the two lists inline, so the last same-package
+            // path shares its line with the joiner.
+            const errorMessage =
+                "Unknown identifier `Thing`.\nUsed inside module /mygame@fortnite.com/mygame/Scripts.\n Did you mean any of: \nRel1.Thing\nRel2.Thing or did you forget to specify one of:\nusing { /GameA/M }\nusing { /GameB/M }";
+
+            const suggestions = await extractor.extractImportSuggestions(errorMessage);
+
+            expect(suggestions.map((s) => s.importStatement)).toEqual(["using { Rel1 }", "using { Rel2 }", "using { /GameA/M }", "using { /GameB/M }"]);
+        });
+
+        it("should offer both candidates when a message mixes a single suggestion with a single using path", async () => {
+            const errorMessage = "Unknown identifier `Thing`.\nUsed inside module /mygame@fortnite.com/mygame/Scripts.\n Did you mean Rel1.Thing or did you forget to specify using { /GameA/M }";
+
+            const suggestions = await extractor.extractImportSuggestions(errorMessage);
+
+            expect(suggestions.map((s) => s.importStatement)).toEqual(["using { Rel1 }", "using { /GameA/M }"]);
+        });
+
+        it("should offer every candidate when an option list is mixed with a single using path", async () => {
+            const errorMessage = "Unknown identifier `Thing`. Did you mean any of: \nRel1.Thing\nRel2.Thing or did you forget to specify using { /GameA/M }";
+
+            const suggestions = await extractor.extractImportSuggestions(errorMessage);
+
+            expect(suggestions.map((s) => s.importStatement)).toEqual(["using { Rel1 }", "using { Rel2 }", "using { /GameA/M }"]);
+        });
+
+        it("should offer every candidate when a single suggestion is mixed with a using list", async () => {
+            const errorMessage = "Unknown identifier `Thing`. Did you mean Rel1.Thing or did you forget to specify one of:\nusing { /GameA/M }\nusing { /GameB/M }";
+
+            const suggestions = await extractor.extractImportSuggestions(errorMessage);
+
+            expect(suggestions.map((s) => s.importStatement)).toEqual(["using { Rel1 }", "using { /GameA/M }", "using { /GameB/M }"]);
+        });
+
+        it("should read a mixed message the same way whichever case the joiner uses", async () => {
+            const errorMessage = "Unknown identifier `Thing`. Did you mean Rel1.Thing or Did you forget to specify using { /GameA/M }";
+
+            const suggestions = await extractor.extractImportSuggestions(errorMessage);
+
+            expect(suggestions.map((s) => s.importStatement)).toEqual(["using { Rel1 }", "using { /GameA/M }"]);
+        });
+
+        it("should read a mixed message with both lists the same way whichever case the joiner uses", async () => {
+            const errorMessage = "Unknown identifier `Thing`. Did you mean any of: \nRel1.Thing\nRel2.Thing or Did you forget to specify one of:\nusing { /GameA/M }\nusing { /GameB/M }";
+
+            const suggestions = await extractor.extractImportSuggestions(errorMessage);
+
+            expect(suggestions.map((s) => s.importStatement)).toEqual(["using { Rel1 }", "using { Rel2 }", "using { /GameA/M }", "using { /GameB/M }"]);
+        });
+
+        it("should keep the using path of a mixed message whose same-package option is a bare identifier", async () => {
+            const errorMessage = "Unknown identifier `Thing`. Did you mean Thing or did you forget to specify using { /GameA/M }";
+
+            const suggestions = await extractor.extractImportSuggestions(errorMessage);
+
+            expect(suggestions.map((s) => s.importStatement)).toEqual(["using { /GameA/M }"]);
+        });
+
         it("should drop prose lines trailing a 'Did you mean any of' option list", async () => {
             // Regression #130: the trailing sentence used to become an option
             const errorMessage = "Unknown identifier `Combat`. Did you mean any of: \nSystems.Combat\nFeatures.Combat\nUsed inside module /mygame@fortnite.com/mygame/Scripts.";
@@ -220,6 +279,37 @@ describe("ImportSuggestionExtractor", () => {
 
         it("should not add candidates from a 'Did you mean any of' list", () => {
             const paths = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `thing`. Did you mean any of:\nModuleA.thing\nModuleB.thing")]);
+
+            expect(paths).toEqual([]);
+        });
+
+        it("should not bulk-add the candidates of a message mixing an option list with a using list", () => {
+            const paths = extractor.extractImportsFromDiagnostics([
+                diag("Unknown identifier `Thing`. Did you mean any of: \nRel1.Thing\nRel2.Thing or did you forget to specify one of:\nusing { /GameA/M }\nusing { /GameB/M }"),
+            ]);
+
+            expect(paths).toEqual([]);
+        });
+
+        it("should not bulk-add the candidates of a message mixing a single suggestion with a single using path", () => {
+            const paths = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `Thing`. Did you mean Rel1.Thing or did you forget to specify using { /GameA/M }")]);
+
+            expect(paths).toEqual([]);
+        });
+
+        it("should add the one path of a mixed message whose same-package option is a bare identifier", () => {
+            // One importable candidate left is unambiguous, so Optimize adds it -
+            // the same treatment a "Did you mean any of" list gets when its only
+            // other option is a bare local definition.
+            const paths = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `Thing`. Did you mean Thing or did you forget to specify using { /GameA/M }")]);
+
+            expect(paths).toEqual(["/GameA/M"]);
+        });
+
+        it("should not bulk-add the using path of a mixed message whose joiner capitalizes 'Did'", () => {
+            // This spelling reaches UNKNOWN_WITH_SUGGESTION, which reads the
+            // joined tail as the whole message and offers the using path alone.
+            const paths = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `Thing`. Did you mean Rel1.Thing or Did you forget to specify using { /GameA/M }")]);
 
             expect(paths).toEqual([]);
         });

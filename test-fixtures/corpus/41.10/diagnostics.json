@@ -94,6 +94,26 @@
             }
         },
         {
+            "id": "mixed-same-package-and-using-lists",
+            "source": "synthetic",
+            "context": "both candidate kinds in one message, joined inline so the last same-package path shares its line with the joiner; awaiting live capture",
+            "message": "Unknown identifier `Combat`.\nUsed inside module /vukefn@fortnite.com/VerseAutoImports/Scripts.\n Did you mean any of: \nSystems.Combat\nFeatures.Combat or did you forget to specify one of:\nusing { /GameA/Combat }\nusing { /GameB/Combat }",
+            "expected": {
+                "suggestions": ["using { Systems }", "using { Features }", "using { /GameA/Combat }", "using { /GameB/Combat }"],
+                "optimizePaths": []
+            }
+        },
+        {
+            "id": "mixed-same-package-and-using-single",
+            "source": "synthetic",
+            "context": "the single-candidate form of the mixed shape, joined the same way; awaiting live capture",
+            "message": "Unknown identifier `Combat`.\nUsed inside module /vukefn@fortnite.com/VerseAutoImports/Scripts.\n Did you mean Systems.Combat or did you forget to specify using { /GameA/Combat }",
+            "expected": {
+                "suggestions": ["using { Systems }", "using { /GameA/Combat }"],
+                "optimizePaths": []
+            }
+        },
+        {
             "id": "identifier-many-types",
             "source": "synthetic",
             "context": "ambiguous type identifier; Optimize must not bulk-add both",

@@ -106,8 +106,10 @@ describe("resolveVisibility", () => {
 
         const resolved = resolveVisibility([], segments(["Systems", false], ["Deep", true], ["Tools", true]), found);
 
-        // A part repeating `<private>` compiles, so this one went unnoticed, but
-        // nothing outside Systems can reach what it declares either way.
+        // A part repeating `<private>` compiles, and for an importer in the
+        // declaring scope it resolves the error too, which is why this one went
+        // unnoticed. It is refused because declaring new public modules inside
+        // a private boundary is a decision for whoever drew it.
         expect(resolved.conflicts).toEqual([{ path: "Systems", keyword: "private", reason: "nest" }]);
     });
 

@@ -329,30 +329,23 @@ export class ModuleVisibilityWriter {
 }
 
 /**
- * Why a request was refused, phrased per conflict kind because the two need
- * different things from the user: one is a specifier to change, the other a
- * declaration to write inside a module the quick fix will not open up.
- *
- * The keyword is named rather than rendered as a specifier: `scoped` is
- * declared with a module list, and printing `<scoped>` would quote the file as
- * saying something it does not say - and would not compile if pasted back.
+ * Why a request was refused, naming what each conflicting module would have
+ * needed. The two kinds are phrased apart because they ask different things of
+ * the user, and one sentence carries both so a notification does not clip the
+ * second remedy before it is read.
  */
 function refusalForConflicts(moduleName: string, conflicts: readonly VisibilityConflict[]): string {
     const listed = (reason: VisibilityConflict["reason"]) =>
         conflicts
             .filter((conflict) => conflict.reason === reason)
-            .map((conflict) => `${conflict.path} is declared ${conflict.keyword}`)
-            .join(", ");
+            .map((conflict) => `${conflict.path}, declared ${conflict.keyword}`)
+            .join(" and ");
 
     const widen = listed("widen");
     const nest = listed("nest");
+    const clauses = [widen && `widening ${widen}`, nest && `declaring a module inside ${nest}`].filter(Boolean);
 
-    return [
-        widen && `making '${moduleName}' public would widen a deliberate restriction: ${widen}. Change it by hand if that is intended.`,
-        nest && `reaching '${moduleName}' would mean declaring a module inside a deliberately restricted one: ${nest}. Declare it there by hand if that is intended.`,
-    ]
-        .filter(Boolean)
-        .join(" ");
+    return `making '${moduleName}' reachable would mean ${clauses.join(", and ")}. Make the change by hand if that is intended.`;
 }
 
 /** The text with every specifier rewrite applied, taken last-first so earlier offsets stay valid. */

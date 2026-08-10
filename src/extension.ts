@@ -6,6 +6,7 @@ import { CommandsHandler, CommandsDependencies } from "./commands";
 import { StatusBarHandler } from "./ui";
 import { ProjectPathHandler } from "./project";
 import { AssetsDigestParser, ProjectPathCache } from "./services";
+import { ModuleVisibilityCodeActionProvider, ModuleVisibilityWriter } from "./visibility";
 
 /**
  * The project path cache toggle, and the default the two reads of it must
@@ -90,12 +91,14 @@ export function activate(context: vscode.ExtensionContext) {
     const diagnosticsHandler = new DiagnosticsHandler(outputChannel, importHandler, () => statusBarHandler.isSnoozeActive());
     const importPathConverter = new ImportPathConverter(outputChannel, projectPathCache);
     const importCodeLensProvider = new ImportCodeLensProvider(outputChannel);
+    const moduleVisibilityWriter = new ModuleVisibilityWriter(outputChannel, projectPathHandler);
 
     const commandsDeps: CommandsDependencies = {
         importHandler,
         statusBarHandler,
         importPathConverter,
         importCodeLensProvider,
+        moduleVisibilityWriter,
         projectPathCache,
     };
     const commandsHandler = new CommandsHandler(commandsDeps);
@@ -136,6 +139,7 @@ export function activate(context: vscode.ExtensionContext) {
     // the provider's own listeners and hide timers live after deactivation.
     context.subscriptions.push(
         vscode.languages.registerCodeActionsProvider({ language: "verse" }, new ImportCodeActionProvider(outputChannel, importHandler)),
+        vscode.languages.registerCodeActionsProvider({ language: "verse" }, new ModuleVisibilityCodeActionProvider()),
         vscode.languages.registerCodeLensProvider({ language: "verse" }, importCodeLensProvider),
         importCodeLensProvider,
     );

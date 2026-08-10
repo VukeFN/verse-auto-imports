@@ -132,6 +132,26 @@
                 "suggestions": ["using { /UnrealEngine.com/Temporary/SpatialMath }"],
                 "optimizePaths": []
             }
+        },
+        {
+            "id": "inaccessible-internal-module",
+            "source": "captured",
+            "context": "error 3593 from a cross-branch import of an implicit folder module. No import fixes it, so extraction must stay empty; the module-visibility quick fix keys on the help sentence, which the compiler appends only for an internal module.",
+            "message": "Invalid access of internal module `(/vukefn@fortnite.com/VerseAutoImports/Gadgets:)Tools` from module `/vukefn@fortnite.com/VerseAutoImports/Scripts`. Consider setting the module's access specifier to <public> to make it accessible from other modules within your project.",
+            "expected": {
+                "suggestions": [],
+                "optimizePaths": []
+            }
+        },
+        {
+            "id": "inaccessible-all-references",
+            "source": "synthetic",
+            "context": "the sibling shape under the same error code 3593, composed at a different call site and carrying no help sentence; awaiting live capture. Neither the import extractor nor the module-visibility quick fix may act on it.",
+            "message": "All references to `Tools` are inaccessible from context `/vukefn@fortnite.com/VerseAutoImports/Scripts/main` in module `/vukefn@fortnite.com/VerseAutoImports/Gadgets`.",
+            "expected": {
+                "suggestions": [],
+                "optimizePaths": []
+            }
         }
     ]
 }

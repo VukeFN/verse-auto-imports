@@ -63,6 +63,7 @@ const REGISTERED_COMMANDS: Array<[string, string]> = [
     ["verseAutoImports.convertAllToFullPath", "convertAllToFullPath"],
     ["verseAutoImports.convertToRelativePath", "convertToRelativePath"],
     ["verseAutoImports.convertAllToRelativePath", "convertAllToRelativePath"],
+    ["verseAutoImports.makeModulePublic", "makeModulePublic"],
 ];
 
 function registeredCommands(): Array<[string, string]> {

@@ -73,11 +73,12 @@ class EventEmitter<T> {
 }
 
 interface RecordedEditOperation {
-    kind: "insert" | "delete" | "replace";
+    kind: "insert" | "delete" | "replace" | "createFile";
     uri: unknown;
     position?: Position;
     range?: Range;
     text?: string;
+    options?: { overwrite?: boolean; ignoreIfExists?: boolean };
 }
 
 /** Records edit operations so tests can assert on them. */
@@ -94,6 +95,10 @@ class WorkspaceEdit {
 
     replace(uri: unknown, range: Range, text: string): void {
         this.operations.push({ kind: "replace", uri, range, text });
+    }
+
+    createFile(uri: unknown, options?: { overwrite?: boolean; ignoreIfExists?: boolean }): void {
+        this.operations.push({ kind: "createFile", uri, options });
     }
 
     /**
@@ -246,6 +251,14 @@ const workspace = {
     // undefined - which is how the environment snapshot tells the two apart.
     workspaceFile: undefined as { fsPath: string } | undefined,
     findFiles: jest.fn().mockResolvedValue([]),
+    // Rejecting is the "no such file" answer, which is what production code
+    // reads a missing file as. A resolving default would make an absent
+    // definitions file look like an empty existing one.
+    fs: {
+        readFile: jest.fn().mockRejectedValue(new Error("ENOENT")),
+        stat: jest.fn().mockRejectedValue(new Error("ENOENT")),
+        writeFile: jest.fn().mockResolvedValue(undefined),
+    },
     createFileSystemWatcher: jest.fn().mockImplementation((globPattern: unknown) => new FileSystemWatcher(globPattern)),
     // Empty by default so a test that only needs the scan to complete does not
     // have to stub it; tests that care about parse timing replace it.

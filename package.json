@@ -118,6 +118,11 @@
         "command": "verseAutoImports.showCacheStatus",
         "title": "Show Cache Status",
         "category": "Verse Auto Imports"
+      },
+      {
+        "command": "verseAutoImports.makeModulePublic",
+        "title": "Make Module Public",
+        "category": "Verse Auto Imports"
       }
     ],
     "menus": {
@@ -140,6 +145,10 @@
         },
         {
           "command": "verseAutoImports.convertAllToRelativePath",
+          "when": "false"
+        },
+        {
+          "command": "verseAutoImports.makeModulePublic",
           "when": "false"
         }
       ]
@@ -287,6 +296,12 @@
           "maximum": 10000,
           "description": "Milliseconds to wait before hiding CodeLens after cursor leaves import (only applies when visibility is 'hover')",
           "order": 32
+        },
+        "verseAutoImports.moduleVisibility.definitionsFileName": {
+          "type": "string",
+          "default": "definitions.verse",
+          "description": "Name of the file at the Content root that the 'Make Module Public' quick fix writes <public> module declarations into. Existing declarations elsewhere in the project are edited in place instead, whatever this is set to.",
+          "order": 35
         },
         "verseAutoImports.experimental.useDigestFiles": {
           "type": "boolean",

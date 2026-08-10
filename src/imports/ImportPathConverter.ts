@@ -102,13 +102,15 @@ export class ImportPathConverter {
      * `module. Inner := ...`. A `>` after the keyword is accepted alongside
      * them.
      *
-     * The declared name may carry any number of stacked specifiers, and no
-     * keyword list appears here: the answer is only whether this file declares
-     * the module, never which specifier it carries, and a list is a standing
-     * invitation to drift from the spellings in moduleDeclarations'
-     * MODULE_DECLARATION and ProjectPathScanner. Accepting any `<...>` entry
-     * also covers a `scoped{A, B}` scope list, whose specifier does not end at
-     * its keyword.
+     * No visibility keyword list appears here: nothing reads which specifier
+     * was found, only whether this file declares the module, so any `<...>`
+     * entry is accepted - a `scoped{A, B}` list included, whose specifier does
+     * not end at its keyword.
+     *
+     * A specifier body must exclude `<` and newlines. Callers test unmasked
+     * whole-file content, so a body free to span lines lets a comparison
+     * operator or a `<` in a comment run on to the `>` of a LATER
+     * declaration's specifier, reporting a file that declares no such module.
      *
      * Non-global on purpose: the pattern is reused with `.test()` across many
      * files, and a global flag would carry `lastIndex` between calls and skip
@@ -116,7 +118,7 @@ export class ImportPathConverter {
      */
     static buildModuleDefinitionRegex(moduleName: string): RegExp {
         const escaped = moduleName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        return new RegExp(`\\b${escaped}(?:'[^']*')?(?:\\s*<[^>]+>)*\\s*:=\\s*module\\s*[:>{.]`, "m");
+        return new RegExp(`\\b${escaped}(?:'[^']*')?(?:\\s*<[^<>\\n]+>)*\\s*:=\\s*module\\s*[:>{.]`, "m");
     }
 
     /**

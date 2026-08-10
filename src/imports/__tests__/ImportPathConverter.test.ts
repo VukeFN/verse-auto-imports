@@ -58,6 +58,18 @@ describe("ImportPathConverter.buildModuleDefinitionRegex", () => {
         expect(re.test("Inventory<public><scoped{ModuleA}> := module { }")).toBe(true);
     });
 
+    it("does not let a stray < reach the specifier of a later declaration", () => {
+        // The whole file is tested unmasked, so a `<` that opens nothing - a
+        // comparison, or one written in a comment - sits between the name and
+        // the next declaration's specifier. A specifier body that could span
+        // that far would report this file as declaring Inventory.
+        const re = ImportPathConverter.buildModuleDefinitionRegex("Inventory");
+
+        expect(re.test("if (Inventory < MaxSlots):\n\nHelpers<public> := module:")).toBe(false);
+        expect(re.test("# Inventory <-- rename before ship\nHelpers<internal> := module:")).toBe(false);
+        expect(re.test("Count := Inventory < 3\nOther<final><public> := module {}")).toBe(false);
+    });
+
     it("does not match a different module or a non-module declaration", () => {
         const re = ImportPathConverter.buildModuleDefinitionRegex("Inventory");
         expect(re.test("MyInventory := module:")).toBe(false);

@@ -37,6 +37,22 @@ describe("findExplicitModuleDeclarations", () => {
         expect(content.slice(declaration.visibility!.start, declaration.visibility!.end)).toBe("<internal>");
     });
 
+    it("spans the whole of a scoped specifier, module list included", () => {
+        const content = "Tools<scoped{ModuleA, ModuleB}> := module {}\n";
+        const [declaration] = findExplicitModuleDeclarations(content);
+
+        expect(declaration.visibility?.keyword).toBe("scoped");
+        expect(content.slice(declaration.visibility!.start, declaration.visibility!.end)).toBe("<scoped{ModuleA, ModuleB}>");
+    });
+
+    it("captures epic_internal, which read as a bare declaration would get a second specifier stacked beside it", () => {
+        const content = "Tools<epic_internal> := module {}\n";
+        const [declaration] = findExplicitModuleDeclarations(content);
+
+        expect(declaration.visibility?.keyword).toBe("epic_internal");
+        expect(content.slice(declaration.visibility!.start, declaration.visibility!.end)).toBe("<epic_internal>");
+    });
+
     it("points the insertion point at the end of the name when there is no specifier", () => {
         const content = "Tools := module {}\n";
         const [declaration] = findExplicitModuleDeclarations(content);

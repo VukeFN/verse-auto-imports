@@ -60,7 +60,10 @@ const PUBLIC_SPECIFIER = "<public>";
  * A module already declared `<private>`, `<protected>` or `<scoped>` is
  * reported as a conflict instead of being rewritten: those are deliberate
  * narrowings, and widening one silently is a decision that belongs to whoever
- * wrote it.
+ * wrote it. Nesting the chain THROUGH such a module conflicts too, even where
+ * the module itself needs no marking - the part that would be written repeats
+ * the specifier from a keyword alone, and a keyword alone is not the specifier
+ * for `scoped`, which carries a module list.
  *
  * @param prefix Content-relative segments above the planned ones. They are
  * already reachable, but the chain is written at the Content root, so it has to
@@ -78,9 +81,13 @@ export function resolveVisibility(prefix: readonly string[], segments: readonly 
     }
 
     const edits: SpecifierEdit[] = [];
-    const conflicts: { path: string; keyword: string }[] = [];
     const chain: DeclarationSpec[] = [];
     const written: boolean[] = [];
+
+    // Collected rather than reported on sight: whether nesting through a
+    // narrowed module matters depends on the trim below, which is not known
+    // until the walk is over.
+    const blocked: { chainIndex: number; path: string; keyword: string; needsPublic: boolean }[] = [];
 
     // The prefix modules are reachable already, so they are walked purely as
     // the nesting the chain needs - never marked, but still matched against
@@ -101,10 +108,11 @@ export function resolveVisibility(prefix: readonly string[], segments: readonly 
 
         const blocking = declarations.find((entry) => entry.declaration.visibility && entry.declaration.visibility.keyword !== "public" && entry.declaration.visibility.keyword !== "internal");
 
-        if (segment.needsPublic && blocking) {
-            conflicts.push({ path: modulePath, keyword: blocking.declaration.visibility!.keyword });
-            // Written bare so the chain still nests, though the conflict means
-            // the caller will not apply any of it.
+        if (blocking) {
+            blocked.push({ chainIndex: chain.length, path: modulePath, keyword: blocking.declaration.visibility!.keyword, needsPublic: segment.needsPublic });
+            // Written bare so the chain still nests, and never carrying the
+            // blocking keyword: `<scoped>` without its module list does not
+            // compile. Whether any of this is applied is decided below.
             chain.push({ name: segment.name });
             written.push(false);
             continue;
@@ -126,7 +134,9 @@ export function resolveVisibility(prefix: readonly string[], segments: readonly 
         }
 
         // Repeat what the project already declares, so a part written below
-        // this one cannot disagree with the parts that exist.
+        // this one cannot disagree with the parts that exist. Only `public` and
+        // `internal` reach here - every other keyword left through the branch
+        // above, which is what keeps a keyword-only repeat safe.
         const declaredKeyword = segment.needsPublic ? "public" : declarations[0].declaration.visibility?.keyword;
         chain.push({ name: segment.name, specifier: declaredKeyword });
         written.push(false);
@@ -135,6 +145,12 @@ export function resolveVisibility(prefix: readonly string[], segments: readonly 
     // The chain exists only to carry declarations that are not there yet. With
     // none to carry, the nesting above them is noise.
     const deepestWritten = written.lastIndexOf(true);
+
+    // A narrowed module blocks when it is the one to publicize, and equally
+    // when the retained chain nests through it. Anything trimmed away is never
+    // written, so a narrowing there is nobody's business.
+    const conflicts = blocked.filter((entry) => entry.needsPublic || entry.chainIndex <= deepestWritten).map(({ path, keyword }) => ({ path, keyword }));
+
     return {
         edits,
         chain: deepestWritten === -1 ? [] : chain.slice(0, deepestWritten + 1),

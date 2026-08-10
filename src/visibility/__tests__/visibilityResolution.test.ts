@@ -80,6 +80,42 @@ describe("resolveVisibility", () => {
         expect(resolved.edits).toEqual([]);
     });
 
+    it("reports a scoped module the chain would nest through, rather than repeating a specifier it cannot reproduce", () => {
+        const found = declarationsIn("file://a", "", "Systems<scoped{ModuleA, ModuleB}> := module:\n    X:int = 1\n");
+
+        const resolved = resolveVisibility([], segments(["Systems", false], ["Deep", true], ["Tools", true]), found);
+
+        expect(resolved.conflicts).toEqual([{ path: "Systems", keyword: "scoped" }]);
+        // `<scoped>` alone is not the declared specifier and does not compile;
+        // the nesting part is written bare, and the conflict stops it anyway.
+        expect(resolved.chain[0]).toEqual({ name: "Systems" });
+        expect(resolved.edits).toEqual([]);
+    });
+
+    it("reports an epic_internal module the chain would nest through", () => {
+        const found = declarationsIn("file://a", "", "Systems<epic_internal> := module:\n    X:int = 1\n");
+
+        const resolved = resolveVisibility([], segments(["Systems", false], ["Deep", true], ["Tools", true]), found);
+
+        expect(resolved.conflicts).toEqual([{ path: "Systems", keyword: "epic_internal" }]);
+        expect(resolved.chain[0]).toEqual({ name: "Systems" });
+    });
+
+    it("leaves a scoped module alone when no written chain nests through it", () => {
+        const found = [
+            ...declarationsIn("file://a", "", "Systems<scoped{ModuleA, ModuleB}> := module:\n    X:int = 1\n"),
+            ...declarationsIn("file://b", "Systems", "Deep := module:\n    Tools := module {}\n"),
+        ];
+
+        const resolved = resolveVisibility([], segments(["Systems", false], ["Deep", true], ["Tools", true]), found);
+
+        // Everything below Systems is declared already, so nothing is written
+        // through it and its narrowing is nobody's business.
+        expect(resolved.conflicts).toEqual([]);
+        expect(resolved.chain).toEqual([]);
+        expect(resolved.edits.map((edit) => edit.path)).toEqual(["Systems/Deep", "Systems/Deep/Tools"]);
+    });
+
     it("addresses a segment by its full path, so a namesake elsewhere is not touched", () => {
         const found = declarationsIn("file://elsewhere", "Other", "Tools := module {}\n");
 

@@ -214,6 +214,14 @@ describe("ImportSuggestionExtractor", () => {
             expect(suggestions.map((s) => s.importStatement)).toEqual(["using { Rel1 }", "using { /GameA/M }"]);
         });
 
+        it("should read a mixed message with both lists the same way whichever case the joiner uses", async () => {
+            const errorMessage = "Unknown identifier `Thing`. Did you mean any of: \nRel1.Thing\nRel2.Thing or Did you forget to specify one of:\nusing { /GameA/M }\nusing { /GameB/M }";
+
+            const suggestions = await extractor.extractImportSuggestions(errorMessage);
+
+            expect(suggestions.map((s) => s.importStatement)).toEqual(["using { Rel1 }", "using { Rel2 }", "using { /GameA/M }", "using { /GameB/M }"]);
+        });
+
         it("should keep the using path of a mixed message whose same-package option is a bare identifier", async () => {
             const errorMessage = "Unknown identifier `Thing`. Did you mean Thing or did you forget to specify using { /GameA/M }";
 
@@ -287,6 +295,15 @@ describe("ImportSuggestionExtractor", () => {
             const paths = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `Thing`. Did you mean Rel1.Thing or did you forget to specify using { /GameA/M }")]);
 
             expect(paths).toEqual([]);
+        });
+
+        it("should add the one path of a mixed message whose same-package option is a bare identifier", () => {
+            // One importable candidate left is unambiguous, so Optimize adds it -
+            // the same treatment a "Did you mean any of" list gets when its only
+            // other option is a bare local definition.
+            const paths = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `Thing`. Did you mean Thing or did you forget to specify using { /GameA/M }")]);
+
+            expect(paths).toEqual(["/GameA/M"]);
         });
 
         it("should not bulk-add the using path of a mixed message whose joiner capitalizes 'Did'", () => {

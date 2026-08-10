@@ -170,7 +170,7 @@ export class ImportSuggestionExtractor {
             .split("\n")
             .map((line) => line.trim())
             .filter((line) => line.length > 0);
-        logger.debug("ImportSuggestionExtractor", `Found ${options.length} multi-options: ${options.join(", ")}`);
+        logger.debug("ImportSuggestionExtractor", `Parsing ${options.length} suggestion options: ${options.join(", ")}`);
 
         const candidates: ImportCandidate[] = [];
         for (const option of options) {
@@ -231,9 +231,10 @@ export class ImportSuggestionExtractor {
      * matched at all, [] when one matched but no option was importable, such as
      * a list of bare identifiers.
      *
-     * The mixed pattern is tried first: a mixed message also matches the
-     * same-package pattern below, which would read the joined tail as options
-     * and drop every candidate but the first.
+     * The mixed pattern is tried first and stands in front of all three below,
+     * because a non-null result never falls back into the cascade. A mixed
+     * message also matches the same-package pattern, which would read the
+     * joined tail as options and drop every candidate but the first.
      */
     private parseMultiOptionCandidates(errorMessage: string): ImportCandidate[] | null {
         const mixed = this.parseMixedCandidates(errorMessage);

@@ -802,6 +802,17 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         expect(applyEditMock()).not.toHaveBeenCalled();
     });
 
+    // The scan rejected the line for not opening with `using`, so the path read
+    // as absent and this wrote a second copy of an import the file already made.
+    it("counts a using written after a definition on its line as already present", async () => {
+        const input = ["X := 1; using { /Verse.org/Random }", "", "code()"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Verse.org/Random }"]);
+
+        expect(success).toBe(true);
+        expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
     it("leaves a module-scoped using inside its module body during consolidation", async () => {
         (vscode.workspace.getConfiguration as jest.Mock).mockReturnValueOnce({
             get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => {

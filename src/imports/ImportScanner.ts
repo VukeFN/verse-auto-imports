@@ -341,6 +341,10 @@ export function classifyLines(lines: string[]): LineClassification[] {
  *   same-directory folder-module import): module `using` is legal only at
  *   file level or module-definition body level, so a bare `using` at column 0
  *   can never be a legal local-scope using.
+ *   That classification reads the line from its head, so it rejects a line
+ *   whose `using` follows a definition. Such a line is not skipped: every
+ *   `using` it writes is recorded, pinned, because the path is imported and
+ *   writing it again would duplicate it.
  * - A collected import that itself opens a comment over the lines below it is
  *   flagged with `anchorsCommentBelow`. It is a real import and still counts
  *   as present, but no writer may rebuild or move its line, because where the
@@ -400,6 +404,32 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
         const nextLine = i + 1 < lines.length ? lines[i + 1] : undefined;
 
         if (!ImportFormatter.isModuleImport(trimmed, nextLine, { atFileScope: true })) {
+            // The classification reads the line from its head, so a `using`
+            // written after a definition - `X := 1; using { /A }`, legal because
+            // `;` separates definitions in a scope exactly as a newline does -
+            // does not head its line and the line is rejected here. Its paths
+            // are still imported, and recording them is what stops a diagnostic
+            // asking for one writing a second copy above a line already making
+            // that import.
+            //
+            // All pinned, because the line writes a definition no rebuild from
+            // a path can reproduce. Their spans coincide, which no writer sees:
+            // writers read rewritableImports, which excludes a pinned entry.
+            //
+            // The gate itself is deliberately left refusing these lines rather
+            // than widened to admit them. Everything below it may then keep
+            // testing the raw line, as the `using:` branch does - see the note
+            // there on why the two inputs have to agree.
+            for (const linePath of usingPathsOnLine(formatter, code)) {
+                imports.push({
+                    path: linePath,
+                    startLine: i,
+                    endLine: i,
+                    anchorsCommentBelow: anchorsCommentBelow(i, i),
+                    rebuildLosesText: true,
+                    trailingComment: ImportFormatter.extractTrailingComment(trimmed),
+                });
+            }
             i += 1;
             continue;
         }
@@ -458,8 +488,9 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
             // Every statement written before the pair. The `using:` contributes
             // no path of its own, since neither statement pattern matches it,
             // and a `using:` following something that is not a `using` never
-            // reaches here - isModuleImport rejects the line above and it is
-            // skipped whole.
+            // reaches here - isModuleImport rejects the line above, which
+            // records the complete statements it writes but not the path its
+            // `using:` opens below.
             //
             // Counted with usingPathsOnLine because this branch holds first
             // refusal over the one below, so a line ending in `using:` is

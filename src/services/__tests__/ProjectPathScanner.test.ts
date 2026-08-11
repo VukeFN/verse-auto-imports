@@ -101,7 +101,8 @@ describe("ProjectPathScanner.extractDeclarations module forms", () => {
         // segment from its path instead of being dropped alongside its parent.
         // Every segment from the root has to be accessible for an import to
         // compile, so the subtree is as unreachable as the parent. Long
-        // predates the specifiers below - <private> reads the same way.
+        // predates the specifiers this scan newly reads - <private> reads the
+        // same way.
         const scoped = declare("Systems<scoped{ModuleA}> := module:\n    Inner<public> := module:\n");
         expect(scoped.map((node) => node.fullPath)).toEqual(["Inner"]);
 

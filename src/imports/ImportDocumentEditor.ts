@@ -353,6 +353,12 @@ export class ImportDocumentEditor {
      * since a block above every pinned line, and a path written directly below
      * this floor, both precede every pinned import further down.
      *
+     * A ceiling raised *above* the floor is the one it genuinely drops: the
+     * path lands below a pinned import that could have been the consumer it was
+     * added for, leaving that diagnostic unfixed. Deliberate - the alternative
+     * carries it above the pinned import bringing its own first segment into
+     * scope, and a compiling file outranks a fixed diagnostic.
+     *
      * Exempts the path from itself for the reason crossesPinnedProvider does.
      */
     private hoistFloor(pinned: ScannedImport[], classifications: LineClassification[], path: string): number {
@@ -465,9 +471,11 @@ export class ImportDocumentEditor {
      * were written on, rather than let a rebuilt block at the top carry them
      * above it. Untidy, against a file that no longer compiles.
      *
-     * Keyed on the path, not the import, so a path written twice stays wherever
-     * either copy needs it: the block re-emits it once, and a copy left behind
-     * while the other is deleted would lose it from the line that needed it.
+     * Keyed on the path, not the import, because the block is built from sets
+     * of paths and can only decide per path. Whichever reader keys per import
+     * while the other keys per path deletes a line whose path the block then
+     * declines to re-emit. The cost is declining to hoist a copy written above
+     * every pinned import when another copy below one is grounded.
      *
      * Shared by the two writers that hoist into such a block, which is what
      * keeps them from holding two rules about what a pinned line stops.

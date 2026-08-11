@@ -1737,6 +1737,24 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             expect(operations[1].range).toEqual({ start: { line: 0, character: 0 }, end: { line: 1, character: 0 } });
         });
 
+        it("takes the floor over a pinned consumer sitting above it", async () => {
+            mockConfig(consolidating);
+            const input = ["using { Economy.Shop }; X := 1", "code()", "using { Features }; Y := 2", "more()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy }"]);
+
+            expect(success).toBe(true);
+            // The pinned consumer at line 0 could be what this import was added
+            // for, and it is left unfixed: the line above it is also above the
+            // pinned import that may bring this path's own first segment into
+            // scope. A compiling file outranks a fixed diagnostic.
+            const operations = appliedOperations(0);
+            expect(operations).toHaveLength(1);
+            expect(operations[0].kind).toBe("insert");
+            expect(operations[0].position!.line).toBe(3);
+            expect(operations[0].text).toBe("using { Economy }\n");
+        });
+
         it("keeps both copies of a path written on either side of the pinned line", async () => {
             mockConfig(consolidating);
             const input = ["using { Economy.Shop }", "using { Features }; X := 1", "using { Economy.Shop }", "code()"].join("\n");

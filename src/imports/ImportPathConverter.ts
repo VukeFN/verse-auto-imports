@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { logger } from "../utils";
+import { maskCommentsAndStrings } from "../utils/verseText";
 import { ProjectPathHandler } from "../project";
 import { ProjectPathCache } from "../services";
 import { ImportFormatter } from "./ImportFormatter";
@@ -107,12 +108,12 @@ export class ImportPathConverter {
      * entry is accepted - a `scoped{A, B}` list included, whose specifier does
      * not end at its keyword.
      *
-     * A specifier body must exclude `<` and newlines. Callers test unmasked
-     * whole-file content, so a body free to span lines lets a comparison
-     * operator or a `<` in a comment run on to the `>` of a LATER
-     * declaration's specifier, reporting a file that declares no such module.
-     * MODULE_DECLARATION affords the wider `[^>]` because it masks comments
-     * and strings first; this does not, so the two cannot be synchronized.
+     * A specifier body must exclude `<` and newlines. A body free to span lines
+     * lets a `<` that opens nothing - a comparison operator, say - run on to
+     * the `>` of a LATER declaration's specifier, reporting a file that
+     * declares no such module. The narrowing holds whether or not the text is
+     * masked first, and nothing binds a caller of this builder to mask, so it
+     * cannot be widened to MODULE_DECLARATION's `[^>]`.
      *
      * Non-global on purpose: the pattern is reused with `.test()` across many
      * files, and a global flag would carry `lastIndex` between calls and skip
@@ -332,7 +333,13 @@ export class ImportPathConverter {
                 () => null,
             );
 
-            if (!content || !modulePattern.test(content)) continue;
+            // Only a live declaration attests to a location. Matched against
+            // raw text, a commented-out declaration or one quoted in a string
+            // puts its directory into `locations`, which either makes the
+            // conversion ambiguous or writes a path to the wrong file. The two
+            // sibling scanners, moduleDeclarations and ProjectPathScanner, mask
+            // for the same reason.
+            if (!content || !modulePattern.test(maskCommentsAndStrings(content))) continue;
 
             logger.debug("ImportPathConverter", `Found module definition in: ${file.fsPath}`);
             const workspaceFolder = vscode.workspace.getWorkspaceFolder(file);

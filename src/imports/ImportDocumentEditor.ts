@@ -461,6 +461,48 @@ export class ImportDocumentEditor {
     }
 
     /**
+     * The paths among `movable` that a pinned import holds on the line they
+     * were written on, rather than let a rebuilt block at the top carry them
+     * above it. Untidy, against a file that no longer compiles.
+     *
+     * Keyed on the path, not the import, so a path written twice stays wherever
+     * either copy needs it: the block re-emits it once, and a copy left behind
+     * while the other is deleted would lose it from the line that needed it.
+     *
+     * Shared by the two writers that hoist into such a block, which is what
+     * keeps them from holding two rules about what a pinned line stops.
+     */
+    private groundedPaths(pinned: ScannedImport[], movable: ScannedImport[]): Set<string> {
+        return new Set(movable.filter((imp) => this.crossesPinnedProvider(pinned, imp)).map((imp) => imp.path));
+    }
+
+    /**
+     * The line ranges of a block that consolidating at the top may delete: the
+     * runs of imports it hoists, with the grounded ones left out.
+     *
+     * Deleting the block whole would take a grounded import's line with it while
+     * its path is deliberately not re-emitted at the top, losing the import
+     * rather than moving it. A block's imports are adjacent by construction, so
+     * a block with nothing grounded yields one run covering exactly the block.
+     */
+    private hoistedRuns(block: ImportBlock, grounded: Set<string>): Array<{ start: number; end: number }> {
+        const runs: Array<{ start: number; end: number }> = [];
+        for (const imp of block.imports) {
+            if (grounded.has(imp.path)) {
+                continue;
+            }
+
+            const last = runs[runs.length - 1];
+            if (last && imp.startLine === last.end + 1) {
+                last.end = imp.endLine;
+            } else {
+                runs.push({ start: imp.startLine, end: imp.endLine });
+            }
+        }
+        return runs;
+    }
+
+    /**
      * The module import statements a document holds, deduplicated, with an
      * indented pair (`using:` plus its path line) joined into one statement.
      * Local-scope `using` is not among them.
@@ -490,8 +532,8 @@ export class ImportDocumentEditor {
      *
      * Where they go is `behavior.preserveImportLocations`: with it on, each
      * path is merged into an existing block or written on its own line beside
-     * the imports it must sit relative to; with it off, every movable import in
-     * the file is consolidated at the top.
+     * the imports it must sit relative to; with it off, the movable imports are
+     * consolidated at the top, bar any a pinned line holds where it is.
      */
     async addImportsToDocument(document: vscode.TextDocument, importStatements: string[]): Promise<boolean> {
         logger.info("ImportDocumentEditor", `Adding ${importStatements.length} import statements to document`);
@@ -806,23 +848,49 @@ export class ImportDocumentEditor {
                 }
             }
         } else {
-            const allPaths = new Set<string>([...relocatablePaths, ...newImportPaths]);
-            const allImportsArray = Array.from(allPaths);
+            // The block is written above every pinned line, so hoisting an
+            // import from below one carries it across. See groundedPaths.
+            const grounded = this.groundedPaths(pinned, rewritableImports(scannedImports));
 
-            const formattedImports = this.withTrailingComments(
-                this.formatter.groupAndFormatImports(allImportsArray, preferDotSyntax, sortAlphabetically, importGrouping),
-                this.trailingCommentsByStatement(rewritableImports(scannedImports), preferDotSyntax),
-            );
+            // A new path has no line of its own to keep, so a pinned import
+            // that has to precede it names the line it is written below
+            // instead. The floor alone, as buildOrganizedContent asks of a path
+            // it adds and for its reason: this block goes above every pinned
+            // line, so a ceiling is already satisfied by it. See hoistFloor.
+            const blockPaths = new Set<string>(Array.from(relocatablePaths).filter((path) => !grounded.has(path)));
+            const newPathsByLine = new Map<number, string[]>();
+            for (const path of newImportPaths) {
+                const floor = this.hoistFloor(pinned, classifications, path);
+                if (floor === -1) {
+                    blockPaths.add(path);
+                    continue;
+                }
+                newPathsByLine.set(floor + 1, [...(newPathsByLine.get(floor + 1) ?? []), path]);
+            }
 
-            // No blank line after the block: ensureEmptyLinesAfterImports runs
-            // once the edit has been applied and puts the configured number
-            // there.
-            const importsText = formattedImports.join(eol) + eol;
-            edit.insert(document.uri, new vscode.Position(0, 0), importsText);
+            // Grounding can leave the block with nothing to write, and an empty
+            // block is a stray line ending at the top of the file.
+            if (blockPaths.size > 0) {
+                const formattedImports = this.withTrailingComments(
+                    this.formatter.groupAndFormatImports(Array.from(blockPaths), preferDotSyntax, sortAlphabetically, importGrouping),
+                    this.trailingCommentsByStatement(rewritableImports(scannedImports), preferDotSyntax),
+                );
+
+                // No blank line after the block: ensureEmptyLinesAfterImports
+                // runs once the edit has been applied and puts the configured
+                // number there.
+                const importsText = formattedImports.join(eol) + eol;
+                edit.insert(document.uri, new vscode.Position(0, 0), importsText);
+            }
+
+            for (const [line, paths] of [...newPathsByLine].sort(([a], [b]) => a - b)) {
+                this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, false);
+            }
 
             for (let i = importBlocks.length - 1; i >= 0; i--) {
-                const block = importBlocks[i];
-                edit.delete(document.uri, new vscode.Range(new vscode.Position(block.start, 0), new vscode.Position(block.end + 1, 0)));
+                for (const run of this.hoistedRuns(importBlocks[i], grounded).reverse()) {
+                    edit.delete(document.uri, new vscode.Range(new vscode.Position(run.start, 0), new vscode.Position(run.end + 1, 0)));
+                }
             }
         }
 
@@ -906,12 +974,11 @@ export class ImportDocumentEditor {
 
         // The block goes above every pinned line, so an import that hoisting
         // would carry above a pinned one it needs is left on the line it was
-        // written on. Untidy, and the alternative is a file that no longer
-        // compiles: a `using` resolves its own path top-down, so a path whose
+        // written on. A `using` resolves its own path top-down, so a path whose
         // first segment the pinned import brings into scope has to stay below
-        // it. See crossesPinnedProvider.
-        const groundedPaths = new Set(movableImports.filter((imp) => this.crossesPinnedProvider(pinned, imp)).map((imp) => imp.path));
-        const hoistableImports = movableImports.filter((imp) => !groundedPaths.has(imp.path));
+        // it. See groundedPaths.
+        const grounded = this.groundedPaths(pinned, movableImports);
+        const hoistableImports = movableImports.filter((imp) => !grounded.has(imp.path));
 
         // A path the file already imports is not written again, whichever
         // statement holds it - pinned, grounded, or hoisted into the block. The

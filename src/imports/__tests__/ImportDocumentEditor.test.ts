@@ -1652,6 +1652,156 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             expect(insert!.text).toBe("using { Economy.Shop }\n");
         });
     });
+
+    // Consolidation writes its block above every pinned line, so it carried an
+    // import across the pinned one that may bring its first segment into scope -
+    // the hoist buildOrganizedContent already refuses. Verse resolves `using`
+    // top-down, so the file stopped compiling.
+    describe("consolidating past an import pinned to its line", () => {
+        const consolidating = {
+            "behavior.preserveImportLocations": false,
+            "behavior.importGrouping": "none",
+            "behavior.sortImportsAlphabetically": true,
+        };
+
+        it("leaves a consumer written below a pinned provider on its line", async () => {
+            mockConfig(consolidating);
+            const input = ["using { Features }; X := 1", "using { Economy.Shop }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            expect(operations).toHaveLength(1);
+            expect(operations[0].kind).toBe("insert");
+            expect(operations[0].position).toEqual({ line: 0, character: 0 });
+            expect(operations[0].text).toBe("using { /Fortnite.com/Devices }\n");
+        });
+
+        it("still hoists a consumer written above the pinned line", async () => {
+            mockConfig(consolidating);
+            const input = ["using { Economy.Shop }", "using { Features }; MyVal := 5", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            // Position is the question, not presence: hoisting this one lands
+            // it above the pinned line, which is where it already was.
+            const insert = operations.find((op) => op.kind === "insert");
+            expect(insert!.text).toBe("using { /Fortnite.com/Devices }\nusing { Economy.Shop }\n");
+
+            const deletes = operations.filter((op) => op.kind === "delete");
+            expect(deletes).toHaveLength(1);
+            expect(deletes[0].range!.start.line).toBe(0);
+            expect(deletes[0].range!.end.line).toBe(1);
+        });
+
+        it("writes a new consumer below the pinned provider instead of into the block", async () => {
+            mockConfig(consolidating);
+            const input = ["using { Features }; MyVal := 5", "using { /Verse.org/Simulation }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+
+            const inserts = operations.filter((op) => op.kind === "insert");
+            expect(inserts).toHaveLength(2);
+            expect(inserts[0].position).toEqual({ line: 0, character: 0 });
+            expect(inserts[0].text).toBe("using { /Verse.org/Simulation }\n");
+            expect(inserts[1].position!.line).toBe(1);
+            expect(inserts[1].text).toBe("using { Economy.Shop }\n");
+
+            // The hoisted import still leaves its line, or the file imports it
+            // twice.
+            const deletes = operations.filter((op) => op.kind === "delete");
+            expect(deletes).toHaveLength(1);
+            expect(deletes[0].range).toEqual({ start: { line: 1, character: 0 }, end: { line: 2, character: 0 } });
+        });
+
+        it("still consolidates a new provider the pinned consumer below it may need", async () => {
+            mockConfig(consolidating);
+            const input = ["using { /A }", "code()", "using { Economy.Shop }; X := 1"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            // The block itself sits above the pinned consumer, so nothing is
+            // gained by writing the provider on a line of its own further down.
+            expect(operations).toHaveLength(2);
+            expect(operations[0].kind).toBe("insert");
+            expect(operations[0].position).toEqual({ line: 0, character: 0 });
+            expect(operations[0].text).toBe("using { /A }\nusing { Features }\n");
+            expect(operations[1].range).toEqual({ start: { line: 0, character: 0 }, end: { line: 1, character: 0 } });
+        });
+
+        it("keeps both copies of a path written on either side of the pinned line", async () => {
+            mockConfig(consolidating);
+            const input = ["using { Economy.Shop }", "using { Features }; X := 1", "using { Economy.Shop }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
+
+            expect(success).toBe(true);
+            // Grounding is keyed on the path: hoisting the copy above the
+            // pinned line while the block declines to re-emit the path would
+            // delete the one line that had to keep it.
+            const operations = appliedOperations(0);
+            expect(operations).toHaveLength(1);
+            expect(operations[0].kind).toBe("insert");
+            expect(operations[0].text).toBe("using { /Fortnite.com/Devices }\n");
+        });
+
+        it("splits the delete around a grounded import rather than taking its line with the block", async () => {
+            mockConfig(consolidating);
+            const input = ["using { Features }; MyVal := 5", "using { /A }", "using { Economy.Shop }", "using { /B }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+
+            const insert = operations.find((op) => op.kind === "insert");
+            expect(insert!.text).toBe("using { /A }\nusing { /B }\nusing { /Fortnite.com/Devices }\n");
+
+            // One block, two runs: deleting it whole would take the grounded
+            // line with it while nothing re-emits that path, losing the import.
+            const deletes = operations.filter((op) => op.kind === "delete").sort((a, b) => a.range!.start.line - b.range!.start.line);
+            expect(deletes).toHaveLength(2);
+            expect(deletes[0].range).toEqual({ start: { line: 1, character: 0 }, end: { line: 2, character: 0 } });
+            expect(deletes[1].range).toEqual({ start: { line: 3, character: 0 }, end: { line: 4, character: 0 } });
+        });
+
+        it("grounds against a provider pinned by the comment it anchors, past the comment body", async () => {
+            mockConfig(consolidating);
+            const input = ["using { Features } <#> why this is here", "    it brings Economy into scope", "using { Economy.Shop }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            expect(operations).toHaveLength(1);
+            expect(operations[0].kind).toBe("insert");
+            expect(operations[0].text).toBe("using { /Fortnite.com/Devices }\n");
+        });
+
+        it("consolidates a file with nothing pinned exactly as before", async () => {
+            mockConfig(consolidating);
+            const input = ["using { /B }", "using { /A }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /C }"]);
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            expect(operations).toHaveLength(2);
+            expect(operations[0].kind).toBe("insert");
+            expect(operations[0].position).toEqual({ line: 0, character: 0 });
+            expect(operations[0].text).toBe("using { /A }\nusing { /B }\nusing { /C }\n");
+            expect(operations[1].kind).toBe("delete");
+            expect(operations[1].range).toEqual({ start: { line: 0, character: 0 }, end: { line: 2, character: 0 } });
+        });
+    });
 });
 
 describe("ImportDocumentEditor.ensureEmptyLinesAfterImports", () => {

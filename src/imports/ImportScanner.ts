@@ -374,10 +374,12 @@ export function classifyLines(lines: string[]): LineClassification[] {
  *   more than any one path can, so a writer rebuilding it deletes what it did
  *   not read. A pair opened after a definition is consumed and pinned too, by
  *   the reject path below, since the path it opens is imported all the same.
- *   Which pairs are admitted is one rule for all three, pairPathBelow: the
- *   path line carries content the classification accepts, and does not
- *   continue a comment the opener's own line began - under one it is comment
- *   text, and counting it as imported withholds an import the file needs.
+ *   None of the three admits a pair whose path line continues a comment the
+ *   opener's own line began - under one it is comment text, and counting it
+ *   as imported withholds an import the file needs. They part company on
+ *   content: a pair opened after a `using` keeps a path the classification
+ *   declines, because its entry is the only one spanning the path line and
+ *   dropping it would let a writer split the pair. See pairPathBelow.
  * - Content classification (module import vs local-scope using) is delegated
  *   to ImportFormatter.isModuleImport, passing `{ atFileScope: true }` since
  *   every candidate here already sits at column 0. So a bare identifier at
@@ -436,39 +438,48 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
     };
 
     // The path the indented pair opened on `opener` takes from the line below
-    // it, or "" when the line opens no pair this scan admits.
+    // it, or "" when the line opens no pair.
     //
-    // One home for the rule, because three branches below reach a pair - one
-    // for a pair opening its own line, one for a pair opened after a complete
-    // `using`, one for a pair opened after anything else. Answered per branch,
-    // the same content counted as an import on one written shape and not on
-    // the others, which is the state that hid a path being counted from inside
-    // a comment.
+    // One home for the comment rule, because all three branches that reach a
+    // pair need it and none of them can see it from where it is decided. A
+    // path line continuing a comment the opener's own line began,
+    // `using: <#>` or an unclosed `<#`, is comment text, and the file does not
+    // import it - counting it as present declines the diagnostic asking for
+    // it, and the import is never written.
     //
-    // Two things disqualify a pair. The path line may continue a comment the
-    // opener's own line began, `using: <#>` or an unclosed `<#`, which makes
-    // that path comment text: counting it as present declines the diagnostic
-    // asking for it, and the file never gets the import it needs. That is the
-    // test, and not the wider "the path line is live code": a line may hold
-    // both, `using: <#` over `note #> /A`, where the comment ends mid-line and
-    // code follows it. Declining there costs a duplicate import on a shape
-    // nothing writes, where admitting the `<#>` case withholds a needed one.
-    //
-    // And the content may be one isModuleImport declines, `Foo'Loc'` - the
-    // same classifier, asked the same way, as the gate applies to a pair
-    // opening its own line.
+    // That is the test, and not the wider "the path line is live code": a line
+    // may hold both, `using: <#` over `note #> /A`, where the comment ends
+    // mid-line and code follows it. Declining there costs a duplicate import
+    // on a shape nothing writes, where admitting the `<#>` case withholds a
+    // needed one.
     //
     // The opener always sits at column 0 outside any comment, since the loop
     // skips every other line before reaching a pair, so a comment continuing
     // onto the path line was opened by the opener itself.
-    const pairPathBelow = (opener: number): string => {
+    //
+    // @param classifyContent whether content isModuleImport declines, such as
+    //   the quoted segment suffix `Foo'Loc'`, disqualifies the pair. False for
+    //   a pair opened after a complete `using`, and only there: the statements
+    //   before its `;` are recorded against the opener line alone, so the pair
+    //   entry is the only one whose span reaches the path line, and declining
+    //   it lets a new relative import be written between the opener and the
+    //   path it opens - two lines that must stay adjacent to compile. The
+    //   comment rule above costs nothing there, because pinnedSpanEnd rebuilds
+    //   that reach from the comment structure itself; a content rule has
+    //   nothing to rebuild it from. Over-recording the path is the cheaper
+    //   error: the entry is pinned, so no writer rebuilds the line, and no
+    //   diagnostic asks for a path of this shape.
+    const pairPathBelow = (opener: number, classifyContent: boolean): string => {
         const pathLine = lines[opener + 1];
         if (pathLine === undefined || !/^\s+\S/.test(pathLine) || classifications[opener + 1].continuesCommentAbove) {
             return "";
         }
-        // Non-empty wherever the classification accepts it: it reads this same
-        // stripped content, and declines it when there is none.
-        return ImportFormatter.isModuleImport("using:", pathLine, { atFileScope: true }) ? ImportFormatter.stripTrailingComment(pathLine) : "";
+        if (classifyContent && !ImportFormatter.isModuleImport("using:", pathLine, { atFileScope: true })) {
+            return "";
+        }
+        // Empty where the line carries only a comment, which is no more a
+        // usable pair than a missing line is.
+        return ImportFormatter.stripTrailingComment(pathLine);
     };
 
     let i = 0;
@@ -542,7 +553,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
             // reason of its own: the span holds two lines, so a rebuild from
             // one path deletes the other line whatever the head of the first
             // one says.
-            const pairPath = /\busing\s*:\s*$/.test(statements) ? pairPathBelow(i) : "";
+            const pairPath = /\busing\s*:\s*$/.test(statements) ? pairPathBelow(i, true) : "";
             if (pairPath) {
                 imports.push({
                     path: pairPath,
@@ -570,7 +581,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
         // classifier. Asked anyway, so what a pair admits has one answer rather
         // than one this branch happens to agree with.
         if (/^using\s*:\s*$/.test(trimmed)) {
-            const pairPath = pairPathBelow(i);
+            const pairPath = pairPathBelow(i, true);
             if (pairPath) {
                 imports.push({
                     path: pairPath,
@@ -645,9 +656,15 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
             // past the gate above, so the trivia that gate refuses a
             // definition-headed line for rides along - `using { /A }; using: <#>`
             // arrives here with its `<#>` intact, commenting out the path line
-            // below it. pairPathBelow is what declines it, on the same terms
+            // below it. pairPathBelow is what declines that, on the same terms
             // every other branch gets.
-            const pairPath = pairPathBelow(i);
+            //
+            // Content is the one question this branch answers differently, and
+            // deliberately: the entry recorded here is the only one whose span
+            // reaches the path line, so declining on content unpins that line
+            // rather than merely leaving a path uncounted. See pairPathBelow's
+            // `classifyContent`.
+            const pairPath = pairPathBelow(i, false);
             if (!pairPath) {
                 // The `using:` opens nothing this scan admits, but the line
                 // still carries a statement this scanner cannot reproduce.
@@ -839,7 +856,9 @@ function usingPathsOnLine(formatter: ImportFormatter, code: string): string[] {
  * - A `using:` opening an indented pair is recognised at the end of its line
  *   rather than as the whole of it, since a statement can precede it there too.
  *   The pair is the one shape counted once, because its path is read here from
- *   the line below.
+ *   the line below. Neither rule scanModuleImports applies to a pair is applied
+ *   here: over-reporting a path only makes the caller decline to tidy, so a
+ *   path its opener comments out is offered rather than risk withholding one.
  *
  * Positions are not reported; a caller that needs them wants scanModuleImports.
  */

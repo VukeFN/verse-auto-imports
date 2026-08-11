@@ -351,14 +351,17 @@ describe("scanModuleImports", () => {
         ]);
     });
 
-    // The same content rule the other two readers of the pair shape apply: a
-    // quoted segment suffix is neither a path, nor dotted, nor a bare
-    // identifier, and both of them decline it. Recorded here alone, one written
-    // shape counted as an import while the same content in the other two did
-    // not.
-    it("applies the content rule to the path the pair opens", () => {
+    // Content is the one question this branch answers differently from the
+    // other two readers of the pair shape, and deliberately. The entry for the
+    // pair is the only one whose span reaches the path line - the statements
+    // before the `;` are recorded against the opener line alone - so declining
+    // a path the classification refuses unpins that line, and a new relative
+    // import is then written between the opener and the path it opens. The
+    // other two strand nothing by declining, and do.
+    it("keeps a content-declined path a pair opened after a using provides", () => {
         expect(scanModuleImports(["using { /A }; using:", "    Foo'Loc'", "code()"])).toEqual([
             { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "Foo'Loc'", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
         ]);
         expect(scanModuleImports(["using:", "    Foo'Loc'", "code()"])).toEqual([]);
         expect(scanModuleImports(["X := 1; using:", "    Foo'Loc'", "code()"])).toEqual([]);

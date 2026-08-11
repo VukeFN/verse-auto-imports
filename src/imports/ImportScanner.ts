@@ -69,24 +69,19 @@ interface LineScan {
     /** Whether the line carries any text outside a comment. */
     hasCode: boolean;
     /**
-     * The line with its comments removed. A statement is not required to open
-     * its line - one can follow a `;`, or the `#>` that closes a block comment
-     * - so a reader has to search the whole line, and searching the raw line
-     * reads a `using` written in trivia as the line's own statement.
-     *
      * Nothing is put in a removed comment's place, so text on either side of
      * one joins. That is what the field is for: a comment splicing a token
-     * apart, `us<##>ing { /A }`, rejoins into a `using` the search can find,
-     * and a missed `using` is the one error its callers cannot survive. Putting
-     * a space there instead loses that, and buys only
+     * apart, `us<##>ing { /A }`, rejoins into a `using` a search of the whole
+     * line can find, and a missed `using` is the one error its callers cannot
+     * survive. Putting a space there instead loses that, and buys only
      * `X := 1<# note #>using { /A }` - a shape two statements with nothing
      * between them do not compile as anyway.
      */
-    code: string;
+    codeWithoutComments: string;
     /**
-     * `code` with the contents of every `"` string replaced by spaces, so a
-     * `using` written as string text is not offered as a statement the line
-     * makes.
+     * `codeWithoutComments` with the contents of every `"` string replaced by
+     * spaces, so a `using` written as string text is not offered as a statement
+     * the line makes.
      *
      * Read this wherever a path is going to count as imported. The text of a
      * string is data, not a statement, and recording a path from it both
@@ -102,14 +97,15 @@ interface LineScan {
      * `using` cannot fit in one.
      *
      * Spaces rather than nothing, so the text on either side of a string does
-     * not join into a token neither side wrote. `code` removes comments without
-     * replacement on purpose, for the opposite reason; the two differ because a
-     * comment can splice a token apart and a string cannot.
+     * not join into a token neither side wrote. `codeWithoutComments` removes
+     * comments without replacement on purpose, for the opposite reason; the two
+     * differ because a comment can splice a token apart and a string cannot.
      *
-     * Equal to `code` on a line that ended inside an open literal or
-     * interpolation, which the second lexing pass reads with literal tracking
-     * off. Nothing there can be classified, so nothing is masked, and a `using`
-     * written in an unterminated string on such a line still counts as present.
+     * Equal to `codeWithoutComments` on a line that ended inside an open
+     * literal or interpolation, which the second lexing pass reads with literal
+     * tracking off. Nothing there can be classified, so nothing is masked, and
+     * a `using` written in an unterminated string on such a line still counts
+     * as present.
      */
     codeOutsideLiterals: string;
     /**
@@ -172,7 +168,7 @@ type LexFrame =
 function lexLine(line: string, depth: number, trackLiterals: boolean): LineScan | null {
     let nesting = depth;
     let hasCode = false;
-    let code = "";
+    let codeWithoutComments = "";
     let codeOutsideLiterals = "";
     let i = 0;
     // What is open at this point, innermost last, and empty at code scope. A
@@ -198,7 +194,7 @@ function lexLine(line: string, depth: number, trackLiterals: boolean): LineScan 
         }
 
         if (line.startsWith("<#>", i)) {
-            return { depth: nesting, hasCode, code, codeOutsideLiterals, opensIndentedComment: true };
+            return { depth: nesting, hasCode, codeWithoutComments, codeOutsideLiterals, opensIndentedComment: true };
         }
 
         const innermost = trackLiterals ? open[open.length - 1] : undefined;
@@ -209,7 +205,7 @@ function lexLine(line: string, depth: number, trackLiterals: boolean): LineScan 
         // pass ends at the first `#` on the line, which may sit further back
         // inside string text this pass has already read as content.
         if (line[i] === "#" && innermost?.kind !== "literal") {
-            return { depth: nesting, hasCode, code, codeOutsideLiterals, opensIndentedComment: false };
+            return { depth: nesting, hasCode, codeWithoutComments, codeOutsideLiterals, opensIndentedComment: false };
         }
 
         if (line.startsWith("<#", i)) {
@@ -224,7 +220,7 @@ function lexLine(line: string, depth: number, trackLiterals: boolean): LineScan 
             // as code. `\{` is the same rule, and is what keeps an escaped brace
             // from opening an interpolation.
             if (line[i] === "\\") {
-                code += line.slice(i, i + 2);
+                codeWithoutComments += line.slice(i, i + 2);
                 codeOutsideLiterals += innermost.quote === '"' ? "  " : line.slice(i, i + 2);
                 i += 2;
                 continue;
@@ -256,7 +252,7 @@ function lexLine(line: string, depth: number, trackLiterals: boolean): LineScan 
         if (!/\s/.test(line[i])) {
             hasCode = true;
         }
-        code += line[i];
+        codeWithoutComments += line[i];
         // Only a `"` string. A `'` opens a char literal here, but the same
         // character ends a path's quoted segment suffix, `Economy.Shop'Loc'`,
         // and masking that truncates the path to `Economy.Shop` - a different
@@ -266,7 +262,7 @@ function lexLine(line: string, depth: number, trackLiterals: boolean): LineScan 
         i += 1;
     }
 
-    return open.length === 0 ? { depth: nesting, hasCode, code, codeOutsideLiterals, opensIndentedComment: false } : null;
+    return open.length === 0 ? { depth: nesting, hasCode, codeWithoutComments, codeOutsideLiterals, opensIndentedComment: false } : null;
 }
 
 function indentWidth(line: string): number {
@@ -294,14 +290,14 @@ export interface LineClassification {
      */
     continuesCommentAbove: boolean;
     /**
-     * The line with its comments removed. Search the raw line instead and a
-     * `using` written in its trivia reads as the line's own statement.
+     * Search the raw line instead and a `using` written in its trivia reads as
+     * the line's own statement.
      */
-    code: string;
+    codeWithoutComments: string;
     /**
-     * `code` with every literal's contents masked. Read this, not `code`,
-     * wherever a path found on the line is going to count as imported; see
-     * LineScan.codeOutsideLiterals.
+     * `codeWithoutComments` with every literal's contents masked. Read this, not
+     * `codeWithoutComments`, wherever a path found on the line is going to count
+     * as imported; see LineScan.codeOutsideLiterals.
      */
     codeOutsideLiterals: string;
 }
@@ -345,7 +341,7 @@ export function classifyLines(lines: string[]): LineClassification[] {
             kind,
             insideBlockComment,
             continuesCommentAbove: insideBlockComment || insideIndentedComment,
-            code: scan.code,
+            codeWithoutComments: scan.codeWithoutComments,
             codeOutsideLiterals: scan.codeOutsideLiterals,
         };
 
@@ -450,12 +446,13 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
         }
 
         const trimmed = line.trim();
-        const code = classifications[i].code.trim();
-        // Every path recorded below is read from this rather than from `code`,
-        // because every one of them counts as imported. See
-        // LineScan.codeOutsideLiterals for what a path read out of string text
-        // costs. `code` still answers what text the line holds, which is a
-        // question about the whole line and not about its statements.
+        const codeWithoutComments = classifications[i].codeWithoutComments.trim();
+        // Every path recorded below is read from this rather than from
+        // `codeWithoutComments`, because every one of them counts as imported.
+        // See LineScan.codeOutsideLiterals for what a path read out of string
+        // text costs. `codeWithoutComments` still answers what text the line
+        // holds, which is a question about the whole line and not about its
+        // statements.
         const statements = classifications[i].codeOutsideLiterals.trim();
         const nextLine = i + 1 < lines.length ? lines[i + 1] : undefined;
 
@@ -642,7 +639,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
                 startLine: i,
                 endLine: i,
                 anchorsCommentBelow: anchorsCommentBelow(i, i),
-                rebuildLosesText: formatter.textAfterImport(code) !== "",
+                rebuildLosesText: formatter.textAfterImport(codeWithoutComments) !== "",
                 trailingComment: ImportFormatter.extractTrailingComment(trimmed),
             });
         }
@@ -750,9 +747,9 @@ function usingPathsOnLine(formatter: ImportFormatter, code: string): string[] {
  *   count while one sharing a line with comment trivia still does.
  * - The statement need not open its line - it can follow a `;`, the `#>` that
  *   closes a block comment, or closed inline trivia - so the whole line is
- *   searched. The line searched is the classifier's `code` rather than the raw
- *   text, or a `using { X }` written in a comment stands in for the line's own
- *   statement.
+ *   searched. The line searched is the classifier's `codeWithoutComments`
+ *   rather than the raw text, or a `using { X }` written in a comment stands in
+ *   for the line's own statement.
  * - A line contributes every `using` usingPathsOnLine finds on it, in written
  *   order, rather than the first.
  * - A `using:` opening an indented pair is recognised at the end of its line
@@ -768,12 +765,12 @@ export function allUsingPaths(lines: string[]): string[] {
     const paths: string[] = [];
 
     for (let i = 0; i < lines.length; i++) {
-        const { kind, code } = classifications[i];
+        const { kind, codeWithoutComments } = classifications[i];
         if (kind === "comment") {
             continue;
         }
 
-        const trimmed = code.trim();
+        const trimmed = codeWithoutComments.trim();
         paths.push(...usingPathsOnLine(formatter, trimmed));
 
         // A `using:` opening an indented pair carries no path of its own -

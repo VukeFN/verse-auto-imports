@@ -333,6 +333,40 @@ describe("scanModuleImports", () => {
         ]);
     });
 
+    // The opener's own marker makes the line below it comment text, so the path
+    // there is commented out and the file does not import it. Counting it as
+    // present declines the diagnostic asking for it, and the import is never
+    // written. Either marker, since their consequence is the same.
+    //
+    // The head classification refuses these lines for their trivia alone, so
+    // they reach the branch for a pair opened after a definition, which tests
+    // this. A complete `using` at the head of the line carries them past that
+    // gate and into this branch instead.
+    it("does not count a path the pair opener comments out", () => {
+        expect(scanModuleImports(["using { /A }; using: <#>", "    /Verse.org/Random", "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, rebuildLosesText: true, trailingComment: "<#>" },
+        ]);
+        expect(scanModuleImports(["using { /A }; using: <# note", "    /Verse.org/Random", "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, rebuildLosesText: true, trailingComment: "<# note" },
+        ]);
+    });
+
+    // Content is the one question this branch answers differently from the
+    // other two readers of the pair shape, and deliberately. The entry for the
+    // pair is the only one whose span reaches the path line - the statements
+    // before the `;` are recorded against the opener line alone - so declining
+    // a path the classification refuses unpins that line, and a new relative
+    // import is then written between the opener and the path it opens. The
+    // other two strand nothing by declining, and do.
+    it("keeps a content-declined path a pair opened after a using provides", () => {
+        expect(scanModuleImports(["using { /A }; using:", "    Foo'Loc'", "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "Foo'Loc'", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+        expect(scanModuleImports(["using:", "    Foo'Loc'", "code()"])).toEqual([]);
+        expect(scanModuleImports(["X := 1; using:", "    Foo'Loc'", "code()"])).toEqual([]);
+    });
+
     // This branch has first refusal, so a line ending in `using:` never reaches
     // the one that counts what a line writes. Reading only the head recorded
     // `/X` and the indented path and left `/Y` out - not data loss, since the

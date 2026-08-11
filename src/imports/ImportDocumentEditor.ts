@@ -465,6 +465,39 @@ export class ImportDocumentEditor {
     }
 
     /**
+     * Whether a block sits far enough down the file for `path` to join it
+     * without crossing a relative import written below it.
+     *
+     * The grouped writer picks its block by group identity, which is a question
+     * about a block's content and not about its position, so the block it picks
+     * can have another below it: a mixed block counts as neither group and is
+     * skipped over rather than ruled out. A relative path resolves its first
+     * segment against what the `using` statements above it brought into scope
+     * (ImportFormatter.resolvesAgainstScopeAbove), so a relative import further
+     * down may be the one it needs, and joining a block above that import stops
+     * the file compiling. Grouping yields, since a grouped file that no longer
+     * compiles is the worse of the two.
+     *
+     * Only the relative imports below count, and an absolute one below is
+     * knowingly let through. A grouped file writes one group above the other by
+     * definition, so under localFirst every digest import sits below the local
+     * group: reading an absolute import as a possible provider would refuse
+     * that group to every relative path and leave the strategy with nothing to
+     * do. The residual is real, and is not the same judgement pinnedBounds
+     * makes - a relative path can still land above an absolute import in a
+     * later block that could be bringing its first segment into scope, where a
+     * pinned absolute import of the same shape would have pushed it below.
+     * A pinned line cannot be moved or grouped, so nothing chose that order;
+     * the grouping strategy is the user choosing this one.
+     */
+    private blockKeepsRelativeOrder(importBlocks: ImportBlock[], blockIndex: number, path: string): boolean {
+        if (!this.formatter.resolvesAgainstScopeAbove(path)) {
+            return true;
+        }
+        return !importBlocks.some((block, index) => index > blockIndex && block.imports.some((imp) => this.formatter.resolvesAgainstScopeAbove(imp.path)));
+    }
+
+    /**
      * Writes a run of import statements on their own lines at `line`.
      *
      * One home for the end-of-document case, which every caller has to handle
@@ -702,11 +735,14 @@ export class ImportDocumentEditor {
                     }
                 }
 
-                // A block can only take a new import where the pinned imports
-                // leave room for it. Rebuilding a block writes the new
-                // statement at that block's lines, so which block absorbs a
-                // path is a placement decision like any other, and a block
-                // sitting above a pinned provider cannot make one.
+                // A block can only take a new import where both the pinned
+                // imports and the movable ones below it leave room for it.
+                // Rebuilding a block writes the new statement at that block's
+                // lines, so which block absorbs a path is a placement decision
+                // like any other, and a block sitting above a provider cannot
+                // make one. The two bounds count different imports, though:
+                // see blockKeepsRelativeOrder for why an absolute import in a
+                // later block is let through where a pinned one is not.
                 //
                 // Partitioned in one pass rather than filtered twice, so taken
                 // and unhandled are complements by construction: two filters
@@ -716,7 +752,10 @@ export class ImportDocumentEditor {
                     const taken: string[] = [];
                     const unhandled: string[] = [];
                     for (const path of paths) {
-                        const canTake = blockIndex >= 0 && this.blockIsWithin(importBlocks[blockIndex], this.pinnedBounds(pinned, classifications, path, diagnosticLinesByPath));
+                        const canTake =
+                            blockIndex >= 0 &&
+                            this.blockIsWithin(importBlocks[blockIndex], this.pinnedBounds(pinned, classifications, path, diagnosticLinesByPath)) &&
+                            this.blockKeepsRelativeOrder(importBlocks, blockIndex, path);
                         (canTake ? taken : unhandled).push(path);
                     }
                     return { taken, unhandled };
@@ -733,8 +772,9 @@ export class ImportDocumentEditor {
                     this.createBlockReplacementEdit(edit, document, importBlocks[localBlockIndex], local.taken, preferDotSyntax, sortAlphabetically, eol);
                 }
 
-                // Imports no block took: one with no matching block, and one a
-                // pinned import keeps out of the block it would have matched.
+                // Imports no block took: one with no matching block, and one
+                // its matching block cannot hold - because a pinned import
+                // keeps it out, or because a relative import below it does.
                 const unhandledPaths = [...digest.unhandled, ...local.unhandled];
 
                 if (unhandledPaths.length > 0) {

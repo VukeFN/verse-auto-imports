@@ -434,6 +434,15 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
             expect(editor.buildOrganizedContent(input, ["Economy.Other"], curlySorted)).toBe(["using { Features } <#> note", "    body", "using { Economy.Other }", "code()"].join("\n"));
         });
 
+        // A pinned dotted import is a possible provider like any other: it can
+        // bring the added path's first segment into scope. Organizing names no
+        // diagnostic, so nothing here can show it is the consumer instead, and
+        // the added path stays below it.
+        it("writes an added bare consumer below a pinned dotted import", () => {
+            const input = ["using { Economy.Shop } <#> note", "    body", "code()"].join("\n");
+            expect(editor.buildOrganizedContent(input, ["Features"], curlySorted)).toBe(["using { Economy.Shop } <#> note", "    body", "using { Features }", "code()"].join("\n"));
+        });
+
         // Only the paths the pinned import could provide are held back. An
         // absolute path needs nothing in scope, so the file is still organized
         // around what stays.
@@ -1692,6 +1701,27 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             expect(replace!.text).toBe("using { /Verse.org/Simulation }\nusing { Features }\n");
         });
 
+        // The span is two lines and the compiler reports an unresolved path on
+        // the path line, so the bound is the pinned import's end and not its
+        // start. Narrowed to the start, this file takes no ceiling and the
+        // provider is written below the statement that needs it.
+        it("takes the ceiling from a diagnostic on the second line of a pinned indented pair", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["using { Other }; using:", "    Economy.Shop", "using { /Verse.org/Simulation }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 1));
+
+            expect(success).toBe(true);
+            const insert = appliedOperations(0).find((op) => op.kind === "insert");
+            expect(insert).toBeDefined();
+            expect(insert!.position!.line).toBe(0);
+            expect(insert!.text).toBe("using { Features }\n\n");
+        });
+
         // A caller that names no diagnostic has to be read as evidence of
         // nothing, not as evidence for the override: the override is what
         // breaks a compiling file when it is wrong.
@@ -1798,6 +1828,29 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const deletes = operations.filter((op) => op.kind === "delete");
             expect(deletes).toHaveLength(1);
             expect(deletes[0].range).toEqual({ start: { line: 1, character: 0 }, end: { line: 2, character: 0 } });
+        });
+
+        // The same shape as the test below, with no diagnostic naming the
+        // pinned line. Nothing then shows the pinned dotted import is the
+        // consumer, and it may be what brings the new path's first segment into
+        // scope, so the new import is written below it rather than carried into
+        // the block that consolidates above it.
+        it("keeps a new import below the pinned dotted line when no diagnostic names it", async () => {
+            mockConfig(consolidating);
+            const input = ["using { /A }", "code()", "using { Economy.Shop }; X := 1", "more()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+
+            const top = operations.find((op) => op.kind === "insert" && op.position!.line === 0);
+            expect(top).toBeDefined();
+            expect(top!.text).toBe("using { /A }\n");
+
+            const below = operations.find((op) => op.kind === "insert" && op.text.includes("using { Features }"));
+            expect(below).toBeDefined();
+            expect(below!.position!.line).toBe(3);
         });
 
         it("still consolidates a new provider the pinned consumer below it may need", async () => {

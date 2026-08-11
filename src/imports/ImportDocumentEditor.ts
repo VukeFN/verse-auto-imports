@@ -312,12 +312,16 @@ export class ImportDocumentEditor {
      * This is the one place a newly added import is read as the provider rather
      * than the consumer, and it overrides the written order every other rule
      * here keeps. `diagnosticLines` is what licenses that override: a diagnostic
-     * reported inside this import's own statement is the compiler saying this
-     * import is the one that failed to resolve, so whatever is being added for
-     * it has to precede it. Form alone cannot say that. A pinned dotted import
-     * that already resolves is far commoner - the file compiled before the edit
-     * - and against one of those the new import is the consumer, which the
-     * written order keeps below it.
+     * reported on this import's own line is the compiler saying something there
+     * failed to resolve, so whatever is being added for it has to precede it.
+     * Form alone cannot say that. A pinned dotted import that already resolves
+     * is far commoner - the file compiled before the edit - and against one of
+     * those the new import is the consumer, which the written order keeps below
+     * it.
+     *
+     * A line, not a range, so an import pinned by a statement sharing its line
+     * still takes the override from a diagnostic about that other statement.
+     * Narrowing it needs a column, which ScannedImport does not carry.
      *
      * Still kept to a pinned dotted consumer and a new import that can supply a
      * first segment for it, because the override is only worth the risk that
@@ -642,9 +646,9 @@ export class ImportDocumentEditor {
                 logger.debug("ImportDocumentEditor", `New import needed: ${path}`);
                 newImportPaths.add(path);
 
-                const lines = diagnosticLinesByStatement?.get(imp);
-                if (lines?.length) {
-                    diagnosticLinesByPath.set(path, [...(diagnosticLinesByPath.get(path) ?? []), ...lines]);
+                const diagnosticLines = diagnosticLinesByStatement?.get(imp);
+                if (diagnosticLines?.length) {
+                    diagnosticLinesByPath.set(path, [...(diagnosticLinesByPath.get(path) ?? []), ...diagnosticLines]);
                 }
             }
         });

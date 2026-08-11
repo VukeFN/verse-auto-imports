@@ -1582,6 +1582,93 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         });
     });
 
+    // The grouped writer chooses its block by group identity, and a mixed block
+    // counts as neither group, so the pure block it settles on can have one
+    // below it holding a relative import the new import may be resolving
+    // through.
+    describe("grouped placement against a relative import written in a later block", () => {
+        it("digestFirst: keeps a new relative import out of the local group above a later relative import", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "digestFirst",
+            });
+            const input = ["using { Alpha }", "", "using { /Verse.org/Simulation }", "using { Beta.Gamma }", "", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Delta }"]);
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            // The local group at line 0 would have taken it, above Beta.Gamma.
+            expect(operations.some((op) => op.kind === "replace")).toBe(false);
+
+            const insert = operations.find((op) => op.kind === "insert");
+            expect(insert).toBeDefined();
+            expect(insert!.position!.line).toBe(4);
+            expect(insert!.text).toBe("using { Delta }\n");
+        });
+
+        it("localFirst: keeps a new relative import out of the local group above a later relative import", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "localFirst",
+            });
+            const input = ["using { Alpha }", "", "using { /Verse.org/Simulation }", "using { Beta.Gamma }", "", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Delta }"]);
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            expect(operations.some((op) => op.kind === "replace")).toBe(false);
+
+            const insert = operations.find((op) => op.kind === "insert");
+            expect(insert).toBeDefined();
+            expect(insert!.position!.line).toBe(4);
+            expect(insert!.text).toBe("using { Delta }\n");
+        });
+
+        it("still merges a new relative import into its group when every block below holds only absolute imports", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "localFirst",
+            });
+            const input = ["using { Alpha }", "", "using { /Verse.org/Simulation }", "", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Delta }"]);
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            // Nothing below can be providing for it, so the group still takes
+            // it rather than falling back to a standalone line.
+            expect(operations.some((op) => op.kind === "insert")).toBe(false);
+
+            const replace = operations.find((op) => op.kind === "replace");
+            expect(replace).toBeDefined();
+            expect(replace!.range!.start.line).toBe(0);
+            expect(replace!.text).toBe("using { Alpha }\nusing { Delta }\n");
+        });
+
+        it("still merges a new absolute import into the digest group above a later relative import", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "digestFirst",
+            });
+            const input = ["using { /Verse.org/Simulation }", "", "using { Alpha }", "using { Beta.Gamma }", "", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            // An absolute path needs nothing in scope above it, so a relative
+            // import below is not a provider it has to stay under.
+            expect(operations.some((op) => op.kind === "insert")).toBe(false);
+
+            const replace = operations.find((op) => op.kind === "replace");
+            expect(replace).toBeDefined();
+            expect(replace!.range!.start.line).toBe(0);
+            expect(replace!.text).toBe("using { /Fortnite.com/Devices }\nusing { /Verse.org/Simulation }\n");
+        });
+    });
+
     // The other reason an import stays on its line: another statement shares
     // the span, so rebuilding the line from the path alone would delete what
     // the author wrote beside it. It is out of every block for the same reason

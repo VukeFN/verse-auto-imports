@@ -105,11 +105,20 @@ export class CommandsHandler {
         await this.deps.moduleVisibilityWriter.makeModulePublic(request);
     }
 
-    async addSingleImport(document: vscode.TextDocument, importStatement: string): Promise<void> {
+    /**
+     * Adds one import statement to a document.
+     *
+     * @param diagnosticLine The 0-based line the diagnostic behind this import
+     *   was reported on, which decides whether a pinned import may be read as
+     *   the one that needs it. Optional because a caller that cannot name a
+     *   diagnostic must not imply it knows of one - placement then follows the
+     *   written order alone.
+     */
+    async addSingleImport(document: vscode.TextDocument, importStatement: string, diagnosticLine?: number): Promise<void> {
         // A false here means applyEdit was rejected - a stale document version
         // or a read-only file - and the document is unchanged. Reporting the
         // import as added would leave the only trace in the output channel.
-        const applied = await this.deps.importHandler.addImportsToDocument(document, [importStatement]);
+        const applied = await this.deps.importHandler.addImportsToDocument(document, [importStatement], diagnosticLine === undefined ? undefined : new Map([[importStatement, [diagnosticLine]]]));
 
         if (!applied) {
             logger.warn("CommandsHandler", `Failed to add import: ${importStatement}`);

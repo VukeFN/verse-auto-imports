@@ -157,6 +157,21 @@ export class DiagnosticsHandler {
                 const multiOptionStrategy = config.get<string>("behavior.multiOptionStrategy", "quickfix");
 
                 const autoImportSuggestions = new Set<string>();
+                // The line a diagnostic was reported on, kept beside the
+                // statement it asked for. Placement needs it to tell a pinned
+                // import that failed to resolve from one that merely looks as
+                // though it could (ImportDocumentEditor.couldResolveAgainst),
+                // and this loop is the last place it exists.
+                //
+                // Both go through one function so the set and the map cannot
+                // disagree about which statements were added: a statement in
+                // the set with no line placed as though no diagnostic asked for
+                // it, which is the reading this signal exists to correct.
+                const diagnosticLinesByStatement = new Map<string, number[]>();
+                const recordSuggestion = (statement: string, diagnostic: vscode.Diagnostic): void => {
+                    autoImportSuggestions.add(statement);
+                    diagnosticLinesByStatement.set(statement, [...(diagnosticLinesByStatement.get(statement) ?? []), diagnostic.range.start.line]);
+                };
                 let hasMultiOptionSuggestions = false;
 
                 for (const diagnostic of currentDiagnostics) {
@@ -173,7 +188,7 @@ export class DiagnosticsHandler {
                         if (multiOptionStrategy.startsWith("auto_")) {
                             const selectedSuggestion = this.selectBestSuggestion(suggestions, multiOptionStrategy);
                             if (selectedSuggestion && autoImportEnabled) {
-                                autoImportSuggestions.add(selectedSuggestion.importStatement);
+                                recordSuggestion(selectedSuggestion.importStatement, diagnostic);
                                 logger.debug("DiagnosticsHandler", `Auto-selected: ${selectedSuggestion.importStatement}`);
                             }
                         }
@@ -185,7 +200,7 @@ export class DiagnosticsHandler {
                     const suggestion = suggestions[0];
                     if (autoImportEnabled && suggestion.confidence === "high") {
                         logger.debug("DiagnosticsHandler", `Adding high-confidence import: ${suggestion.importStatement}`);
-                        autoImportSuggestions.add(suggestion.importStatement);
+                        recordSuggestion(suggestion.importStatement, diagnostic);
                     } else {
                         logger.debug("DiagnosticsHandler", `Low confidence or auto-import disabled - will use quick fix for: ${suggestion.importStatement}`);
                     }
@@ -209,7 +224,7 @@ export class DiagnosticsHandler {
                     // The edit is rejected when the document moved on between
                     // the read and the write, or when the file is read-only.
                     // Reporting the imports as applied hides that entirely.
-                    const applied = await this.importHandler.addImportsToDocument(document, Array.from(autoImportSuggestions));
+                    const applied = await this.importHandler.addImportsToDocument(document, Array.from(autoImportSuggestions), diagnosticLinesByStatement);
 
                     if (applied) {
                         vscode.window.setStatusBarMessage(`Auto-imported ${autoImportSuggestions.size} statements to ${displayName}`, 3000);

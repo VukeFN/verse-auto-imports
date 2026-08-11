@@ -146,7 +146,7 @@ function makeDocument(fsPath = "C:\\Project\\Content\\device.verse"): vscode.Tex
 describe("DiagnosticsHandler auto-import suppression", () => {
     beforeEach(() => {
         jest.useFakeTimers();
-        (vscode.languages.getDiagnostics as jest.Mock).mockReturnValue([{ message: "Unknown identifier `button_device`." }]);
+        (vscode.languages.getDiagnostics as jest.Mock).mockReturnValue([{ message: "Unknown identifier `button_device`.", range: { start: { line: 7 } } }]);
     });
 
     afterEach(() => {
@@ -194,7 +194,7 @@ describe("DiagnosticsHandler debounce keying", () => {
 
     beforeEach(() => {
         jest.useFakeTimers();
-        (vscode.languages.getDiagnostics as jest.Mock).mockReturnValue([{ message: "Unknown identifier `button_device`." }]);
+        (vscode.languages.getDiagnostics as jest.Mock).mockReturnValue([{ message: "Unknown identifier `button_device`.", range: { start: { line: 7 } } }]);
     });
 
     afterEach(() => {
@@ -256,7 +256,7 @@ describe("DiagnosticsHandler debounce keying", () => {
 describe("DiagnosticsHandler auto-import failure reporting", () => {
     beforeEach(() => {
         jest.useFakeTimers();
-        (vscode.languages.getDiagnostics as jest.Mock).mockReturnValue([{ message: "Unknown identifier `button_device`." }]);
+        (vscode.languages.getDiagnostics as jest.Mock).mockReturnValue([{ message: "Unknown identifier `button_device`.", range: { start: { line: 7 } } }]);
     });
 
     afterEach(() => {
@@ -300,7 +300,7 @@ describe("DiagnosticsHandler auto-import failure reporting", () => {
 describe("DiagnosticsHandler teardown", () => {
     beforeEach(() => {
         jest.useFakeTimers();
-        (vscode.languages.getDiagnostics as jest.Mock).mockReturnValue([{ message: "Unknown identifier `button_device`." }]);
+        (vscode.languages.getDiagnostics as jest.Mock).mockReturnValue([{ message: "Unknown identifier `button_device`.", range: { start: { line: 7 } } }]);
     });
 
     afterEach(() => {

@@ -1,4 +1,4 @@
-import { allUsingPaths, classifyLines, rewritableImports, scanConvertibleImports, scanModuleImports } from "../ImportScanner";
+import { allUsingPaths, classifyLines, indentedPairPathLine, rewritableImports, scanConvertibleImports, scanModuleImports } from "../ImportScanner";
 
 describe("allUsingPaths", () => {
     it("collects a file-scope import the same way scanModuleImports does", () => {
@@ -1025,5 +1025,73 @@ describe("classifyLines", () => {
         // The body affects `kind` only: what the import scanner sees through
         // insideBlockComment has to stay exactly what it saw before.
         expect(classifyLines(["<#> Notes", "    opens <#", "code()", "#>", "code()"]).map((classification) => classification.insideBlockComment)).toEqual([false, false, true, true, false]);
+    });
+});
+
+describe("indentedPairPathLine", () => {
+    const pathLine = (lines: string[], opener = 0) => indentedPairPathLine(classifyLines(lines), opener);
+
+    it("reads a using: ending a line that also writes statements as an opener", () => {
+        expect(pathLine(["X := 1; using { /A }; using:", "    /B"])).toBe(1);
+    });
+
+    it("reads a whole-line using: as one", () => {
+        expect(pathLine(["using:", "    /B"])).toBe(1);
+    });
+
+    // The path counts for nothing here; the ownership of the line is the whole
+    // question, and it is the shape no scan entry spans.
+    it("owns the path line whatever the path written on it holds", () => {
+        expect(pathLine(["X := 1; using { /A }; using:", "    Foo'Loc'"])).toBe(1);
+    });
+
+    // A comment after the opener defeats a `$` anchored on the raw line.
+    it("looks past a comment trailing the using:", () => {
+        expect(pathLine(["using: # note", "    /B"])).toBe(1);
+    });
+
+    // Neither a blank line nor a comment ends an indented block, at any
+    // indentation, so all of these lines are inside the pair and a statement
+    // written on one splits it.
+    it("looks past blank lines between the opener and its path", () => {
+        expect(pathLine(["using { /A }; using:", "", "", "    /B"])).toBe(3);
+    });
+
+    it("looks past a comment line indented into the pair", () => {
+        expect(pathLine(["using { /A }; using:", "    # note", "    /B"])).toBe(2);
+    });
+
+    it("looks past a comment written back at column 0", () => {
+        expect(pathLine(["using { /A }; using:", "# a note of its own", "    /B"])).toBe(2);
+    });
+
+    it("looks past a block comment opened inside the pair", () => {
+        expect(pathLine(["using { /A }; using: <#", "note #>", "    /B"])).toBe(2);
+    });
+
+    it("does not read a using: written inside a comment as an opener", () => {
+        expect(pathLine(["# see using:", "    /B"])).toBe(-1);
+    });
+
+    it("does not read a line that opens no pair as an opener", () => {
+        expect(pathLine(["using { /A }", "    /B"])).toBe(-1);
+    });
+
+    // The marker comments out everything indented past it, so the pair opens no
+    // code at all and there is no path line to own.
+    it("declines where a <#> marker on the opener comments the body out", () => {
+        expect(pathLine(["using { /A }; using: <#>", "    a comment body", "    /B"])).toBe(-1);
+    });
+
+    it("declines where the first line of code sits at column 0", () => {
+        expect(pathLine(["using:", "", "code()"])).toBe(-1);
+    });
+
+    it("declines an opener on the last line of the file", () => {
+        expect(pathLine(["using:"])).toBe(-1);
+    });
+
+    it("declines an opener followed only by blank lines", () => {
+        expect(pathLine(["using:", "", ""])).toBe(-1);
     });
 });

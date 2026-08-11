@@ -355,6 +355,54 @@ export function classifyLines(lines: string[]): LineClassification[] {
 }
 
 /**
+ * The line holding the path that the `using:` ending line `opener` opens, or
+ * `-1` where that line opens no pair.
+ *
+ * Nothing may be written between the two: the `using:` would be left with no
+ * indented body, and the path below it stranded as a bare indented expression.
+ * So this is the last line such an opener owns, and a caller placing a new
+ * statement has to clear it rather than the opener.
+ *
+ * The path is the first line of code below the opener rather than the line
+ * directly below it, because that is the body the compiler reads. Neither a
+ * blank line nor a comment ends an indented block, at any indentation - a
+ * comment written back at column 0 leaves the block open, and so does a block
+ * comment opened inside it. Only code ends it, and code at column 0 ends it
+ * without ever having been the body, so there the opener opens nothing.
+ *
+ * Asked of the classifications rather than the raw text, for the reason the
+ * scan's own tail tests are: a `using:` in a comment is trivia, and one a
+ * comment follows on the same line is still an opener.
+ *
+ * Says nothing about what the path line holds, deliberately. Whether the scan
+ * admits that path decides what counts as imported; it does not decide who owns
+ * the line, and a pair whose path the classification declines owns its line
+ * exactly as one it admits does.
+ *
+ * `-1` for a line that opens no pair, an opener the file ends on, and an
+ * `opener` past the end of the file.
+ */
+export function indentedPairPathLine(classifications: LineClassification[], opener: number): number {
+    if (classifications[opener] === undefined || !/\busing\s*:\s*$/.test(classifications[opener].codeOutsideLiterals.trim())) {
+        return -1;
+    }
+
+    for (let line = opener + 1; line < classifications.length; line++) {
+        const classification = classifications[line];
+        if (classification.kind !== "code") {
+            continue;
+        }
+        // Indentation read from the code, so a line closing a block comment
+        // ahead of its statement reads as indented. Harmless in both
+        // directions: were that statement really at column 0, the opener
+        // opened nothing and the file did not compile to begin with.
+        return /^\s/.test(classification.codeWithoutComments) ? line : -1;
+    }
+
+    return -1;
+}
+
+/**
  * Scans document lines for module imports. This is the single scanner behind
  * every import-editing operation so they all agree on what counts as an
  * import:

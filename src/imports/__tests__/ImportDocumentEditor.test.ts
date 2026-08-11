@@ -210,6 +210,53 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(["using { /A }; using:", "    Foo'Loc'", "using { Gadgets.Tools }", "code()"].join("\n"));
     });
 
+    // Where the opener line is definition-headed the pair is declined on
+    // content, so no entry spans the path line at all and the span above cannot
+    // be what holds the import out. The statement before the `;` is pinned to
+    // the opener line alone, and a floor taken from its own end leaves the path
+    // line free.
+    it("writes a new relative import below a pair a definition-headed line opens", () => {
+        const input = ["X := 1; using { /A }; using:", "    Foo'Loc'", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(["X := 1; using { /A }; using:", "    Foo'Loc'", "using { Gadgets.Tools }", "code()"].join("\n"));
+    });
+
+    // The compiler takes the pair's path from the first line of code below the
+    // opener, so a blank line between the two is inside the pair and not a gap
+    // after it.
+    it("writes a new relative import below a pair holding a blank line", () => {
+        const input = ["X := 1; using { /A }; using:", "", "    Foo'Loc'", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(["X := 1; using { /A }; using:", "", "    Foo'Loc'", "using { Gadgets.Tools }", "code()"].join("\n"));
+    });
+
+    // A comment does not end an indented block at any indentation, so one
+    // written back at column 0 is inside the pair rather than after it.
+    it("writes a new relative import below a pair holding a comment at column 0", () => {
+        const input = ["X := 1; using { /A }; using:", "# note", "    Foo'Loc'", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(["X := 1; using { /A }; using:", "# note", "    Foo'Loc'", "using { Gadgets.Tools }", "code()"].join("\n"));
+    });
+
+    // The opener opens a comment as well as a pair, so the rule that spans
+    // comments would carry the span past the only line carrying the `using:`.
+    // Asked in the other order the pair is never found and the import splits it.
+    it("writes a new relative import below a pair whose opener also opens a comment", () => {
+        const input = ["using { /A }; using: <#", "note #>", "    /B", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(["using { /A }; using: <#", "note #>", "    /B", "using { Gadgets.Tools }", "code()"].join("\n"));
+    });
+
+    it("writes a new relative import below a pair whose opener opens a comment over several lines", () => {
+        const input = ["X := 1; using { /A }; using: <#", "note", "#>", "    /B", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(["X := 1; using { /A }; using: <#", "note", "#>", "    /B", "using { Gadgets.Tools }", "code()"].join("\n"));
+    });
+
+    // Both halves of the span reach here: the pair carries it to the path line,
+    // and the comment that line opens carries it to the end of the comment.
+    it("writes a new relative import below a comment the pair's path line opens", () => {
+        const input = ["X := 1; using { /A }; using:", "    Foo'Loc' <#", "note", "#>", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(
+            ["X := 1; using { /A }; using:", "    Foo'Loc' <#", "note", "#>", "using { Gadgets.Tools }", "code()"].join("\n"),
+        );
+    });
+
     // A line writing two complete statements read as its first path alone, so
     // organizing rebuilt it as `using { /X }` and Economy.Shop was simply gone.
     // The output was a well-formed import block, which is what made the loss
@@ -1817,6 +1864,28 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const insert = appliedOperations(0).find((op) => op.kind === "insert");
             expect(insert).toBeDefined();
             expect(insert!.position!.line).toBe(0);
+            expect(insert!.text).toBe("using { Features }\n\n");
+        });
+
+        // The floor reaches past the pinned statement, because the `using:` at
+        // the end of its line owns the line below it and no entry of its own
+        // spans that line - the pair is declined on content. Taken from the
+        // statement's own end, the floor leaves the path line free and the
+        // import is written between the opener and the path it opens.
+        it("writes a new import below the pair a pinned definition-headed line opens", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["X := 1; using { /A }; using:", "    Foo'Loc'", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
+
+            expect(success).toBe(true);
+            const insert = appliedOperations(0).find((op) => op.kind === "insert");
+            expect(insert).toBeDefined();
+            expect(insert!.position!.line).toBe(2);
             expect(insert!.text).toBe("using { Features }\n\n");
         });
 

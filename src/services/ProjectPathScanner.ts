@@ -137,7 +137,11 @@ export class ProjectPathScanner {
         // it contains is dropped with it rather than losing the enclosing
         // segment from its path. Nothing is ever pushed above a skipped entry,
         // because every declaration under one is skipped before it can be.
-        const moduleStack: { name: string; indent: number; skipped: boolean }[] = [];
+        //
+        // `awaitingBrace` is true only between a module declaration that ended
+        // without opening a body and the next line considered, which is where
+        // its `{` may be.
+        const moduleStack: { name: string; indent: number; skipped: boolean; awaitingBrace: boolean }[] = [];
 
         // A declaration carries any number of stacked specifiers, of which at
         // most one is a visibility; the rest (<native>, <final>, ...) are noise
@@ -184,8 +188,10 @@ export class ProjectPathScanner {
         // how a next-line brace reaches a scan that sees one line at a time.
         // `>` holds parity with the two other spellings of this grammar,
         // ImportPathConverter.buildModuleDefinitionRegex and
-        // moduleDeclarations' MODULE_DECLARATION.
-        const modulePattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*module\s*(?:[:>{.]|$)/;
+        // moduleDeclarations' MODULE_DECLARATION. [3] captures which of them
+        // ended the keyword, and is undefined for the line end alone; the
+        // module stack needs that to know a body is still to open.
+        const modulePattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*module\s*(?:([:>{.])|$)/;
         const classPattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*class\s*(?:<[^>]+>)*\s*[\(:]?/;
         const structPattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*struct\s*(?:<[^>]+>)*\s*[\(:]?/;
         const interfacePattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*interface\s*(?:<[^>]+>)*\s*[\(:]?/;
@@ -212,10 +218,24 @@ export class ProjectPathScanner {
 
             const indent = indentOf(sourceLines[i], 0);
 
+            // A module whose body opens on a later line puts its `{` at the
+            // declaration's own indent, where the rule below would read it as a
+            // line that left the module and close it before its members are
+            // read. That brace opens the body, so it closes nothing. Verse lets
+            // blank lines and comments sit between the two, and those never
+            // reach here, so the wait ends at the next line this scan considers.
+            const openModule = moduleStack[moduleStack.length - 1];
+            const opensAwaitedBody = openModule?.awaitingBrace === true && line.startsWith("{");
+            if (openModule) {
+                openModule.awaitingBrace = false;
+            }
+
             // Indentation alone closes a module: a line at or left of the open
             // module's own indent is outside it.
-            while (moduleStack.length > 0 && indent <= moduleStack[moduleStack.length - 1].indent) {
-                moduleStack.pop();
+            if (!opensAwaitedBody) {
+                while (moduleStack.length > 0 && indent <= moduleStack[moduleStack.length - 1].indent) {
+                    moduleStack.pop();
+                }
             }
 
             // An import checks every path segment from the root, so anything
@@ -230,18 +250,19 @@ export class ProjectPathScanner {
 
             const moduleMatch = line.match(modulePattern);
             if (moduleMatch) {
-                const [, name, specifiers] = moduleMatch;
+                const [, name, specifiers, bodyTerminator] = moduleMatch;
                 const visibility = extractVisibility(specifiers);
                 const isPublic = visibility === "public";
+                const awaitingBrace = bodyTerminator === undefined;
 
                 const fullPath = currentModulePath ? `${currentModulePath}.${name}` : name;
 
                 if (shouldSkipDeclaration(visibility, true)) {
-                    moduleStack.push({ name: fullPath, indent, skipped: true });
+                    moduleStack.push({ name: fullPath, indent, skipped: true, awaitingBrace });
                     continue;
                 }
 
-                moduleStack.push({ name: fullPath, indent, skipped: false });
+                moduleStack.push({ name: fullPath, indent, skipped: false, awaitingBrace });
                 currentModulePath = fullPath;
 
                 nodes.push({

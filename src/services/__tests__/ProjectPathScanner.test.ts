@@ -53,15 +53,30 @@ describe("ProjectPathScanner.extractDeclarations module forms", () => {
         ]);
     });
 
-    it("leaves the members of a next-line brace module unnested", () => {
-        // Pins the limit rather than endorsing it: indentation alone closes a
-        // module, and the bare brace sits at the declaration's own indent, so
-        // it pops the module before the body is read.
+    it("nests the members of a next-line brace module", () => {
         const nested = declare("Inventory := module\n{\n    Item := class {}\n}\n");
         expect(nested.map((node) => [node.type, node.fullPath])).toEqual([
             ["module", "Inventory"],
-            ["class", "Item"],
+            ["class", "Inventory.Item"],
         ]);
+    });
+
+    it("closes a next-line brace module at its closing brace", () => {
+        const source = "Inventory := module\n{\n    Item := class {}\n}\nLoose := class {}\n";
+        expect(declare(source).map((node) => node.fullPath)).toEqual(["Inventory", "Inventory.Item", "Loose"]);
+    });
+
+    it("still waits for the brace across the blank lines and comments Verse allows before it", () => {
+        const source = "Inventory := module\n\n# opening below\n{\n    Item := class {}\n}\n";
+        expect(declare(source).map((node) => node.fullPath)).toEqual(["Inventory", "Inventory.Item"]);
+    });
+
+    it("closes a module whose declaration line opened no body and no brace followed", () => {
+        // Not valid Verse, so this pins degradation rather than a shape a user
+        // can compile: the wait lasts one line, so a module missing its body
+        // cannot swallow the rest of the file.
+        const source = "Inventory := module\nLoose := class {}\n";
+        expect(declare(source).map((node) => node.fullPath)).toEqual(["Inventory", "Loose"]);
     });
 
     it("keeps reading the visibility specifier attached to the name", () => {
@@ -109,6 +124,20 @@ describe("ProjectPathScanner.extractDeclarations module forms", () => {
 
     it("drops a skipped module's grandchildren too", () => {
         expect(declare("Systems<private> := module:\n    Inner<public> := module:\n        Deep<public> := class {}\n")).toEqual([]);
+    });
+
+    it("drops the subtree of a skipped module whose body opens on the next line", () => {
+        // The brace form reaches the skip through a different route than the
+        // colon form: the module has to survive its own opening brace before
+        // the skip can hold its subtree at all.
+        const source =
+            "Systems<scoped{ModuleA}> := module\n{\n    Inner<public> := module\n    {\n        Deep<public> := class {}\n    }\n}\nInventory<public> := module:\n    Item<public> := class {}\n";
+        expect(declare(source).map((node) => node.fullPath)).toEqual(["Inventory", "Inventory.Item"]);
+    });
+
+    it("nests a kept module's subtree through a next-line brace body", () => {
+        const source = "Systems<public> := module\n{\n    Inner<public> := module\n    {\n        Deep<public> := class {}\n    }\n}\nLoose<public> := class {}\n";
+        expect(declare(source).map((node) => node.fullPath)).toEqual(["Systems", "Systems.Inner", "Systems.Inner.Deep", "Loose"]);
     });
 
     it("records a sibling declared after a skipped module closes", () => {

@@ -137,17 +137,22 @@ function attachedCommentStart(importStartLine: number, classifications: LineClas
  * The two rules alternate rather than run in turn, because either can extend a
  * span the other then extends again: a pair's path line may itself open a
  * comment over the lines below it.
+ *
+ * The pair rule goes first, and that order is load-bearing. Each hop re-anchors
+ * on the new end, and only the opener line carries the `using:` - so where the
+ * opener also opens a comment, letting the comment rule run first steps the
+ * anchor past the opener and the pair is never found at all.
  */
 function pinnedSpanEnd(imp: ScannedImport, classifications: LineClassification[]): number {
     let end = imp.endLine;
     for (;;) {
-        if (end + 1 < classifications.length && classifications[end + 1].continuesCommentAbove) {
-            end++;
-            continue;
-        }
         const pathLine = indentedPairPathLine(classifications, end);
         if (pathLine > end) {
             end = pathLine;
+            continue;
+        }
+        if (end + 1 < classifications.length && classifications[end + 1].continuesCommentAbove) {
+            end++;
             continue;
         }
         return end;

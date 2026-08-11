@@ -235,6 +235,19 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(["X := 1; using { /A }; using:", "# note", "    Foo'Loc'", "using { Gadgets.Tools }", "code()"].join("\n"));
     });
 
+    // The opener opens a comment as well as a pair, so the rule that spans
+    // comments would carry the span past the only line carrying the `using:`.
+    // Asked in the other order the pair is never found and the import splits it.
+    it("writes a new relative import below a pair whose opener also opens a comment", () => {
+        const input = ["using { /A }; using: <#", "note #>", "    /B", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(["using { /A }; using: <#", "note #>", "    /B", "using { Gadgets.Tools }", "code()"].join("\n"));
+    });
+
+    it("writes a new relative import below a pair whose opener opens a comment over several lines", () => {
+        const input = ["X := 1; using { /A }; using: <#", "note", "#>", "    /B", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(["X := 1; using { /A }; using: <#", "note", "#>", "    /B", "using { Gadgets.Tools }", "code()"].join("\n"));
+    });
+
     // Both halves of the span reach here: the pair carries it to the path line,
     // and the comment that line opens carries it to the end of the comment.
     it("writes a new relative import below a comment the pair's path line opens", () => {

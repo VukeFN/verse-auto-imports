@@ -392,8 +392,10 @@ export function indentedPairPathLine(classifications: LineClassification[], open
         if (classification.kind !== "code") {
             continue;
         }
-        // Read from the code rather than the raw line, so a `#` sitting at
-        // column 0 does not make an indented statement look like one.
+        // Indentation read from the code, so a line closing a block comment
+        // ahead of its statement reads as indented. Harmless in both
+        // directions: were that statement really at column 0, the opener
+        // opened nothing and the file did not compile to begin with.
         return /^\s/.test(classification.codeWithoutComments) ? line : -1;
     }
 

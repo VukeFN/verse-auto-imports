@@ -355,12 +355,20 @@ export function classifyLines(lines: string[]): LineClassification[] {
 }
 
 /**
- * Whether the line at `opener` ends in a `using:` that opens an indented pair
- * over the line below it.
+ * The line holding the path that the `using:` ending line `opener` opens, or
+ * `-1` where that line opens no pair.
  *
- * The two lines have to stay adjacent to compile, so nothing may be written
- * between them: the `using:` would be left with no indented body, and the path
- * below it stranded as a bare indented expression.
+ * Nothing may be written between the two: the `using:` would be left with no
+ * indented body, and the path below it stranded as a bare indented expression.
+ * So this is the last line such an opener owns, and a caller placing a new
+ * statement has to clear it rather than the opener.
+ *
+ * The path is the next non-blank indented line rather than the line directly
+ * below, because the compiler reads the body that way: blank lines between the
+ * two do not end the pair, and neither does a comment line indented into it.
+ * A line at column 0 does end it, and so does one carrying a comment opened
+ * above it - there the pair is comment text, which is the comment rule's to
+ * span and not this one's.
  *
  * Asked of the classifications rather than the raw text, for the reason the
  * scan's own tail tests are: a `using:` in a comment is trivia, and one a
@@ -368,15 +376,30 @@ export function classifyLines(lines: string[]): LineClassification[] {
  *
  * Says nothing about what the path line holds, deliberately. Whether the scan
  * admits that path decides what counts as imported; it does not decide who owns
- * the line, and a pair whose path the classification declines owns the line
- * below it exactly as one it admits does.
+ * the line, and a pair whose path the classification declines owns its line
+ * exactly as one it admits does.
  */
-export function opensIndentedPair(classifications: LineClassification[], opener: number): boolean {
-    const below = classifications[opener + 1];
-    if (below === undefined || below.kind !== "code" || !/^\s/.test(below.codeWithoutComments)) {
-        return false;
+export function indentedPairPathLine(classifications: LineClassification[], opener: number): number {
+    if (!/\busing\s*:\s*$/.test(classifications[opener].codeOutsideLiterals.trim())) {
+        return -1;
     }
-    return /\busing\s*:\s*$/.test(classifications[opener].codeOutsideLiterals.trim());
+
+    for (let line = opener + 1; line < classifications.length; line++) {
+        const classification = classifications[line];
+        if (classification.kind === "blank") {
+            continue;
+        }
+        // Read from the code rather than the raw line, so the indent of a
+        // comment line is its own and not the `#`'s.
+        if (classification.continuesCommentAbove || !/^\s/.test(classification.codeWithoutComments)) {
+            return -1;
+        }
+        if (classification.kind === "code") {
+            return line;
+        }
+    }
+
+    return -1;
 }
 
 /**

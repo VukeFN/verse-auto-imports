@@ -220,6 +220,22 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(["X := 1; using { /A }; using:", "    Foo'Loc'", "using { Gadgets.Tools }", "code()"].join("\n"));
     });
 
+    // The compiler takes the pair's path from the next non-blank indented line,
+    // so a blank line between the two is inside the pair and not a gap after it.
+    it("writes a new relative import below a pair holding a blank line", () => {
+        const input = ["X := 1; using { /A }; using:", "", "    Foo'Loc'", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(["X := 1; using { /A }; using:", "", "    Foo'Loc'", "using { Gadgets.Tools }", "code()"].join("\n"));
+    });
+
+    // Both halves of the span reach here: the pair carries it to the path line,
+    // and the comment that line opens carries it to the end of the comment.
+    it("writes a new relative import below a comment the pair's path line opens", () => {
+        const input = ["X := 1; using { /A }; using:", "    Foo'Loc' <#", "note", "#>", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(
+            ["X := 1; using { /A }; using:", "    Foo'Loc' <#", "note", "#>", "using { Gadgets.Tools }", "code()"].join("\n"),
+        );
+    });
+
     // A line writing two complete statements read as its first path alone, so
     // organizing rebuilt it as `using { /X }` and Economy.Shop was simply gone.
     // The output was a well-formed import block, which is what made the loss

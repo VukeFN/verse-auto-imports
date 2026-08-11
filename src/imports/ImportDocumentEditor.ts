@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { logger } from "../utils";
 import { ImportFormatter } from "./ImportFormatter";
-import { allUsingPaths, classifyLines, LINE_SPLIT, LineClassification, opensIndentedPair, pinnedImports, rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
+import { allUsingPaths, classifyLines, indentedPairPathLine, LINE_SPLIT, LineClassification, pinnedImports, rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
 
 /**
  * A run of import statements on consecutive lines. Any gap starts a new block,
@@ -131,8 +131,8 @@ function attachedCommentStart(importStartLine: number, classifications: LineClas
  * An indented `using:` pair reaches past the statement the same way, and has to
  * be asked separately: the pair's own scan entry spans both lines, but a line
  * may write a complete `using` and then open a pair, and that statement's entry
- * ends on the opener. Reading the opener alone leaves the line below it free,
- * and a new import written there splits a pair that must stay adjacent.
+ * ends on the opener. Reading the opener alone leaves the path line free, and a
+ * new import written there splits a pair that must stay adjacent.
  *
  * The two rules alternate rather than run in turn, because either can extend a
  * span the other then extends again: a pair's path line may itself open a
@@ -145,8 +145,9 @@ function pinnedSpanEnd(imp: ScannedImport, classifications: LineClassification[]
             end++;
             continue;
         }
-        if (opensIndentedPair(classifications, end)) {
-            end++;
+        const pathLine = indentedPairPathLine(classifications, end);
+        if (pathLine > end) {
+            end = pathLine;
             continue;
         }
         return end;

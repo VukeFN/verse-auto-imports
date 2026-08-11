@@ -107,17 +107,16 @@ export class ImportSuggestionExtractor {
     }
 
     /**
-     * Splits a fully qualified name into the module path to import and the
-     * class name within it, or null when the name is not a dotted identifier
-     * chain or carries no module part at all.
-     *
      * The split normally falls before the last segment. An intermediate segment
      * that names a known asset class moves it earlier, since everything from
      * that class onward addresses members rather than modules.
      *
+     * Null when the name is not a dotted identifier chain, or carries no module
+     * part at all.
+     *
      * @param fullName e.g. "MyGame.UI.UI_Widget.ClassName"
      */
-    private findCorrectModulePath(fullName: string): { modulePath: string; className: string } | null {
+    private splitModulePathAndClass(fullName: string): { modulePath: string; className: string } | null {
         // "Did you mean" captures raw sentence text, so trailing punctuation
         // ("Economy.Shop.") or prose ("to use Bar.Baz instead?") reaches this
         // point, and splitting those produces a plausible-looking but wrong
@@ -176,7 +175,7 @@ export class ImportSuggestionExtractor {
             }
             // A fully qualified name, "Module.ClassName" or
             // "Module.AssetClass.Member".
-            const result = this.findCorrectModulePath(option);
+            const result = this.splitModulePathAndClass(option);
             if (result && result.modulePath) {
                 candidates.push({ path: result.modulePath, description: `${result.className} from ${result.modulePath}` });
             } else {
@@ -271,7 +270,7 @@ export class ImportSuggestionExtractor {
             return null;
         }
         const fullName = didYouMeanMatch[1].trim();
-        const result = this.findCorrectModulePath(fullName);
+        const result = this.splitModulePathAndClass(fullName);
         if (result && result.modulePath) {
             return { path: result.modulePath, description: `Inferred import for ${fullName}` };
         }

@@ -850,24 +850,24 @@ describe("classifyLines", () => {
     });
 
     it("keeps a # inside a string literal in the line's code", () => {
-        expect(classifyLines(['X := "a#b"; using { /A }'])[0].code).toBe('X := "a#b"; using { /A }');
+        expect(classifyLines(['X := "a#b"; using { /A }'])[0].codeWithoutComments).toBe('X := "a#b"; using { /A }');
     });
 
     it("keeps a # inside a char literal in the line's code", () => {
-        expect(classifyLines(["C := '#'; using { /A }"])[0].code).toBe("C := '#'; using { /A }");
+        expect(classifyLines(["C := '#'; using { /A }"])[0].codeWithoutComments).toBe("C := '#'; using { /A }");
     });
 
     // A block comment opened inside a string does not end the string:
     // "a<#c#>#b" is the string "a#b", so the `#` after the `#>` is content too.
     it("keeps a string open across a block comment written inside it", () => {
-        expect(classifyLines(['X := "a<#c#>#b"; using { /A }'])[0].code).toBe('X := "a#b"; using { /A }');
+        expect(classifyLines(['X := "a<#c#>#b"; using { /A }'])[0].codeWithoutComments).toBe('X := "a#b"; using { /A }');
     });
 
     // The quote opening a string inside an interpolation does not close the
     // string around it, so the `#` between them is still content and the code
     // keeps everything the line writes after the literal.
     it("keeps a # inside a string nested in an interpolation in the line's code", () => {
-        expect(classifyLines(['X := "a{F("#")}b"; using { /A }'])[0].code).toBe('X := "a{F("#")}b"; using { /A }');
+        expect(classifyLines(['X := "a{F("#")}b"; using { /A }'])[0].codeWithoutComments).toBe('X := "a{F("#")}b"; using { /A }');
     });
 
     it("marks only the lines a block comment was opened above", () => {

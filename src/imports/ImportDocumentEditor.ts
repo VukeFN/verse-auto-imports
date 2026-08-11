@@ -147,18 +147,21 @@ function pinnedSpanEnd(imp: ScannedImport, classifications: LineClassification[]
  * bound placement the same way, for the same reason: the line stays put, so
  * whichever of the two put it there changes nothing about what may cross it.
  *
- * Both bounds read the ranks selectTargetBlockIndex compares, so pinned and
- * blocked imports cannot disagree about what precedes what:
+ * Both bounds ask what selectTargetBlockIndex asks, so pinned and blocked
+ * imports cannot disagree about what precedes what:
  *
- * - `floor` - the last line owned by the lowest pinned import that belongs
- *   above the new one (belongsAbove). The new import goes below it.
+ * - `floor` - the last line owned by the lowest pinned import, where the new
+ *   path resolves against what is in scope above it
+ *   (ImportFormatter.resolvesAgainstScopeAbove). Any of them can be bringing
+ *   its first segment into scope, so it goes below all of them. An absolute
+ *   path needs nothing above it and is unconstrained.
  * - `ceiling` - the first line of the highest pinned import that could be
  *   resolving against the new one (couldResolveAgainst). The new import goes
  *   directly above it.
  *
- * The two predicates are deliberately not mirror images: see
- * couldResolveAgainst for why an upper bound here has to be a scope
- * requirement rather than the ordering preference belongsBelow also captures.
+ * The two are deliberately not mirror images: the floor is what every rule
+ * here keeps, and the ceiling is the one documented override of it. See
+ * couldResolveAgainst, and placementLine for which wins.
  *
  * `-1` means unconstrained in that direction.
  */
@@ -263,68 +266,30 @@ export class ImportDocumentEditor {
 
     /**
      * Chooses which existing import block a new path must be merged into so the
-     * rank ordering holds across the whole file rather than only inside one
-     * block.
+     * ordering holds across the whole file rather than only inside one block.
      *
-     * createBlockReplacementEdit rank-sorts the block it rewrites, so it orders
-     * a provider above its consumer only while both sit in that same block. Any
-     * blank line between imports starts a second block, so always merging into
+     * createBlockReplacementEdit sorts the block it rewrites, so it keeps a new
+     * import below a provider only while both sit in that same block. Any blank
+     * line between imports starts a second block, so always merging into
      * `importBlocks[0]` could place a new `using { Economy.Shop }` above the
      * `using { Features }` that brings `Economy` into scope - the breakage the
-     * rank sort exists to prevent.
+     * sort exists to prevent.
      *
-     * Two bounds decide the block, read from the same ranks sortImportsByRank
-     * compares:
-     * - the last block holding an import that belongs above the new one: a
-     *   lower rank, or another bare reference, whose relative order is semantic
-     *   and which the sort likewise keeps ahead of a newly added one.
-     * - the first block holding an import the new one belongs above: a higher
-     *   rank. This is what keeps a bare provider above the dotted consumer it
-     *   was added for, even when that consumer is in an earlier block.
+     * The form of the new path decides it, the same question
+     * sortImportsByRank asks (ImportFormatter.resolvesAgainstScopeAbove):
+     * - a relative path goes in the last block, since every import already in
+     *   the file may be the one bringing its first segment into scope and the
+     *   sort will keep it below them there.
+     * - an absolute path goes in the first, since it needs nothing in scope and
+     *   no import has to precede it.
      *
-     * The lower bound wins where both apply, keeping the new import as high in
-     * the file as is safe, and the upper bound caps it where the two disagree.
-     * With no lower bound the first block is used, which is also where an
-     * absolute path belongs: it needs nothing in scope, so no import has to
-     * precede it.
+     * @param importBlocks The blocks the new path may go in, in document order.
+     *   Never empty - the caller drops a path with no eligible block before
+     *   asking. A block is never empty either, so holding an import is not a
+     *   condition to check.
      */
     private selectTargetBlockIndex(importBlocks: ImportBlock[], path: string): number {
-        const rank = this.formatter.importRank(path);
-
-        let lowerBound = -1;
-        let upperBound = -1;
-        importBlocks.forEach((block, index) => {
-            const ranks = block.imports.map((imp) => this.formatter.importRank(imp.path));
-            if (ranks.some((existing) => this.belongsAbove(existing, rank))) {
-                lowerBound = index;
-            }
-            if (upperBound === -1 && ranks.some((existing) => this.belongsBelow(existing, rank))) {
-                upperBound = index;
-            }
-        });
-
-        if (lowerBound === -1) {
-            return 0;
-        }
-        return upperBound !== -1 && upperBound < lowerBound ? upperBound : lowerBound;
-    }
-
-    /**
-     * Whether an existing import of rank `existing` belongs above a newly added
-     * import of rank `rank`.
-     *
-     * A lower rank always precedes a higher one, and two bare references keep
-     * their written order because it is semantic - a nested child must follow
-     * the parent providing it, and a newly added one has no claim to go first.
-     * See ImportFormatter.sortImportsByRank.
-     */
-    private belongsAbove(existing: number, rank: number): boolean {
-        return existing < rank || (existing === rank && rank === 1);
-    }
-
-    /** Whether an existing import of rank `existing` belongs below a newly added one of rank `rank`. */
-    private belongsBelow(existing: number, rank: number): boolean {
-        return existing > rank;
+        return this.formatter.resolvesAgainstScopeAbove(path) ? importBlocks.length - 1 : 0;
     }
 
     /**
@@ -332,19 +297,18 @@ export class ImportDocumentEditor {
      * a newly added import of rank `rank`, which is what forces the new one
      * above it rather than merely preferring it there.
      *
-     * Only a dotted path needs something in scope above it - its first segment.
-     * An absolute path needs nothing at all. A bare reference can need another
-     * bare one, a nested child its parent, but a newly added import has no
-     * claim to be that parent: belongsAbove already keeps a new bare import
-     * below the existing ones, so raising an upper bound from a bare import
-     * would only contradict the lower bound it raises anyway.
+     * This is the one place a newly added import is read as the provider rather
+     * than the consumer, and it deliberately overrides the written order every
+     * other rule here keeps: the import is being added because a diagnostic
+     * asked for it, and a pinned dotted import whose first segment is missing
+     * is a diagnostic the extension cannot tell from any other. Placing the new
+     * import below it would decline to fix the one file this case exists for.
      *
-     * Narrower than belongsBelow on purpose. Preference is the right strength
-     * in selectTargetBlockIndex, where the consequence of an upper bound is
-     * merging into an earlier block - always a legal place for the import.
-     * Here the consequence is refusing every block and writing a standalone
-     * line, so applying a preference at that strength fragments a file into
-     * import regions to satisfy nothing.
+     * Kept to a pinned dotted consumer and a new import that can supply a first
+     * segment for it, because the override is only worth the risk that narrowly.
+     * The consequence of an upper bound here is refusing every block and writing
+     * a standalone line, so widening it fragments a file into import regions to
+     * satisfy nothing.
      */
     private couldResolveAgainst(existing: number, rank: number): boolean {
         return existing === 2 && rank < 2;
@@ -356,19 +320,25 @@ export class ImportDocumentEditor {
      *
      * Position is the whole question, not the presence of such an import. The
      * block is written above every pinned line, so an import already above
-     * every pinned one that must precede it lands in the same relation to them
-     * afterwards and can be sorted freely; one written below such a line would
-     * cross it, and a `using` that crosses the import bringing its first
-     * segment into scope stops resolving. Holding back an import that was never
-     * at risk would leave a file the sort could have repaired unrepaired.
+     * every pinned one lands in the same relation to them afterwards and can be
+     * sorted freely; one written below a pinned line would cross it, and a
+     * `using` that crosses the import bringing its first segment into scope
+     * stops resolving. Holding back an import that was never at risk would
+     * leave a file the sort could have repaired unrepaired.
+     *
+     * Every pinned import above counts, whatever its form: any of them can be
+     * the one bringing that first segment into scope
+     * (ImportFormatter.resolvesAgainstScopeAbove).
      *
      * A pinned import never constrains its own path: nothing needs itself in
      * scope, and the duplicate of a pinned path the withhold rules deliberately
      * keep would be stranded in the body rather than organized.
      */
     private crossesPinnedProvider(pinned: ScannedImport[], imp: ScannedImport): boolean {
-        const rank = this.formatter.importRank(imp.path);
-        return pinned.some((other) => other.path !== imp.path && other.startLine < imp.startLine && this.belongsAbove(this.formatter.importRank(other.path), rank));
+        if (!this.formatter.resolvesAgainstScopeAbove(imp.path)) {
+            return false;
+        }
+        return pinned.some((other) => other.path !== imp.path && other.startLine < imp.startLine);
     }
 
     /**
@@ -377,12 +347,11 @@ export class ImportDocumentEditor {
      * import that must precede it both rules the block out and names the line
      * the path is written below instead.
      *
-     * The floor is pinnedBounds', from the same belongsAbove, so a rebuilt
-     * block and a singly added import read one rule rather than two. Only the
-     * floor: the ceiling pinnedBounds returns with it answers a question this
-     * caller has already answered, since a block above every pinned line, and a
-     * path written directly below this floor, both precede every pinned import
-     * further down.
+     * The floor is pinnedBounds', so a rebuilt block and a singly added import
+     * read one rule rather than two. Only the floor: the ceiling pinnedBounds
+     * returns with it answers a question this caller has already answered,
+     * since a block above every pinned line, and a path written directly below
+     * this floor, both precede every pinned import further down.
      *
      * Exempts the path from itself for the reason crossesPinnedProvider does.
      */
@@ -400,15 +369,15 @@ export class ImportDocumentEditor {
      */
     private pinnedBounds(pinned: ScannedImport[], classifications: LineClassification[], path: string): PinnedBounds {
         const rank = this.formatter.importRank(path);
+        const needsScopeAbove = this.formatter.resolvesAgainstScopeAbove(path);
 
         let floor = -1;
         let ceiling = -1;
         for (const imp of pinned) {
-            const existing = this.formatter.importRank(imp.path);
-            if (this.belongsAbove(existing, rank)) {
+            if (needsScopeAbove) {
                 floor = Math.max(floor, pinnedSpanEnd(imp, classifications));
             }
-            if (this.couldResolveAgainst(existing, rank)) {
+            if (this.couldResolveAgainst(this.formatter.importRank(imp.path), rank)) {
                 ceiling = ceiling === -1 ? imp.startLine : Math.min(ceiling, imp.startLine);
             }
         }
@@ -424,16 +393,13 @@ export class ImportDocumentEditor {
      * Both halves matter:
      *
      * - The ceiling wins over the floor. Only couldResolveAgainst raises one,
-     *   so a ceiling is always a scope requirement - a pinned dotted import
-     *   whose first segment this new import is being added to provide. A floor
-     *   disagreeing with it is usually the rank-0-before-rank-1 preference,
-     *   raised by a pinned absolute path that brings nothing into scope, and
-     *   honouring a preference over a requirement writes the provider below its
-     *   consumer: the defect this whole path exists to prevent. The one
-     *   disagreement that is not a preference - a pinned bare parent below a
-     *   pinned dotted consumer - is a file where the consumer already sits
-     *   above the chain it resolves through, so no line satisfies both and
-     *   neither choice makes it compile.
+     *   and it is that predicate's deliberate override: the new import is read
+     *   as the provider a pinned dotted import is missing, so it goes above it.
+     *   The floor is the opposite reading of the same file - a pinned import
+     *   further down could be what the new import resolves through - and the
+     *   two cannot both be honoured. Honouring the floor leaves the diagnostic
+     *   that asked for the import unfixed, which is the case the override
+     *   exists for.
      * - Taken exactly, because the ceiling is the *lowest* legal line: the new
      *   import must precede that statement, so everything below the ceiling is
      *   ruled out and everything above it is merely further away. Landing
@@ -733,19 +699,18 @@ export class ImportDocumentEditor {
 
                     if (sortAlphabetically && importBlocks.length > 0) {
                         // Merge each new import into an existing block in place
-                        // so the combined block is rank-ordered (bare module
-                        // providers before the dotted consumers that depend on
-                        // them). Appending the new imports after the block
-                        // instead could place a provider such as
-                        // `using { Features }` below a consumer such as
-                        // `using { Economy.Shop }`, which breaks Verse's
-                        // top-down using resolution.
+                        // so the combined block is sorted as one, with the
+                        // absolute paths at the top and every relative import
+                        // in its written order. Appending the new imports after
+                        // the block instead would leave them below imports the
+                        // sort had already placed, in a second region the sort
+                        // never sees together.
                         //
                         // Which block each import joins is a whole-file
-                        // decision, not always the first one: rank-sorting one
-                        // block orders the new import against that block alone,
-                        // which leaves a consumer in another block free to sit
-                        // above its provider (see selectTargetBlockIndex).
+                        // decision, not always the first one: sorting one block
+                        // orders the new import against that block alone, which
+                        // leaves it free to sit above a provider in another
+                        // block (see selectTargetBlockIndex).
                         //
                         // Only a block inside the space the pinned imports
                         // leave is eligible, and the selector chooses among
@@ -962,9 +927,10 @@ export class ImportDocumentEditor {
         // Withholding it is only safe when no `using` in the file could resolve
         // against it. File scope governs what code can see, but a `using`
         // resolves its own path top-down: a path that is not absolute needs its
-        // first segment already in scope above it, which is why sorting ranks
-        // them (see ImportFormatter.sortImportsByRank). The anchored line ends
-        // up below the rebuilt block, so withholding the copy above it can
+        // first segment already in scope above it, which is why the sort leaves
+        // those in written order (see ImportFormatter.sortImportsByRank). The
+        // anchored line ends up below the rebuilt block, so withholding the
+        // copy above it can
         // strand such a path - in the block, or further down the body where
         // scanModuleImports does not even look, as in a module-definition body.
         //
@@ -974,7 +940,7 @@ export class ImportDocumentEditor {
         // copy being removed. A `using` that is not absolute blocks it whichever
         // meaning it carries - judging that needs the enclosing construct, and
         // guessing wrong is what deletes a provider. So the question asked is
-        // just the rank.
+        // just the path's form.
         //
         // extraPaths joins the question because those paths are written into the
         // block too. They keep their own unconditional filter above: suppressing
@@ -985,7 +951,7 @@ export class ImportDocumentEditor {
         // `using` anywhere, a local-scope one included. That is the safe
         // direction: the duplicate left behind is legal Verse, and a stranded
         // provider is a file that stops compiling.
-        const withholdIsSafe = [...allUsingPaths(lines), ...extraPaths].every((path) => this.formatter.importRank(path) === 0);
+        const withholdIsSafe = [...allUsingPaths(lines), ...extraPaths].every((path) => !this.formatter.resolvesAgainstScopeAbove(path));
         const blockImports = withholdIsSafe ? hoistableImports.filter((imp) => !pinnedPaths.has(imp.path)) : hoistableImports;
 
         const paths = blockImports.map((imp) => imp.path);

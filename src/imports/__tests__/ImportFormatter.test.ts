@@ -234,20 +234,28 @@ describe("ImportFormatter.sortImportsByRank", () => {
         formatter = new ImportFormatter();
     });
 
-    it("orders absolute paths before bare identifiers before dotted references", () => {
-        expect(formatter.sortImportsByRank(["Economy.Shop", "/Verse.org/Simulation", "Features"])).toEqual(["/Verse.org/Simulation", "Features", "Economy.Shop"]);
+    it("orders absolute paths before relative ones, which keep their written order", () => {
+        expect(formatter.sortImportsByRank(["Economy.Shop", "/Verse.org/Simulation", "Features"])).toEqual(["/Verse.org/Simulation", "Economy.Shop", "Features"]);
     });
 
     it("keeps bare identifiers in their original input order", () => {
-        expect(formatter.sortImportsByRank(["Zeta", "Economy.Shop", "Alpha"])).toEqual(["Zeta", "Alpha", "Economy.Shop"]);
+        expect(formatter.sortImportsByRank(["Zeta", "Economy.Shop", "Alpha"])).toEqual(["Zeta", "Economy.Shop", "Alpha"]);
     });
 
     it("alphabetizes absolute paths among themselves", () => {
         expect(formatter.sortImportsByRank(["/Verse.org/Simulation", "/Fortnite.com/Devices"])).toEqual(["/Fortnite.com/Devices", "/Verse.org/Simulation"]);
     });
 
-    it("alphabetizes dotted references among themselves", () => {
-        expect(formatter.sortImportsByRank(["Systems.Economy", "Features.Economy"])).toEqual(["Features.Economy", "Systems.Economy"]);
+    it("keeps dotted references in their written order rather than alphabetizing them", () => {
+        expect(formatter.sortImportsByRank(["Systems.Economy", "Features.Economy"])).toEqual(["Systems.Economy", "Features.Economy"]);
+    });
+
+    // A dotted import brings the module it names into scope, so a bare import
+    // written below it can be resolving through it - `Weapons` nested inside
+    // the `Inventory` that `GameSystems.Inventory` imports. Sinking the dotted
+    // one below the bare one turns a compiling file into one that does not.
+    it("keeps a dotted import above the bare import written below it", () => {
+        expect(formatter.sortImportsByRank(["GameSystems.Inventory", "Weapons"])).toEqual(["GameSystems.Inventory", "Weapons"]);
     });
 });
 
@@ -258,14 +266,14 @@ describe("ImportFormatter.groupAndFormatImports", () => {
         formatter = new ImportFormatter();
     });
 
-    it("digestFirst with sorting: local group orders the bare import before the dotted import that depends on it", () => {
+    it("digestFirst with sorting: local group keeps its imports in written order", () => {
         const result = formatter.groupAndFormatImports(["/Verse.org/Simulation", "Economy.Shop", "Features"], false, true, "digestFirst");
-        expect(result).toEqual(["using { /Verse.org/Simulation }", "", "using { Features }", "using { Economy.Shop }"]);
+        expect(result).toEqual(["using { /Verse.org/Simulation }", "", "using { Economy.Shop }", "using { Features }"]);
     });
 
-    it("grouping none with sorting: absolute paths first (alpha), then bare (input order), then dotted (alpha)", () => {
+    it("grouping none with sorting: absolute paths first (alpha), then every relative one in input order", () => {
         const result = formatter.groupAndFormatImports(["Systems.Economy", "/Verse.org/Simulation", "Zeta", "/Fortnite.com/Devices", "Alpha", "Features.Economy"], false, true, "none");
-        expect(result).toEqual(["using { /Fortnite.com/Devices }", "using { /Verse.org/Simulation }", "using { Zeta }", "using { Alpha }", "using { Features.Economy }", "using { Systems.Economy }"]);
+        expect(result).toEqual(["using { /Fortnite.com/Devices }", "using { /Verse.org/Simulation }", "using { Systems.Economy }", "using { Zeta }", "using { Alpha }", "using { Features.Economy }"]);
     });
 
     it("grouping none without sorting: leaves the original order untouched", () => {
@@ -280,7 +288,7 @@ describe("ImportFormatter.groupAndFormatImports", () => {
 
     it("localFirst with sorting: local group precedes the digest group", () => {
         const result = formatter.groupAndFormatImports(["/Verse.org/Simulation", "Economy.Shop", "Features"], false, true, "localFirst");
-        expect(result).toEqual(["using { Features }", "using { Economy.Shop }", "", "using { /Verse.org/Simulation }"]);
+        expect(result).toEqual(["using { Economy.Shop }", "using { Features }", "", "using { /Verse.org/Simulation }"]);
     });
 
     // An out-of-enum value reaches here from a hand-edited settings.json, a case
@@ -295,6 +303,6 @@ describe("ImportFormatter.groupAndFormatImports", () => {
 
     it("an unrecognised grouping value still honours sorting", () => {
         const result = formatter.groupAndFormatImports(["Economy.Shop", "/Verse.org/Simulation", "Features"], false, true, "typo");
-        expect(result).toEqual(["using { /Verse.org/Simulation }", "using { Features }", "using { Economy.Shop }"]);
+        expect(result).toEqual(["using { /Verse.org/Simulation }", "using { Economy.Shop }", "using { Features }"]);
     });
 });

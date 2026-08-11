@@ -847,6 +847,17 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         expect(applyEditMock()).not.toHaveBeenCalled();
     });
 
+    // The same rejection, reaching the path through the pair the line opens
+    // rather than through a complete statement on it.
+    it("counts the path below a using: opened after a definition as already present", async () => {
+        const input = ["X := 1; using:", "    /Verse.org/Random", "", "code()"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Verse.org/Random }"]);
+
+        expect(success).toBe(true);
+        expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
     it("leaves a module-scoped using inside its module body during consolidation", async () => {
         (vscode.workspace.getConfiguration as jest.Mock).mockReturnValueOnce({
             get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => {

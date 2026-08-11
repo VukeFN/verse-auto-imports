@@ -346,11 +346,64 @@ describe("scanModuleImports", () => {
         ]);
     });
 
-    // A `using:` following something that is not a `using` writes no import
-    // this scanner may touch: isModuleImport rejects the line, so it is skipped
-    // whole and left exactly as written.
-    it("skips a using: opened after a statement that is not a using", () => {
-        expect(scanModuleImports(["X := 1; using:", "    Economy.Shop", "code()"])).toEqual([]);
+    // The classification rejects the line, and the reject path recorded only
+    // the complete statements it writes - a `using:` is not one of them, and
+    // the path it opens is on a line the scan skips. So nothing counted the
+    // path as present and a diagnostic asking for it wrote a second copy of an
+    // import the file already makes. `allUsingPaths` saw it throughout, so the
+    // line itself was never at risk.
+    it("records the path below a using: opened after a definition, pinned", () => {
+        expect(scanModuleImports(["X := 1; using:", "    Economy.Shop", "code()"])).toEqual([
+            { path: "Economy.Shop", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // Two lines the scanner cannot reproduce from one path, so the acceptance
+    // criterion is that both stay exactly as written.
+    it("offers no rewritable import for a pair opened after a definition", () => {
+        expect(rewritableImports(scanModuleImports(["X := 1; using:", "    Economy.Shop", "code()"]))).toEqual([]);
+    });
+
+    it("records every statement written before a pair opened after a definition", () => {
+        expect(scanModuleImports(["X := 1; using { /A }; using:", "    Economy.Shop", "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "Economy.Shop", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // Read from the line's code, as the branch for a pair opened after a
+    // `using` is: a comment after the opener defeats a `$` anchored on the raw
+    // line, and the path line keeps its own comment for a writer to put back.
+    it("records a pair opened after a definition when a comment trails the opener", () => {
+        expect(scanModuleImports(["X := 1; using: # note", "    Economy.Shop # why", "code()"])).toEqual([
+            { path: "Economy.Shop", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "# why" },
+        ]);
+    });
+
+    // The mirror error: this line ends in `using:` inside a comment, and
+    // reading that as an opener records the comment text below it as a path.
+    it("does not read a using: written in a comment after a definition as opening a pair", () => {
+        expect(scanModuleImports(["X := 1 <# note about using:", "    still comment", "#>", "code()"])).toEqual([]);
+    });
+
+    it("records nothing when a using: after a definition opens no indented path", () => {
+        expect(scanModuleImports(["X := 1; using:", "code()"])).toEqual([]);
+        expect(scanModuleImports(["X := 1; using:", "    # just a note", "code()"])).toEqual([]);
+    });
+
+    // Indented lines are skipped before the classification runs. A `using` in a
+    // module body is module-scoped, and counting it as present suppresses the
+    // file-level import the diagnostic asked for.
+    it("skips a pair opened after a definition inside a module body", () => {
+        expect(scanModuleImports(["MyModule := module:", "    X := 1; using:", "        Economy.Shop", "code()"])).toEqual([]);
+    });
+
+    // Content the classification declines reaches the reject path by the same
+    // rejection as a definition-headed line. Recording the pair without
+    // classifying it would admit this one too, which is a plain pair changing
+    // shape rather than the gap this closes.
+    it("leaves a plain pair whose content the classification declines skipped", () => {
+        expect(scanModuleImports(["using:", "    Foo'Loc'", "code()"])).toEqual([]);
     });
 
     // The classification reads a line from its head, so this one was rejected

@@ -372,8 +372,8 @@ export function classifyLines(lines: string[]): LineClassification[] {
  *   path line or lose its path. A pair opened after a `using` statement and a
  *   `;` is consumed as well, but pinned rather than rewritable: its span says
  *   more than any one path can, so a writer rebuilding it deletes what it did
- *   not read. A `using:` following anything that is not itself a `using` is
- *   not an import line at all and is skipped whole.
+ *   not read. A pair opened after a definition is consumed and pinned too, by
+ *   the reject path below, since the path it opens is imported all the same.
  * - Content classification (module import vs local-scope using) is delegated
  *   to ImportFormatter.isModuleImport, passing `{ atFileScope: true }` since
  *   every candidate here already sits at column 0. So a bare identifier at
@@ -384,9 +384,10 @@ export function classifyLines(lines: string[]): LineClassification[] {
  *   That classification reads the line from its head, so it rejects a line
  *   whose `using` follows a definition. Such a line is not skipped: every
  *   complete `using` statement it writes is recorded, pinned, because the path
- *   is imported and writing it again would duplicate it. A `using:` opening an
- *   indented pair is not one of them - the path below it stays unrecorded, as
- *   it is for any `using:` the classification rejects.
+ *   is imported and writing it again would duplicate it. The pair a `using:`
+ *   opens at the end of such a line is recorded with them, spanning both
+ *   lines, on the same ground - the path below it is imported, and the
+ *   classification would have admitted it had the `using:` headed the line.
  * - A path is only ever read from the line's statements, never from the text of
  *   a `"` string it writes. A `'` is not treated as opening literal text here,
  *   because it also closes a path's quoted segment suffix; see
@@ -483,6 +484,38 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
                     trailingComment: ImportFormatter.extractTrailingComment(trimmed),
                 });
             }
+
+            // The pair such a line opens, `X := 1; using:` over an indented
+            // path. The loop above records nothing for it - a `using:` writes
+            // no path of its own - and the path is on a line the scan skips,
+            // which is what left it uncounted.
+            //
+            // Classified by handing isModuleImport the `using:` itself and the
+            // line below, so this admits exactly the pairs it would admit had
+            // the `using:` headed its line. Recording the pair unclassified
+            // widens the plain pair too: content the classification declines,
+            // `using:` over `Foo'Loc'`, arrives here by that same rejection.
+            //
+            // Pinned like everything else the branch records, and for a second
+            // reason of its own: the span holds two lines, so a rebuild from
+            // one path deletes the other line whatever the head of the first
+            // one says.
+            const pairOpener = /\busing\s*:\s*$/.exec(statements);
+            if (pairOpener && nextLine !== undefined && /^\s+\S/.test(nextLine) && ImportFormatter.isModuleImport(pairOpener[0], nextLine, { atFileScope: true })) {
+                imports.push({
+                    // Non-empty: the classification reads this same stripped
+                    // content, and declines it when there is none.
+                    path: ImportFormatter.stripTrailingComment(nextLine),
+                    startLine: i,
+                    endLine: i + 1,
+                    anchorsCommentBelow: anchorsCommentBelow(i, i + 1),
+                    rebuildLosesText: true,
+                    trailingComment: ImportFormatter.extractTrailingComment(nextLine),
+                });
+                i += 2;
+                continue;
+            }
+
             i += 1;
             continue;
         }

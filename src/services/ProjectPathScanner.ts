@@ -135,14 +135,18 @@ export class ProjectPathScanner {
         let currentModulePath = "";
         const moduleStack: { name: string; indent: number }[] = [];
 
-        const visibilitySpecifiers = "public|protected|private|internal|scoped";
-
         // A declaration carries any number of stacked specifiers, of which at
         // most one is a visibility; the rest (<native>, <final>, ...) are noise
-        // to this scan.
+        // to this scan. The `\b[^>]*` tail lets an entry run past its keyword,
+        // which `scoped`'s module list needs; a visibility this fails to read is
+        // indistinguishable from none at all. A named scope alias is an ordinary
+        // identifier, so no keyword list reaches it and it still reads as none.
+        // Holds parity with moduleDeclarations' VISIBILITY_SPECIFIER.
+        const visibilitySpecifier = /<\s*(public|protected|private|internal|epic_internal|scoped)\b[^>]*>/;
+
         const extractVisibility = (specifiers: string | undefined): string | undefined => {
             if (!specifiers) return undefined;
-            const match = specifiers.match(new RegExp(`<(${visibilitySpecifiers})>`));
+            const match = specifiers.match(visibilitySpecifier);
             return match ? match[1] : undefined;
         };
 

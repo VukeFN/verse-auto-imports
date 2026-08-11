@@ -69,6 +69,47 @@ describe("ProjectPathScanner.extractDeclarations module forms", () => {
         expect(moduleNames("Hidden<private> := module {}\n")).toEqual([]);
     });
 
+    it("skips a module whose visibility entry runs past its keyword", () => {
+        expect(moduleNames("Systems<scoped{ModuleA, ModuleB}> := module {}\n")).toEqual([]);
+        expect(moduleNames("Systems<epic_internal> := module {}\n")).toEqual([]);
+        expect(moduleNames("Systems<final><scoped{ModuleA}> := module {}\n")).toEqual([]);
+    });
+
+    it("reads a visibility padded inside its brackets", () => {
+        const [declared] = declare("Inventory<  public  > := module {}\n");
+        expect(declared).toMatchObject({ name: "Inventory", type: "module", isPublic: true });
+    });
+
+    it("does not read a following specifier as the visibility entry's tail", () => {
+        const [declared] = declare("Inventory<public><native> := module {}\n");
+        expect(declared).toMatchObject({ name: "Inventory", type: "module", isPublic: true });
+    });
+
+    it("keeps a module carrying a named scope alias, which reads as no specifier", () => {
+        // Pins the limit rather than endorsing it: `SharedScope := scoped{A, B}`
+        // makes the specifier an ordinary identifier, indistinguishable from
+        // <final> or any other non-visibility attribute without resolving the
+        // alias, so the module is still offered as an import candidate that
+        // does not compile.
+        expect(moduleNames("Systems<SharedScope> := module {}\n")).toEqual(["Systems"]);
+        expect(moduleNames("Systems<scoped_X> := module {}\n")).toEqual(["Systems"]);
+    });
+
+    it("promotes a skipped module's descendants to file scope", () => {
+        // Pins the limit rather than endorsing it: a skipped module never
+        // reaches the module stack, so what it contains loses the enclosing
+        // segment from its path instead of being dropped alongside its parent.
+        // Every segment from the root has to be accessible for an import to
+        // compile, so the subtree is as unreachable as the parent. Long
+        // predates the specifiers this scan newly reads - <private> reads the
+        // same way.
+        const scoped = declare("Systems<scoped{ModuleA}> := module:\n    Inner<public> := module:\n");
+        expect(scoped.map((node) => node.fullPath)).toEqual(["Inner"]);
+
+        const priv = declare("Systems<private> := module:\n    Inner<public> := module:\n");
+        expect(priv.map((node) => node.fullPath)).toEqual(["Inner"]);
+    });
+
     it("does not read a keyword that merely starts with module as a declaration", () => {
         expect(moduleNames("Inventory := modulex\n")).toEqual([]);
     });

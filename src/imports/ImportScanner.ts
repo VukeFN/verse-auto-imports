@@ -459,16 +459,22 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
     //
     // @param classifyContent whether content isModuleImport declines, such as
     //   the quoted segment suffix `Foo'Loc'`, disqualifies the pair. False for
-    //   a pair opened after a complete `using`, and only there: the statements
-    //   before its `;` are recorded against the opener line alone, so the pair
-    //   entry is the only one whose span reaches the path line, and declining
-    //   it lets a new relative import be written between the opener and the
-    //   path it opens - two lines that must stay adjacent to compile. The
-    //   comment rule above costs nothing there, because pinnedSpanEnd rebuilds
-    //   that reach from the comment structure itself; a content rule has
-    //   nothing to rebuild it from. Over-recording the path is the cheaper
-    //   error: the entry is pinned, so no writer rebuilds the line, and no
-    //   diagnostic asks for a path of this shape.
+    //   a pair opened after a complete `using`: the statements before its `;`
+    //   are recorded against the opener line alone, so the pair entry is the
+    //   only one whose span reaches the path line, and declining it lets a new
+    //   relative import be written between the opener and the path it opens -
+    //   two lines that must stay adjacent to compile. The comment rule above
+    //   costs nothing there, because pinnedSpanEnd rebuilds that reach from the
+    //   comment structure itself; a content rule has nothing to rebuild it
+    //   from. Over-recording the path is the cheaper error: the entry is
+    //   pinned, so no writer rebuilds the line, and no diagnostic asks for a
+    //   path of this shape.
+    //
+    //   Not a property of that branch alone. A definition-headed line writing a
+    //   complete `using` before its pair, `X := 1; using { /A }; using:`,
+    //   strands the path line the same way and still classifies, as it always
+    //   has. That is a standing gap rather than one this parameter closes, and
+    //   narrowing it here would only move the hole.
     const pairPathBelow = (opener: number, classifyContent: boolean): string => {
         const pathLine = lines[opener + 1];
         if (pathLine === undefined || !/^\s+\S/.test(pathLine) || classifications[opener + 1].continuesCommentAbove) {
@@ -660,10 +666,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
             // every other branch gets.
             //
             // Content is the one question this branch answers differently, and
-            // deliberately: the entry recorded here is the only one whose span
-            // reaches the path line, so declining on content unpins that line
-            // rather than merely leaving a path uncounted. See pairPathBelow's
-            // `classifyContent`.
+            // deliberately; see pairPathBelow's `classifyContent`.
             const pairPath = pairPathBelow(i, false);
             if (!pairPath) {
                 // The `using:` opens nothing this scan admits, but the line

@@ -374,6 +374,10 @@ export function classifyLines(lines: string[]): LineClassification[] {
  *   more than any one path can, so a writer rebuilding it deletes what it did
  *   not read. A pair opened after a definition is consumed and pinned too, by
  *   the reject path below, since the path it opens is imported all the same.
+ *   Which pairs are admitted is one rule for all three, pairPathBelow: the
+ *   path line carries content the classification accepts, and does not
+ *   continue a comment the opener's own line began - under one it is comment
+ *   text, and counting it as imported withholds an import the file needs.
  * - Content classification (module import vs local-scope using) is delegated
  *   to ImportFormatter.isModuleImport, passing `{ atFileScope: true }` since
  *   every candidate here already sits at column 0. So a bare identifier at
@@ -388,9 +392,7 @@ export function classifyLines(lines: string[]): LineClassification[] {
  *   opens at the end of such a line is recorded with them, spanning both
  *   lines, on the same ground - the path below it is imported. That tail is
  *   read from the line's code, so a `using:` the classification refused only
- *   for the trivia after it opens a pair here as well; the path line must not
- *   continue a comment opened above it, or a `using: <#>` would count the
- *   comment text below it as an import.
+ *   for the trivia after it opens a pair here as well.
  * - A path is only ever read from the line's statements, never from the text of
  *   a `"` string it writes. A `'` is not treated as opening literal text here,
  *   because it also closes a path's quoted segment suffix; see
@@ -431,6 +433,42 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
             depth = scan.depth;
         }
         return depth > 0;
+    };
+
+    // The path the indented pair opened on `opener` takes from the line below
+    // it, or "" when the line opens no pair this scan admits.
+    //
+    // One home for the rule, because three branches below reach a pair - one
+    // for a pair opening its own line, one for a pair opened after a complete
+    // `using`, one for a pair opened after anything else. Answered per branch,
+    // the same content counted as an import on one written shape and not on
+    // the others, which is the state that hid a path being counted from inside
+    // a comment.
+    //
+    // Two things disqualify a pair. The path line may continue a comment the
+    // opener's own line began, `using: <#>` or an unclosed `<#`, which makes
+    // that path comment text: counting it as present declines the diagnostic
+    // asking for it, and the file never gets the import it needs. That is the
+    // test, and not the wider "the path line is live code": a line may hold
+    // both, `using: <#` over `note #> /A`, where the comment ends mid-line and
+    // code follows it. Declining there costs a duplicate import on a shape
+    // nothing writes, where admitting the `<#>` case withholds a needed one.
+    //
+    // And the content may be one isModuleImport declines, `Foo'Loc'` - the
+    // same classifier, asked the same way, as the gate applies to a pair
+    // opening its own line.
+    //
+    // The opener always sits at column 0 outside any comment, since the loop
+    // skips every other line before reaching a pair, so a comment continuing
+    // onto the path line was opened by the opener itself.
+    const pairPathBelow = (opener: number): string => {
+        const pathLine = lines[opener + 1];
+        if (pathLine === undefined || !/^\s+\S/.test(pathLine) || classifications[opener + 1].continuesCommentAbove) {
+            return "";
+        }
+        // Non-empty wherever the classification accepts it: it reads this same
+        // stripped content, and declines it when there is none.
+        return ImportFormatter.isModuleImport("using:", pathLine, { atFileScope: true }) ? ImportFormatter.stripTrailingComment(pathLine) : "";
     };
 
     let i = 0;
@@ -497,46 +535,22 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
             // `using:` does not hide it. That admits more than a
             // definition-headed line: the head classification refuses
             // `using: # note` and `using: <#>` for their trivia alone, and
-            // both arrive here. What separates them is whether the path line
-            // continues a comment opened above it - under one the opener's own
-            // line began, the path is comment text, and counting it as
-            // imported withholds an import the file really needs.
-            //
-            // That is the test, and not the wider "the path line is live
-            // code": a line may hold both, `using: <#` over `note #> /A`,
-            // where the comment ends mid-line and code follows it. Declining
-            // there costs a duplicate import on a shape nothing writes, where
-            // admitting the `<#>` case withholds a needed one.
-            //
-            // Content is classified by handing isModuleImport the `using:`
-            // itself and the line below, so a pair is admitted on the same
-            // content rule the plain-pair branch gets from the gate above.
-            // Recording it unclassified would admit `using:` over `Foo'Loc'`,
-            // which that rule declines. Neither this check nor the comment one
-            // is applied by the branch for a pair opened after a `using`,
-            // which reaches its pair through that gate instead.
+            // both arrive here. What each of them opens is pairPathBelow's
+            // question, asked the same way by every branch that reaches a pair.
             //
             // Pinned like everything else the branch records, and for a second
             // reason of its own: the span holds two lines, so a rebuild from
             // one path deletes the other line whatever the head of the first
             // one says.
-            const pairOpener = /\busing\s*:\s*$/.exec(statements);
-            if (
-                pairOpener &&
-                nextLine !== undefined &&
-                /^\s+\S/.test(nextLine) &&
-                !classifications[i + 1].continuesCommentAbove &&
-                ImportFormatter.isModuleImport(pairOpener[0], nextLine, { atFileScope: true })
-            ) {
+            const pairPath = /\busing\s*:\s*$/.test(statements) ? pairPathBelow(i) : "";
+            if (pairPath) {
                 imports.push({
-                    // Non-empty: the classification reads this same stripped
-                    // content, and declines it when there is none.
-                    path: ImportFormatter.stripTrailingComment(nextLine),
+                    path: pairPath,
                     startLine: i,
                     endLine: i + 1,
                     anchorsCommentBelow: anchorsCommentBelow(i, i + 1),
                     rebuildLosesText: true,
-                    trailingComment: ImportFormatter.extractTrailingComment(nextLine),
+                    trailingComment: ImportFormatter.extractTrailingComment(lines[i + 1]),
                 });
                 i += 2;
                 continue;
@@ -548,21 +562,26 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
 
         // Indented style: the path lives on the next line; consume both lines
         // as a single entry.
+        //
+        // Neither half of what pairPathBelow refuses can arrive here: reaching
+        // this branch needs the raw line to be `using:` and nothing else, which
+        // holds no marker to comment out the line below, and the gate above has
+        // already put that same line and the same one below it through the same
+        // classifier. Asked anyway, so what a pair admits has one answer rather
+        // than one this branch happens to agree with.
         if (/^using\s*:\s*$/.test(trimmed)) {
-            if (nextLine !== undefined && /^\s+\S/.test(nextLine)) {
-                const indentedPath = ImportFormatter.stripTrailingComment(nextLine);
-                if (indentedPath) {
-                    imports.push({
-                        path: indentedPath,
-                        startLine: i,
-                        endLine: i + 1,
-                        anchorsCommentBelow: anchorsCommentBelow(i, i + 1),
-                        rebuildLosesText: false,
-                        trailingComment: ImportFormatter.extractTrailingComment(nextLine),
-                    });
-                    i += 2;
-                    continue;
-                }
+            const pairPath = pairPathBelow(i);
+            if (pairPath) {
+                imports.push({
+                    path: pairPath,
+                    startLine: i,
+                    endLine: i + 1,
+                    anchorsCommentBelow: anchorsCommentBelow(i, i + 1),
+                    rebuildLosesText: false,
+                    trailingComment: ImportFormatter.extractTrailingComment(lines[i + 1]),
+                });
+                i += 2;
+                continue;
             }
             // `using:` without indented content is not a usable import; leave it alone
             i += 1;
@@ -622,23 +641,29 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
                 });
             }
 
-            const indentedPath = nextLine !== undefined && /^\s+\S/.test(nextLine) ? ImportFormatter.stripTrailingComment(nextLine) : "";
-            if (!indentedPath) {
-                // The `using:` opens nothing usable, but the line still carries
-                // a statement this scanner cannot reproduce. Falling through to
-                // the single-statement branch would rebuild the line and delete
-                // the `; using:`.
+            // A complete `using` at the head of the line is what carries it
+            // past the gate above, so the trivia that gate refuses a
+            // definition-headed line for rides along - `using { /A }; using: <#>`
+            // arrives here with its `<#>` intact, commenting out the path line
+            // below it. pairPathBelow is what declines it, on the same terms
+            // every other branch gets.
+            const pairPath = pairPathBelow(i);
+            if (!pairPath) {
+                // The `using:` opens nothing this scan admits, but the line
+                // still carries a statement this scanner cannot reproduce.
+                // Falling through to the single-statement branch would rebuild
+                // the line and delete the `; using:`.
                 i += 1;
                 continue;
             }
 
             imports.push({
-                path: indentedPath,
+                path: pairPath,
                 startLine: i,
                 endLine: i + 1,
                 anchorsCommentBelow: anchorsCommentBelow(i, i + 1),
                 rebuildLosesText: true,
-                trailingComment: ImportFormatter.extractTrailingComment(nextLine),
+                trailingComment: ImportFormatter.extractTrailingComment(lines[i + 1]),
             });
             i += 2;
             continue;

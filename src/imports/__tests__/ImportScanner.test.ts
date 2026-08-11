@@ -333,6 +333,37 @@ describe("scanModuleImports", () => {
         ]);
     });
 
+    // The opener's own marker makes the line below it comment text, so the path
+    // there is commented out and the file does not import it. Counting it as
+    // present declines the diagnostic asking for it, and the import is never
+    // written. Either marker, since their consequence is the same.
+    //
+    // The head classification refuses these lines for their trivia alone, so
+    // they reach the branch for a pair opened after a definition, which tests
+    // this. A complete `using` at the head of the line carries them past that
+    // gate and into this branch instead.
+    it("does not count a path the pair opener comments out", () => {
+        expect(scanModuleImports(["using { /A }; using: <#>", "    /Verse.org/Random", "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, rebuildLosesText: true, trailingComment: "<#>" },
+        ]);
+        expect(scanModuleImports(["using { /A }; using: <# note", "    /Verse.org/Random", "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, rebuildLosesText: true, trailingComment: "<# note" },
+        ]);
+    });
+
+    // The same content rule the other two readers of the pair shape apply: a
+    // quoted segment suffix is neither a path, nor dotted, nor a bare
+    // identifier, and both of them decline it. Recorded here alone, one written
+    // shape counted as an import while the same content in the other two did
+    // not.
+    it("applies the content rule to the path the pair opens", () => {
+        expect(scanModuleImports(["using { /A }; using:", "    Foo'Loc'", "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+        expect(scanModuleImports(["using:", "    Foo'Loc'", "code()"])).toEqual([]);
+        expect(scanModuleImports(["X := 1; using:", "    Foo'Loc'", "code()"])).toEqual([]);
+    });
+
     // This branch has first refusal, so a line ending in `using:` never reaches
     // the one that counts what a line writes. Reading only the head recorded
     // `/X` and the indented path and left `/Y` out - not data loss, since the

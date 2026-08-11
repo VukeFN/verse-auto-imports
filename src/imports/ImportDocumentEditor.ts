@@ -147,8 +147,9 @@ function pinnedSpanEnd(imp: ScannedImport, classifications: LineClassification[]
  * bound placement the same way, for the same reason: the line stays put, so
  * whichever of the two put it there changes nothing about what may cross it.
  *
- * Both bounds ask what selectTargetBlockIndex asks, so pinned and blocked
- * imports cannot disagree about what precedes what:
+ * The floor asks what selectTargetBlockIndex asks, so pinned and blocked
+ * imports cannot disagree about what precedes what. The ceiling is the one
+ * documented override of it, and no pinned import raises both:
  *
  * - `floor` - the last line owned by the lowest pinned import, where the new
  *   path resolves against what is in scope above it
@@ -157,11 +158,10 @@ function pinnedSpanEnd(imp: ScannedImport, classifications: LineClassification[]
  *   path needs nothing above it and is unconstrained.
  * - `ceiling` - the first line of the highest pinned import that could be
  *   resolving against the new one (couldResolveAgainst). The new import goes
- *   directly above it.
+ *   directly above it, and that import raises no floor: see pinnedBounds.
  *
- * The two are deliberately not mirror images: the floor is what every rule
- * here keeps, and the ceiling is the one documented override of it. See
- * couldResolveAgainst, and placementLine for which wins.
+ * See couldResolveAgainst for why the override exists, and placementLine for
+ * which bound wins where two pinned imports disagree.
  *
  * `-1` means unconstrained in that direction.
  */
@@ -374,11 +374,17 @@ export class ImportDocumentEditor {
         let floor = -1;
         let ceiling = -1;
         for (const imp of pinned) {
-            if (needsScopeAbove) {
-                floor = Math.max(floor, pinnedSpanEnd(imp, classifications));
-            }
+            // One pinned import raises one bound. Reading it as the consumer
+            // and as a possible provider at once would put the floor at or
+            // below the ceiling it raised, and blockIsWithin would then refuse
+            // every block - including one lying entirely above the ceiling,
+            // which satisfies the ceiling and the written order both.
             if (this.couldResolveAgainst(this.formatter.importRank(imp.path), rank)) {
                 ceiling = ceiling === -1 ? imp.startLine : Math.min(ceiling, imp.startLine);
+                continue;
+            }
+            if (needsScopeAbove) {
+                floor = Math.max(floor, pinnedSpanEnd(imp, classifications));
             }
         }
 
@@ -929,10 +935,10 @@ export class ImportDocumentEditor {
         // resolves its own path top-down: a path that is not absolute needs its
         // first segment already in scope above it, which is why the sort leaves
         // those in written order (see ImportFormatter.sortImportsByRank). The
-        // anchored line ends up below the rebuilt block, so withholding the
-        // copy above it can
-        // strand such a path - in the block, or further down the body where
-        // scanModuleImports does not even look, as in a module-definition body.
+        // anchored line ends up below the rebuilt block, so withholding the copy
+        // above it can strand such a path - in the block, or further down the
+        // body where scanModuleImports does not even look, as in a
+        // module-definition body.
         //
         // So this asks the whole file, every `using` at every indentation, and
         // withholds only where all of them are absolute. An absolute path needs

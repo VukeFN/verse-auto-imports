@@ -293,10 +293,12 @@ export class ImportFormatter {
      * reference, 2 for anything else (a dotted reference such as
      * `Economy.Shop`).
      *
-     * Only rank 0 decides a position, and resolvesAgainstScopeAbove is the
-     * question that reads it. Ranks 1 and 2 differ in form, not in placement:
-     * either can bring the scope the other resolves through, so neither belongs
-     * above the other.
+     * Ranks 1 and 2 differ in form, not in ordering: either can bring the scope
+     * the other resolves through, so neither belongs above the other. Which of
+     * the two a path is still decides one thing - whether a pinned import can
+     * be read as the consumer a newly added one was added for
+     * (ImportDocumentEditor.couldResolveAgainst). Everything else asks only
+     * whether the rank is 0, through resolvesAgainstScopeAbove.
      */
     importRank(path: string): number {
         if (path.startsWith("/")) {

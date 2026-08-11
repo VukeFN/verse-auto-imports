@@ -224,10 +224,12 @@ export class ProjectPathScanner {
             // read. That brace opens the body, so it closes nothing. Verse lets
             // blank lines and comments sit between the two, and those never
             // reach here, so the wait ends at the next line this scan considers.
-            const openModule = moduleStack[moduleStack.length - 1];
-            const opensAwaitedBody = openModule?.awaitingBrace === true && line.startsWith("{");
-            if (openModule) {
-                openModule.awaitingBrace = false;
+            // Read before the pop loop, so it may name a module that loop then
+            // closes; nothing below it may treat this as the open module.
+            const topBeforePop = moduleStack[moduleStack.length - 1];
+            const opensAwaitedBody = topBeforePop?.awaitingBrace === true && line.startsWith("{");
+            if (topBeforePop) {
+                topBeforePop.awaitingBrace = false;
             }
 
             // Indentation alone closes a module: a line at or left of the open

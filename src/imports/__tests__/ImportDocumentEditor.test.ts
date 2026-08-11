@@ -199,6 +199,17 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, [], curlySorted)).toBeNull();
     });
 
+    // A pair's two lines have to stay adjacent to compile, and the entry
+    // spanning both is the only thing holding a new import out from between
+    // them: the statement before the `;` is recorded against the opener line
+    // alone. So the pair is recorded even where its path is content the
+    // classification declines - the path counts for nothing, the span for
+    // everything. See ImportScanner's pairPathBelow.
+    it("writes a new relative import below a pair whose path the content rule declines", () => {
+        const input = ["using { /A }; using:", "    Foo'Loc'", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(["using { /A }; using:", "    Foo'Loc'", "using { Gadgets.Tools }", "code()"].join("\n"));
+    });
+
     // A line writing two complete statements read as its first path alone, so
     // organizing rebuilt it as `using { /X }` and Economy.Shop was simply gone.
     // The output was a well-formed import block, which is what made the loss

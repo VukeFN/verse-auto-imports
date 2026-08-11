@@ -174,6 +174,15 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, ["Economy.Shop"], curlySorted)).toBeNull();
     });
 
+    // Counting the pair after a definition as present is what makes this
+    // reachable: the movable copy is withheld rather than re-emitted, since the
+    // pinned pair below it already imports that path. The same answer the pair
+    // opened after a `using` gives for the same file.
+    it("withholds a movable duplicate of a path a pair after a definition provides", () => {
+        const input = ["using { /Verse.org/Random }", "X := 1; using:", "    /Verse.org/Random", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["X := 1; using:", "    /Verse.org/Random", "code()"].join("\n"));
+    });
+
     // A comment after the `using:` defeats a `$` anchored on the raw line, which
     // put the line straight back on the mangling path: rebuilt as
     // `using { /X } # note`, with Economy.Shop stranded below it.

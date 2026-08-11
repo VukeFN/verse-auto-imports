@@ -406,6 +406,25 @@ describe("scanModuleImports", () => {
         expect(scanModuleImports(["using:", "    Foo'Loc'", "code()"])).toEqual([]);
     });
 
+    // The opener's own line begins the comment its path sits in, so the path is
+    // comment text. Counting it as imported is the mirror of the gap this
+    // closes: the extension declines to add an import the file does not make.
+    it("records nothing for a pair whose opener line comments out the path below it", () => {
+        expect(scanModuleImports(["using: <#>", "    /Verse.org/Random", "code()"])).toEqual([]);
+        expect(scanModuleImports(["using: <# note", "    /Verse.org/Random", "#>", "code()"])).toEqual([]);
+        expect(scanModuleImports(["X := 1; using: <#>", "    /Verse.org/Random", "code()"])).toEqual([]);
+    });
+
+    // A line comment ends with its line, so this path is live code and really
+    // is imported. Pinned because a rebuild from the path drops the comment on
+    // the opener line, which trailingComment reads from the path line and so
+    // cannot put back.
+    it("records the path below a plain pair whose opener carries a line comment", () => {
+        expect(scanModuleImports(["using: # note", "    /Verse.org/Random", "code()"])).toEqual([
+            { path: "/Verse.org/Random", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
     // The classification reads a line from its head, so this one was rejected
     // and skipped whole. Nothing recorded that the file imports the path, and a
     // diagnostic asking for it wrote a second copy above a line already making

@@ -386,8 +386,11 @@ export function classifyLines(lines: string[]): LineClassification[] {
  *   complete `using` statement it writes is recorded, pinned, because the path
  *   is imported and writing it again would duplicate it. The pair a `using:`
  *   opens at the end of such a line is recorded with them, spanning both
- *   lines, on the same ground - the path below it is imported, and the
- *   classification would have admitted it had the `using:` headed the line.
+ *   lines, on the same ground - the path below it is imported. That tail is
+ *   read from the line's code, so a `using:` the classification refused only
+ *   for the trivia after it opens a pair here as well; the path line must
+ *   itself read as live code, or a `using: <#>` would count the comment text
+ *   below it as an import.
  * - A path is only ever read from the line's statements, never from the text of
  *   a `"` string it writes. A `'` is not treated as opening literal text here,
  *   because it also closes a path's quoted segment suffix; see
@@ -490,18 +493,32 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
             // no path of its own - and the path is on a line the scan skips,
             // which is what left it uncounted.
             //
-            // Classified by handing isModuleImport the `using:` itself and the
-            // line below, so this admits exactly the pairs it would admit had
-            // the `using:` headed its line. Recording the pair unclassified
-            // widens the plain pair too: content the classification declines,
-            // `using:` over `Foo'Loc'`, arrives here by that same rejection.
+            // The tail is read from the line's code, so trivia after the
+            // `using:` does not hide it. That admits more than a
+            // definition-headed line: the head classification refuses
+            // `using: # note` and `using: <#>` for their trivia alone, and
+            // both arrive here. The path line has to read as live code to
+            // separate them - under a comment its own opener line began, the
+            // path is comment text, and counting it as imported withholds an
+            // import the file really needs.
+            //
+            // Content is classified by handing isModuleImport the `using:`
+            // itself and the line below, so a pair is admitted on the same
+            // content rule the branch below applies. Recording it unclassified
+            // would admit `using:` over `Foo'Loc'`, which that rule declines.
             //
             // Pinned like everything else the branch records, and for a second
             // reason of its own: the span holds two lines, so a rebuild from
             // one path deletes the other line whatever the head of the first
             // one says.
             const pairOpener = /\busing\s*:\s*$/.exec(statements);
-            if (pairOpener && nextLine !== undefined && /^\s+\S/.test(nextLine) && ImportFormatter.isModuleImport(pairOpener[0], nextLine, { atFileScope: true })) {
+            if (
+                pairOpener &&
+                nextLine !== undefined &&
+                /^\s+\S/.test(nextLine) &&
+                !classifications[i + 1].continuesCommentAbove &&
+                ImportFormatter.isModuleImport(pairOpener[0], nextLine, { atFileScope: true })
+            ) {
                 imports.push({
                     // Non-empty: the classification reads this same stripped
                     // content, and declines it when there is none.

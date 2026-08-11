@@ -1,4 +1,4 @@
-import { allUsingPaths, classifyLines, rewritableImports, scanConvertibleImports, scanModuleImports } from "../ImportScanner";
+import { allUsingPaths, classifyLines, opensIndentedPair, rewritableImports, scanConvertibleImports, scanModuleImports } from "../ImportScanner";
 
 describe("allUsingPaths", () => {
     it("collects a file-scope import the same way scanModuleImports does", () => {
@@ -1025,5 +1025,52 @@ describe("classifyLines", () => {
         // The body affects `kind` only: what the import scanner sees through
         // insideBlockComment has to stay exactly what it saw before.
         expect(classifyLines(["<#> Notes", "    opens <#", "code()", "#>", "code()"]).map((classification) => classification.insideBlockComment)).toEqual([false, false, true, true, false]);
+    });
+});
+
+describe("opensIndentedPair", () => {
+    const opens = (lines: string[], opener = 0) => opensIndentedPair(classifyLines(lines), opener);
+
+    it("reads a using: ending a line that also writes statements as an opener", () => {
+        expect(opens(["X := 1; using { /A }; using:", "    /B"])).toBe(true);
+    });
+
+    it("reads a whole-line using: as one", () => {
+        expect(opens(["using:", "    /B"])).toBe(true);
+    });
+
+    // The path counts for nothing here; the ownership of the line is the whole
+    // question, and it is the shape no scan entry spans.
+    it("owns the line below whatever the path written on it holds", () => {
+        expect(opens(["X := 1; using { /A }; using:", "    Foo'Loc'"])).toBe(true);
+    });
+
+    // A comment after the opener defeats a `$` anchored on the raw line.
+    it("looks past a comment trailing the using:", () => {
+        expect(opens(["using: # note", "    /B"])).toBe(true);
+    });
+
+    it("does not read a using: written inside a comment as an opener", () => {
+        expect(opens(["# see using:", "    /B"])).toBe(false);
+    });
+
+    it("does not read a line that opens no pair as an opener", () => {
+        expect(opens(["using { /A }", "    /B"])).toBe(false);
+    });
+
+    it("declines a line below that is comment text the opener began", () => {
+        expect(opens(["using: <#", "    still a comment"])).toBe(false);
+    });
+
+    it("declines a line below carrying no code of its own", () => {
+        expect(opens(["using:", "    # just a note"])).toBe(false);
+    });
+
+    it("declines a line below written at column 0", () => {
+        expect(opens(["using:", "code()"])).toBe(false);
+    });
+
+    it("declines an opener on the last line of the file", () => {
+        expect(opens(["using:"])).toBe(false);
     });
 });

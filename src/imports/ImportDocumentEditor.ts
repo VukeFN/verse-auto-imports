@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { logger } from "../utils";
 import { ImportFormatter } from "./ImportFormatter";
-import { allUsingPaths, classifyLines, LINE_SPLIT, LineClassification, pinnedImports, rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
+import { allUsingPaths, classifyLines, LINE_SPLIT, LineClassification, opensIndentedPair, pinnedImports, rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
 
 /**
  * A run of import statements on consecutive lines. Any gap starts a new block,
@@ -127,13 +127,30 @@ function attachedCommentStart(importStartLine: number, classifications: LineClas
  * line whose comment was opened above it, under either marker. So the span ends
  * at the last line still carrying it, and an import pinned only by the
  * statements sharing its line owns its span alone.
+ *
+ * An indented `using:` pair reaches past the statement the same way, and has to
+ * be asked separately: the pair's own scan entry spans both lines, but a line
+ * may write a complete `using` and then open a pair, and that statement's entry
+ * ends on the opener. Reading the opener alone leaves the line below it free,
+ * and a new import written there splits a pair that must stay adjacent.
+ *
+ * The two rules alternate rather than run in turn, because either can extend a
+ * span the other then extends again: a pair's path line may itself open a
+ * comment over the lines below it.
  */
 function pinnedSpanEnd(imp: ScannedImport, classifications: LineClassification[]): number {
     let end = imp.endLine;
-    while (end + 1 < classifications.length && classifications[end + 1].continuesCommentAbove) {
-        end++;
+    for (;;) {
+        if (end + 1 < classifications.length && classifications[end + 1].continuesCommentAbove) {
+            end++;
+            continue;
+        }
+        if (opensIndentedPair(classifications, end)) {
+            end++;
+            continue;
+        }
+        return end;
     }
-    return end;
 }
 
 /**

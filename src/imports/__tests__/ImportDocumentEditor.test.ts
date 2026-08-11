@@ -210,6 +210,16 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(["using { /A }; using:", "    Foo'Loc'", "using { Gadgets.Tools }", "code()"].join("\n"));
     });
 
+    // Where the opener line is definition-headed the pair is declined on
+    // content, so no entry spans the path line at all and the span above cannot
+    // be what holds the import out. The statement before the `;` is pinned to
+    // the opener line alone, and a floor taken from its own end leaves the path
+    // line free.
+    it("writes a new relative import below a pair a definition-headed line opens", () => {
+        const input = ["X := 1; using { /A }; using:", "    Foo'Loc'", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(["X := 1; using { /A }; using:", "    Foo'Loc'", "using { Gadgets.Tools }", "code()"].join("\n"));
+    });
+
     // A line writing two complete statements read as its first path alone, so
     // organizing rebuilt it as `using { /X }` and Economy.Shop was simply gone.
     // The output was a well-formed import block, which is what made the loss
@@ -1817,6 +1827,28 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const insert = appliedOperations(0).find((op) => op.kind === "insert");
             expect(insert).toBeDefined();
             expect(insert!.position!.line).toBe(0);
+            expect(insert!.text).toBe("using { Features }\n\n");
+        });
+
+        // The floor reaches past the pinned statement, because the `using:` at
+        // the end of its line owns the line below it and no entry of its own
+        // spans that line - the pair is declined on content. Taken from the
+        // statement's own end, the floor leaves the path line free and the
+        // import is written between the opener and the path it opens.
+        it("writes a new import below the pair a pinned definition-headed line opens", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["X := 1; using { /A }; using:", "    Foo'Loc'", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
+
+            expect(success).toBe(true);
+            const insert = appliedOperations(0).find((op) => op.kind === "insert");
+            expect(insert).toBeDefined();
+            expect(insert!.position!.line).toBe(2);
             expect(insert!.text).toBe("using { Features }\n\n");
         });
 

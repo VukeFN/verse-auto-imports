@@ -355,6 +355,31 @@ export function classifyLines(lines: string[]): LineClassification[] {
 }
 
 /**
+ * Whether the line at `opener` ends in a `using:` that opens an indented pair
+ * over the line below it.
+ *
+ * The two lines have to stay adjacent to compile, so nothing may be written
+ * between them: the `using:` would be left with no indented body, and the path
+ * below it stranded as a bare indented expression.
+ *
+ * Asked of the classifications rather than the raw text, for the reason the
+ * scan's own tail tests are: a `using:` in a comment is trivia, and one a
+ * comment follows on the same line is still an opener.
+ *
+ * Says nothing about what the path line holds, deliberately. Whether the scan
+ * admits that path decides what counts as imported; it does not decide who owns
+ * the line, and a pair whose path the classification declines owns the line
+ * below it exactly as one it admits does.
+ */
+export function opensIndentedPair(classifications: LineClassification[], opener: number): boolean {
+    const below = classifications[opener + 1];
+    if (below === undefined || below.kind !== "code" || !/^\s/.test(below.codeWithoutComments)) {
+        return false;
+    }
+    return /\busing\s*:\s*$/.test(classifications[opener].codeOutsideLiterals.trim());
+}
+
+/**
  * Scans document lines for module imports. This is the single scanner behind
  * every import-editing operation so they all agree on what counts as an
  * import:

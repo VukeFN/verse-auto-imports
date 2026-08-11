@@ -51,6 +51,15 @@ describe("resolveVisibility", () => {
         expect(resolved.edits).toEqual([{ file: "file://a", path: "Gadgets/Tools", span: { start: 5, end: 15 }, text: "<public>" }]);
     });
 
+    it("reports a named access level rather than stacking a specifier beside it", () => {
+        const found = declarationsIn("file://a", "Gadgets", "Tools<SharedScope> := module {}\n");
+
+        const resolved = resolveVisibility([], segments(["Gadgets", false], ["Tools", true]), found);
+
+        expect(resolved.edits).toEqual([]);
+        expect(resolved.conflicts).toEqual([{ path: "Gadgets/Tools", keyword: "SharedScope", reason: "widen" }]);
+    });
+
     it("does nothing for a module already declared public", () => {
         const found = declarationsIn("file://a", "Gadgets", "Tools<public> := module {}\n");
 

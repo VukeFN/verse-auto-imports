@@ -22,16 +22,29 @@ import { indentOf, maskCommentsAndStrings } from "../utils/verseText";
  */
 const MODULE_DECLARATION = /\b([A-Za-z_][A-Za-z0-9_]*(?:'[^']*')?)((?:\s*<[^>]+>)*)\s*:=\s*module\s*[:>{.]/g;
 
+/** One entry of a stacked specifier block, spelled as MODULE_DECLARATION's group 2 spells it. */
+const SPECIFIER_ENTRY = /<[^>]+>/g;
+
 /**
- * The visibility entry inside a stacked specifier block. Group 1 is the keyword
- * alone; the span covers the whole entry, `scoped`'s module list included.
+ * A visibility entry named by a keyword. Group 1 is the keyword alone; the match
+ * covers the whole entry, `scoped`'s module list included.
  *
- * A specifier the alternation does not name reads as no specifier at all, and a
- * caller then stacks its own beside the real one - two access specifiers on one
- * definition, which is error 3543. That is why `epic_internal` is here despite
- * being unreachable in user Content.
+ * `epic_internal` is here despite being unreachable in user Content, because an
+ * entry no branch below recognizes reads as no specifier at all.
  */
-const VISIBILITY_SPECIFIER = /<\s*(public|protected|private|internal|epic_internal|scoped)\b[^>]*>/;
+const VISIBILITY_KEYWORD = /^<\s*(public|protected|private|internal|epic_internal|scoped)\b[^>]*>$/;
+
+/**
+ * A bare `<Identifier>`, which is how a named access level - `Name := scoped{...}`
+ * - is written. The compiler resolves the identifier and treats it as an access
+ * specifier, so one has to be read as a visibility here too even though no
+ * keyword list can reach a user-chosen name.
+ *
+ * Deliberately only the bare form: an entry carrying arguments or a qualifier
+ * cannot be a named access level, and matching it would refuse on ordinary
+ * attributes for nothing.
+ */
+const NAMED_ACCESS_LEVEL = /^<\s*([A-Za-z_][A-Za-z0-9_]*)\s*>$/;
 
 /** A half-open character span in the source text. */
 export interface SourceSpan {
@@ -57,7 +70,12 @@ export interface ModuleDeclaration {
     /** Where a specifier is inserted when the declaration carries none. */
     insertionPoint: number;
 
-    /** The visibility specifier's span and keyword, absent when the declaration carries none. */
+    /**
+     * The access specifier's span, and its keyword as written, absent when the
+     * declaration carries none. A named access level puts a user-chosen
+     * identifier here, so this is not always one of the visibility keywords -
+     * see findAccessLevel for why it is read as one.
+     */
     visibility?: SourceSpan & { keyword: string };
 }
 
@@ -108,13 +126,13 @@ export function findExplicitModuleDeclarations(content: string): ModuleDeclarati
 
         // The specifier block starts exactly at the name's end, so an offset
         // inside it is an offset from there.
-        const visibility = specifierBlock.match(VISIBILITY_SPECIFIER);
-        if (visibility && visibility.index !== undefined) {
-            const start = nameEnd + visibility.index;
+        const accessLevel = findAccessLevel(specifierBlock);
+        if (accessLevel) {
+            const start = nameEnd + accessLevel.index;
             declaration.visibility = {
                 start,
-                end: start + visibility[0].length,
-                keyword: visibility[1],
+                end: start + accessLevel.length,
+                keyword: accessLevel.keyword,
             };
         }
 
@@ -122,6 +140,40 @@ export function findExplicitModuleDeclarations(content: string): ModuleDeclarati
     }
 
     return declarations;
+}
+
+/**
+ * The entry in a stacked specifier block that carries the declaration's access
+ * level, its offset inside the block, and its keyword as written.
+ *
+ * A keyword entry wins wherever both kinds appear, so a block stacking a real
+ * visibility onto an unknown attribute still reads as that visibility.
+ *
+ * An entry that is only a bare identifier is reported rather than passed over,
+ * because passing one over is indistinguishable from no specifier at all and a
+ * caller then stacks its own beside it - two access levels on one definition,
+ * which is error 3543. Callers refuse on every keyword but `public` and
+ * `internal`, so an ordinary attribute caught here costs a refusal the user can
+ * act on, never a broken edit.
+ */
+function findAccessLevel(specifierBlock: string): { index: number; length: number; keyword: string } | undefined {
+    let named: { index: number; length: number; keyword: string } | undefined;
+
+    for (const entry of specifierBlock.matchAll(SPECIFIER_ENTRY)) {
+        const keyword = entry[0].match(VISIBILITY_KEYWORD);
+        if (keyword) {
+            return { index: entry.index, length: entry[0].length, keyword: keyword[1] };
+        }
+
+        if (!named) {
+            const identifier = entry[0].match(NAMED_ACCESS_LEVEL);
+            if (identifier) {
+                named = { index: entry.index, length: entry[0].length, keyword: identifier[1] };
+            }
+        }
+    }
+
+    return named;
 }
 
 /** Offset of the first character of every line, so a line number is a binary search. */

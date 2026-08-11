@@ -53,6 +53,28 @@ describe("findExplicitModuleDeclarations", () => {
         expect(content.slice(declaration.visibility!.start, declaration.visibility!.end)).toBe("<epic_internal>");
     });
 
+    it("reads a named access level, which no keyword list can reach", () => {
+        const content = "Tools<SharedScope> := module {}\n";
+        const [declaration] = findExplicitModuleDeclarations(content);
+
+        expect(declaration.visibility?.keyword).toBe("SharedScope");
+        expect(content.slice(declaration.visibility!.start, declaration.visibility!.end)).toBe("<SharedScope>");
+    });
+
+    it("prefers a keyword entry to a bare identifier stacked beside it", () => {
+        const content = "Tools<final><public> := module {}\n";
+        const [declaration] = findExplicitModuleDeclarations(content);
+
+        expect(declaration.visibility?.keyword).toBe("public");
+        expect(content.slice(declaration.visibility!.start, declaration.visibility!.end)).toBe("<public>");
+    });
+
+    it("leaves an entry carrying arguments alone, since a named access level is written bare", () => {
+        const [declaration] = findExplicitModuleDeclarations("Tools<available{MinUploadedAtFNVersion := 3000}> := module {}\n");
+
+        expect(declaration.visibility).toBeUndefined();
+    });
+
     it("points the insertion point at the end of the name when there is no specifier", () => {
         const content = "Tools := module {}\n";
         const [declaration] = findExplicitModuleDeclarations(content);

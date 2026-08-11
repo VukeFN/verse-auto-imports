@@ -64,10 +64,10 @@ describe("ImportPathConverter.buildModuleDefinitionRegex", () => {
     });
 
     it("does not let a stray < reach the specifier of a later declaration", () => {
-        // The whole file is tested unmasked, so a `<` that opens nothing - a
-        // comparison, or one written in a comment - sits between the name and
-        // the next declaration's specifier. A specifier body that could span
-        // that far would report this file as declaring Inventory.
+        // A `<` that opens nothing - a comparison, say - sits between the name
+        // and the next declaration's specifier. A specifier body free to span
+        // that far would report this file as declaring Inventory, and masking
+        // the text first does not take a live comparison away.
         const re = ImportPathConverter.buildModuleDefinitionRegex("Inventory");
 
         expect(re.test("if (Inventory < MaxSlots):\n\nHelpers<public> := module:")).toBe(false);

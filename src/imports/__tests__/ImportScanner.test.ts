@@ -425,6 +425,25 @@ describe("scanModuleImports", () => {
         ]);
     });
 
+    // The boundary of the check above: a block comment the opener line also
+    // closes leaves the path below it live, so the pair counts. Narrowing the
+    // check to "the opener line holds no `<#`" would pass every other test here
+    // and drop this one.
+    it("records the path below a pair whose opener closes the comment it opens", () => {
+        expect(scanModuleImports(["using: <# note #>", "    /Verse.org/Random", "code()"])).toEqual([
+            { path: "/Verse.org/Random", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // anchorsCommentBelow is asked of the whole span, so a marker on the path
+    // line counts even though the opener line holds none. The pair is pinned
+    // either way; what this pins is that the flag is read rather than assumed.
+    it("flags a pair after a definition whose path line opens a comment", () => {
+        expect(scanModuleImports(["X := 1; using:", "    /Verse.org/Random <#>", "        body", "code()"])).toEqual([
+            { path: "/Verse.org/Random", startLine: 0, endLine: 1, anchorsCommentBelow: true, rebuildLosesText: true, trailingComment: "<#>" },
+        ]);
+    });
+
     // The classification reads a line from its head, so this one was rejected
     // and skipped whole. Nothing recorded that the file imports the path, and a
     // diagnostic asking for it wrote a second copy above a line already making

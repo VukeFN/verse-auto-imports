@@ -1050,14 +1050,24 @@ describe("indentedPairPathLine", () => {
         expect(pathLine(["using: # note", "    /B"])).toBe(1);
     });
 
-    // The compiler reads the body as the next non-blank indented line, so these
-    // lines are inside the pair and a statement written on one splits it.
+    // Neither a blank line nor a comment ends an indented block, at any
+    // indentation, so all of these lines are inside the pair and a statement
+    // written on one splits it. Epic's own compile-validated cases are in the
+    // book's Tests/Bugs/SOL-3662-LineCommentEndsIndentedBlock.versetest.
     it("looks past blank lines between the opener and its path", () => {
         expect(pathLine(["using { /A }; using:", "", "", "    /B"])).toBe(3);
     });
 
     it("looks past a comment line indented into the pair", () => {
         expect(pathLine(["using { /A }; using:", "    # note", "    /B"])).toBe(2);
+    });
+
+    it("looks past a comment written back at column 0", () => {
+        expect(pathLine(["using { /A }; using:", "# a note of its own", "    /B"])).toBe(2);
+    });
+
+    it("looks past a block comment opened inside the pair", () => {
+        expect(pathLine(["using { /A }; using: <#", "note #>", "    /B"])).toBe(2);
     });
 
     it("does not read a using: written inside a comment as an opener", () => {
@@ -1068,18 +1078,14 @@ describe("indentedPairPathLine", () => {
         expect(pathLine(["using { /A }", "    /B"])).toBe(-1);
     });
 
-    // Comment text is the comment rule's to span, and it reaches these lines
-    // from the marker that opened them.
-    it("declines a path line carrying a comment the opener began", () => {
-        expect(pathLine(["using: <#", "    still a comment"])).toBe(-1);
+    // The marker comments out everything indented past it, so the pair opens no
+    // code at all and there is no path line to own.
+    it("declines where a <#> marker on the opener comments the body out", () => {
+        expect(pathLine(["using { /A }; using: <#>", "    a comment body", "    /B"])).toBe(-1);
     });
 
-    it("declines where the first line that is not blank sits at column 0", () => {
+    it("declines where the first line of code sits at column 0", () => {
         expect(pathLine(["using:", "", "code()"])).toBe(-1);
-    });
-
-    it("declines where a comment at column 0 follows the opener", () => {
-        expect(pathLine(["using:", "# a note of its own", "    /B"])).toBe(-1);
     });
 
     it("declines an opener on the last line of the file", () => {

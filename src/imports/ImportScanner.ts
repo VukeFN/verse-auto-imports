@@ -363,12 +363,12 @@ export function classifyLines(lines: string[]): LineClassification[] {
  * So this is the last line such an opener owns, and a caller placing a new
  * statement has to clear it rather than the opener.
  *
- * The path is the next non-blank indented line rather than the line directly
- * below, because the compiler reads the body that way: blank lines between the
- * two do not end the pair, and neither does a comment line indented into it.
- * A line at column 0 does end it, and so does one carrying a comment opened
- * above it - there the pair is comment text, which is the comment rule's to
- * span and not this one's.
+ * The path is the first line of code below the opener rather than the line
+ * directly below it, because that is the body the compiler reads. Neither a
+ * blank line nor a comment ends an indented block, at any indentation - a
+ * comment written back at column 0 leaves the block open, and so does a block
+ * comment opened inside it. Only code ends it, and code at column 0 ends it
+ * without ever having been the body, so there the opener opens nothing.
  *
  * Asked of the classifications rather than the raw text, for the reason the
  * scan's own tail tests are: a `using:` in a comment is trivia, and one a
@@ -378,25 +378,23 @@ export function classifyLines(lines: string[]): LineClassification[] {
  * admits that path decides what counts as imported; it does not decide who owns
  * the line, and a pair whose path the classification declines owns its line
  * exactly as one it admits does.
+ *
+ * `-1` for a line that opens no pair, an opener the file ends on, and an
+ * `opener` past the end of the file.
  */
 export function indentedPairPathLine(classifications: LineClassification[], opener: number): number {
-    if (!/\busing\s*:\s*$/.test(classifications[opener].codeOutsideLiterals.trim())) {
+    if (classifications[opener] === undefined || !/\busing\s*:\s*$/.test(classifications[opener].codeOutsideLiterals.trim())) {
         return -1;
     }
 
     for (let line = opener + 1; line < classifications.length; line++) {
         const classification = classifications[line];
-        if (classification.kind === "blank") {
+        if (classification.kind !== "code") {
             continue;
         }
-        // Read from the code rather than the raw line, so the indent of a
-        // comment line is its own and not the `#`'s.
-        if (classification.continuesCommentAbove || !/^\s/.test(classification.codeWithoutComments)) {
-            return -1;
-        }
-        if (classification.kind === "code") {
-            return line;
-        }
+        // Read from the code rather than the raw line, so a `#` sitting at
+        // column 0 does not make an indented statement look like one.
+        return /^\s/.test(classification.codeWithoutComments) ? line : -1;
     }
 
     return -1;

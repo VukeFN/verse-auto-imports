@@ -220,11 +220,19 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(["X := 1; using { /A }; using:", "    Foo'Loc'", "using { Gadgets.Tools }", "code()"].join("\n"));
     });
 
-    // The compiler takes the pair's path from the next non-blank indented line,
-    // so a blank line between the two is inside the pair and not a gap after it.
+    // The compiler takes the pair's path from the first line of code below the
+    // opener, so a blank line between the two is inside the pair and not a gap
+    // after it.
     it("writes a new relative import below a pair holding a blank line", () => {
         const input = ["X := 1; using { /A }; using:", "", "    Foo'Loc'", "code()"].join("\n");
         expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(["X := 1; using { /A }; using:", "", "    Foo'Loc'", "using { Gadgets.Tools }", "code()"].join("\n"));
+    });
+
+    // A comment does not end an indented block at any indentation, so one
+    // written back at column 0 is inside the pair rather than after it.
+    it("writes a new relative import below a pair holding a comment at column 0", () => {
+        const input = ["X := 1; using { /A }; using:", "# note", "    Foo'Loc'", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(["X := 1; using { /A }; using:", "# note", "    Foo'Loc'", "using { Gadgets.Tools }", "code()"].join("\n"));
     });
 
     // Both halves of the span reach here: the pair carries it to the path line,

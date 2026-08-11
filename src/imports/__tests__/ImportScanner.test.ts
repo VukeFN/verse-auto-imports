@@ -1052,8 +1052,7 @@ describe("indentedPairPathLine", () => {
 
     // Neither a blank line nor a comment ends an indented block, at any
     // indentation, so all of these lines are inside the pair and a statement
-    // written on one splits it. Epic's own compile-validated cases are in the
-    // book's Tests/Bugs/SOL-3662-LineCommentEndsIndentedBlock.versetest.
+    // written on one splits it.
     it("looks past blank lines between the opener and its path", () => {
         expect(pathLine(["using { /A }; using:", "", "", "    /B"])).toBe(3);
     });

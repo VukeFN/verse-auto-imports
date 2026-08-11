@@ -145,7 +145,10 @@ export class ProjectPathScanner {
         // which `scoped`'s module list needs; a visibility this fails to read is
         // indistinguishable from none at all. A named scope alias is an ordinary
         // identifier, so no keyword list reaches it and it still reads as none.
-        // Holds parity with moduleDeclarations' VISIBILITY_SPECIFIER.
+        // Keyword parity with moduleDeclarations' VISIBILITY_KEYWORD, whose
+        // NAMED_ACCESS_LEVEL branch is deliberately not mirrored: reading a bare
+        // identifier as an access level costs this scan a dropped candidate,
+        // where there it prevents an edit that would not compile.
         const visibilitySpecifier = /<\s*(public|protected|private|internal|epic_internal|scoped)\b[^>]*>/;
 
         const extractVisibility = (specifiers: string | undefined): string | undefined => {

@@ -64,10 +64,10 @@ describe("ImportPathConverter.buildModuleDefinitionRegex", () => {
     });
 
     it("does not let a stray < reach the specifier of a later declaration", () => {
-        // The whole file is tested unmasked, so a `<` that opens nothing - a
-        // comparison, or one written in a comment - sits between the name and
-        // the next declaration's specifier. A specifier body that could span
-        // that far would report this file as declaring Inventory.
+        // A `<` that opens nothing - a comparison, say - sits between the name
+        // and the next declaration's specifier. A specifier body free to span
+        // that far would report this file as declaring Inventory, and masking
+        // the text first does not take a live comparison away.
         const re = ImportPathConverter.buildModuleDefinitionRegex("Inventory");
 
         expect(re.test("if (Inventory < MaxSlots):\n\nHelpers<public> := module:")).toBe(false);
@@ -445,5 +445,61 @@ describe("ImportPathConverter.convertToFullPath", () => {
 
         expect(result?.fullPathImport).toBe("using. /mygame@fortnite.com/mygame/Economy/Shop");
         expect(result?.moduleName).toBe("Shop");
+    });
+});
+
+describe("ImportPathConverter.findModuleLocations explicit declaration scan", () => {
+    const workspaceRoot = "C:/Project";
+    const declaringFile = `${workspaceRoot}/Content/Systems/Inventory.verse`;
+
+    /** workspaceFolders is readonly in the real typings; the mock is writable. */
+    const setWorkspaceFolders = (folders: unknown): void => {
+        (vscode.workspace as unknown as { workspaceFolders: unknown }).workspaceFolders = folders;
+    };
+
+    /**
+     * The locations the scan finds for "Inventory" in a project whose one
+     * `.verse` file holds `source`. No current file is passed, so the folder
+     * search is skipped and the declaration scan is the only phase that runs.
+     */
+    async function locationsFor(source: string): Promise<string[]> {
+        (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([vscode.Uri.file(declaringFile)]);
+        (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(Buffer.from(source, "utf8"));
+
+        const converter = new ImportPathConverter(vscode.window.createOutputChannel("test"));
+        return converter.findModuleLocations("Inventory");
+    }
+
+    beforeEach(() => {
+        setWorkspaceFolders([{ uri: { fsPath: workspaceRoot }, name: "Project", index: 0 }]);
+    });
+
+    afterEach(() => {
+        setWorkspaceFolders(undefined);
+        (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([]);
+        (vscode.workspace.fs.readFile as jest.Mock).mockRejectedValue(new Error("ENOENT"));
+    });
+
+    it("reports the directory of a live declaration", async () => {
+        expect(await locationsFor("Inventory := module:\n    Count<public>:int = 0\n")).toEqual(["/Systems"]);
+    });
+
+    // A location the module does not live in is worse than none: it either
+    // makes a single, correct conversion ambiguous, or resolves to the wrong
+    // file and writes that path into the user's source.
+    it("ignores a declaration commented out with a line comment", async () => {
+        expect(await locationsFor("# Inventory := module:            # renamed, kept for reference\n")).toEqual([]);
+    });
+
+    it("ignores a declaration inside a block comment", async () => {
+        expect(await locationsFor("<# Inventory := module:\n   dropped in the 1.4 pass #>\n")).toEqual([]);
+    });
+
+    it("ignores a declaration inside an indented comment marker", async () => {
+        expect(await locationsFor("<#>\n    Inventory := module:\n        Count<public>:int = 0\n")).toEqual([]);
+    });
+
+    it("ignores declaration text quoted in a string literal", async () => {
+        expect(await locationsFor('Doc := "Inventory := module:"\n')).toEqual([]);
     });
 });

@@ -251,6 +251,21 @@ const workspace = {
     // undefined - which is how the environment snapshot tells the two apart.
     workspaceFile: undefined as { fsPath: string } | undefined,
     findFiles: jest.fn().mockResolvedValue([]),
+    /**
+     * The workspace folder a URI sits in, matched on path prefix. Undefined for
+     * a path under no folder, which is what production code reads as a file
+     * outside the project - so a test wanting a folder must register it in
+     * workspaceFolders rather than rely on a fallback.
+     *
+     * The first containing folder wins, where real VS Code returns the
+     * innermost, and a URI equal to a folder root answers undefined rather than
+     * that folder. A test covering the multi-root UEFN workspace, or nested
+     * folders, needs more than this.
+     */
+    getWorkspaceFolder: jest.fn().mockImplementation((target: { fsPath: string }) => {
+        const normalized = target.fsPath.replace(/\\/g, "/");
+        return workspace.workspaceFolders?.find((folder) => normalized.startsWith(`${folder.uri.fsPath.replace(/\\/g, "/").replace(/\/+$/, "")}/`));
+    }),
     // Rejecting is the "no such file" answer, which is what production code
     // reads a missing file as. A resolving default would make an absent
     // definitions file look like an empty existing one.

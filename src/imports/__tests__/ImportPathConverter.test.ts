@@ -343,6 +343,24 @@ describe("ImportPathConverter import classification", () => {
         expect(converter.isBuiltinModule(statement)).toBe(false);
         expect(converter.extractModuleFromImport(statement)?.moduleName).toBe("Shop");
     });
+
+    // No caller reaches these readers with a line carrying anything after its
+    // statement: scanConvertibleImports feeds them, and it excludes such a line
+    // because a rebuild cannot reproduce its span. That filter is written for
+    // that reason rather than to keep the path readers honest, so the two are
+    // pinned apart - widening what the converter is fed must not silently start
+    // converting the leftover.
+    it("reads a dotted path as far as the statement ends, not to end of line", () => {
+        const converter = converterWithProjectPath("/mygame@fortnite.com/mygame");
+
+        expect(converter.extractModuleFromImport("using. Gadgets.Tools; MyVal := 5")).toEqual({ fullPath: "Gadgets/Tools", moduleName: "Tools" });
+    });
+
+    it("names the module of a dotted absolute path without the statement written after it", () => {
+        const converter = converterWithProjectPath("/mygame@fortnite.com/mygame");
+
+        expect(converter.extractModuleName("using. /mygame@fortnite.com/mygame/Gadgets/Tools; MyVal := 5")).toBe("Tools");
+    });
 });
 
 describe("ImportPathConverter.convertFromFullPath", () => {
@@ -353,9 +371,9 @@ describe("ImportPathConverter.convertFromFullPath", () => {
     });
 
     it("leaves the comment trailing a dotted import out of the converted path", async () => {
-        // The dotted capture runs to end of line, so reading the path without
-        // stripping the comment first builds the comment into the relative
-        // import - where applyConversion, which restores it, writes it twice.
+        // Reading the path without stripping the comment first builds the
+        // comment into the relative import - where applyConversion, which
+        // restores it, writes it twice.
         const converter = converterWithProjectPath(projectVersePath);
 
         const result = await converter.convertFromFullPath("using. /mygame@fortnite.com/mygame/Economy/Shop # only the shop, not the vendor", 0);

@@ -45,6 +45,7 @@ const CONTENT_FOLDER = "Content";
 export class ImportPathConverter {
     private readonly projectPathHandler: ProjectPathHandler;
     private projectPathCache: ProjectPathCache | null = null;
+    private readonly formatter = new ImportFormatter();
 
     constructor(
         private readonly outputChannel: vscode.OutputChannel,
@@ -126,20 +127,19 @@ export class ImportPathConverter {
 
     /**
      * The path a `using` statement names, with any trailing comment removed,
-     * or "" when the statement is in neither style.
+     * or "" when the statement names nothing.
      *
-     * Anchored on the trimmed statement, and dotted before braced, to match
-     * ImportFormatter. Unanchored, the braced pattern is free to match inside
-     * the trailing comment of a dotted statement and win the path - which
-     * misclassifies the import through isFullPathImport and isBuiltinModule as
-     * well as converting the wrong module.
+     * Read through ImportFormatter rather than from a copy of its patterns, so
+     * the converter cannot disagree with the rest of the extension about how
+     * much of a line the statement occupies. A copy that ends the dotted form
+     * at end of line instead converts whatever a line writes after its
+     * statement along with the path.
+     *
+     * "" where the formatter answers null, because isFullPathImport and
+     * isBuiltinModule test the result as a string.
      */
     private extractPathFromImport(importStatement: string): string {
-        const trimmed = importStatement.trim();
-        const dotMatch = trimmed.match(/^using\.\s*(.+)/);
-        const curlyMatch = dotMatch ? null : trimmed.match(/^using\s*\{\s*([^}]+)\s*\}/);
-        const captured = dotMatch ? dotMatch[1] : curlyMatch ? curlyMatch[1] : "";
-        return ImportFormatter.stripTrailingComment(captured);
+        return this.formatter.extractPathFromImport(importStatement) ?? "";
     }
 
     /**
@@ -475,11 +475,9 @@ export class ImportPathConverter {
         }
 
         // Read through extractPathFromImport rather than a second copy of its
-        // regexes, so the trailing-comment strip cannot be left out of the
-        // copy. The dotted capture runs to end of line, so `using. /A/B # note`
-        // yields the path `/A/B # note` without it - and applyConversion
-        // restores the comment itself, so a comment left in the path is written
-        // twice.
+        // patterns, so the trailing-comment strip cannot be left out of the
+        // copy: applyConversion restores the comment itself, so one left in the
+        // path is written twice.
         const fullPath = this.extractPathFromImport(importStatement);
 
         if (!fullPath || !fullPath.startsWith("/")) {

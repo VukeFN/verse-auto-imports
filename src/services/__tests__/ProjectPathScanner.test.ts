@@ -116,6 +116,14 @@ describe("ProjectPathScanner.extractDeclarations module forms", () => {
         expect(declare(source).map((node) => node.fullPath)).toEqual(["Inventory", "Inventory.Item"]);
     });
 
+    it("resumes the enclosing module after a skipped one nested in it closes", () => {
+        // The skipped entry is popped back to a kept parent rather than to an
+        // empty stack, so a wrong pop bound shows up here as a missing `Outer.`
+        // prefix instead of as a dropped declaration.
+        const source = "Outer<public> := module:\n    Hidden<private> := module:\n        Deep<public> := class {}\n    Kept<public> := class {}\n";
+        expect(declare(source).map((node) => node.fullPath)).toEqual(["Outer", "Outer.Kept"]);
+    });
+
     it("keeps a skipped module's subtree, nested, when includePrivate lifts the skip", () => {
         const source = "Systems<private> := module:\n    Inner<public> := module:\n        Deep<public> := class {}\n";
         expect(declareAll(source).map((node) => node.fullPath)).toEqual(["Systems", "Systems.Inner", "Systems.Inner.Deep"]);

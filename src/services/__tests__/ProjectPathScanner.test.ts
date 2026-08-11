@@ -17,6 +17,8 @@ describe("ProjectPathScanner.extractDeclarations module forms", () => {
 
     const declare = (source: string): ProjectPathNode[] => scanner.extractDeclarations(source, "Content/Inventory.verse");
 
+    const declareAll = (source: string): ProjectPathNode[] => scanner.extractDeclarations(source, "Content/Inventory.verse", { includePrivate: true });
+
     const moduleNames = (source: string): string[] =>
         declare(source)
             .filter((node) => node.type === "module")
@@ -95,19 +97,28 @@ describe("ProjectPathScanner.extractDeclarations module forms", () => {
         expect(moduleNames("Systems<scoped_X> := module {}\n")).toEqual(["Systems"]);
     });
 
-    it("promotes a skipped module's descendants to file scope", () => {
-        // Pins the limit rather than endorsing it: a skipped module never
-        // reaches the module stack, so what it contains loses the enclosing
-        // segment from its path instead of being dropped alongside its parent.
+    it("drops a skipped module's descendants along with it", () => {
         // Every segment from the root has to be accessible for an import to
-        // compile, so the subtree is as unreachable as the parent. Long
-        // predates the specifiers this scan newly reads - <private> reads the
-        // same way.
-        const scoped = declare("Systems<scoped{ModuleA}> := module:\n    Inner<public> := module:\n");
-        expect(scoped.map((node) => node.fullPath)).toEqual(["Inner"]);
+        // compile, so what a skipped module contains is exactly as unreachable
+        // as the module itself. Recording the subtree without its enclosing
+        // segment would offer a path that does not exist, and would collide
+        // with a genuine top-level module of the same name.
+        expect(declare("Systems<scoped{ModuleA}> := module:\n    Inner<public> := module:\n")).toEqual([]);
+        expect(declare("Systems<private> := module:\n    Inner<public> := module:\n")).toEqual([]);
+    });
 
-        const priv = declare("Systems<private> := module:\n    Inner<public> := module:\n");
-        expect(priv.map((node) => node.fullPath)).toEqual(["Inner"]);
+    it("drops a skipped module's grandchildren too", () => {
+        expect(declare("Systems<private> := module:\n    Inner<public> := module:\n        Deep<public> := class {}\n")).toEqual([]);
+    });
+
+    it("records a sibling declared after a skipped module closes", () => {
+        const source = "Systems<private> := module:\n    Inner<public> := module:\n\nInventory<public> := module:\n    Item<public> := class {}\n";
+        expect(declare(source).map((node) => node.fullPath)).toEqual(["Inventory", "Inventory.Item"]);
+    });
+
+    it("keeps a skipped module's subtree, nested, when includePrivate lifts the skip", () => {
+        const source = "Systems<private> := module:\n    Inner<public> := module:\n        Deep<public> := class {}\n";
+        expect(declareAll(source).map((node) => node.fullPath)).toEqual(["Systems", "Systems.Inner", "Systems.Inner.Deep"]);
     });
 
     it("does not read a keyword that merely starts with module as a declaration", () => {

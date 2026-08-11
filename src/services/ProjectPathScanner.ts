@@ -133,7 +133,11 @@ export class ProjectPathScanner {
         const lines = maskCommentsAndStrings(content).split("\n");
 
         let currentModulePath = "";
-        const moduleStack: { name: string; indent: number }[] = [];
+        // A skipped module is on the stack for its indent alone, so that what
+        // it contains is dropped with it rather than losing the enclosing
+        // segment from its path. Nothing is ever pushed above a skipped entry,
+        // because every declaration under one is skipped before it can be.
+        const moduleStack: { name: string; indent: number; skipped: boolean }[] = [];
 
         // A declaration carries any number of stacked specifiers, of which at
         // most one is a visibility; the rest (<native>, <final>, ...) are noise
@@ -213,6 +217,15 @@ export class ProjectPathScanner {
             while (moduleStack.length > 0 && indent <= moduleStack[moduleStack.length - 1].indent) {
                 moduleStack.pop();
             }
+
+            // An import checks every path segment from the root, so anything
+            // still inside a skipped module is as unreachable as the module
+            // and is dropped with it. The pop loop above has already closed
+            // the module for a line that left it.
+            if (moduleStack.length > 0 && moduleStack[moduleStack.length - 1].skipped) {
+                continue;
+            }
+
             currentModulePath = moduleStack.length > 0 ? moduleStack[moduleStack.length - 1].name : "";
 
             const moduleMatch = line.match(modulePattern);
@@ -221,12 +234,14 @@ export class ProjectPathScanner {
                 const visibility = extractVisibility(specifiers);
                 const isPublic = visibility === "public";
 
+                const fullPath = currentModulePath ? `${currentModulePath}.${name}` : name;
+
                 if (shouldSkipDeclaration(visibility, true)) {
+                    moduleStack.push({ name: fullPath, indent, skipped: true });
                     continue;
                 }
 
-                const fullPath = currentModulePath ? `${currentModulePath}.${name}` : name;
-                moduleStack.push({ name: fullPath, indent });
+                moduleStack.push({ name: fullPath, indent, skipped: false });
                 currentModulePath = fullPath;
 
                 nodes.push({

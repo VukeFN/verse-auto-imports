@@ -289,15 +289,16 @@ export class ImportFormatter {
     }
 
     /**
-     * The ordering rank of an import path: 0 for an absolute path, 1 for a bare
-     * module reference, 2 for anything else (a dotted reference such as
-     * `Economy.Shop`). A lower rank belongs above a higher one, because a
-     * `using` can only see identifiers brought into scope above it. See
-     * sortImportsByRank for what each rank means and why.
+     * The form of an import path: 0 for an absolute path, 1 for a bare module
+     * reference, 2 for anything else (a dotted reference such as
+     * `Economy.Shop`).
      *
-     * Placement reads the same ranks the sort compares, so a new import can be
-     * ranked against the whole file rather than only against the block it is
-     * merged into.
+     * Ranks 1 and 2 differ in form, not in ordering: either can bring the scope
+     * the other resolves through, so neither belongs above the other. Which of
+     * the two a path is still decides one thing - whether a pinned import can
+     * be read as the consumer a newly added one was added for
+     * (ImportDocumentEditor.couldResolveAgainst). Everything else asks only
+     * whether the rank is 0, through resolvesAgainstScopeAbove.
      */
     importRank(path: string): number {
         if (path.startsWith("/")) {
@@ -310,41 +311,47 @@ export class ImportFormatter {
     }
 
     /**
-     * A new array of the paths ordered by rank, and alphabetically within ranks
-     * 0 and 2. The input is not modified.
+     * Whether `path` resolves its first segment against what the `using`
+     * statements above it brought into scope, which makes every import written
+     * above it a possible provider for it.
      *
-     * Rank ordering rather than plain alphabetical order, because Verse
-     * resolves `using` statements top-down: a statement sees only identifiers
-     * brought into scope above it. A dotted import's first segment is in scope
-     * only if a bare module reference already provided it, so
-     * `using { Economy.Shop }` needs the `Economy` that `using { Features }`
-     * brings - and alphabetical order puts `Economy.Shop` first (E < F) and
-     * breaks compilation, though both imports are individually valid.
+     * True of every relative path, dotted and bare alike. Either can provide
+     * for the other: `using { Features }` brings the `Economy` that
+     * `using { Economy.Shop }` needs, and `using { GameSystems.Inventory }`
+     * brings the `Weapons` that a later bare `using { Weapons }` needs. Only an
+     * absolute path resolves from the global registry and needs nothing above
+     * it.
+     */
+    resolvesAgainstScopeAbove(path: string): boolean {
+        return this.importRank(path) !== 0;
+    }
+
+    /**
+     * A new array with the absolute paths hoisted to the front and
+     * alphabetized, and every relative path left in input order. The input is
+     * not modified.
      *
-     * - Rank 0, absolute paths (leading `/`): self-contained, alphabetized.
-     * - Rank 1, bare identifiers (no `/`, no `.`): kept in input order, never
-     *   alphabetized, since the order between bare module imports is semantic
-     *   - a nested child must follow the parent that provides it.
-     * - Rank 2, everything else (dotted references such as `Economy.Shop`):
-     *   alphabetized.
+     * Not plain alphabetical order, because Verse resolves `using` statements
+     * top-down and importing a scope exposes that scope's member modules to the
+     * statements below it. Which of two relative imports provides for the other
+     * can go either way, and their written order is the only evidence of which
+     * way round it is here - so relative imports keep it, and a file that
+     * compiles still compiles after being organized.
      *
-     * A lower rank always precedes a higher one, so a provider precedes
-     * anything that might depend on it. The sort is stable, which is what keeps
-     * rank 1 in input order once its comparator returns 0.
+     * Absolute paths are free to sort: one needs nothing in scope, and hoisting
+     * it takes scope away from nothing below it.
+     *
+     * The sort is stable, which is what keeps the relative paths in input order
+     * once their comparator returns 0.
      */
     sortImportsByRank(paths: string[]): string[] {
-        const rankOf = (path: string): number => this.importRank(path);
-
         return [...paths].sort((a, b) => {
-            const rankDifference = rankOf(a) - rankOf(b);
-            if (rankDifference !== 0) {
-                return rankDifference;
+            const aIsRelative = this.resolvesAgainstScopeAbove(a);
+            const bIsRelative = this.resolvesAgainstScopeAbove(b);
+            if (aIsRelative !== bIsRelative) {
+                return aIsRelative ? 1 : -1;
             }
-            if (rankOf(a) === 1) {
-                // Bare identifiers keep their input order; relative order is semantic.
-                return 0;
-            }
-            return a.localeCompare(b);
+            return aIsRelative ? 0 : a.localeCompare(b);
         });
     }
 

@@ -437,11 +437,11 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
 
         // Hoisting only carries an import across the pinned lines above it, so
         // one already written above them all is sorted as it always was. Held
-        // back on the presence of a pinned provider rather than on crossing it,
-        // this file would keep an order that does not compile.
+        // back on the presence of a pinned import rather than on crossing it,
+        // this file would go untidied.
         it("still sorts the imports written above the pinned line", () => {
-            const input = ["using { Economy.Shop }", "using { Features }", "using { /A }; X := 1", "code()"].join("\n");
-            expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { Features }", "using { Economy.Shop }", "", "using { /A }; X := 1", "code()"].join("\n"));
+            const input = ["using { Features }", "using { /Zebra }", "using { /A }; X := 1", "code()"].join("\n");
+            expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /Zebra }", "using { Features }", "", "using { /A }; X := 1", "code()"].join("\n"));
         });
 
         // A stale diagnostic naming a path the buffer already imports is the
@@ -459,9 +459,11 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
             );
         });
 
-        it("sorts a provider above its consumer as before when no import is pinned", () => {
+        // The control for the cases above: written order survives because the
+        // sort keeps it, not because a pinned line held anything back.
+        it("keeps a dotted import above the bare one below it when no import is pinned", () => {
             const input = ["using { Economy.Other }", "using { Features }", "code()"].join("\n");
-            expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { Features }", "using { Economy.Other }", "", "code()"].join("\n"));
+            expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { Economy.Other }", "using { Features }", "", "code()"].join("\n"));
         });
     });
 
@@ -667,9 +669,17 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, ["", "   "], curlyNoSort)).toBe("using { /A }\n\ncode()");
     });
 
-    it("orders bare folder imports in input order before dotted references, never alphabetized", () => {
+    it("keeps every relative import in input order, dotted and bare alike, never alphabetized", () => {
         const input = ["using { Economy.Shop }", "using { Zeta }", "using { Alpha }", "code()"].join("\n");
-        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { Zeta }", "using { Alpha }", "using { Economy.Shop }", "", "code()"].join("\n"));
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { Economy.Shop }", "using { Zeta }", "using { Alpha }", "", "code()"].join("\n"));
+    });
+
+    // An added path has no written position of its own, and every import the
+    // file already holds may be bringing its first segment into scope, so it
+    // goes below all of them rather than wherever a name would put it.
+    it("writes an additional relative path below the relative imports the file already holds", () => {
+        const input = ["using { Economy.Shop }", "using { Zeta }", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Features"], curlySorted)).toBe(["using { Economy.Shop }", "using { Zeta }", "using { Features }", "", "code()"].join("\n"));
     });
 
     it("leaves a module-scoped using inside its module body", () => {
@@ -973,7 +983,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         expect(insertsAtTop).toHaveLength(0);
     });
 
-    it("preserve + digestFirst: a new bare local import is ordered before an existing dotted local import in its block (rank sort, not alphabetical)", async () => {
+    it("preserve + digestFirst: a new bare local import lands after the dotted local import already in its block", async () => {
         mockConfig({
             "behavior.preserveImportLocations": true,
             "behavior.importGrouping": "digestFirst",
@@ -988,10 +998,10 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
 
         const replace = operations.find((op) => op.kind === "replace");
         expect(replace).toBeDefined();
-        expect(replace!.text).toBe("using { Features }\nusing { Economy.Shop }\n");
+        expect(replace!.text).toBe("using { Economy.Shop }\nusing { Features }\n");
     });
 
-    it("preserve + grouping none + sort on (default config): merges a new bare provider into the existing block in rank order", async () => {
+    it("preserve + grouping none + sort on (default config): merges a new bare import into the existing block, below the import already there", async () => {
         mockConfig({
             "behavior.preserveImportLocations": true,
             "behavior.importGrouping": "none",
@@ -1007,7 +1017,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const replace = operations.find((op) => op.kind === "replace");
         expect(replace).toBeDefined();
         expect(replace!.range!.start.line).toBe(0);
-        expect(replace!.text).toBe("using { Features }\nusing { Economy.Shop }\n");
+        expect(replace!.text).toBe("using { Economy.Shop }\nusing { Features }\n");
 
         // The new import is not appended after the block.
         const insertsAfterBlock = operations.filter((op) => op.kind === "insert" && op.position!.line === 1);
@@ -1056,7 +1066,10 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         expect(replaces[0].text).toBe("using { Features }\nusing { Economy.Shop }\n");
     });
 
-    it("preserve + grouping none + sort on: a new bare provider joins the earlier block holding the dotted consumer it provides for", async () => {
+    // The dotted import in the earlier block can be what brings the new import's
+    // own name into scope, so the new one has no claim to be written above it.
+    // Joining the earlier block would put it there.
+    it("preserve + grouping none + sort on: a new bare import joins the last block, not the earlier one holding a dotted import", async () => {
         mockConfig({
             "behavior.preserveImportLocations": true,
             "behavior.importGrouping": "none",
@@ -1069,8 +1082,8 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         expect(success).toBe(true);
         const replaces = appliedOperations(0).filter((op) => op.kind === "replace");
         expect(replaces).toHaveLength(1);
-        expect(replaces[0].range!.start.line).toBe(0);
-        expect(replaces[0].text).toBe("using { Features }\nusing { Economy.Shop }\n");
+        expect(replaces[0].range!.start.line).toBe(2);
+        expect(replaces[0].text).toBe("using { /Verse.org/Simulation }\nusing { Features }\n");
     });
 
     it("preserve + grouping none + sort on: a new absolute import still joins the first block", async () => {
@@ -1188,7 +1201,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
 
         expect(success).toBe(true);
         const replace = appliedOperations(0).find((op) => op.kind === "replace");
-        expect(replace!.text).toBe("using { Features }\r\nusing { Economy.Shop }\r\n");
+        expect(replace!.text).toBe("using { Economy.Shop }\r\nusing { Features }\r\n");
     });
 
     it("writes CRLF endings into a CRLF document when inserting a new block at the top", async () => {
@@ -1345,6 +1358,31 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             expect(insert).toBeDefined();
             expect(insert!.position!.line).toBe(0);
             expect(insert!.text).toBe("using { Features }\n\n");
+        });
+
+        // The anchored consumer names the line the new import must stay above,
+        // so it cannot also be read as an import the new one has to stay below.
+        // Counted as both, its two bounds cross and every block is refused -
+        // including this one, which lies wholly above the anchored line and
+        // satisfies the bound that is real.
+        it("merges into a block lying entirely above the anchored consumer rather than writing a standalone line", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["using { /Verse.org/Simulation }", "", "using { Economy.Shop } <#> note", "    body", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            expect(operations.some((op) => op.kind === "insert")).toBe(false);
+
+            const replace = operations.find((op) => op.kind === "replace");
+            expect(replace).toBeDefined();
+            expect(replace!.range!.start.line).toBe(0);
+            expect(replace!.text).toBe("using { /Verse.org/Simulation }\nusing { Features }\n");
         });
 
         it("sort OFF: appends below the anchored provider rather than after the last block", async () => {

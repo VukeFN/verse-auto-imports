@@ -756,6 +756,16 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
     let editor: ImportDocumentEditor;
     const applyEditMock = () => vscode.workspace.applyEdit as unknown as jest.Mock;
 
+    /**
+     * The diagnostic-line argument addImportsToDocument takes, for one statement
+     * the compiler reported on one line.
+     *
+     * A pinned import is read as the consumer of a new import only where a
+     * diagnostic lands inside its own statement, so a call that omits this is
+     * exercising the no-evidence path and expects the written order to hold.
+     */
+    const reportedOn = (statement: string, line: number): ReadonlyMap<string, readonly number[]> => new Map([[statement, [line]]]);
+
     beforeEach(() => {
         const outputChannel = vscode.window.createOutputChannel("test");
         editor = new ImportDocumentEditor(outputChannel, new ImportFormatter());
@@ -1366,7 +1376,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             });
             const input = ["using { Economy.Shop } <#> note", "    body", "", "using { /Verse.org/Simulation }", "code()"].join("\n");
 
-            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 0));
 
             expect(success).toBe(true);
             const operations = appliedOperations(0);
@@ -1393,7 +1403,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             });
             const input = ["using { /Verse.org/Simulation }", "", "using { Economy.Shop } <#> note", "    body", "code()"].join("\n");
 
-            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 2));
 
             expect(success).toBe(true);
             const operations = appliedOperations(0);
@@ -1434,7 +1444,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             });
             const input = ["using { Economy.Shop } <#> note", "    body", "using { /A } <#> note", "    body", "code()"].join("\n");
 
-            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 0));
 
             expect(success).toBe(true);
             const insert = appliedOperations(0).find((op) => op.kind === "insert");
@@ -1456,7 +1466,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             });
             const input = ["# Copyright 2026 MyGame", "", "using { Economy.Shop } <#> note", "    body", "using { /Verse.org/Simulation }", "code()"].join("\n");
 
-            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 2));
 
             expect(success).toBe(true);
             const insert = appliedOperations(0).find((op) => op.kind === "insert");
@@ -1546,7 +1556,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             });
             const input = ["using { Economy.Shop } <#> note", "    body", "using { /Verse.org/Simulation }", "code()"].join("\n");
 
-            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 0));
 
             expect(success).toBe(true);
             const operations = appliedOperations(0);
@@ -1641,7 +1651,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             });
             const input = ["using { Economy.Shop }; MyVal := 5", "using { /Verse.org/Simulation }", "code()"].join("\n");
 
-            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 0));
 
             expect(success).toBe(true);
             const operations = appliedOperations(0);
@@ -1653,6 +1663,56 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             expect(insert).toBeDefined();
             expect(insert!.position!.line).toBe(0);
             expect(insert!.text).toBe("using { Features }\n\n");
+        });
+
+        // The same file and the same new import as the test above, differing
+        // only in where the compiler reported the problem - which is the whole
+        // rule. A pinned dotted import that already resolves is the common case,
+        // since the file compiled before this edit, and there it may be what
+        // brings the new import's own first segment into scope. Reading it as
+        // the consumer on the strength of its path form puts the new import
+        // above the provider it needs.
+        it("writes a new import below a pinned dotted import when the diagnostic points elsewhere", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["using { Economy.Shop }; MyVal := 5", "using { /Verse.org/Simulation }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 2));
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            expect(operations.some((op) => op.kind === "insert")).toBe(false);
+
+            const replace = operations.find((op) => op.kind === "replace");
+            expect(replace).toBeDefined();
+            expect(replace!.range!.start.line).toBe(1);
+            expect(replace!.text).toBe("using { /Verse.org/Simulation }\nusing { Features }\n");
+        });
+
+        // A caller that names no diagnostic has to be read as evidence of
+        // nothing, not as evidence for the override: the override is what
+        // breaks a compiling file when it is wrong.
+        it("writes a new import below a pinned dotted import when no diagnostic is named", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["using { Economy.Shop }; MyVal := 5", "using { /Verse.org/Simulation }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            expect(operations.some((op) => op.kind === "insert")).toBe(false);
+
+            const replace = operations.find((op) => op.kind === "replace");
+            expect(replace).toBeDefined();
+            expect(replace!.range!.start.line).toBe(1);
+            expect(replace!.text).toBe("using { /Verse.org/Simulation }\nusing { Features }\n");
         });
 
         it("sort OFF: appends below the pinned provider rather than after the last block", async () => {
@@ -1744,7 +1804,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             mockConfig(consolidating);
             const input = ["using { /A }", "code()", "using { Economy.Shop }; X := 1"].join("\n");
 
-            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 2));
 
             expect(success).toBe(true);
             const operations = appliedOperations(0);

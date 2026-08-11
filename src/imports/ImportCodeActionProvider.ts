@@ -88,10 +88,13 @@ export class ImportCodeActionProvider implements vscode.CodeActionProvider {
         action.kind = vscode.CodeActionKind.QuickFix.append("verse.import");
         action.diagnostics = [diagnostic];
 
+        // The diagnostic's line travels with the statement: placement reads it
+        // to tell a pinned import that failed to resolve, and so needs this
+        // import above it, from one that merely has the form of a consumer.
         action.command = {
             title: "Add Import",
             command: "verseAutoImports.addSingleImport",
-            arguments: [document, suggestion.importStatement],
+            arguments: [document, suggestion.importStatement, diagnostic.range.start.line],
         };
 
         return action;

@@ -295,8 +295,9 @@ export class ImportFormatter {
      *
      * Ranks 1 and 2 differ in form, not in ordering: either can bring the scope
      * the other resolves through, so neither belongs above the other. Which of
-     * the two a path is still decides one thing - whether a pinned import can
-     * be read as the consumer a newly added one was added for
+     * the two a path is still narrows one thing - whether a pinned import may
+     * be read as the consumer a newly added one was added for, which takes a
+     * diagnostic to establish and not the form alone
      * (ImportDocumentEditor.couldResolveAgainst). Everything else asks only
      * whether the rank is 0, through resolvesAgainstScopeAbove.
      */

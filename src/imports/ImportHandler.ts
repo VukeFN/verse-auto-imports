@@ -37,8 +37,8 @@ export class ImportHandler {
         return this.suggestionExtractor.extractImportSuggestions(errorMessage);
     }
 
-    async addImportsToDocument(document: vscode.TextDocument, importStatements: string[]): Promise<boolean> {
-        return this.documentEditor.addImportsToDocument(document, importStatements);
+    async addImportsToDocument(document: vscode.TextDocument, importStatements: string[], diagnosticLinesByStatement?: ReadonlyMap<string, readonly number[]>): Promise<boolean> {
+        return this.documentEditor.addImportsToDocument(document, importStatements, diagnosticLinesByStatement);
     }
 
     /**

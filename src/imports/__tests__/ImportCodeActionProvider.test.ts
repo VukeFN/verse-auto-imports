@@ -27,7 +27,7 @@ describe("ImportCodeActionProvider quick fix titles", () => {
         const actions = await provider.provideCodeActions(
             { uri: { toString: () => "file:///Project/Content/Scripts/device.verse" } } as unknown as vscode.TextDocument,
             {} as unknown as vscode.Range,
-            { diagnostics: [{ message: "Unknown identifier `button_device`" }] } as unknown as vscode.CodeActionContext,
+            { diagnostics: [{ message: "Unknown identifier `button_device`", range: { start: { line: 7 } } }] } as unknown as vscode.CodeActionContext,
             {} as unknown as vscode.CancellationToken,
         );
 

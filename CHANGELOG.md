@@ -10,6 +10,52 @@ Where an entry resolves a tracked issue, it ends with a `[#N]` reference linked 
 
 Pending changes are kept as one file per change under [changelog.d/](changelog.d/) and assembled here at release.
 
+## [0.11.0] - 2026-08-12
+
+### Added
+
+- **Module visibility**: a quick fix on the compiler's inaccessible-internal-module error declares the module `<public>`, editing an existing declaration where there is one and otherwise writing a definitions file at the Content root ([#61])
+
+### Changed
+
+- **Ambiguous import mappings**: `behavior.ambiguousImports` now defaults to no mappings, so a configured mapping is applied exactly as you set it ([#266])
+- **Convert to relative path**: shortens an import against the module the file sits in, matching the spelling the Verse compiler suggests, instead of always against the project root ([#277])
+
+### Fixed
+
+- **Path conversion**: converting a relative import now finds a folder module anywhere in the project, not only beside the current file or at the Content root ([#60])
+- **Path conversion**: A `using` naming a module alias the file declares with `import(...)` no longer gets a conversion lens, so converting paths singly or in bulk cannot rewrite it into an import of an unrelated namesake module ([#71])
+- **Digest lookup**: An unknown identifier now resolves only to the entry with that exact name instead of every entry containing it, and unreadable bundled digest data reports an error instead of silently disabling lookups for the session ([#143])
+- **Import scanning**: An indented `using:` import whose path sits below a blank line or a comment is now recognized, so the extension no longer adds a second copy of an import the file already has ([#145])
+- **Organize Imports**: an import is no longer hoisted above the import pinned to its line that brings its first segment into scope, so organizing a file holding one leaves it compiling ([#232])
+- **Auto import**: a newly added import is now written below an import that shares its line with another statement, instead of above it, so an import that needs that line's module in scope resolves where it lands ([#270])
+- **Import sorting**: Sorting and adding imports now keep every relative `using` in its written order, since a dotted import can bring into scope the module a later bare import names ([#271])
+- **Import scanning**: A `#` inside a string or char literal no longer ends the scan of its line, so a `using` written after one is seen and organize keeps an import it would otherwise remove ([#272])
+- **Import scanning**: A `using` written after another statement on the same line now counts as already imported, and a `using` written inside a string is no longer read as one at all ([#273])
+- **Import scanner**: A braced `using` written across several lines now counts as an import the file already makes, so a second copy of it is no longer added ([#274])
+- **Path conversion**: the "Use absolute path" lens now resolves a module declared as `Name := module { ... }` or `Name := module. ...`, which previously failed with "Could not find module" ([#275])
+- **Import quick fix**: a compiler message that offers both same-package names and `using` paths now lists every candidate, and Optimize Imports leaves it for you to choose ([#276])
+- **Project scan**: a module declared as `Name := module { ... }`, with the brace on the next line, or as `Name := module. ...` now enters the project's declaration cache, so module lookups and quick fixes see it ([#282])
+- **Import scanning**: A `using` written after a string that holds a `{ ... }` interpolation is no longer missed, so organize and cleanup no longer treat the import it names as absent ([#285])
+- **Module visibility**: the quick fix now declines, and names the module standing in the way, when a `scoped`, `epic_internal`, `private` or `protected` module sits on the path to the one being made public ([#288])
+- **Project scan**: A declaration commented out with a block comment, a `<#>` marker or a mid-line `#` is no longer recorded in the project declaration cache as live code ([#292])
+- **Module visibility**: The quick fix now reports a module declared with a named access level instead of stacking a second specifier beside it, which the compiler rejects ([#293])
+- **Import path conversion**: A module declared with a `scoped` list, `epic_internal`, or several stacked specifiers is now found by the fallback scan, so its path converts instead of being left unresolved ([#294])
+- **Project scan**: a module declared `scoped{...}` or `epic_internal`, or one with padding inside its specifier brackets, is no longer offered as an import candidate that would not compile ([#305])
+- **Import path conversion**: The fallback scan no longer treats a commented-out or string-quoted module declaration as a live one, so a conversion stops resolving to that file or asking which of two locations was meant ([#306])
+- **Import scanning**: An indented `using:` pair opened after another statement on the same line now counts as already imported, so a suggested import is no longer added a second time ([#309])
+- **Import placement**: a newly added import is written above an import held on its line only when the compiler reported the problem there, so it no longer lands above the import bringing its first segment into scope ([#313])
+- **Auto import**: with import grouping set to digestFirst or localFirst, a newly added relative import is no longer written above a relative import the file already holds, and goes on its own line below instead ([#314])
+- **Auto import**: with import locations not preserved, an existing import is no longer consolidated into the top block above a `using` pinned to its line that may bring its first segment into scope ([#315])
+- **Project scan**: The declarations nested inside a module that cannot be imported are no longer offered as import candidates under a shortened path that does not compile ([#316])
+- **Import scanner**: A `using:` pair whose opener comments out the path below it no longer counts that path as imported, so an import the file needs is written instead of declined ([#320])
+- **Project scan**: A module whose body opens with a brace on the next line now nests its members, so their import paths carry the enclosing module and an unimportable one no longer offers its contents as top-level candidates ([#324])
+- **Import placement**: a new import is no longer written between an indented `using:` and the path it opens, which left the file unable to compile ([#325])
+- **Project scan**: A module whose braced body sits at or left of its own indent now nests its members, so their import paths keep the enclosing module and an unimportable one no longer offers its contents as top-level candidates ([#330])
+- **Module visibility**: Making a module public now finds a declaration nested in a braced module whose body sits at or left of its own indent, editing that declaration instead of writing a second part beside it ([#333])
+- **Project scan**: A module written inside a braced module body no longer holds that body open past its closing brace, so imports are no longer offered at paths one or more segments too long ([#336])
+- **Project scan**: A module inside the braced body of a module dropped for its access level is no longer offered as a top-level import candidate at a path the compiler rejects ([#342])
+
 ## [0.10.0] - 2026-08-09
 
 ### Added
@@ -362,7 +408,8 @@ See [GitHub Releases](https://github.com/VukeFN/verse-auto-imports/releases) for
 
 <!-- Version comparisons. The chain starts at 0.6.0: no v0.4.x or v0.5.x tags exist. -->
 
-[Unreleased]: https://github.com/vukefn/verse-auto-imports/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/vukefn/verse-auto-imports/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/vukefn/verse-auto-imports/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/vukefn/verse-auto-imports/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/vukefn/verse-auto-imports/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/VukeFN/verse-auto-imports/compare/v0.7.1...v0.8.0
@@ -376,6 +423,41 @@ See [GitHub Releases](https://github.com/VukeFN/verse-auto-imports/releases) for
 
 <!-- Issue references -->
 
+[#60]: https://github.com/vukefn/verse-auto-imports/issues/60
+[#61]: https://github.com/vukefn/verse-auto-imports/issues/61
+[#71]: https://github.com/vukefn/verse-auto-imports/issues/71
+[#143]: https://github.com/vukefn/verse-auto-imports/issues/143
+[#145]: https://github.com/vukefn/verse-auto-imports/issues/145
+[#232]: https://github.com/vukefn/verse-auto-imports/issues/232
+[#266]: https://github.com/vukefn/verse-auto-imports/issues/266
+[#270]: https://github.com/vukefn/verse-auto-imports/issues/270
+[#271]: https://github.com/vukefn/verse-auto-imports/issues/271
+[#272]: https://github.com/vukefn/verse-auto-imports/issues/272
+[#273]: https://github.com/vukefn/verse-auto-imports/issues/273
+[#274]: https://github.com/vukefn/verse-auto-imports/issues/274
+[#275]: https://github.com/vukefn/verse-auto-imports/issues/275
+[#276]: https://github.com/vukefn/verse-auto-imports/issues/276
+[#277]: https://github.com/vukefn/verse-auto-imports/issues/277
+[#282]: https://github.com/vukefn/verse-auto-imports/issues/282
+[#285]: https://github.com/vukefn/verse-auto-imports/issues/285
+[#288]: https://github.com/vukefn/verse-auto-imports/issues/288
+[#292]: https://github.com/vukefn/verse-auto-imports/issues/292
+[#293]: https://github.com/vukefn/verse-auto-imports/issues/293
+[#294]: https://github.com/vukefn/verse-auto-imports/issues/294
+[#305]: https://github.com/vukefn/verse-auto-imports/issues/305
+[#306]: https://github.com/vukefn/verse-auto-imports/issues/306
+[#309]: https://github.com/vukefn/verse-auto-imports/issues/309
+[#313]: https://github.com/vukefn/verse-auto-imports/issues/313
+[#314]: https://github.com/vukefn/verse-auto-imports/issues/314
+[#315]: https://github.com/vukefn/verse-auto-imports/issues/315
+[#316]: https://github.com/vukefn/verse-auto-imports/issues/316
+[#320]: https://github.com/vukefn/verse-auto-imports/issues/320
+[#324]: https://github.com/vukefn/verse-auto-imports/issues/324
+[#325]: https://github.com/vukefn/verse-auto-imports/issues/325
+[#330]: https://github.com/vukefn/verse-auto-imports/issues/330
+[#333]: https://github.com/vukefn/verse-auto-imports/issues/333
+[#336]: https://github.com/vukefn/verse-auto-imports/issues/336
+[#342]: https://github.com/vukefn/verse-auto-imports/issues/342
 [#92]: https://github.com/vukefn/verse-auto-imports/issues/92
 [#96]: https://github.com/vukefn/verse-auto-imports/issues/96
 [#133]: https://github.com/vukefn/verse-auto-imports/issues/133

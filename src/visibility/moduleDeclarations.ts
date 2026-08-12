@@ -227,6 +227,12 @@ function findAccessLevel(specifierBlock: string): { index: number; length: numbe
  * holds anywhere in the file, whereas an indent compared across a brace
  * boundary means nothing - a module inside the braces may be written left of
  * the declaration that opened them.
+ *
+ * The lowest such index is the cut rather than merely one of them, because a
+ * braced entry records the depth it opens from and every braced entry left on
+ * the stack sits below the current depth: their close depths increase upwards,
+ * so nothing below the index found here has closed too. Cutting the stack
+ * before the next entry is pushed is what keeps that true.
  */
 function outermostClosedBrace(open: readonly OpenModule[], braceDepth: number): number {
     return open.findIndex((entry) => entry.closeDepth !== null && braceDepth <= entry.closeDepth);

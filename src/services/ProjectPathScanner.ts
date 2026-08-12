@@ -16,13 +16,54 @@ const SCAN_CONCURRENCY = 8;
  * What makes rejecting them safe is that Verse reserves each, so none can name
  * a declaration - the parser demotes a reserved word to an identifier only
  * where `:=` follows it, and that is an object-notation key rather than a
- * declaration either way. `block`, `loop`, `race`, `rush`, `sync`, `branch`,
- * `defer`, `spawn`, `case`, `for`, `and`, `or`, `option` and `logic` are
- * reserved in the compiler's ReservedSymbols.inl; `if`, `then`, `else` and
- * `not` are reserved by the parser's own token table instead, which is where
- * that file says language-level reservations live.
+ * declaration either way. `if`, `then`, `else`, `not` and `do` are reserved by
+ * the parser's own token table rather than in the compiler's
+ * ReservedSymbols.inl, which is where that file says language-level
+ * reservations live; every other member is reserved in that file.
+ *
+ * A word may join only where ReservedSymbols.inl marks it `Reserved` and the
+ * version gate on that entry is already met. The classification alone is not
+ * the test: an unmet gate falls through to NotReserved, leaving the word a
+ * legal identifier. That keeps out `profile`, `await` and `upon`, which are
+ * `ReservedFuture`, and `dictate`, which is `Reserved` behind a gate of
+ * `Latest + 1` that no shipped version meets. All four are block macros in
+ * every other respect, so a line one of them heads is knowingly misrecorded -
+ * the alternative is dropping a declaration that legally carries the name.
+ *
+ * `batch`, `when` and `first` name macros the language has not released, and
+ * are held anyway: each is reserved and gated at a version that has shipped,
+ * which is the whole of what makes rejecting its line safe. `batch`'s gate is
+ * uploaded-at 4000 rather than the beginning, so only a file uploaded before
+ * that could still carry a declaration named for it.
  */
-const RESERVED_LINE_KEYWORDS = new Set(["block", "loop", "if", "then", "else", "race", "rush", "sync", "branch", "defer", "spawn", "case", "for", "and", "or", "not", "option", "logic"]);
+const RESERVED_LINE_KEYWORDS = new Set([
+    "block",
+    "loop",
+    "if",
+    "then",
+    "else",
+    "race",
+    "rush",
+    "sync",
+    "branch",
+    "defer",
+    "spawn",
+    "case",
+    "for",
+    "and",
+    "or",
+    "not",
+    "option",
+    "logic",
+    "do",
+    "array",
+    "map",
+    "assert",
+    "let",
+    "batch",
+    "when",
+    "first",
+]);
 
 /**
  * A module whose body the scan is inside, held while its declarations are read

@@ -172,7 +172,7 @@ const ABSOLUTE_PATH = `/mygame@fortnite.com/mygame/${RELATIVE_MODULE}`;
  */
 interface ConversionFixture {
     originalImport: string;
-    fullPathImport: string;
+    convertedImport: string;
     moduleName: string;
     isAmbiguous: boolean;
     possiblePaths?: string[];
@@ -181,7 +181,7 @@ interface ConversionFixture {
 function makeConversion(overrides: Partial<ConversionFixture> = {}): ConversionFixture {
     return {
         originalImport: `using { ${RELATIVE_MODULE} }`,
-        fullPathImport: `using { ${ABSOLUTE_PATH} }`,
+        convertedImport: `using { ${ABSOLUTE_PATH} }`,
         moduleName: RELATIVE_MODULE,
         isAmbiguous: false,
         ...overrides,
@@ -195,7 +195,7 @@ function makeConversionHandler(converterOverrides: Record<string, jest.Mock>): {
     const importPathConverter = {
         convertToFullPath: jest.fn().mockResolvedValue(null),
         convertFromFullPath: jest.fn().mockResolvedValue(null),
-        convertAllImportsInDocument: jest.fn().mockResolvedValue([]),
+        convertAllImportsToFullPath: jest.fn().mockResolvedValue([]),
         convertAllImportsFromFullPath: jest.fn().mockResolvedValue([]),
         applyConversion: jest.fn().mockResolvedValue(true),
         ...converterOverrides,
@@ -268,7 +268,7 @@ describe("CommandsHandler.convertToFullPath", () => {
 describe("CommandsHandler.convertToRelativePath", () => {
     it("warns and reports no path when the edit is refused", async () => {
         const { handler } = makeConversionHandler({
-            convertFromFullPath: jest.fn().mockResolvedValue(makeConversion({ fullPathImport: `using { ${RELATIVE_MODULE} }` })),
+            convertFromFullPath: jest.fn().mockResolvedValue(makeConversion({ convertedImport: `using { ${RELATIVE_MODULE} }` })),
             applyConversion: jest.fn().mockResolvedValue(false),
         });
 
@@ -283,7 +283,7 @@ describe("CommandsHandler.convertToRelativePath", () => {
 describe("CommandsHandler.convertAllToFullPath", () => {
     it("warns rather than reporting a count when every edit is refused", async () => {
         const { handler } = makeConversionHandler({
-            convertAllImportsInDocument: jest.fn().mockResolvedValue([makeConversion(), makeConversion()]),
+            convertAllImportsToFullPath: jest.fn().mockResolvedValue([makeConversion(), makeConversion()]),
             applyConversion: jest.fn().mockResolvedValue(false),
         });
 
@@ -297,7 +297,7 @@ describe("CommandsHandler.convertAllToFullPath", () => {
     it("counts a cancelled ambiguous pick as neither converted nor failed", async () => {
         (vscode.window.showQuickPick as jest.Mock).mockResolvedValue(undefined);
         const { handler } = makeConversionHandler({
-            convertAllImportsInDocument: jest.fn().mockResolvedValue([makeConversion({ isAmbiguous: true, possiblePaths: [ABSOLUTE_PATH] })]),
+            convertAllImportsToFullPath: jest.fn().mockResolvedValue([makeConversion({ isAmbiguous: true, possiblePaths: [ABSOLUTE_PATH] })]),
             applyConversion: jest.fn().mockResolvedValue(true),
         });
 
@@ -349,7 +349,7 @@ const CONVERSION_COMMANDS: ConversionCommandCase[] = [
         () => ({ convertFromFullPath: jest.fn().mockResolvedValue(makeConversion()) }),
         (handler, document) => handler.convertToRelativePath(document, `using { ${ABSOLUTE_PATH} }`, 4),
     ],
-    ["convertAllToFullPath", () => ({ convertAllImportsInDocument: jest.fn().mockResolvedValue([makeConversion()]) }), (handler, document) => handler.convertAllToFullPath(document)],
+    ["convertAllToFullPath", () => ({ convertAllImportsToFullPath: jest.fn().mockResolvedValue([makeConversion()]) }), (handler, document) => handler.convertAllToFullPath(document)],
     ["convertAllToRelativePath", () => ({ convertAllImportsFromFullPath: jest.fn().mockResolvedValue([makeConversion()]) }), (handler, document) => handler.convertAllToRelativePath(document)],
 ];
 

@@ -141,7 +141,7 @@ describe("ImportPathConverter.applyConversion", () => {
     /** A resolved relative-to-absolute conversion of `using { Gadgets.Tools }`. */
     const conversion = (line?: number) => ({
         originalImport: "using { Gadgets.Tools }",
-        fullPathImport: "using { /mygame@fortnite.com/mygame/Gadgets/Tools }",
+        convertedImport: "using { /mygame@fortnite.com/mygame/Gadgets/Tools }",
         moduleName: "Tools",
         isAmbiguous: false,
         line,
@@ -259,7 +259,7 @@ describe("ImportPathConverter.applyConversion", () => {
         const document = fakeDocument([line, "", "code()"]);
         const ambiguous = {
             originalImport: line,
-            fullPathImport: "",
+            convertedImport: "",
             moduleName: "Tools",
             isAmbiguous: true,
             possiblePaths: ["/mygame@fortnite.com/mygame/Gadgets/Tools", "/mygame@fortnite.com/mygame/UI/Gadgets/Tools"],
@@ -378,7 +378,7 @@ describe("ImportPathConverter.convertFromFullPath", () => {
 
         const result = await converter.convertFromFullPath("using. /mygame@fortnite.com/mygame/Economy/Shop # only the shop, not the vendor", undefined, 0);
 
-        expect(result?.fullPathImport).toBe("using. Economy.Shop");
+        expect(result?.convertedImport).toBe("using. Economy.Shop");
         expect(result?.moduleName).toBe("Shop");
     });
 
@@ -387,7 +387,7 @@ describe("ImportPathConverter.convertFromFullPath", () => {
 
         const result = await converter.convertFromFullPath("using { /mygame@fortnite.com/mygame/Economy/Shop } # only the shop", undefined, 0);
 
-        expect(result?.fullPathImport).toBe("using { Economy.Shop }");
+        expect(result?.convertedImport).toBe("using { Economy.Shop }");
     });
 
     it("keeps the dotted style when the trailing comment contains a brace", async () => {
@@ -398,7 +398,7 @@ describe("ImportPathConverter.convertFromFullPath", () => {
 
         const result = await converter.convertFromFullPath("using. /mygame@fortnite.com/mygame/Economy/Shop # use {braces} here", undefined, 0);
 
-        expect(result?.fullPathImport).toBe("using. Economy.Shop");
+        expect(result?.convertedImport).toBe("using. Economy.Shop");
     });
 
     it("keeps the braced style when the trailing comment also contains a brace", async () => {
@@ -408,7 +408,7 @@ describe("ImportPathConverter.convertFromFullPath", () => {
 
         const result = await converter.convertFromFullPath("using { /mygame@fortnite.com/mygame/Economy/Shop } # see {Vendor}", undefined, 0);
 
-        expect(result?.fullPathImport).toBe("using { Economy.Shop }");
+        expect(result?.convertedImport).toBe("using { Economy.Shop }");
     });
 
     it("writes the comment once, and unaltered, when the conversion is applied", async () => {
@@ -443,7 +443,7 @@ describe("ImportPathConverter.convertFromFullPath scope-relative shortening", ()
     async function relativeFormOf(fullPath: string, fileUri?: vscode.Uri): Promise<string | undefined> {
         const converter = converterWithProjectPath(projectVersePath);
         const result = await converter.convertFromFullPath(`using. ${fullPath}`, fileUri, 0);
-        return result?.fullPathImport;
+        return result?.convertedImport;
     }
 
     beforeEach(() => {
@@ -534,7 +534,7 @@ describe("ImportPathConverter.convertFromFullPath scope-relative shortening", ()
         const converter = converterWithProjectPath(projectVersePath);
         const statement = `using { ${projectVersePath}/Systems/Economy/Shop } # only the shop`;
 
-        expect((await converter.convertFromFullPath(statement, fileAt("Systems/Economy"), 0))?.fullPathImport).toBe("using { Shop }");
+        expect((await converter.convertFromFullPath(statement, fileAt("Systems/Economy"), 0))?.convertedImport).toBe("using { Shop }");
     });
 
     // The round trip runs the real outward search over a folder tree, not a
@@ -570,7 +570,7 @@ describe("ImportPathConverter.convertFromFullPath scope-relative shortening", ()
 
             const relative = await converter.convertFromFullPath(absolute, fileUri, 0);
 
-            expect((await converter.convertToFullPath(relative!.fullPathImport, fileUri, 0))?.fullPathImport).toBe(absolute);
+            expect((await converter.convertToFullPath(relative!.convertedImport, fileUri, 0))?.convertedImport).toBe(absolute);
         });
     });
 });
@@ -590,7 +590,7 @@ describe("ImportPathConverter.convertToFullPath", () => {
 
         const result = await converter.convertToFullPath("using. Shop # use {braces} here", vscode.Uri.file("C:/project/test.verse"), 0);
 
-        expect(result?.fullPathImport).toBe("using. /mygame@fortnite.com/mygame/Economy/Shop");
+        expect(result?.convertedImport).toBe("using. /mygame@fortnite.com/mygame/Economy/Shop");
     });
 
     it("keeps the braced style when the trailing comment also contains a brace", async () => {
@@ -598,7 +598,7 @@ describe("ImportPathConverter.convertToFullPath", () => {
 
         const result = await converter.convertToFullPath("using { Shop } # see {Vendor}", vscode.Uri.file("C:/project/test.verse"), 0);
 
-        expect(result?.fullPathImport).toBe("using { /mygame@fortnite.com/mygame/Economy/Shop }");
+        expect(result?.convertedImport).toBe("using { /mygame@fortnite.com/mygame/Economy/Shop }");
     });
 
     // A brace in comment prose costs the statement its style; a whole
@@ -609,7 +609,7 @@ describe("ImportPathConverter.convertToFullPath", () => {
 
         const result = await converter.convertToFullPath("using. Shop # was using { Inventory }", vscode.Uri.file("C:/project/test.verse"), 0);
 
-        expect(result?.fullPathImport).toBe("using. /mygame@fortnite.com/mygame/Economy/Shop");
+        expect(result?.convertedImport).toBe("using. /mygame@fortnite.com/mygame/Economy/Shop");
         expect(result?.moduleName).toBe("Shop");
     });
 });

@@ -1146,6 +1146,11 @@ describe("scanConvertibleImports", () => {
         const lines = ["Graphics := import(/MyGame/Systems/Graphics)", "using { /Other/Graphics }", "code()"];
         expect(scanConvertibleImports(lines)).toEqual([{ statement: "using { /Other/Graphics }", line: 1 }]);
     });
+
+    it("excludes a using naming an alias declared after a closed comment", () => {
+        const lines = ["<# note #>Gfx := import(/MyGame/Systems/Graphics)", "using { Gfx }", "code()"];
+        expect(scanConvertibleImports(lines)).toEqual([]);
+    });
 });
 
 describe("scanModuleAliases", () => {
@@ -1177,24 +1182,45 @@ describe("scanModuleAliases", () => {
         expect(scanModuleAliases(['Doc := "Utils := import(/MyGame/Utilities)"', "code()"])).toEqual(new Set());
     });
 
+    // Nothing replaces a removed comment, so the code of this line starts with
+    // the space after the `#>`. Reading indentation off that rather than off the
+    // raw line drops a column-0 alias, and a dropped alias leaves the `using`
+    // naming it open to being rewritten as a path.
+    it("reads an alias written after a closed comment on its own line", () => {
+        expect(scanModuleAliases(["<# note #>Utils := import(/MyGame/Utilities)", "code()"])).toEqual(new Set(["Utils"]));
+    });
+
+    it("reads an alias carrying a trailing comment", () => {
+        expect(scanModuleAliases(["Utils := import(/MyGame/Utilities) # the shop helpers", "code()"])).toEqual(new Set(["Utils"]));
+    });
+
     // An alias inside a module body binds in that module's scope, so it is not
     // what a column-0 `using` names.
     it("declares nothing from an alias indented inside a module body", () => {
         expect(scanModuleAliases(["MyModule := module:", "    Utils := import(/MyGame/Utilities)"])).toEqual(new Set());
     });
 
-    // Each of these is rejected outright by the compiler, so the line declares
-    // no alias and must not be read as one.
-    it("declares nothing from a line the compiler refuses as an import", () => {
-        // Brackets carry failure semantics; `import` must be invoked with
-        // parentheses.
-        expect(scanModuleAliases(["Utils := import[/MyGame/Utilities]"])).toEqual(new Set());
-        // The argument must be a path literal, which is absolute.
+    it("declares nothing from a line that aliases no module", () => {
+        // The argument must be a path literal, which is absolute, so neither of
+        // these names a module to alias.
         expect(scanModuleAliases(["Utils := import(MyGame.Utilities)"])).toEqual(new Set());
-        // The left side must be a plain identifier, without a qualifier.
+        expect(scanModuleAliases(["Utils := import(Utilities)"])).toEqual(new Set());
+        // A dotted left side is refused outright by the compiler.
         expect(scanModuleAliases(["Outer.Utils := import(/MyGame/Utilities)"])).toEqual(new Set());
         // A call of something else that merely reads like one.
         expect(scanModuleAliases(["Utils := reimport(/MyGame/Utilities)"])).toEqual(new Set());
+    });
+
+    // Read in the safe direction rather than refused. The compiler rejects the
+    // bracketed form through a failure-semantics check that never inspects the
+    // brackets, so the source does not show it being refused - and a missed
+    // alias leaves the defect live where a spurious one only withholds a lens.
+    it("reads an alias whichever way the import is invoked", () => {
+        expect(scanModuleAliases(["Utils := import[/MyGame/Utilities]"])).toEqual(new Set(["Utils"]));
+    });
+
+    it("reads an alias whose left side carries a path qualifier", () => {
+        expect(scanModuleAliases(["(/MyGame/Utilities:)Utils := import(/MyGame/Utilities)"])).toEqual(new Set(["Utils"]));
     });
 });
 

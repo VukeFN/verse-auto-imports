@@ -1193,17 +1193,24 @@ export function allUsingPaths(lines: string[]): string[] {
 /**
  * One `Name := import(/Path)` module alias, anchored at the head of a statement.
  *
- * The shape is the compiler's, not a generalization of it: the left side is a
- * plain identifier, optionally carrying a quoted suffix and access specifiers,
- * and the argument is a single absolute path literal in parentheses. A
- * qualified left side, a type annotation, brackets rather than parentheses, and
- * a relative or dotted argument are each rejected outright by the compiler, so
- * a line spelling one declares no alias and must not be read as if it did.
+ * The left side is an identifier, optionally carrying a quoted suffix, a
+ * `(path:)` qualifier and access specifiers, and the argument is a single
+ * absolute path. Two rules are the compiler's own and narrow this: the argument
+ * must be a path literal, so a bare, dotted or relative one names no module to
+ * alias, and the dotted left side `Outer.Utils` is refused outright
+ * (SemanticAnalyzer.cpp AnalyzeImport).
  *
- * The path is captured but deliberately not offered by scanModuleAliases; see
- * there for why nothing may read it.
+ * Both invocation styles are read, though only `import(...)` is legal prose.
+ * The compiler rejects the bracketed form through a failure-semantics check
+ * that never inspects the brackets themselves, so the source does not actually
+ * show `import[...]` being refused - and guessing wrong in that direction drops
+ * an alias, where reading one the compiler would reject only withholds a lens.
+ * The qualifier is admitted on the same terms: nothing checks it here.
+ *
+ * The aliased path is matched but not captured. Nothing may read it - see
+ * scanModuleAliases - and a capture is an invitation to.
  */
-const MODULE_ALIAS_STATEMENT = /^([A-Za-z_][A-Za-z0-9_]*(?:'[^']*')?)(?:\s*<[^<>\n]+>)*\s*:=\s*import\s*\(\s*(\/[^\s()]*)\s*\)$/;
+const MODULE_ALIAS_STATEMENT = /^(?:\([^()]*:\)\s*)?([A-Za-z_][A-Za-z0-9_]*(?:'[^']*')?)(?:\s*<[^<>\n]+>)*\s*:=\s*import\s*(?:\(\s*\/[^\s()[\]]*\s*\)|\[\s*\/[^\s()[\]]*\s*\])$/;
 
 /**
  * The names a file binds to a module with `Name := import(/Path)`, at file
@@ -1223,14 +1230,26 @@ const MODULE_ALIAS_STATEMENT = /^([A-Za-z_][A-Za-z0-9_]*(?:'[^']*')?)(?:\s*<[^<>
  * module - and a reader that resolves it as a path finds whichever namesake the
  * workspace holds. See scanConvertibleImports.
  *
- * Read at file scope only, which is what the consumers need and all they can
- * use: an alias declared inside a module body binds in that module's scope, so
- * it cannot be what a column-0 `using` names.
+ * Only this file is read, which does not see every alias a `using` here could
+ * name. An alias binds in the enclosing module rather than in the file: a
+ * snippet is not a logical scope, so the definition lands in the module every
+ * file of the folder module shares, and a sibling file's alias resolves here
+ * unqualified. A `using` naming one of those is still offered a conversion.
+ * Closing that needs a workspace scan no line-based reader can make.
  *
- * Statements are read from the classified code rather than the raw line, so an
- * alias inside a comment or written as string text declares nothing, and one
- * following a `;` is found - `;` separates definitions in a scope exactly as a
- * newline does.
+ * An alias indented inside a module body is skipped for the opposite reason: it
+ * binds in that module, which a column-0 `using` is outside of.
+ *
+ * Indentation is read from the raw line, as the module-import scan reads it,
+ * and not from the code with comments removed. Nothing replaces a removed
+ * comment, so a closed one written ahead of the statement,
+ * `<# note #>Gfx := import(/A/B)`, leaves the code starting with the space
+ * after it and a column-0 alias then reads as indented - which drops it, and a
+ * dropped alias is the one error this must not make.
+ *
+ * Statements are read from the classified code, so an alias inside a comment or
+ * written as string text declares nothing, and one following a `;` is found -
+ * `;` separates definitions in a scope exactly as a newline does.
  *
  * Failing towards reporting a name is the safe direction: an alias this misses
  * leaves a `using` naming it open to being rewritten as a path, which is the
@@ -1238,12 +1257,13 @@ const MODULE_ALIAS_STATEMENT = /^([A-Za-z_][A-Za-z0-9_]*(?:'[^']*')?)(?:\s*<[^<>
  */
 export function scanModuleAliases(lines: string[]): Set<string> {
     const aliases = new Set<string>();
+    const classifications = classifyLines(lines);
 
-    for (const classification of classifyLines(lines)) {
-        if (classification.kind !== "code" || /^\s/.test(classification.codeWithoutComments)) {
+    for (let i = 0; i < lines.length; i++) {
+        if (classifications[i].kind !== "code" || lines[i].length === 0 || /^\s/.test(lines[i])) {
             continue;
         }
-        for (const statement of classification.codeOutsideLiterals.split(";")) {
+        for (const statement of classifications[i].codeOutsideLiterals.split(";")) {
             const match = statement.trim().match(MODULE_ALIAS_STATEMENT);
             if (match) {
                 aliases.add(match[1]);

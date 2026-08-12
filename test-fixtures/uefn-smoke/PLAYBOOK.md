@@ -210,9 +210,10 @@ in (see test-fixtures/corpus/README.md).
        and confirm auto-import puts it back rather than reading the alias of
        the same path as an import already present; run "Verse Auto Imports:
        Optimize Imports" and confirm both alias lines are byte-identical
-       afterwards; and hover the `using { T9Sub }` line and confirm NO
-       "Use absolute path" lens appears on it, since T9Sub names an alias
-       rather than a module (#71).
+       afterwards, expecting them to sit below the rebuilt import block
+       rather than where they started; and hover the `using { T9Sub }` line
+       and confirm NO "Use absolute path" lens appears on it, since T9Sub
+       names an alias rather than a module (#71).
 7. [ ] Capture: with all T9 files open and their diagnostics present, run
        "Verse Auto Imports: Capture Diagnostics Corpus" and curate the output
        into the corpus folder for this UEFN version.

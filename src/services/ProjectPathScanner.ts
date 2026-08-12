@@ -8,17 +8,19 @@ import { ProjectPathData, ProjectPathNode, ProjectScanOptions } from "../types";
 const SCAN_CONCURRENCY = 8;
 
 /**
- * The Verse words that open a line as a bare `keyword:` - the block macros, and
- * the reserved types written the same way.
+ * The keywords a Verse block macro is spelled with, and the operators and types
+ * that share their shape closely enough to reach the same fall-through.
  *
- * Verse reserves every one of them, so none can name a declaration: the parser
- * demotes a reserved word to an identifier only where `:=` follows it, and that
- * is an object-notation key rather than a declaration either way. `block`,
- * `loop`, `race`, `rush`, `sync`, `branch`, `defer`, `spawn`, `case`, `for`,
- * `and`, `or`, `option` and `logic` are reserved in the compiler's
- * ReservedSymbols.inl; `if`, `then`, `else` and `not` are reserved by the
- * parser's own token table instead, which is where that file says
- * language-level reservations live.
+ * Membership is not "every reserved word": it is the words seen to reach the
+ * fall-through as a bare `keyword:`, plus the ones the language groups with
+ * them. What makes rejecting them safe is that Verse reserves each, so none can
+ * name a declaration - the parser demotes a reserved word to an identifier only
+ * where `:=` follows it, and that is an object-notation key rather than a
+ * declaration either way. `block`, `loop`, `race`, `rush`, `sync`, `branch`,
+ * `defer`, `spawn`, `case`, `for`, `and`, `or`, `option` and `logic` are
+ * reserved in the compiler's ReservedSymbols.inl; `if`, `then`, `else` and
+ * `not` are reserved by the parser's own token table instead, which is where
+ * that file says language-level reservations live.
  */
 const RESERVED_LINE_KEYWORDS = new Set(["block", "loop", "if", "then", "else", "race", "rush", "sync", "branch", "defer", "spawn", "case", "for", "and", "or", "not", "option", "logic"]);
 

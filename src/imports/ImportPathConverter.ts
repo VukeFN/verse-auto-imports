@@ -4,6 +4,7 @@ import { logger } from "../utils";
 import { maskCommentsAndStrings } from "../utils/verseText";
 import { ProjectPathHandler } from "../project";
 import { ProjectPathCache } from "../services";
+import { resolveFolderModuleLocations } from "../services/moduleLocationLookup";
 import { ImportFormatter } from "./ImportFormatter";
 import { LINE_SPLIT, scanConvertibleImports } from "./ImportScanner";
 
@@ -32,6 +33,14 @@ interface ImportConversionResult {
 }
 
 const CONTENT_FOLDER = "Content";
+
+/**
+ * How many `.verse` files the project-wide folder search enumerates. Far above
+ * the explicit-declaration scan's 100 because this one reads no file contents:
+ * it derives folder modules from the paths alone, so a file costs a string
+ * split rather than a read.
+ */
+const FOLDER_SCAN_FILE_LIMIT = 5000;
 
 /**
  * Converts a `using` between the absolute Verse path of a module and the
@@ -323,14 +332,28 @@ export class ImportPathConverter {
      * Capped at 100 files scanned, so a project larger than that resolves from
      * whichever of them the search returned.
      */
+    /**
+     * Where a workspace-wide `.verse` scan has to look, and whether the
+     * workspace folder is itself the Content folder - which decides both the
+     * glob and how a found path maps back to a Content-relative one.
+     *
+     * Shared by the two scanning phases so they cannot disagree about the
+     * layout: a phase reading one rule and a phase reading the other would
+     * resolve the same project differently.
+     */
+    private static workspaceScanTargets(workspaceFolder: { uri: vscode.Uri }): { searchPattern: string; workspaceIsContent: boolean } {
+        const workspaceIsContent = path.basename(workspaceFolder.uri.fsPath) === CONTENT_FOLDER;
+        return {
+            searchPattern: workspaceIsContent ? "**/*.verse" : `${CONTENT_FOLDER}/**/*.verse`,
+            workspaceIsContent,
+        };
+    }
+
     private async searchExplicitModuleDefinitions(modulePath: string, moduleName: string, pathSegments: string[], locations: string[]): Promise<void> {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders || workspaceFolders.length === 0) return;
 
-        let searchPattern = `${CONTENT_FOLDER}/**/*.verse`;
-        const workspaceFolderName = path.basename(workspaceFolders[0].uri.fsPath);
-        const workspaceIsContent = workspaceFolderName === CONTENT_FOLDER;
-        if (workspaceIsContent) searchPattern = "**/*.verse";
+        const { searchPattern, workspaceIsContent } = ImportPathConverter.workspaceScanTargets(workspaceFolders[0]);
 
         // Scope the scan to the project folder. The UEFN-generated workspace is
         // multi-root (Content plus Epic's digest folders); a bare string glob
@@ -388,18 +411,70 @@ export class ImportPathConverter {
     }
 
     /**
+     * Appends the locations of folder modules anywhere in the project, which
+     * searchImplicitModules reaches only near the current file and the
+     * declaration scan cannot see at all - a folder module has no declaration
+     * to match, so a chain like Systems/Combat/Weapons is invisible to every
+     * other phase from an unrelated branch of the tree.
+     *
+     * Folders are derived from the paths of the project's `.verse` files, never
+     * from their contents, so this reads no file. The blind spot that leaves is
+     * a folder holding no `.verse` file anywhere beneath it; such a module has
+     * no members to import, so nothing would name it.
+     *
+     * Capped at FOLDER_SCAN_FILE_LIMIT files enumerated.
+     */
+    private async searchProjectFolderModules(modulePath: string, locations: string[]): Promise<void> {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders || workspaceFolders.length === 0) return;
+
+        const { searchPattern, workspaceIsContent } = ImportPathConverter.workspaceScanTargets(workspaceFolders[0]);
+        const verseFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(workspaceFolders[0], searchPattern), "**/*.digest.verse", FOLDER_SCAN_FILE_LIMIT);
+
+        const contentRelativeDirs = new Set<string>();
+        for (const file of verseFiles) {
+            let directory = path.dirname(path.relative(workspaceFolders[0].uri.fsPath, file.fsPath)).replace(/\\/g, "/");
+            if (directory === ".") directory = "";
+
+            // A workspace opened at Content already yields Content-relative
+            // paths; anywhere else they carry the Content/ segment, and a file
+            // outside Content contributes no importable module.
+            if (!workspaceIsContent) {
+                if (directory === CONTENT_FOLDER) {
+                    directory = "";
+                } else if (directory.startsWith(`${CONTENT_FOLDER}/`)) {
+                    directory = directory.substring(CONTENT_FOLDER.length + 1);
+                } else {
+                    continue;
+                }
+            }
+
+            contentRelativeDirs.add(directory);
+        }
+
+        for (const location of resolveFolderModuleLocations(modulePath, contentRelativeDirs)) {
+            if (!locations.includes(location)) locations.push(location);
+        }
+    }
+
+    /**
      * Every place in the workspace the module could be, as locations relative
      * to the Content root: "" for the root itself, "/Dir/Sub" below it. Empty
      * when the module is nowhere to be found, and longer than one entry when
      * the name is ambiguous.
      *
-     * Two searches, in preference order, and the second runs only if the first
-     * found nothing: a folder near the current file (searchImplicitModules),
-     * then an explicit declaration anywhere in the project
-     * (searchExplicitModuleDefinitions). Ordered that way because proximity is
-     * the better evidence of which module was meant, and because a folder
-     * module exists only on the filesystem, where no declaration cache can see
-     * it.
+     * Three searches, each running only if the ones before it found nothing: a
+     * folder near the current file (searchImplicitModules), then an explicit
+     * declaration anywhere in the project (searchExplicitModuleDefinitions),
+     * then a folder module anywhere in the project
+     * (searchProjectFolderModules). Ordered that way because proximity is the
+     * better evidence of which module was meant, and because a folder module
+     * exists only on the filesystem, where no declaration cache can see it.
+     *
+     * The last phase is the compiler's own recovery for this failure: where the
+     * scope walk resolves nothing, it searches every module in the program and
+     * collects all the matches rather than the first, which is why an ambiguous
+     * answer here is a result and not a fault.
      */
     async findModuleLocations(modulePath: string, currentFileUri?: vscode.Uri): Promise<string[]> {
         const locations: string[] = [];
@@ -446,6 +521,15 @@ export class ImportPathConverter {
                 await this.searchExplicitModuleDefinitions(modulePath, moduleName, pathSegments, locations);
             } catch (error) {
                 logger.debug("ImportPathConverter", `Error in Phase 2 (explicit modules): ${error}`);
+            }
+        }
+
+        if (locations.length === 0) {
+            logger.debug("ImportPathConverter", `Phase 3: Searching folder modules across the project`);
+            try {
+                await this.searchProjectFolderModules(modulePath, locations);
+            } catch (error) {
+                logger.debug("ImportPathConverter", `Error in Phase 3 (project folder modules): ${error}`);
             }
         }
 

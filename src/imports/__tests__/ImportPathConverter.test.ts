@@ -669,3 +669,81 @@ describe("ImportPathConverter.findModuleLocations explicit declaration scan", ()
         expect(await locationsFor('Doc := "Inventory := module:"\n')).toEqual([]);
     });
 });
+
+describe("ImportPathConverter.convertToFullPath project-wide folder module search", () => {
+    const projectVersePath = "/mygame@fortnite.com/mygame";
+    const workspaceRoot = "C:/Project";
+
+    // The tree from the report: the same Combat/Weapons chain under two roots,
+    // and an importing file on a third branch that reaches neither of them by
+    // any local step - not a sibling, not an ancestor, not a child of Content.
+    const verseFiles = ["Content/Scripts/Main.verse", "Content/Systems/Combat/Weapons/Rifle.verse", "Content/Features/Combat/Weapons/Bow.verse"];
+    const folders = ["Scripts", "Systems", "Systems/Combat", "Systems/Combat/Weapons", "Features", "Features/Combat", "Features/Combat/Weapons"];
+
+    /** workspaceFolders is readonly in the real typings; the mock is writable. */
+    const setWorkspaceFolders = (folders: unknown): void => {
+        (vscode.workspace as unknown as { workspaceFolders: unknown }).workspaceFolders = folders;
+    };
+
+    beforeEach(() => {
+        setWorkspaceFolders([{ uri: { fsPath: workspaceRoot }, name: "Project", index: 0 }]);
+        (vscode.workspace.findFiles as jest.Mock).mockResolvedValue(verseFiles.map((file) => vscode.Uri.file(`${workspaceRoot}/${file}`)));
+        (vscode.workspace.fs.stat as jest.Mock).mockImplementation(async (uri: { fsPath: string }) => {
+            const contentRelative = uri.fsPath.replace(/\\/g, "/").replace(`${workspaceRoot}/Content/`, "");
+            if (!folders.includes(contentRelative)) throw new Error("ENOENT");
+            return { type: vscode.FileType.Directory };
+        });
+    });
+
+    afterEach(() => {
+        setWorkspaceFolders(undefined);
+        (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([]);
+        (vscode.workspace.fs.stat as jest.Mock).mockRejectedValue(new Error("ENOENT"));
+        (vscode.workspace.fs.readFile as jest.Mock).mockRejectedValue(new Error("ENOENT"));
+    });
+
+    const convert = (statement: string, contentRelativeFile: string) =>
+        converterWithProjectPath(projectVersePath).convertToFullPath(statement, vscode.Uri.file(`${workspaceRoot}/Content/${contentRelativeFile}`), 0);
+
+    // No folder module has a declaration to read, so before this phase existed
+    // every search missed the chain and the user was told the module could not
+    // be found - with two copies of it in the project.
+    it("finds a folder chain outside the file's own ancestry, on every branch holding one", async () => {
+        const result = await convert("using { Combat.Weapons }", "Scripts/Main.verse");
+
+        expect(result?.isAmbiguous).toBe(true);
+        expect(result?.possiblePaths).toEqual([`${projectVersePath}/Features/Combat/Weapons`, `${projectVersePath}/Systems/Combat/Weapons`]);
+    });
+
+    it("converts outright when only one branch holds the chain", async () => {
+        (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([
+            vscode.Uri.file(`${workspaceRoot}/Content/Scripts/Main.verse`),
+            vscode.Uri.file(`${workspaceRoot}/Content/Systems/Combat/Weapons/Rifle.verse`),
+        ]);
+
+        const result = await convert("using { Combat.Weapons }", "Scripts/Main.verse");
+
+        expect(result?.isAmbiguous).toBe(false);
+        expect(result?.convertedImport).toBe(`using { ${projectVersePath}/Systems/Combat/Weapons }`);
+    });
+
+    it("keeps the dotted style the author wrote", async () => {
+        (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([vscode.Uri.file(`${workspaceRoot}/Content/Systems/Combat/Weapons/Rifle.verse`)]);
+
+        expect((await convert("using. Combat.Weapons", "Scripts/Main.verse"))?.convertedImport).toBe(`using. ${projectVersePath}/Systems/Combat/Weapons`);
+    });
+
+    // The phase is a fallback, not a widening: a module the local search
+    // already places must not be dragged into an ambiguity by a namesake on
+    // another branch.
+    it("leaves a locally resolved module unambiguous", async () => {
+        const result = await convert("using { Combat.Weapons }", "Systems/Economy/Feature.verse");
+
+        expect(result?.isAmbiguous).toBe(false);
+        expect(result?.convertedImport).toBe(`using { ${projectVersePath}/Systems/Combat/Weapons }`);
+    });
+
+    it("still reports a module no folder in the project holds", async () => {
+        expect(await convert("using { Economy.Shop }", "Scripts/Main.verse")).toBeNull();
+    });
+});

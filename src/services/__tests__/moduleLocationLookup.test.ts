@@ -1,4 +1,4 @@
-import { buildProjectIndexes, resolveModuleLocations } from "../moduleLocationLookup";
+import { buildProjectIndexes, resolveFolderModuleLocations, resolveModuleLocations } from "../moduleLocationLookup";
 import { ProjectPathNode } from "../../types";
 
 function moduleNode(name: string, fullPath: string, sourceFile: string): ProjectPathNode {
@@ -163,5 +163,60 @@ describe("resolveModuleLocations", () => {
         for (const request of ["HUD/Textures", "Inventory", "Widget"]) {
             expect(resolve(request, roundTripped)).toEqual(resolve(request, nodes));
         }
+    });
+});
+
+describe("resolveFolderModuleLocations", () => {
+    // The tree from the report: one Combat/Weapons chain under each of two
+    // roots, with the importing file on a third branch that reaches neither.
+    const projectDirs = ["Scripts", "Systems/Combat/Weapons", "Features/Combat/Weapons"];
+
+    it("finds a folder chain on every branch that holds one", () => {
+        expect(resolveFolderModuleLocations("Combat/Weapons", projectDirs)).toEqual(["/Features", "/Systems"]);
+    });
+
+    it("finds a module in an ancestor of a directory holding verse files", () => {
+        expect(resolveFolderModuleLocations("Combat", projectDirs)).toEqual(["/Features", "/Systems"]);
+    });
+
+    it("reports the Content root for a chain that starts at it", () => {
+        expect(resolveFolderModuleLocations("Systems/Combat", projectDirs)).toEqual([""]);
+    });
+
+    it("finds a module directly under the Content root", () => {
+        expect(resolveFolderModuleLocations("Combat", ["Combat"])).toEqual([""]);
+    });
+
+    // A location the module does not live in is worse than none: it either
+    // makes a single, correct conversion ambiguous, or writes a path to a
+    // module that is not there.
+    it("matches whole segments, not a name a segment merely ends with", () => {
+        expect(resolveFolderModuleLocations("Combat/Weapons", ["Systems/XCombat/Weapons"])).toEqual([]);
+    });
+
+    it("does not match a partial trailing segment", () => {
+        expect(resolveFolderModuleLocations("Weapon", ["Systems/Combat/Weapons"])).toEqual([]);
+    });
+
+    it("is case-sensitive, as module resolution is", () => {
+        expect(resolveFolderModuleLocations("combat/weapons", projectDirs)).toEqual([]);
+    });
+
+    it("reports one location for a chain several directories attest to", () => {
+        expect(resolveFolderModuleLocations("Combat", ["Systems/Combat", "Systems/Combat/Weapons", "Systems/Combat/Armor"])).toEqual(["/Systems"]);
+    });
+
+    // Directory enumeration has no guaranteed order, and these become an
+    // ordered list of paths the user picks from.
+    it("orders its answers independently of the order the directories arrive in", () => {
+        expect(resolveFolderModuleLocations("Combat/Weapons", [...projectDirs].reverse())).toEqual(resolveFolderModuleLocations("Combat/Weapons", projectDirs));
+    });
+
+    it("answers nothing for a path no directory holds", () => {
+        expect(resolveFolderModuleLocations("Economy/Shop", projectDirs)).toEqual([]);
+    });
+
+    it("answers nothing for an empty request", () => {
+        expect(resolveFolderModuleLocations("", projectDirs)).toEqual([]);
     });
 });

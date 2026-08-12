@@ -528,11 +528,10 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
     //   are recorded against the opener line alone, so the pair entry is the
     //   only one whose span reaches the path line, and declining it lets a new
     //   relative import be written between the opener and the path it opens -
-    //   a statement written there leaves the `using:` with no body. The
-    //   comment rule above
-    //   costs nothing there, because pinnedSpanEnd rebuilds that reach from the
-    //   comment structure itself; a content rule has nothing to rebuild it
-    //   from. Over-recording the path is the cheaper error: the entry is
+    //   a statement written there leaves the `using:` with no body. The comment
+    //   rule above costs nothing there, because pinnedSpanEnd rebuilds that
+    //   reach from the comment structure itself; a content rule has nothing to
+    //   rebuild it from. Over-recording the path is the cheaper error: the entry is
     //   pinned, so no writer rebuilds the line, and no diagnostic asks for a
     //   path of this shape.
     //
@@ -939,11 +938,17 @@ function usingPathsOnLine(formatter: ImportFormatter, code: string): string[] {
  *   order, rather than the first.
  * - A `using:` opening an indented pair is recognised at the end of its line
  *   rather than as the whole of it, since a statement can precede it there too.
- *   The pair is the one shape counted once, because its path is read here from
- *   the first line of code below the opener, which is not always the line
- *   directly below it. Neither rule scanModuleImports applies to a pair is applied
- *   here: over-reporting a path only makes the caller decline to tidy, so a
- *   path its opener comments out is offered rather than risk withholding one.
+ *   The pair is the one shape counted once, because its path is read from the
+ *   line indentedPairPathLine names: the first line of code below the opener,
+ *   which is not always the line directly below it.
+ *
+ *   That helper carries the comment rule with it, so the pair is the one shape
+ *   this reports less of than the raw text would - a path the opener comments
+ *   out is not offered. Safe, for a reason the rest of the list cannot use:
+ *   comment text is not a `using`, so nothing resolves against it and removing
+ *   an import it appeared to provide strands nothing. Reading a pair any other
+ *   way here means a second opinion about what a pair is, which is the
+ *   disagreement sharing the helper exists to end.
  *
  * Positions are not reported; a caller that needs them wants scanModuleImports.
  */

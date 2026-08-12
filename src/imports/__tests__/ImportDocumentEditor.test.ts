@@ -191,6 +191,16 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, [], curlySorted)).toBeNull();
     });
 
+    // The end of the pinning rule, asserted where it can be seen: a pair whose
+    // path a comment separates from its opener is pinned, so the block is
+    // rebuilt above it and the comment inside it survives. Were such a pair
+    // ever rewritable, this rebuild would emit the path alone and the note
+    // would be gone.
+    it("keeps a comment written inside an indented pair", () => {
+        const input = ["using { /B }", "using:", "    # note", "    /A", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /B }", "", "using:", "    # note", "    /A", "", "code()"].join("\n"));
+    });
+
     // The `using:` opens nothing here, so there is no pair to read - but the
     // line is still not reproducible from the path before the `;`, and
     // rebuilding it deletes the `; using:` the author wrote.

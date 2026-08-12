@@ -47,6 +47,14 @@ describe("allUsingPaths", () => {
         expect(allUsingPaths(["using:", "    # the path below", "    Features", "code()"])).toEqual(["Features"]);
     });
 
+    // The pair is the one shape this reports less of than the raw text would.
+    // Its path comes from indentedPairPathLine, which carries the comment rule,
+    // so a path the opener comments out is not offered - comment text is not a
+    // `using`, and nothing resolves against it.
+    it("does not read the path of a pair its opener comments out", () => {
+        expect(allUsingPaths(["using: <#>", "    /A", "code()"])).toEqual([]);
+    });
+
     it("ignores an import inside a block comment", () => {
         expect(allUsingPaths(["<#", "using { /Old }", "#>", "using { /A }", "code()"])).toEqual(["/A"]);
     });

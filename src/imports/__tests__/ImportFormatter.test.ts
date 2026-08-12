@@ -41,6 +41,18 @@ describe("ImportFormatter.isModuleImport", () => {
         expect(ImportFormatter.isModuleImport("using:", "    Features", { atFileScope: true })).toBe(true);
     });
 
+    // ImportScanner's loop gate reads this answer to route a `using:` whose
+    // path sits further down onto its pinned branch. Answering `true` for a
+    // line carrying no path makes such a pair rewritable, and a writer
+    // rebuilding that span from one path deletes what the author wrote between
+    // the opener and the path.
+    it("a using: over a line carrying no path is not a module import", () => {
+        expect(ImportFormatter.isModuleImport("using:", "", { atFileScope: true })).toBe(false);
+        expect(ImportFormatter.isModuleImport("using:", "    ", { atFileScope: true })).toBe(false);
+        expect(ImportFormatter.isModuleImport("using:", "    # the path below", { atFileScope: true })).toBe(false);
+        expect(ImportFormatter.isModuleImport("using:", "# a note of its own", { atFileScope: true })).toBe(false);
+    });
+
     // A bare identifier is the only dotted content the swallowed definition
     // changes the answer for: read to end of line the content was
     // `Features; MyVal := 5`, which is neither a path nor an identifier, so the

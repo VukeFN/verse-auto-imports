@@ -7,6 +7,24 @@ describe("allUsingPaths", () => {
 
     // The whole reason this exists: scanModuleImports skips indented lines, so
     // an import in a module body is invisible to it.
+    // No line of the span writes a `using` statement holding this path: the
+    // opener carries no path and the path's own line carries no `using`. Missing
+    // it is the one error this reader must not make, since the caller reads an
+    // empty answer as permission to remove an import.
+    it("collects a path from a braced clause whose brace closes on a later line", () => {
+        expect(allUsingPaths(["using{", "    /A", "}", "code()"])).toEqual(["/A"]);
+    });
+
+    it("collects a path from a braced clause whose brace opens on the line below", () => {
+        expect(allUsingPaths(["using", "{", "    /A", "}", "code()"])).toEqual(["/A"]);
+    });
+
+    it("collects a multi-line braced path indented inside a module body, which scanModuleImports skips", () => {
+        const lines = ["using { /A }", "MyModule := module:", "    using{", "        Economy.Shop", "    }", "code()"];
+        expect(allUsingPaths(lines)).toEqual(["/A", "Economy.Shop"]);
+        expect(scanModuleImports(lines).map((imp) => imp.path)).toEqual(["/A"]);
+    });
+
     it("collects a dotted import indented inside a module body, which scanModuleImports skips", () => {
         const lines = ["using { /A }", "MyModule := module:", "    using { Economy.Shop }", "code()"];
         expect(allUsingPaths(lines)).toEqual(["/A", "Economy.Shop"]);
@@ -265,6 +283,80 @@ describe("scanModuleImports", () => {
         expect(scanModuleImports(["using. /Verse.org/Simulation"])).toEqual([
             { path: "/Verse.org/Simulation", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
         ]);
+    });
+
+    // The braced classification needs the closing brace on the line it reads, so
+    // this opener was no import at all and the path between the braces was
+    // skipped as an indented line. The scan returned nothing, the path counted
+    // as absent, and a diagnostic asking for it wrote a second copy of an import
+    // the file was already making.
+    it("consumes a braced import whose brace closes on a later line, pinned", () => {
+        expect(scanModuleImports(["using{", "    /Verse.org/Simulation", "}", "code()"])).toEqual([
+            { path: "/Verse.org/Simulation", startLine: 0, endLine: 2, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // A line break before the `{` is whitespace to the parser, so this is the
+    // same clause written another way and has to be read as one.
+    it("consumes a braced import whose brace opens on the line below the using", () => {
+        expect(scanModuleImports(["using", "{", "    /Verse.org/Simulation", "}", "code()"])).toEqual([
+            { path: "/Verse.org/Simulation", startLine: 0, endLine: 3, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    it("consumes a braced import holding its path on the opening line and closing below", () => {
+        expect(scanModuleImports(["using { /Verse.org/Simulation", "}", "code()"])).toEqual([
+            { path: "/Verse.org/Simulation", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    it("reads a bare folder-module path out of a multi-line braced span", () => {
+        expect(scanModuleImports(["using{", "    Features", "}", "code()"])).toEqual([
+            { path: "Features", startLine: 0, endLine: 2, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // A line ending separates elements inside the braces exactly as `;` does,
+    // and the whitespace around one is skipped, so neither a blank line nor a
+    // comment ends the clause or hides the path under it.
+    it("reads the path of a braced span written around a blank line and a comment", () => {
+        expect(scanModuleImports(["using{", "", "    # the path below", "    Economy.Shop", "}", "code()"])).toEqual([
+            { path: "Economy.Shop", startLine: 0, endLine: 4, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // The span is pinned, so the path counts as present - which is what stops a
+    // second copy being written - while no writer rebuilds the lines. Rebuilding
+    // them from the path alone would collapse the span onto one line and delete
+    // whatever else the author wrote between the braces.
+    it("offers no rewritable import for a multi-line braced span", () => {
+        expect(rewritableImports(scanModuleImports(["using{", "    /Verse.org/Simulation", "}", "code()"]))).toEqual([]);
+    });
+
+    // A `using` clause takes a single path, so this file does not compile. It is
+    // still a buffer someone is editing, and both paths are recorded for the
+    // reason every pinned entry is: neither may be written a second time.
+    it("records every path of a braced span that writes more than one", () => {
+        expect(scanModuleImports(["using{", "    /A", "    /B", "}", "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 3, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "/B", startLine: 0, endLine: 3, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    it("records nothing for a braced using the file never closes", () => {
+        expect(scanModuleImports(["using{", "    /Verse.org/Simulation", "code()"])).toEqual([]);
+    });
+
+    it("leaves a multi-line braced using commented out by a block comment uncounted", () => {
+        expect(scanModuleImports(["<#", "using{", "    /Old", "}", "#>", "using { /Verse.org/Simulation }", "code()"])).toEqual([
+            { path: "/Verse.org/Simulation", startLine: 5, endLine: 5, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
+        ]);
+    });
+
+    // Module-scoped, like every other indented `using`: it belongs to the body
+    // it sits in, not to the file-level block a writer rebuilds.
+    it("leaves a multi-line braced using indented inside a module body uncollected", () => {
+        expect(scanModuleImports(["MyModule := module:", "    using{", "        /A", "    }", "code()"])).toEqual([]);
     });
 
     // The classification read the dotted content to end of line, so this one

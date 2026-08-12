@@ -908,6 +908,27 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         expect(applyEditMock()).not.toHaveBeenCalled();
     });
 
+    // The reported symptom. The braced classification needs the closing brace on
+    // the line it reads, so the scan saw no import here at all: the path counted
+    // as absent and the file ended up importing the same module twice.
+    it("recognizes an import a braced clause provides across lines", async () => {
+        const input = ["using{", "    /Verse.org/Simulation", "}", "", "hello := 1"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Verse.org/Simulation }"]);
+
+        expect(success).toBe(true);
+        expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
+    it("recognizes an import a braced clause opening on the line below provides", async () => {
+        const input = ["using", "{", "    /Verse.org/Simulation", "}", "", "hello := 1"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Verse.org/Simulation }"]);
+
+        expect(success).toBe(true);
+        expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
     it("adds an import that exists only inside a block comment, above the comment", async () => {
         const input = ["<#", "using { /Fortnite.com/Devices }", "#>", "", "my_device := class(creative_device):", "    Button : button_device = button_device{}"].join("\n");
 

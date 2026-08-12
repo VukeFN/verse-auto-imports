@@ -9,12 +9,12 @@ const SCAN_CONCURRENCY = 8;
 
 /**
  * The keywords a Verse block macro is spelled with, and the operators and types
- * that share their shape closely enough to reach the same fall-through.
+ * that share their shape closely enough to reach a declaration pattern.
  *
- * Membership is not "every reserved word": it is the words seen to reach the
- * fall-through as a bare `keyword:`, plus the ones the language groups with
- * them. What makes rejecting them safe is that Verse reserves each, so none can
- * name a declaration - the parser demotes a reserved word to an identifier only
+ * Membership is not "every reserved word": it is the words seen to open a line
+ * a declaration pattern matches, plus the ones the language groups with them.
+ * What makes rejecting them safe is that Verse reserves each, so none can name
+ * a declaration - the parser demotes a reserved word to an identifier only
  * where `:=` follows it, and that is an object-notation key rather than a
  * declaration either way. `block`, `loop`, `race`, `rush`, `sync`, `branch`,
  * `defer`, `spawn`, `case`, `for`, `and`, `or`, `option` and `logic` are
@@ -248,6 +248,8 @@ export class ProjectPathScanner {
         /** `(Type:type).Name<specifiers>(params)<effects>:` */
         const extensionMethodPattern = /^\([^)]+\)\.(\w+)((?:<[^>]+>)*)\s*\([^)]*\)/;
         const variablePattern = /^(\w+)((?:<[^>]+>)*)\s*:/;
+        /** The word a line opens with, absent where it opens with anything else. */
+        const leadingWordPattern = /^(\w+)/;
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
@@ -327,6 +329,22 @@ export class ProjectPathScanner {
             const insideSkipped = moduleStack.length > 0 && moduleStack[moduleStack.length - 1].skipped;
 
             currentModulePath = moduleStack.length > 0 ? moduleStack[moduleStack.length - 1].name : "";
+
+            // Ahead of every pattern rather than inside one: a reserved word
+            // cannot name any declaration, so what follows it cannot make the
+            // line one. A block macro is written `keyword:` and
+            // `keyword (Cond):`, and those reach different patterns - the
+            // variable fall-through and the function pattern - so a guard on
+            // either branch alone leaves the other spelling recorded. The scan
+            // does not track function bodies, so position cannot reject a block
+            // macro and the name is what is left.
+            //
+            // Below the brace counting and the module stack, which every line
+            // owes whether or not it declares anything.
+            const leadingWord = line.match(leadingWordPattern);
+            if (leadingWord && RESERVED_LINE_KEYWORDS.has(leadingWord[1])) {
+                continue;
+            }
 
             const moduleMatch = line.match(modulePattern);
             if (moduleMatch) {
@@ -535,15 +553,6 @@ export class ProjectPathScanner {
                 }
 
                 if (/\([^)]*\)\s*(?:<[^>]+>)?\s*:/.test(line)) {
-                    continue;
-                }
-
-                // The two guards above are backstops for a declaration; this
-                // one is not. A block macro inside a function body is spelled
-                // `keyword:`, which is all this pattern asks for, and the scan
-                // does not track function bodies, so position cannot reject one
-                // and the name is what is left.
-                if (RESERVED_LINE_KEYWORDS.has(name)) {
                     continue;
                 }
 

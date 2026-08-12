@@ -491,7 +491,12 @@ function bracedUsingSpan(classifications: LineClassification[], opener: number):
         }
     }
 
-    if (endLine === -1 || endLine === opener) {
+    // A `}` that is itself comment text closes nothing, so there is no clause
+    // here rather than a clause whose last line is trivia. The masking these
+    // lines carry removes a comment written on the line; it knows nothing of an
+    // indented comment opened above it, which is what can leave the whole
+    // closing line inert while still spelling a brace.
+    if (endLine === -1 || endLine === opener || classifications[endLine].kind !== "code") {
         return null;
     }
 

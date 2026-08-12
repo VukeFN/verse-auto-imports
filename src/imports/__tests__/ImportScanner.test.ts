@@ -369,6 +369,12 @@ describe("scanModuleImports", () => {
         expect(scanModuleImports(["using{ <#>", "    /Verse.org/Simulation", "}", "code()"])).toEqual([]);
     });
 
+    // The brace that would close the clause is comment text under the marker on
+    // the opener, so it closes nothing and the path beside it is not imported.
+    it("counts no path from a braced span whose closing brace is commented out", () => {
+        expect(scanModuleImports(["using { <#>", "    /Verse.org/Simulation }", "}", "code()"])).toEqual([]);
+    });
+
     it("records nothing for a braced using the file never closes", () => {
         expect(scanModuleImports(["using{", "    /Verse.org/Simulation", "code()"])).toEqual([]);
     });

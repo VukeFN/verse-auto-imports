@@ -161,4 +161,66 @@ describe("ProjectPathScanner.extractDeclarations module forms", () => {
     it("does not read a keyword that merely starts with module as a declaration", () => {
         expect(moduleNames("Inventory := modulex\n")).toEqual([]);
     });
+
+    // Verse delimits a braced body by its braces alone, so its members may sit
+    // at or left of the declaration's own indent - the Book of Verse writes it
+    // that way in a compile-validated example. Closing such a module on
+    // indentation lets its first member pop it, which promotes the whole body
+    // to file scope: paths one segment short under a kept parent, and under a
+    // skipped one a subtree the compiler rejects, offered beside any genuine
+    // top-level module of the same name.
+    describe("braced module bodies", () => {
+        it("nests the members of a same-line brace body written at the module's own indent", () => {
+            const source = "Systems<public> := module{\nB<public> := module:\n    X<public> := class {}\n}\nLoose<public> := class {}\n";
+            expect(declare(source).map((node) => node.fullPath)).toEqual(["Systems", "Systems.B", "Systems.B.X", "Loose"]);
+        });
+
+        it("nests the members of a next-line brace body written at the module's own indent", () => {
+            const source = "Systems<public> := module\n{\nB<public> := module:\n    X<public> := class {}\n}\nLoose<public> := class {}\n";
+            expect(declare(source).map((node) => node.fullPath)).toEqual(["Systems", "Systems.B", "Systems.B.X", "Loose"]);
+        });
+
+        it("nests members written left of the declaration's own indent", () => {
+            const source = "Outer<public> := module:\n    Inner<public> := module{\nX<public> := class {}\n    }\n    Kept<public> := class {}\n";
+            expect(declare(source).map((node) => node.fullPath)).toEqual(["Outer", "Outer.Inner", "Outer.Inner.X", "Outer.Kept"]);
+        });
+
+        it("drops the subtree of a skipped same-line brace module written at its own indent", () => {
+            const source = "Systems<scoped{ModuleA}> := module{\nB<public> := module:\n    X<public> := class {}\n}\nInventory<public> := module:\n    Item<public> := class {}\n";
+            expect(declare(source).map((node) => node.fullPath)).toEqual(["Inventory", "Inventory.Item"]);
+        });
+
+        it("drops the subtree of a skipped next-line brace module written at its own indent", () => {
+            const source = "Systems<scoped{ModuleA}> := module\n{\nB<public> := module:\n    X<public> := class {}\n}\nInventory<public> := module:\n    Item<public> := class {}\n";
+            expect(declare(source).map((node) => node.fullPath)).toEqual(["Inventory", "Inventory.Item"]);
+        });
+
+        it("closes each of a nested colon and brace module by its own rule", () => {
+            // Both directions at once: a braced body holding a colon module,
+            // that colon body holding a braced one. A rule leaking from either
+            // to the other shows up here as a lost or a surplus segment.
+            const source = "A<public> := module{\nB<public> := module:\n    C<public> := module{\nD<public> := class {}\n    }\n    E<public> := class {}\n}\nF<public> := class {}\n";
+            expect(declare(source).map((node) => node.fullPath)).toEqual(["A", "A.B", "A.B.C", "A.B.C.D", "A.B.E", "F"]);
+        });
+
+        it("keeps a brace written as a char literal out of the depth", () => {
+            // Masking cannot blank a char literal, because a single quote opens
+            // an identifier's quoted suffix too. A brace cannot appear in such
+            // a suffix, so one between quotes is always a literal, and counting
+            // it would hold the module open for the rest of the file.
+            const held = "Systems<public> := module{\nOpen<public>:char = '{'\nB<public> := class {}\n}\nLoose<public> := class {}\n";
+            expect(declare(held).map((node) => node.fullPath)).toEqual(["Systems", "Systems.Open", "Systems.B", "Loose"]);
+
+            const closed = "Systems<public> := module{\nShut<public>:char = '}'\nB<public> := class {}\n}\nLoose<public> := class {}\n";
+            expect(declare(closed).map((node) => node.fullPath)).toEqual(["Systems", "Systems.Shut", "Systems.B", "Loose"]);
+        });
+
+        it("keeps the brace of a using clause out of the depth that closes the module holding it", () => {
+            // A braced `using` clause spans lines and is skipped a line at a
+            // time, so counting its `}` without its `{` would close the module
+            // around it one brace early.
+            const source = "Systems<public> := module{\nusing{\n    /Verse.org/Simulation\n}\nB<public> := class {}\n}\nLoose<public> := class {}\n";
+            expect(declare(source).map((node) => node.fullPath)).toEqual(["Systems", "Systems.B", "Loose"]);
+        });
+    });
 });

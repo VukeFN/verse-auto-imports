@@ -19,6 +19,13 @@ describe("allUsingPaths", () => {
         expect(allUsingPaths(["using", "{", "    /A", "}", "code()"])).toEqual(["/A"]);
     });
 
+    // The closing line is read like any other, so an import written after the
+    // `}` is still offered. A path this reader drops is what the caller reads as
+    // permission to remove an import.
+    it("collects an import written after the closing brace of a braced clause", () => {
+        expect(allUsingPaths(["using{", "    /A", "}; using { /B }", "code()"])).toEqual(["/A", "/B"]);
+    });
+
     it("collects a multi-line braced path indented inside a module body, which scanModuleImports skips", () => {
         const lines = ["using { /A }", "MyModule := module:", "    using{", "        Economy.Shop", "    }", "code()"];
         expect(allUsingPaths(lines)).toEqual(["/A", "Economy.Shop"]);
@@ -341,6 +348,25 @@ describe("scanModuleImports", () => {
             { path: "/A", startLine: 0, endLine: 3, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
             { path: "/B", startLine: 0, endLine: 3, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
         ]);
+    });
+
+    // The clause is consumed to its `}` and no further. A `;` separates
+    // statements exactly as a newline does, so the closing line can write an
+    // import after the brace, and stepping over that line loses it - the same
+    // uncounted path, one line further down.
+    it("records an import written after the closing brace of a braced span", () => {
+        expect(scanModuleImports(["using{", "    /A", "}; using { /B }", "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 2, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "/B", startLine: 2, endLine: 2, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // The `<#>` makes every line indented past it comment text, so the path
+    // below is not imported at all. Counting it as present declines the
+    // diagnostic asking for it, and the import the file needs is never written -
+    // the failure direction the indented pair refuses this same shape in.
+    it("counts no path from a braced span a marker on its opener comments out", () => {
+        expect(scanModuleImports(["using{ <#>", "    /Verse.org/Simulation", "}", "code()"])).toEqual([]);
     });
 
     it("records nothing for a braced using the file never closes", () => {

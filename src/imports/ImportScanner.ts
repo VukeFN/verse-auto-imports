@@ -502,7 +502,14 @@ function bracedUsingSpan(classifications: LineClassification[], opener: number):
     } else {
         between.push(braceCode.slice(braceCode.indexOf("{") + 1));
         for (let line = braceLine + 1; line < endLine; line++) {
-            between.push(classifications[line].codeOutsideLiterals);
+            // Only code, because a `<#>` written on the opener makes the lines
+            // indented past it comment text, and the masking these lines carry
+            // knows nothing of a comment opened above them. Counting such a
+            // path as imported withholds the import the file actually needs,
+            // which is the direction pairPathBelow refuses the same shape in.
+            if (classifications[line].kind === "code") {
+                between.push(classifications[line].codeOutsideLiterals);
+            }
         }
         between.push(classifications[endLine].codeOutsideLiterals.slice(0, closeAt));
     }
@@ -801,7 +808,14 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
                         trailingComment: ImportFormatter.extractTrailingComment(trimmed),
                     });
                 }
-                i = braced.endLine + 1;
+                // Resumed *on* the closing line, not past it. A `;` separates
+                // statements exactly as a newline does, so `}; using { /B }`
+                // writes an import after the clause closes, and stepping over
+                // that line loses it - which is this branch's own failure,
+                // a path that does not count as present and is then written
+                // a second time. Only the lines between the braces are
+                // consumed here; the closing line is read like any other.
+                i = braced.endLine;
                 continue;
             }
 
@@ -1134,12 +1148,14 @@ export function allUsingPaths(lines: string[]): string[] {
         // holds no `using`. A path this reader misses is what the caller reads
         // as permission to remove an import.
         //
-        // The span is stepped over, so no line of it is read a second time.
+        // No line of the span is stepped over. The lines between the braces
+        // write paths and no `using` of their own, so the loop reaching them
+        // adds no second copy, and the closing line may write a statement after
+        // its `}` that skipping the line would lose - a dropped path being the
+        // one error this must not make.
         const braced = bracedUsingSpan(classifications, i);
         if (braced) {
             paths.push(...braced.paths);
-            i = braced.endLine;
-            continue;
         }
 
         // A `using:` opening an indented pair carries no path of its own -

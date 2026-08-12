@@ -376,7 +376,7 @@ describe("ImportPathConverter.convertFromFullPath", () => {
         // restores it, writes it twice.
         const converter = converterWithProjectPath(projectVersePath);
 
-        const result = await converter.convertFromFullPath("using. /mygame@fortnite.com/mygame/Economy/Shop # only the shop, not the vendor", 0);
+        const result = await converter.convertFromFullPath("using. /mygame@fortnite.com/mygame/Economy/Shop # only the shop, not the vendor", undefined, 0);
 
         expect(result?.fullPathImport).toBe("using. Economy.Shop");
         expect(result?.moduleName).toBe("Shop");
@@ -385,7 +385,7 @@ describe("ImportPathConverter.convertFromFullPath", () => {
     it("leaves the comment trailing a braced import out of the converted path", async () => {
         const converter = converterWithProjectPath(projectVersePath);
 
-        const result = await converter.convertFromFullPath("using { /mygame@fortnite.com/mygame/Economy/Shop } # only the shop", 0);
+        const result = await converter.convertFromFullPath("using { /mygame@fortnite.com/mygame/Economy/Shop } # only the shop", undefined, 0);
 
         expect(result?.fullPathImport).toBe("using { Economy.Shop }");
     });
@@ -396,7 +396,7 @@ describe("ImportPathConverter.convertFromFullPath", () => {
         // author asking for braced syntax.
         const converter = converterWithProjectPath(projectVersePath);
 
-        const result = await converter.convertFromFullPath("using. /mygame@fortnite.com/mygame/Economy/Shop # use {braces} here", 0);
+        const result = await converter.convertFromFullPath("using. /mygame@fortnite.com/mygame/Economy/Shop # use {braces} here", undefined, 0);
 
         expect(result?.fullPathImport).toBe("using. Economy.Shop");
     });
@@ -406,7 +406,7 @@ describe("ImportPathConverter.convertFromFullPath", () => {
         // a braced import its braces, whatever the comment happens to hold.
         const converter = converterWithProjectPath(projectVersePath);
 
-        const result = await converter.convertFromFullPath("using { /mygame@fortnite.com/mygame/Economy/Shop } # see {Vendor}", 0);
+        const result = await converter.convertFromFullPath("using { /mygame@fortnite.com/mygame/Economy/Shop } # see {Vendor}", undefined, 0);
 
         expect(result?.fullPathImport).toBe("using { Economy.Shop }");
     });
@@ -420,10 +420,112 @@ describe("ImportPathConverter.convertFromFullPath", () => {
         const document = fakeDocument([line, "", "code()"]);
         const converter = converterWithProjectPath(projectVersePath);
 
-        const result = await converter.convertFromFullPath(line, 0);
+        const result = await converter.convertFromFullPath(line, undefined, 0);
         expect(await converter.applyConversion(document, result!)).toBe(true);
 
         expect(replacedOperation().text).toBe("using. Economy.Shop # see Economy/Vendor");
+    });
+});
+
+describe("ImportPathConverter.convertFromFullPath scope-relative shortening", () => {
+    const projectVersePath = "/mygame@fortnite.com/mygame";
+    const workspaceRoot = "C:/Project";
+
+    /** workspaceFolders is readonly in the real typings; the mock is writable. */
+    const setWorkspaceFolders = (folders: unknown): void => {
+        (vscode.workspace as unknown as { workspaceFolders: unknown }).workspaceFolders = folders;
+    };
+
+    /** A file in a module under the project's Content root, which is what places the importing scope. */
+    const fileAt = (contentRelativeDir: string): vscode.Uri => vscode.Uri.file(`${workspaceRoot}/Content/${contentRelativeDir}/Feature.verse`);
+
+    /** The statement the converter writes for an absolute path, as seen from `fileUri`. */
+    async function relativeFormOf(fullPath: string, fileUri?: vscode.Uri): Promise<string | undefined> {
+        const converter = converterWithProjectPath(projectVersePath);
+        const result = await converter.convertFromFullPath(`using. ${fullPath}`, fileUri, 0);
+        return result?.fullPathImport;
+    }
+
+    beforeEach(() => {
+        setWorkspaceFolders([{ uri: { fsPath: workspaceRoot }, name: "Project", index: 0 }]);
+    });
+
+    afterEach(() => {
+        setWorkspaceFolders(undefined);
+    });
+
+    it("names a module in the importing file's own module by its bare name", async () => {
+        expect(await relativeFormOf(`${projectVersePath}/Systems/Economy/Shop`, fileAt("Systems/Economy"))).toBe("using. Shop");
+    });
+
+    it("drops only the segments the importing file's module shares", async () => {
+        // Inventory sits beside the file's module rather than in it, so the
+        // reference resolves through Systems - the nearest scope both share.
+        expect(await relativeFormOf(`${projectVersePath}/Systems/Inventory`, fileAt("Systems/Economy"))).toBe("using. Inventory");
+    });
+
+    it("keeps every segment below the project when the two branches part at the root", async () => {
+        expect(await relativeFormOf(`${projectVersePath}/UI/HUD/Textures`, fileAt("Systems/Economy"))).toBe("using. UI.HUD.Textures");
+    });
+
+    it("converts a path whose project prefix differs from the project's only in case", async () => {
+        // The prefix test used to be case-sensitive, and a mismatch did not
+        // fall back - it skipped the strip, leaving the account segment in the
+        // dotted form.
+        expect(await relativeFormOf("/MYGAME@FORTNITE.COM/MYGAME/Systems/Economy/Shop", fileAt("Systems/Economy"))).toBe("using. Shop");
+    });
+
+    it("ends the shared part at a segment boundary, never inside a segment", async () => {
+        // Epic's own converter walks characters and ends the common part
+        // mid-label when one path runs out inside the other's segment, which
+        // would make this `omy.Shop`.
+        expect(await relativeFormOf(`${projectVersePath}/Economy/Shop`, fileAt("Econ"))).toBe("using. Economy.Shop");
+    });
+
+    it("offers no conversion for a path naming the importing file's own module", async () => {
+        const converter = converterWithProjectPath(projectVersePath);
+
+        expect(await converter.convertFromFullPath(`using. ${projectVersePath}/Systems/Economy`, fileAt("Systems/Economy"), 0)).toBeNull();
+    });
+
+    it("places a file the same way when the workspace is opened at Content itself", async () => {
+        setWorkspaceFolders([{ uri: { fsPath: `${workspaceRoot}/Content` }, name: "Content", index: 0 }]);
+
+        expect(await relativeFormOf(`${projectVersePath}/Systems/Economy/Shop`, vscode.Uri.file(`${workspaceRoot}/Content/Systems/Economy/Feature.verse`))).toBe("using. Shop");
+    });
+
+    // The three fallbacks below are the pre-existing root-relative behaviour,
+    // which is what a file with no module of its own to shorten against gets.
+    it("shortens against the project root for a file at the Content root", async () => {
+        expect(await relativeFormOf(`${projectVersePath}/Systems/Economy/Shop`, vscode.Uri.file(`${workspaceRoot}/Content/Feature.verse`))).toBe("using. Systems.Economy.Shop");
+    });
+
+    it("shortens against the project root for a file outside Content", async () => {
+        expect(await relativeFormOf(`${projectVersePath}/Systems/Economy/Shop`, vscode.Uri.file(`${workspaceRoot}/Plugins/Feature.verse`))).toBe("using. Systems.Economy.Shop");
+    });
+
+    it("shortens against the project root when no workspace folder holds the file", async () => {
+        setWorkspaceFolders(undefined);
+
+        expect(await relativeFormOf(`${projectVersePath}/Systems/Economy/Shop`, fileAt("Systems/Economy"))).toBe("using. Systems.Economy.Shop");
+    });
+
+    // The reverse direction searches outward from the importing file, so it
+    // resolves the shortened spellings this one writes. Pinning the location
+    // stands in for that search and leaves the arithmetic on both sides.
+    it.each([
+        ["Systems/Economy/Shop", "Systems/Economy", "/Systems/Economy"],
+        ["UI/HUD/Textures", "Systems/Economy", ""],
+        ["Systems/Inventory", "Systems/Economy", "/Systems"],
+    ])("round-trips %s back to the path it came from", async (modulePath, fileDir, location) => {
+        const converter = converterWithProjectPath(projectVersePath);
+        const fileUri = fileAt(fileDir);
+        const absolute = `using. ${projectVersePath}/${modulePath}`;
+
+        const relative = await converter.convertFromFullPath(absolute, fileUri, 0);
+        converter.findModuleLocations = async () => [location];
+
+        expect((await converter.convertToFullPath(relative!.fullPathImport, fileUri, 0))?.fullPathImport).toBe(absolute);
     });
 });
 

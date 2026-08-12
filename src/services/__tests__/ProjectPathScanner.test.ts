@@ -262,6 +262,14 @@ describe("ProjectPathScanner.extractDeclarations module forms", () => {
                 expect(declare(source).map((node) => node.fullPath)).toEqual(["A", "A.B", "A.B.C", "A.B.C.D", "A.B.C.D.Q", "A.B.E", "Z"]);
             });
 
+            it("takes two colon levels along when the braced body holding them closes", () => {
+                // The other direction of the same cut: everything the closed
+                // body contained goes with it in one truncation, and the
+                // declaration after it starts from the file again.
+                const source = "Outer := module{\n    C := module:\n        D := module:\n            Q:int = 1\n}\nAfter := module {}\n";
+                expect(declare(source).map((node) => node.fullPath)).toEqual(["Outer", "Outer.C", "Outer.C.D", "Outer.C.D.Q", "After"]);
+            });
+
             it("keeps a module open whose brace depth a stray closing brace drove below zero", () => {
                 // A `}` ahead of any declaration makes the depth negative, so a
                 // module opened after it records a negative close depth. The

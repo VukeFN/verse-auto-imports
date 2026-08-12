@@ -534,10 +534,11 @@ export class ProjectPathScanner {
  * the declaration that opened them.
  *
  * The lowest such index is the cut rather than merely one of them, because a
- * braced entry records the depth it opens from and every braced entry left on
- * the stack sits below the current depth: their close depths increase upwards,
- * so nothing below the index found here has closed too. Cutting the stack
- * before the next entry is pushed is what keeps that true.
+ * braced entry records the depth it opens from: close depths never decrease
+ * going up the stack, so nothing below the index found here has closed too.
+ * Two entries may record the same depth - the line opening an awaited body
+ * assigns one after this has already run - which the lowest index still
+ * answers, both of them being closed together.
  */
 function outermostClosedBrace(open: readonly OpenModule[], braceDepth: number): number {
     return open.findIndex((entry) => entry.closeDepth !== null && braceDepth <= entry.closeDepth);

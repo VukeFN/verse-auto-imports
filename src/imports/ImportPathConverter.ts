@@ -274,6 +274,18 @@ export class ImportPathConverter {
             return logicalPath;
         };
 
+        // The file's own directory first, and nearest of all: a folder beside
+        // the file is a member of the file's own module, which is what a bare
+        // reference names from here - and what convertFromFullPath writes when
+        // it shortens such a path. Without this the two directions stop being
+        // inverses, and the shortest spelling is the one that cannot be read
+        // back.
+        const ownTestPath = `${currentFileDir}/${modulePath}`;
+        if (await this.folderExists(workspaceFolder, getFsCheckPath(ownTestPath))) {
+            const relativePath = currentFileDir === CONTENT_FOLDER ? "" : "/" + currentFileDir.substring(CONTENT_FOLDER.length + 1);
+            if (!locations.includes(relativePath)) locations.push(relativePath);
+        }
+
         if (dirSegments.length > 1) {
             const parentPath = dirSegments.slice(0, dirSegments.length - 1).join("/");
             const siblingTestPath = `${parentPath}/${modulePath}`;
@@ -522,9 +534,10 @@ export class ImportPathConverter {
      * The other direction has a whole workspace of candidate locations to
      * choose between.
      *
-     * A path belonging to another project is not refused, only left whole: with
-     * no prefix in common, every segment survives into the dotted form, which
-     * this project cannot resolve.
+     * A path outside this project is not refused, only shortened by whatever
+     * prefix it does share: another project under the same account keeps its
+     * own project segment, a different account keeps every segment. Neither
+     * resolves here.
      *
      * @param documentUri The file the import is written in. Without it the
      *   project root stands in as the scope, which is what shortens an import
@@ -557,13 +570,23 @@ export class ImportPathConverter {
         }
 
         const scopePath = (documentUri && this.enclosingModulePath(documentUri, projectVersePath)) || projectVersePath;
-        const relativeImportPath = ImportPathConverter.relativizeAgainst(fullPath, scopePath);
-        const modulePathSegments = relativeImportPath.split(".").filter((segment) => segment);
+        const shortened = ImportPathConverter.relativizeAgainst(fullPath, scopePath);
+
+        // Nothing left over means the target is the importing file's own module
+        // or an ancestor of it. The module still has a name, and whatever
+        // encloses it encloses the file too, so the bare name reaches it - the
+        // construction Epic uses, which shortens the definition's parent and
+        // appends the definition's own name. The project root is the one target
+        // this does not hold for: what encloses it is the registry rather than
+        // a scope the file sits in.
+        const relativeImportPath = shortened || (fullPath.startsWith(`${projectVersePath}/`) ? fullPath.substring(fullPath.lastIndexOf("/") + 1) : "");
 
         if (!relativeImportPath) {
             logger.debug("ImportPathConverter", "Could not extract relative path from full path");
             return null;
         }
+
+        const modulePathSegments = relativeImportPath.split(".");
 
         const usesCurlyBraces = ImportPathConverter.usesBracedStyle(importStatement);
         const relativeImport = usesCurlyBraces ? `using { ${relativeImportPath} }` : `using. ${relativeImportPath}`;
@@ -571,7 +594,7 @@ export class ImportPathConverter {
         return {
             originalImport: importStatement,
             fullPathImport: relativeImport,
-            moduleName: modulePathSegments[modulePathSegments.length - 1] || relativeImportPath,
+            moduleName: modulePathSegments[modulePathSegments.length - 1],
             isAmbiguous: false,
             line,
         };

@@ -482,10 +482,16 @@ describe("ImportPathConverter.convertFromFullPath scope-relative shortening", ()
         expect(await relativeFormOf(`${projectVersePath}/Economy/Shop`, fileAt("Econ"))).toBe("using. Economy.Shop");
     });
 
-    it("offers no conversion for a path naming the importing file's own module", async () => {
+    it("names the importing file's own module by its own name", async () => {
+        expect(await relativeFormOf(`${projectVersePath}/Systems/Economy`, fileAt("Systems/Economy"))).toBe("using. Economy");
+    });
+
+    it("offers no conversion for the project root itself", async () => {
+        // The one target with nothing nameable above it: what encloses the
+        // project root is the registry, not a scope the file sits in.
         const converter = converterWithProjectPath(projectVersePath);
 
-        expect(await converter.convertFromFullPath(`using. ${projectVersePath}/Systems/Economy`, fileAt("Systems/Economy"), 0)).toBeNull();
+        expect(await converter.convertFromFullPath(`using. ${projectVersePath}`, fileAt("Systems/Economy"), 0)).toBeNull();
     });
 
     it("places a file the same way when the workspace is opened at Content itself", async () => {
@@ -510,22 +516,53 @@ describe("ImportPathConverter.convertFromFullPath scope-relative shortening", ()
         expect(await relativeFormOf(`${projectVersePath}/Systems/Economy/Shop`, fileAt("Systems/Economy"))).toBe("using. Systems.Economy.Shop");
     });
 
-    // The reverse direction searches outward from the importing file, so it
-    // resolves the shortened spellings this one writes. Pinning the location
-    // stands in for that search and leaves the arithmetic on both sides.
-    it.each([
-        ["Systems/Economy/Shop", "Systems/Economy", "/Systems/Economy"],
-        ["UI/HUD/Textures", "Systems/Economy", ""],
-        ["Systems/Inventory", "Systems/Economy", "/Systems"],
-    ])("round-trips %s back to the path it came from", async (modulePath, fileDir, location) => {
+    it("names an ancestor of the importing file's module by its own name", async () => {
+        // Nothing is left after the shared part, but the module still has a
+        // name, and what encloses it encloses the file too. Returning no
+        // conversion here instead took away one the lens used to offer.
+        expect(await relativeFormOf(`${projectVersePath}/Systems`, fileAt("Systems/Economy"))).toBe("using. Systems");
+    });
+
+    it("keeps the braced style and the trailing comment while shortening", async () => {
         const converter = converterWithProjectPath(projectVersePath);
-        const fileUri = fileAt(fileDir);
-        const absolute = `using. ${projectVersePath}/${modulePath}`;
+        const statement = `using { ${projectVersePath}/Systems/Economy/Shop } # only the shop`;
 
-        const relative = await converter.convertFromFullPath(absolute, fileUri, 0);
-        converter.findModuleLocations = async () => [location];
+        expect((await converter.convertFromFullPath(statement, fileAt("Systems/Economy"), 0))?.fullPathImport).toBe("using { Shop }");
+    });
 
-        expect((await converter.convertToFullPath(relative!.fullPathImport, fileUri, 0))?.fullPathImport).toBe(absolute);
+    // The round trip runs the real outward search over a folder tree, not a
+    // pinned location: a stub answers with the location the assertion already
+    // assumes, so it recomposes the path from its own input and cannot see the
+    // reverse direction failing to place a spelling this one writes.
+    describe("round trip through the real module search", () => {
+        /** Every folder the project holds, as Content-relative paths. */
+        const folders = ["Systems", "Systems/Economy", "Systems/Economy/Shop", "Systems/Inventory", "UI", "UI/HUD", "UI/HUD/Textures"];
+
+        beforeEach(() => {
+            (vscode.workspace.fs.stat as jest.Mock).mockImplementation(async (uri: { fsPath: string }) => {
+                const contentRelative = uri.fsPath.replace(/\\/g, "/").replace(`${workspaceRoot}/Content/`, "");
+                if (!folders.includes(contentRelative)) throw new Error("ENOENT");
+                return { type: vscode.FileType.Directory };
+            });
+        });
+
+        afterEach(() => {
+            (vscode.workspace.fs.stat as jest.Mock).mockRejectedValue(new Error("ENOENT"));
+        });
+
+        it.each([
+            ["a module inside the file's own module", "Systems/Economy/Shop"],
+            ["a module beside the file's own module", "Systems/Inventory"],
+            ["a module on an unrelated branch", "UI/HUD/Textures"],
+        ])("restores the absolute path of %s", async (_name, modulePath) => {
+            const converter = converterWithProjectPath(projectVersePath);
+            const fileUri = fileAt("Systems/Economy");
+            const absolute = `using. ${projectVersePath}/${modulePath}`;
+
+            const relative = await converter.convertFromFullPath(absolute, fileUri, 0);
+
+            expect((await converter.convertToFullPath(relative!.fullPathImport, fileUri, 0))?.fullPathImport).toBe(absolute);
+        });
     });
 });
 

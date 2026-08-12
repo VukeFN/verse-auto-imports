@@ -371,6 +371,19 @@ describe("CommandsHandler per-document conversion keying", () => {
         expect(codeLensProvider.forceRefreshAfterConversion).toHaveBeenCalledWith(document.uri.toString());
     });
 
+    // The converter places the importing scope from this uri, so it decides
+    // which module the path is shortened against. A stale or substituted
+    // document changes the spelling written, and nothing else would show it.
+    it("hands the acting document's uri to convertFromFullPath", async () => {
+        const convertFromFullPath = jest.fn().mockResolvedValue(makeConversion());
+        const { handler } = makeConversionHandler({ convertFromFullPath });
+        const document = makeDocument(WEAPONS_UTILS);
+
+        await handler.convertToRelativePath(document, `using { ${ABSOLUTE_PATH} }`, 4);
+
+        expect(convertFromFullPath).toHaveBeenCalledWith(`using { ${ABSOLUTE_PATH} }`, document.uri, 4);
+    });
+
     it.each(CONVERSION_COMMANDS)("%s forwards a distinct uri for each of two same-named documents", async (_name, converterOverrides, run) => {
         const { handler, codeLensProvider } = makeConversionHandler(converterOverrides());
         const weapons = makeDocument(WEAPONS_UTILS);

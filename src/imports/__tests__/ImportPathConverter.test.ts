@@ -486,6 +486,13 @@ describe("ImportPathConverter.convertFromFullPath scope-relative shortening", ()
         expect(await relativeFormOf(`${projectVersePath}/Systems/Economy`, fileAt("Systems/Economy"))).toBe("using. Economy");
     });
 
+    it("names an ancestor whose project prefix differs from the project's only in case", async () => {
+        // The ancestor branch has its own test for "is this inside the
+        // project", and a case-sensitive one there would refuse exactly the
+        // paths the case-insensitive shortening above it accepts.
+        expect(await relativeFormOf("/MYGAME@FORTNITE.COM/MYGAME/Systems", fileAt("Systems/Economy"))).toBe("using. Systems");
+    });
+
     it("offers no conversion for the project root itself", async () => {
         // The one target with nothing nameable above it: what encloses the
         // project root is the registry, not a scope the file sits in.
@@ -554,6 +561,8 @@ describe("ImportPathConverter.convertFromFullPath scope-relative shortening", ()
             ["a module inside the file's own module", "Systems/Economy/Shop"],
             ["a module beside the file's own module", "Systems/Inventory"],
             ["a module on an unrelated branch", "UI/HUD/Textures"],
+            ["the file's own module", "Systems/Economy"],
+            ["an ancestor of the file's own module", "Systems"],
         ])("restores the absolute path of %s", async (_name, modulePath) => {
             const converter = converterWithProjectPath(projectVersePath);
             const fileUri = fileAt("Systems/Economy");

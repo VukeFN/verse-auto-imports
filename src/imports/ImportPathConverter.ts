@@ -578,8 +578,10 @@ export class ImportPathConverter {
         // construction Epic uses, which shortens the definition's parent and
         // appends the definition's own name. The project root is the one target
         // this does not hold for: what encloses it is the registry rather than
-        // a scope the file sits in.
-        const relativeImportPath = shortened || (fullPath.startsWith(`${projectVersePath}/`) ? fullPath.substring(fullPath.lastIndexOf("/") + 1) : "");
+        // a scope the file sits in. That test shortens against the root rather
+        // than comparing prefixes, so both halves fold case the same way.
+        const belowProjectRoot = ImportPathConverter.relativizeAgainst(fullPath, projectVersePath);
+        const relativeImportPath = shortened || (belowProjectRoot ? fullPath.substring(fullPath.lastIndexOf("/") + 1) : "");
 
         if (!relativeImportPath) {
             logger.debug("ImportPathConverter", "Could not extract relative path from full path");

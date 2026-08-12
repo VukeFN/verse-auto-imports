@@ -1,4 +1,4 @@
-import { allUsingPaths, classifyLines, indentedPairPathLine, rewritableImports, scanConvertibleImports, scanModuleImports } from "../ImportScanner";
+import { allUsingPaths, classifyLines, indentedPairPathLine, rewritableImports, scanConvertibleImports, scanModuleAliases, scanModuleImports } from "../ImportScanner";
 
 describe("allUsingPaths", () => {
     it("collects a file-scope import the same way scanModuleImports does", () => {
@@ -1119,6 +1119,82 @@ describe("scanConvertibleImports", () => {
         // document leaves "\r" on every line. The statement text has to match
         // what a conversion looks for, which is the trimmed line.
         expect(scanConvertibleImports(["using { /A }\r", "code()\r"])).toEqual([{ statement: "using { /A }", line: 0 }]);
+    });
+
+    // Going absolute searches the workspace for a folder or a `:= module`
+    // declaration of the name and writes whichever namesake it finds, so a lens
+    // here rewrites the alias reference into an import of a different module.
+    it("excludes a using naming a module alias the file declares", () => {
+        const lines = ["Gfx := import(/MyGame/Systems/Graphics)", "using { Gfx }", "code()"];
+        expect(scanConvertibleImports(lines)).toEqual([]);
+    });
+
+    it("excludes a using reaching through an alias to a member module", () => {
+        const lines = ["Gfx := import(/MyGame/Systems/Graphics)", "using { Gfx.Textures }", "code()"];
+        expect(scanConvertibleImports(lines)).toEqual([]);
+    });
+
+    it("keeps a bare-identifier import in a file whose alias names something else", () => {
+        const lines = ["Gfx := import(/MyGame/Systems/Graphics)", "using { Features }", "code()"];
+        expect(scanConvertibleImports(lines)).toEqual([{ statement: "using { Features }", line: 1 }]);
+    });
+
+    // An absolute path resolves from the global registry, so it names no alias
+    // whatever the file declares - and it is the one direction with a module to
+    // shorten.
+    it("keeps an absolute import sharing its name with an alias", () => {
+        const lines = ["Graphics := import(/MyGame/Systems/Graphics)", "using { /Other/Graphics }", "code()"];
+        expect(scanConvertibleImports(lines)).toEqual([{ statement: "using { /Other/Graphics }", line: 1 }]);
+    });
+});
+
+describe("scanModuleAliases", () => {
+    it("reads the name a file binds with import(...)", () => {
+        expect(scanModuleAliases(["Utils := import(/MyGame/Utilities)", "code()"])).toEqual(new Set(["Utils"]));
+    });
+
+    it("reads an alias carrying an access specifier", () => {
+        expect(scanModuleAliases(["Utils<public> := import(/MyGame/Utilities)"])).toEqual(new Set(["Utils"]));
+    });
+
+    it("reads an alias declared after a definition on the same line", () => {
+        // `;` separates definitions in a scope exactly as a newline does, so an
+        // alias need not open its line.
+        expect(scanModuleAliases(["MyVal := 5; Utils := import(/MyGame/Utilities)"])).toEqual(new Set(["Utils"]));
+    });
+
+    it("reads every alias a file declares", () => {
+        const lines = ["Utils := import(/MyGame/Utilities)", "Gfx := import(/MyGame/Graphics)", "code()"];
+        expect(scanModuleAliases(lines)).toEqual(new Set(["Utils", "Gfx"]));
+    });
+
+    it("declares nothing from a commented-out alias", () => {
+        expect(scanModuleAliases(["# Utils := import(/MyGame/Utilities)", "code()"])).toEqual(new Set());
+        expect(scanModuleAliases(["<#", "Utils := import(/MyGame/Utilities)", "#>", "code()"])).toEqual(new Set());
+    });
+
+    it("declares nothing from an alias written as string text", () => {
+        expect(scanModuleAliases(['Doc := "Utils := import(/MyGame/Utilities)"', "code()"])).toEqual(new Set());
+    });
+
+    // An alias inside a module body binds in that module's scope, so it is not
+    // what a column-0 `using` names.
+    it("declares nothing from an alias indented inside a module body", () => {
+        expect(scanModuleAliases(["MyModule := module:", "    Utils := import(/MyGame/Utilities)"])).toEqual(new Set());
+    });
+
+    // Each of these is rejected outright by the compiler, so the line declares
+    // no alias and must not be read as one.
+    it("declares nothing from a line the compiler refuses as an import", () => {
+        // Brackets carry failure semantics; `import` must be invoked with
+        // parentheses.
+        expect(scanModuleAliases(["Utils := import[/MyGame/Utilities]"])).toEqual(new Set());
+        // The argument must be a path literal, which is absolute.
+        expect(scanModuleAliases(["Utils := import(MyGame.Utilities)"])).toEqual(new Set());
+        // The left side must be a plain identifier, without a qualifier.
+        expect(scanModuleAliases(["Outer.Utils := import(/MyGame/Utilities)"])).toEqual(new Set());
+        // A call of something else that merely reads like one.
+        expect(scanModuleAliases(["Utils := reimport(/MyGame/Utilities)"])).toEqual(new Set());
     });
 });
 

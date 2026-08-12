@@ -1190,6 +1190,88 @@ export function allUsingPaths(lines: string[]): string[] {
     return paths;
 }
 
+/**
+ * One `Name := import(/Path)` module alias, anchored at the head of a statement.
+ *
+ * The shape is the compiler's, not a generalization of it: the left side is a
+ * plain identifier, optionally carrying a quoted suffix and access specifiers,
+ * and the argument is a single absolute path literal in parentheses. A
+ * qualified left side, a type annotation, brackets rather than parentheses, and
+ * a relative or dotted argument are each rejected outright by the compiler, so
+ * a line spelling one declares no alias and must not be read as if it did.
+ *
+ * The path is captured but deliberately not offered by scanModuleAliases; see
+ * there for why nothing may read it.
+ */
+const MODULE_ALIAS_STATEMENT = /^([A-Za-z_][A-Za-z0-9_]*(?:'[^']*')?)(?:\s*<[^<>\n]+>)*\s*:=\s*import\s*\(\s*(\/[^\s()]*)\s*\)$/;
+
+/**
+ * The names a file binds to a module with `Name := import(/Path)`, at file
+ * scope.
+ *
+ * The names alone, never the modules they alias. An alias does not bring its
+ * module's members into scope - it binds one name to one module - so a file
+ * that aliases `/A/B` still needs `using { /A/B }` to use that module's
+ * members unqualified, and a diagnostic asking for one is right to. Offering
+ * the aliased path here is what invites a reader to treat it as an import
+ * already present, which suppresses an import the file needs.
+ *
+ * What the names are for is the opposite question: which `using` statements
+ * name something that is not a module path. An alias is an ordinary identifier
+ * bound in the file's own scope, so `using { Gfx }` naming an alias is
+ * indistinguishable, by content alone, from one naming a same-directory folder
+ * module - and a reader that resolves it as a path finds whichever namesake the
+ * workspace holds. See scanConvertibleImports.
+ *
+ * Read at file scope only, which is what the consumers need and all they can
+ * use: an alias declared inside a module body binds in that module's scope, so
+ * it cannot be what a column-0 `using` names.
+ *
+ * Statements are read from the classified code rather than the raw line, so an
+ * alias inside a comment or written as string text declares nothing, and one
+ * following a `;` is found - `;` separates definitions in a scope exactly as a
+ * newline does.
+ *
+ * Failing towards reporting a name is the safe direction: an alias this misses
+ * leaves a `using` naming it open to being rewritten as a path, which is the
+ * defect, where a name reported in error only withholds a conversion offer.
+ */
+export function scanModuleAliases(lines: string[]): Set<string> {
+    const aliases = new Set<string>();
+
+    for (const classification of classifyLines(lines)) {
+        if (classification.kind !== "code" || /^\s/.test(classification.codeWithoutComments)) {
+            continue;
+        }
+        for (const statement of classification.codeOutsideLiterals.split(";")) {
+            const match = statement.trim().match(MODULE_ALIAS_STATEMENT);
+            if (match) {
+                aliases.add(match[1]);
+            }
+        }
+    }
+
+    return aliases;
+}
+
+/**
+ * Whether a `using` names something rooted at one of the file's module aliases.
+ *
+ * The first dotted segment is what carries it: an alias is a module reference,
+ * so `Gfx.Sub` names a member module through the alias exactly as `Gfx` names
+ * the alias itself, and neither spelling is a path a workspace search may
+ * resolve.
+ *
+ * An absolute path never is: it starts with `/`, which no identifier may, so it
+ * resolves from the global registry and names no alias whatever a file declares.
+ */
+function rootsAtModuleAlias(path: string, aliases: ReadonlySet<string>): boolean {
+    if (path.startsWith("/")) {
+        return false;
+    }
+    return aliases.has(path.split(".")[0].trim());
+}
+
 /** An import statement a path conversion may act on, with the line it occupies. */
 export interface ConvertibleImport {
     /** The statement text, trimmed, exactly as it appears on its line. */
@@ -1215,9 +1297,17 @@ export interface ConvertibleImport {
  * - The indented style (`using:` with the path on the following line) is
  *   excluded, because every conversion path identifies an import by a single
  *   line of statement text and replaces that one line.
+ * - A `using` rooted at a module alias the file declares is excluded. Both
+ *   directions of the conversion read the statement as a module path, and an
+ *   alias is a name bound in the file rather than a path: going absolute hunts
+ *   the workspace for a folder or a `:= module` declaration of that name and
+ *   writes whichever namesake it finds, which silently imports a different
+ *   module than the alias names. The file is the only evidence of which names
+ *   are aliases, so no conversion can recover it later. See scanModuleAliases.
  */
 export function scanConvertibleImports(lines: string[]): ConvertibleImport[] {
+    const aliases = scanModuleAliases(lines);
     return rewritableImports(scanModuleImports(lines))
-        .filter((imp) => imp.startLine === imp.endLine)
+        .filter((imp) => imp.startLine === imp.endLine && !rootsAtModuleAlias(imp.path, aliases))
         .map((imp) => ({ statement: lines[imp.startLine].trim(), line: imp.startLine }));
 }

@@ -803,6 +803,42 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
     it("still writes LF for an LF document even when the fallback is CRLF", () => {
         expect(editor.buildOrganizedContent("using { /A }\ncode()", [], { ...curlyNoSort, fallbackEol: "\r\n" })).toBe("using { /A }\n\ncode()");
     });
+
+    // A `Name := import(/Path)` alias is a definition, not an import, so it
+    // belongs to the body and the block is rebuilt around it. Which is where it
+    // ends up regardless - these pin it as a decision rather than an accident.
+    describe("a file declaring module aliases", () => {
+        it("leaves an alias between two imports in the body, written as it was", () => {
+            const input = ["using { /Verse.org/Simulation }", "Utils := import(/MyGame/Utilities)", "using { /Fortnite.com/Devices }", "code()"].join("\n");
+            expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(
+                ["using { /Fortnite.com/Devices }", "using { /Verse.org/Simulation }", "", "Utils := import(/MyGame/Utilities)", "code()"].join("\n"),
+            );
+        });
+
+        it("keeps the comment written above an alias with the alias", () => {
+            const input = ["using { /A }", "", "# what Utils is for", "Utils := import(/MyGame/Utilities)", "using { /B }", "code()"].join("\n");
+            expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /A }", "using { /B }", "", "# what Utils is for", "Utils := import(/MyGame/Utilities)", "code()"].join("\n"));
+        });
+
+        // An alias binds one name to one module and brings none of its members
+        // into scope, so the file still needs the `using` and a diagnostic
+        // asking for one is right to. Reading the alias as evidence the path is
+        // imported is what would decline it.
+        it("adds an import of a path the file only aliases", () => {
+            const input = ["Utils := import(/MyGame/Utilities)", "code()"].join("\n");
+            expect(editor.buildOrganizedContent(input, ["/MyGame/Utilities"], curlySorted)).toBe(["using { /MyGame/Utilities }", "", "Utils := import(/MyGame/Utilities)", "code()"].join("\n"));
+        });
+
+        // The combined form the book writes: the alias for qualified access,
+        // the `using` for unqualified. Hoisting the `using` above the alias is
+        // safe - the compiler binds every alias in its own deferred stage,
+        // ahead of the one that resolves module `using` statements - so the
+        // only requirement is that both survive.
+        it("hoists a using of an alias above the alias without touching either", () => {
+            const input = ["Graphics := import(/MyGame/Systems/Graphics)", "using { Graphics }", "code()"].join("\n");
+            expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { Graphics }", "", "Graphics := import(/MyGame/Systems/Graphics)", "code()"].join("\n"));
+        });
+    });
 });
 
 interface RecordedOperation {

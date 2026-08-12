@@ -204,10 +204,15 @@ in (see test-fixtures/corpus/README.md).
        reference `button_device`). The pair must be consolidated into the
        import block with its path intact; no orphaned indented line (#68
        live).
-6. [ ] Case F alias (t9_alias.verse): uncomment the import(...) lines.
-       Compiles or exact error? If it compiles, add
-       `using { /Verse.org/SpatialMath }` below and confirm the extension
-       does not add duplicates or misbehave in the file (#71).
+6. [ ] Case F alias (t9_alias.verse): the file is written live, the
+       construct having compiled on 41.10. It must compile as synced. Then,
+       with the extension active: remove `using { /Verse.org/SpatialMath }`
+       and confirm auto-import puts it back rather than reading the alias of
+       the same path as an import already present; run "Verse Auto Imports:
+       Optimize Imports" and confirm both alias lines are byte-identical
+       afterwards; and hover the `using { T9Sub }` line and confirm NO
+       "Use absolute path" lens appears on it, since T9Sub names an alias
+       rather than a module (#71).
 7. [ ] Capture: with all T9 files open and their diagnostics present, run
        "Verse Auto Imports: Capture Diagnostics Corpus" and curate the output
        into the corpus folder for this UEFN version.

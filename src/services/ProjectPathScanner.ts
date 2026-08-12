@@ -1,11 +1,38 @@
 import * as vscode from "vscode";
 import { logger } from "../utils";
-import { indentOf, maskCommentsAndStrings } from "../utils/verseText";
+import { countBraces, indentOf, maskCommentsAndStrings } from "../utils/verseText";
 import { ProjectPathHandler } from "../project";
 import { ProjectPathData, ProjectPathNode, ProjectScanOptions } from "../types";
 
 /** Number of .verse files parsed concurrently during a full scan. */
 const SCAN_CONCURRENCY = 8;
+
+/**
+ * A module whose body the scan is inside, held while its declarations are read
+ * so each can be given the path it sits at.
+ *
+ * A skipped module is on the stack for its indent alone, so that what it
+ * contains is dropped with it rather than losing the enclosing segment from its
+ * path. Nothing is ever pushed above a skipped entry, because every declaration
+ * under one is skipped before it can be.
+ */
+interface OpenModule {
+    /** Dotted path of the module itself, enclosing segments included. */
+    name: string;
+    indent: number;
+    skipped: boolean;
+    /**
+     * True only between a module declaration that ended without opening a body
+     * and the next line considered, which is where its `{` may be.
+     */
+    awaitingBrace: boolean;
+    /**
+     * Brace depth just outside a braced body, and null while indentation is
+     * what closes the entry: the colon, dotted and `>` forms, and a braced one
+     * whose `{` is still to come.
+     */
+    closeDepth: number | null;
+}
 
 /**
  * Reads the project's .verse files into a flat list of the module, class,
@@ -139,17 +166,7 @@ export class ProjectPathScanner {
         // its braces alone, so this is the only thing that can close one: its
         // members are free to sit at or left of the declaration's own indent.
         let braceDepth = 0;
-        // A skipped module is on the stack for its indent alone, so that what
-        // it contains is dropped with it rather than losing the enclosing
-        // segment from its path. Nothing is ever pushed above a skipped entry,
-        // because every declaration under one is skipped before it can be.
-        //
-        // `awaitingBrace` is true only between a module declaration that ended
-        // without opening a body and the next line considered, which is where
-        // its `{` may be. `closeDepth` is the brace depth just outside a braced
-        // body, and null while indentation is what closes the entry: the colon,
-        // dotted and `>` forms, and a braced one whose `{` is still to come.
-        const moduleStack: { name: string; indent: number; skipped: boolean; awaitingBrace: boolean; closeDepth: number | null }[] = [];
+        const moduleStack: OpenModule[] = [];
 
         // A declaration carries any number of stacked specifiers, of which at
         // most one is a visibility; the rest (<native>, <final>, ...) are noise
@@ -220,24 +237,8 @@ export class ProjectPathScanner {
             // depth behind: a braced `using` clause spans lines, and skipping
             // its opener while still counting its `}` would drive the depth
             // below the point any enclosing module opened from.
-            //
-            // A brace between single quotes is a char literal. Masking leaves
-            // single quotes alone, because one opens a char literal and an
-            // identifier's quoted suffix alike and it cannot tell them apart,
-            // but a suffix cannot hold a brace, so this much is unambiguous.
-            // Counting one would strand the depth for the rest of the file,
-            // where indentation used to recover it at the next dedent.
             const depthAtLineStart = braceDepth;
-            for (let column = 0; column < line.length; column++) {
-                const character = line[column];
-                if (character !== "{" && character !== "}") {
-                    continue;
-                }
-                if (line[column - 1] === "'" && line[column + 1] === "'") {
-                    continue;
-                }
-                braceDepth += character === "{" ? 1 : -1;
-            }
+            braceDepth = countBraces(line, 0, line.length, braceDepth);
 
             // A Verse comment is already blank here, so the empty test is what
             // skips one; `//` is not a Verse comment form and masking leaves it
@@ -271,16 +272,21 @@ export class ProjectPathScanner {
             // is popped on the next line the scan considers - a closing brace
             // declares nothing, so reading it a line late costs no path. An
             // indented body ends at the first line back at or left of its
-            // declaration. The loop stops at the first entry still open, which
-            // is what keeps indentation from closing an outer module while a
-            // braced one nested inside it is still waiting for its `}`.
+            // declaration.
             if (!opensAwaitedBody) {
-                while (moduleStack.length > 0) {
-                    const openModule = moduleStack[moduleStack.length - 1];
-                    const closed = openModule.closeDepth !== null ? depthAtLineStart <= openModule.closeDepth : indent <= openModule.indent;
-                    if (!closed) {
-                        break;
-                    }
+                // Closed braced bodies go first, outermost in, because one
+                // takes every module inside it along. A colon module written
+                // left of the brace's own declaration reads as open on
+                // indentation alone, and closing only from the top would let it
+                // shield the closed brace beneath it.
+                const closedBrace = outermostClosedBrace(moduleStack, depthAtLineStart);
+                if (closedBrace !== -1) {
+                    moduleStack.length = closedBrace;
+                }
+
+                // What is left closes innermost out, and stops at a braced body
+                // still waiting for its `}`.
+                while (moduleStack.length > 0 && closedByIndent(moduleStack[moduleStack.length - 1], indent)) {
                     moduleStack.pop();
                 }
             }
@@ -516,4 +522,35 @@ export class ProjectPathScanner {
 
         return nodes;
     }
+}
+
+/**
+ * Index of the outermost open module whose braced body has already closed, and
+ * so of the first entry the stack no longer holds; -1 while none has closed.
+ *
+ * Only a braced body can be found closed from below like this. Its depth test
+ * holds anywhere in the file, whereas an indent compared across a brace
+ * boundary means nothing - a module inside the braces may be written left of
+ * the declaration that opened them.
+ *
+ * The lowest such index is the cut rather than merely one of them, because a
+ * braced entry records the depth it opens from: close depths never decrease
+ * going up the stack, so nothing below the index found here has closed too.
+ * Two entries may record the same depth - the line opening an awaited body
+ * assigns one after this has already run - which the lowest index still
+ * answers, both of them being closed together.
+ */
+function outermostClosedBrace(open: readonly OpenModule[], braceDepth: number): number {
+    return open.findIndex((entry) => entry.closeDepth !== null && braceDepth <= entry.closeDepth);
+}
+
+/**
+ * Whether an open module that indentation delimits ends before a declaration at
+ * this indent.
+ *
+ * False for a braced body, whose end no indentation can announce. That is what
+ * stops the pop loop at one, leaving the modules below it open.
+ */
+function closedByIndent(open: OpenModule, indent: number): boolean {
+    return open.closeDepth === null && indent <= open.indent;
 }

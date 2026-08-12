@@ -9,7 +9,7 @@
  * quoted suffix.
  */
 
-import { indentOf, maskCommentsAndStrings } from "../utils/verseText";
+import { countBraces, indentOf, maskCommentsAndStrings } from "../utils/verseText";
 
 /**
  * A declaration in any of the three styles a macro body is written in:
@@ -248,34 +248,6 @@ function outermostClosedBrace(open: readonly OpenModule[], braceDepth: number): 
  */
 function closedByIndent(open: OpenModule, indent: number, line: number): boolean {
     return open.closeDepth === null && open.line !== line && indent <= open.indent;
-}
-
-/**
- * The brace depth after the half-open range, starting from the depth before it.
- * Counted on masked text, so a brace in a comment or a string contributes none.
- */
-function countBraces(searchable: string, start: number, end: number, depth: number): number {
-    let braceDepth = depth;
-
-    for (let i = start; i < end; i++) {
-        const character = searchable[i];
-        if (character !== "{" && character !== "}") {
-            continue;
-        }
-
-        // A single-quoted brace delimits nothing. Masking leaves single quotes
-        // alone because one opens a char literal and an identifier's quoted
-        // suffix alike, but neither reading makes this brace a body's, and
-        // counting one would strand the depth for the rest of the file with
-        // nothing left to recover it.
-        if (searchable[i - 1] === "'" && searchable[i + 1] === "'") {
-            continue;
-        }
-
-        braceDepth += character === "{" ? 1 : -1;
-    }
-
-    return braceDepth;
 }
 
 /** Offset of the first character of every line, so a line number is a binary search. */

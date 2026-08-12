@@ -222,5 +222,59 @@ describe("ProjectPathScanner.extractDeclarations module forms", () => {
             const source = "Systems<public> := module{\nusing{\n    /Verse.org/Simulation\n}\nB<public> := class {}\n}\nLoose<public> := class {}\n";
             expect(declare(source).map((node) => node.fullPath)).toEqual(["Systems", "Systems.B", "Loose"]);
         });
+
+        // A colon module written left of the braced declaration it sits inside
+        // reads as open on indentation at every line indented past it, so
+        // closing only from the top of the stack stops there and never reaches
+        // the braced entry whose `}` has already passed. The braced entry then
+        // prefixes everything after it, and a `fullPath` one or more segments
+        // too long names a module that does not exist at that path.
+        describe("a closed braced body is left by the modules it shields", () => {
+            it("returns a sibling to the enclosing module when the braced body it follows was written left of its declaration", () => {
+                const source = "Outer := module:\n    A := module{\nB := module:\n    Q:int = 1\n    }\n    C := module {}\n";
+                expect(declare(source).map((node) => node.fullPath)).toEqual(["Outer", "Outer.A", "Outer.A.B", "Outer.A.B.Q", "Outer.C"]);
+            });
+
+            it("returns the sibling through two colon levels above the brace", () => {
+                const source = "L1 := module:\n    L2 := module:\n        A := module{\nB := module:\n    Q:int = 1\n        }\n        C := module {}\n";
+                expect(declare(source).map((node) => node.fullPath)).toEqual(["L1", "L1.L2", "L1.L2.A", "L1.L2.A.B", "L1.L2.A.B.Q", "L1.L2.C"]);
+            });
+
+            it("returns the sibling where it is written past the closed body's own indent", () => {
+                // The truncation is driven by the depth alone, so a sibling
+                // indented deeper than the body it follows still leaves it.
+                const source = "Outer := module:\n    A := module{\nB := module:\n    Q:int = 1\n    }\n        C := module {}\n";
+                expect(declare(source).map((node) => node.fullPath)).toEqual(["Outer", "Outer.A", "Outer.A.B", "Outer.A.B.Q", "Outer.C"]);
+            });
+
+            it("returns the sibling the same way when the brace opened the body on the next line", () => {
+                const source = "Outer := module:\n    Inner := module\n    {\nMember := module:\n    Q:int = 1\n    }\n    Kept := module {}\n";
+                expect(declare(source).map((node) => node.fullPath)).toEqual(["Outer", "Outer.Inner", "Outer.Inner.Member", "Outer.Inner.Member.Q", "Outer.Kept"]);
+            });
+
+            it("closes one braced body of several without closing those still open around it", () => {
+                const source = "Systems := module{\nB := module:\n    C := module{\nD := module:\n        Z:int = 1\n    }\n    E := module {}\n}\nSibling := module {}\n";
+                expect(declare(source).map((node) => node.fullPath)).toEqual(["Systems", "Systems.B", "Systems.B.C", "Systems.B.C.D", "Systems.B.C.D.Z", "Systems.B.E", "Sibling"]);
+            });
+
+            it("closes the inner body where the shielding module's own body ended at column zero", () => {
+                const source = "A := module{\nB := module:\n    C := module{\nD := module:\n    Q:int = 1\n}\n    E := module {}\n}\nZ := module {}\n";
+                expect(declare(source).map((node) => node.fullPath)).toEqual(["A", "A.B", "A.B.C", "A.B.C.D", "A.B.C.D.Q", "A.B.E", "Z"]);
+            });
+
+            it("keeps a module open whose brace depth a stray closing brace drove below zero", () => {
+                // A `}` ahead of any declaration makes the depth negative, so a
+                // module opened after it records a negative close depth. The
+                // truncation test has to keep holding there, rather than firing
+                // at the outermost entry for every later line.
+                const source = "}\nOuter := module{\nInner := module:\n    Q:int = 1\n}\nAfter := module {}\n";
+                expect(declare(source).map((node) => node.fullPath)).toEqual(["Outer", "Outer.Inner", "Outer.Inner.Q", "After"]);
+            });
+
+            it("leaves a braced module a stray closing brace ended before the next one opens", () => {
+                const source = "A := module{\nX:int = 1\n}\n}\nB := module{\nY:int = 1\n}\n";
+                expect(declare(source).map((node) => node.fullPath)).toEqual(["A", "A.X", "B", "B.Y"]);
+            });
+        });
     });
 });

@@ -128,6 +128,38 @@ export function indentOf(content: string, lineStart: number): number {
     return width;
 }
 
+/**
+ * The brace depth after the half-open range, starting from the depth before it.
+ * Counted on masked text, so a brace in a comment or a string contributes none.
+ *
+ * Both module scans delimit a braced body by this depth, and they must agree:
+ * one reads it over the gap between two declarations, the other over a single
+ * line, so the range is theirs to choose.
+ */
+export function countBraces(searchable: string, start: number, end: number, depth: number): number {
+    let braceDepth = depth;
+
+    for (let i = start; i < end; i++) {
+        const character = searchable[i];
+        if (character !== "{" && character !== "}") {
+            continue;
+        }
+
+        // A single-quoted brace delimits nothing. Masking leaves single quotes
+        // alone because one opens a char literal and an identifier's quoted
+        // suffix alike, but neither reading makes this brace a body's, and
+        // counting one would strand the depth for the rest of the file with
+        // nothing left to recover it.
+        if (searchable[i - 1] === "'" && searchable[i + 1] === "'") {
+            continue;
+        }
+
+        braceDepth += character === "{" ? 1 : -1;
+    }
+
+    return braceDepth;
+}
+
 /** Replaces one character with a space, keeping newlines so line numbers still hold. */
 function blank(masked: string[], content: string, index: number): void {
     if (content[index] !== "\n") {

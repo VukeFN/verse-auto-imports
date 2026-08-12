@@ -250,7 +250,17 @@ export function activate(context: vscode.ExtensionContext) {
             // when the scope actually restricts something - this listener runs
             // on every compile pass, and the default path must not pay for a
             // feature it does not use.
-            const scope = vscode.workspace.getConfiguration("verseAutoImports").get<string>("general.autoImportScope", "allFiles");
+            //
+            // Every setting this listener reads is read here, for the same
+            // reason the visibility snapshot is taken here: the loop awaits, so
+            // a per-uri read answers for a different moment than the diagnostics
+            // it is deciding about. The debounce callback reads its own settings
+            // again when its timer fires, and that read is the authoritative
+            // one - hoisting it up here would be a different change, and a wrong
+            // one, since it is what makes a mid-loop toggle harmless.
+            const config = vscode.workspace.getConfiguration("verseAutoImports");
+            const scope = config.get<string>("general.autoImportScope", "allFiles");
+            const autoImportEnabled = config.get<boolean>("general.autoImport", true);
             const visibility = !DiagnosticsHandler.scopeRestrictsDocuments(scope)
                 ? { openUris: [] }
                 : {
@@ -280,14 +290,12 @@ export function activate(context: vscode.ExtensionContext) {
                 try {
                     const document = await vscode.workspace.openTextDocument(uri);
                     if (document.languageId === "verse") {
-                        const config = vscode.workspace.getConfiguration("verseAutoImports");
-                        // The snooze is in-memory state, not a setting, so it
-                        // is checked here rather than read back from config.
-                        // This is only the cheap early exit; the authoritative
-                        // check is in the debounce callback, which has to
-                        // re-check because a snooze can start after a timer
-                        // has already been scheduled.
-                        if (config.get<boolean>("general.autoImport", true) && !statusBarHandler.isSnoozeActive()) {
+                        // Asked per uri rather than hoisted with the settings
+                        // above, because a snooze starting mid-loop is meant to
+                        // take effect at once. This is still only the cheap
+                        // early exit: the authoritative check is in the debounce
+                        // callback, which fires later again.
+                        if (autoImportEnabled && !statusBarHandler.isSnoozeActive()) {
                             await diagnosticsHandler.handle(document);
                         }
                     }

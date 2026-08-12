@@ -562,7 +562,7 @@ export class CommandsHandler {
         const documentUri = document.uri.toString();
         this.prepareForConversion(documentUri);
 
-        const result = (await this.deps.importPathConverter.convertFromFullPath(importStatement, lineNumber)) as PathConversionResult | null;
+        const result = (await this.deps.importPathConverter.convertFromFullPath(importStatement, document.uri, lineNumber)) as PathConversionResult | null;
 
         if (!result) {
             vscode.window.showInformationMessage("Import cannot be converted to relative path.");

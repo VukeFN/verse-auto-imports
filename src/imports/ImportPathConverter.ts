@@ -274,6 +274,18 @@ export class ImportPathConverter {
             return logicalPath;
         };
 
+        // The file's own directory first, and nearest of all: a folder beside
+        // the file is a member of the file's own module, which is what a bare
+        // reference names from here - and what convertFromFullPath writes when
+        // it shortens such a path. Without this the two directions stop being
+        // inverses, and the shortest spelling is the one that cannot be read
+        // back.
+        const ownTestPath = `${currentFileDir}/${modulePath}`;
+        if (await this.folderExists(workspaceFolder, getFsCheckPath(ownTestPath))) {
+            const relativePath = currentFileDir === CONTENT_FOLDER ? "" : "/" + currentFileDir.substring(CONTENT_FOLDER.length + 1);
+            if (!locations.includes(relativePath)) locations.push(relativePath);
+        }
+
         if (dirSegments.length > 1) {
             const parentPath = dirSegments.slice(0, dirSegments.length - 1).join("/");
             const siblingTestPath = `${parentPath}/${modulePath}`;
@@ -450,20 +462,88 @@ export class ImportPathConverter {
     }
 
     /**
+     * The dotted reference naming `fullPath` from a scope at `basePath`: the
+     * segments left after the longest prefix the two paths share, joined with
+     * ".". Empty when nothing is left, which is a path naming the base itself.
+     *
+     * Segments are compared whole and folded ASCII-only, which is Epic's rule
+     * for this one conversion rather than a claim that Verse resolves paths
+     * case-insensitively - it does not.
+     *
+     * Comparing whole segments is a deliberate divergence. Epic walks
+     * characters and, when one path runs out inside the other's segment, ends
+     * the common part mid-label: `/proj/Economy/Shop` against a scope at
+     * `/proj/Econ` yields `omy.Shop` there.
+     */
+    private static relativizeAgainst(fullPath: string, basePath: string): string {
+        const foldAscii = (segment: string): string => segment.replace(/[a-z]/g, (character) => character.toUpperCase());
+        const fullSegments = fullPath.split("/").filter((segment) => segment);
+        const baseSegments = basePath.split("/").filter((segment) => segment);
+
+        let common = 0;
+        while (common < fullSegments.length && common < baseSegments.length && foldAscii(fullSegments[common]) === foldAscii(baseSegments[common])) {
+            common++;
+        }
+
+        return fullSegments.slice(common).join(".");
+    }
+
+    /**
+     * The absolute Verse path of the folder module a file sits in, or null when
+     * the file is not under a Content root this project addresses.
+     *
+     * The directory is the whole of the evidence, a folder being an implicit
+     * module. Only the folder chain is read, so a `using` written inside a
+     * nested `module { }` block in the file is placed at the file's own scope
+     * rather than the block's - a longer reference than the compiler would
+     * name, and one that still resolves, since resolution walks the parent
+     * chain outward.
+     */
+    private enclosingModulePath(documentUri: vscode.Uri, projectVersePath: string): string | null {
+        const workspaceFolder = vscode.workspace.getWorkspaceFolder(documentUri);
+        if (!workspaceFolder) return null;
+
+        const relativeFilePath = path.relative(workspaceFolder.uri.fsPath, documentUri.fsPath).replace(/\\/g, "/");
+        let fileDir = path.dirname(relativeFilePath).replace(/\\/g, "/");
+
+        // Every path below is reasoned about with a leading Content/, so a
+        // workspace opened at Content itself has that segment put back on -
+        // the same correction searchImplicitModules makes.
+        if (path.basename(workspaceFolder.uri.fsPath) === CONTENT_FOLDER) {
+            fileDir = fileDir === "" || fileDir === "." ? CONTENT_FOLDER : `${CONTENT_FOLDER}/${fileDir}`;
+        }
+
+        if (fileDir === CONTENT_FOLDER) return projectVersePath;
+        if (!fileDir.startsWith(`${CONTENT_FOLDER}/`)) return null;
+
+        return `${projectVersePath}/${fileDir.substring(CONTENT_FOLDER.length + 1)}`;
+    }
+
+    /**
      * The relative form of an absolute import, in the style the author wrote,
      * or null when there is none to give: a built-in module, an import that
      * was never absolute, a workspace with no `.uefnproject` to take the
      * project path from, or a path that shortens to nothing.
      *
-     * Never ambiguous, because one project path shortens one import exactly one
-     * way. The other direction has a whole workspace of candidate locations to
+     * Shortened against the module the importing file sits in, which is the
+     * dialect the compiler speaks: its own suggestions arrive spelled that way
+     * and are written as imports, so a second dialect here would put one module
+     * in a file under two spellings, and the presence check compares spellings.
+     *
+     * Never ambiguous, because one scope shortens one import exactly one way.
+     * The other direction has a whole workspace of candidate locations to
      * choose between.
      *
-     * A path belonging to another project is not refused, only left whole: with
-     * no project prefix to strip, every segment survives into the dotted form,
-     * which this project cannot resolve.
+     * A path outside this project is not refused, only shortened by whatever
+     * prefix it does share: another project under the same account keeps its
+     * own project segment, a different account keeps every segment. Neither
+     * resolves here.
+     *
+     * @param documentUri The file the import is written in. Without it the
+     *   project root stands in as the scope, which is what shortens an import
+     *   when the file cannot be placed under Content.
      */
-    async convertFromFullPath(importStatement: string, line?: number): Promise<ImportConversionResult | null> {
+    async convertFromFullPath(importStatement: string, documentUri?: vscode.Uri, line?: number): Promise<ImportConversionResult | null> {
         if (this.isBuiltinModule(importStatement)) {
             logger.debug("ImportPathConverter", "Cannot convert built-in module to relative path");
             return null;
@@ -489,21 +569,26 @@ export class ImportPathConverter {
             return null;
         }
 
-        let relativePath = fullPath;
+        const scopePath = (documentUri && this.enclosingModulePath(documentUri, projectVersePath)) || projectVersePath;
+        const shortened = ImportPathConverter.relativizeAgainst(fullPath, scopePath);
 
-        if (fullPath.startsWith(projectVersePath + "/")) {
-            relativePath = fullPath.substring(projectVersePath.length + 1);
-        } else if (fullPath === projectVersePath) {
-            relativePath = "";
-        }
-
-        const modulePathSegments = relativePath.split("/").filter((s) => s);
-        const relativeImportPath = modulePathSegments.join(".");
+        // Nothing left over means the target is the importing file's own module
+        // or an ancestor of it. The module still has a name, and whatever
+        // encloses it encloses the file too, so the bare name reaches it - the
+        // construction Epic uses, which shortens the definition's parent and
+        // appends the definition's own name. The project root is the one target
+        // this does not hold for: what encloses it is the registry rather than
+        // a scope the file sits in. That test shortens against the root rather
+        // than comparing prefixes, so both halves fold case the same way.
+        const belowProjectRoot = ImportPathConverter.relativizeAgainst(fullPath, projectVersePath);
+        const relativeImportPath = shortened || (belowProjectRoot ? fullPath.substring(fullPath.lastIndexOf("/") + 1) : "");
 
         if (!relativeImportPath) {
             logger.debug("ImportPathConverter", "Could not extract relative path from full path");
             return null;
         }
+
+        const modulePathSegments = relativeImportPath.split(".");
 
         const usesCurlyBraces = ImportPathConverter.usesBracedStyle(importStatement);
         const relativeImport = usesCurlyBraces ? `using { ${relativeImportPath} }` : `using. ${relativeImportPath}`;
@@ -511,7 +596,7 @@ export class ImportPathConverter {
         return {
             originalImport: importStatement,
             fullPathImport: relativeImport,
-            moduleName: modulePathSegments[modulePathSegments.length - 1] || relativeImportPath,
+            moduleName: modulePathSegments[modulePathSegments.length - 1],
             isAmbiguous: false,
             line,
         };
@@ -529,7 +614,7 @@ export class ImportPathConverter {
 
         for (const { statement, line } of scanConvertibleImports(lines)) {
             if (this.isFullPathImport(statement) && !this.isBuiltinModule(statement)) {
-                const result = await this.convertFromFullPath(statement, line);
+                const result = await this.convertFromFullPath(statement, document.uri, line);
                 if (result) {
                     results.push(result);
                 }

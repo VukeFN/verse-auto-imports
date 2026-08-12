@@ -66,7 +66,7 @@ describe("ModuleVisibilityWriter", () => {
 
         const operations = appliedOperations();
         expect(operations[0]).toMatchObject({ kind: "createFile" });
-        expect(forwardSlashed(operations[0].uri)).toBe(`${ROOT}/Content/definitions.verse`);
+        expect(forwardSlashed(operations[0].uri)).toBe(`${ROOT}/Content/_definitions.verse`);
         expect(operations[1]).toMatchObject({ kind: "insert", text: "Gadgets := module:\n    Tools<public> := module {}\n" });
     });
 
@@ -98,7 +98,7 @@ describe("ModuleVisibilityWriter", () => {
 
     it("extends an existing definitions file rather than replacing it", async () => {
         givenProject({
-            "Content/definitions.verse": "Other<public> := module {}\n",
+            "Content/_definitions.verse": "Other<public> := module {}\n",
             "Content/Scripts/main.verse": "using { Gadgets.Tools }\n",
         });
 
@@ -111,7 +111,7 @@ describe("ModuleVisibilityWriter", () => {
     it("folds a specifier edit inside the definitions file into the same replacement", async () => {
         // Two operations on one file would overlap, which VS Code rejects, and
         // half-applying would leave two parts of Deep disagreeing.
-        givenProject({ "Content/definitions.verse": "Gadgets := module:\n    Deep := module {}\n" });
+        givenProject({ "Content/_definitions.verse": "Gadgets := module:\n    Deep := module {}\n" });
 
         await writer().makeModulePublic({
             targetPath: `${PROJECT}/Gadgets/Deep/Tools`,

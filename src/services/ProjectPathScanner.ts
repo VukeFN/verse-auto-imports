@@ -16,13 +16,46 @@ const SCAN_CONCURRENCY = 8;
  * What makes rejecting them safe is that Verse reserves each, so none can name
  * a declaration - the parser demotes a reserved word to an identifier only
  * where `:=` follows it, and that is an object-notation key rather than a
- * declaration either way. `block`, `loop`, `race`, `rush`, `sync`, `branch`,
- * `defer`, `spawn`, `case`, `for`, `and`, `or`, `option` and `logic` are
- * reserved in the compiler's ReservedSymbols.inl; `if`, `then`, `else` and
- * `not` are reserved by the parser's own token table instead, which is where
- * that file says language-level reservations live.
+ * declaration either way. All but four are reserved in the compiler's
+ * ReservedSymbols.inl; `if`, `then`, `else` and `not` are reserved by the
+ * parser's own token table instead, which is where that file says
+ * language-level reservations live.
+ *
+ * Only a word ReservedSymbols.inl marks `Reserved` may join. A `ReservedFuture`
+ * word is still a legal identifier today, so `profile` - a block macro in every
+ * other respect - would drop a real declaration if it were added here.
+ *
+ * `batch`, `when` and `first` name macros the language has not released, and
+ * are held anyway: they are already reserved, so the guarantee above holds now
+ * and the set needs no revisit when they ship.
  */
-const RESERVED_LINE_KEYWORDS = new Set(["block", "loop", "if", "then", "else", "race", "rush", "sync", "branch", "defer", "spawn", "case", "for", "and", "or", "not", "option", "logic"]);
+const RESERVED_LINE_KEYWORDS = new Set([
+    "block",
+    "loop",
+    "if",
+    "then",
+    "else",
+    "race",
+    "rush",
+    "sync",
+    "branch",
+    "defer",
+    "spawn",
+    "case",
+    "for",
+    "and",
+    "or",
+    "not",
+    "option",
+    "logic",
+    "array",
+    "map",
+    "assert",
+    "let",
+    "batch",
+    "when",
+    "first",
+]);
 
 /**
  * A module whose body the scan is inside, held while its declarations are read

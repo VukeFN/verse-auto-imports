@@ -50,12 +50,43 @@ describe("ProjectPathScanner.extractDeclarations block macros", () => {
         expect(paths(source)).toEqual(["module:Inventory", "function:Inventory.Run", "variable:Inventory.X"]);
     });
 
-    it.each(["block", "loop", "if", "then", "else", "race", "rush", "sync", "branch", "defer", "spawn", "case", "for", "and", "or", "not", "option", "logic"])(
-        "records no declaration for a bare `%s:`",
-        (keyword) => {
-            expect(paths(`Inventory := module:\n    ${keyword}:\n`)).toEqual(["module:Inventory"]);
-        },
-    );
+    // The container macros are the shape the issue reported: `array:` and
+    // `map:` opening a block whose body is the literal's elements.
+    it("records the declarations returning a container literal and neither container macro", () => {
+        const source = ["Inventory := module:", "    Xs<public>():[]int =", "        array:", "            1", "    Ys<public>():[int]int =", "        map:", "            1 => 2", ""].join("\n");
+
+        expect(paths(source)).toEqual(["module:Inventory", "function:Inventory.Xs", "function:Inventory.Ys"]);
+    });
+
+    it.each([
+        "block",
+        "loop",
+        "if",
+        "then",
+        "else",
+        "race",
+        "rush",
+        "sync",
+        "branch",
+        "defer",
+        "spawn",
+        "case",
+        "for",
+        "and",
+        "or",
+        "not",
+        "option",
+        "logic",
+        "array",
+        "map",
+        "assert",
+        "let",
+        "batch",
+        "when",
+        "first",
+    ])("records no declaration for a bare `%s:`", (keyword) => {
+        expect(paths(`Inventory := module:\n    ${keyword}:\n`)).toEqual(["module:Inventory"]);
+    });
 
     it("records the declarations in a function body and none of its parenthesised block macros", () => {
         const source = [
@@ -75,9 +106,12 @@ describe("ProjectPathScanner.extractDeclarations block macros", () => {
 
     // `if(X > 0)` carries no space, which is what the function pattern keys on:
     // a shape reaching it without one must be rejected too.
-    it.each(["if (X > 0)", "if(X > 0)", "for (Item : Items)", "case (X)", "race (A, B)", "sync (A, B)", "branch (A)", "spawn (A)", "loop (A)"])("records no declaration for `%s:`", (head) => {
-        expect(paths(`Inventory := module:\n    ${head}:\n`)).toEqual(["module:Inventory"]);
-    });
+    it.each(["if (X > 0)", "if(X > 0)", "for (Item : Items)", "case (X)", "race (A, B)", "sync (A, B)", "branch (A)", "spawn (A)", "loop (A)", "when(X)", "when (X > 1 and Y < 10)"])(
+        "records no declaration for `%s:`",
+        (head) => {
+            expect(paths(`Inventory := module:\n    ${head}:\n`)).toEqual(["module:Inventory"]);
+        },
+    );
 
     it("records a function whose name merely starts with one of them", () => {
         const source = ["Inventory := module:", "    ifMatches(X:int)<transacts>:logic = true", "    forEach(X:int):void = block:", "    caseOf(X:int):int = X", ""].join("\n");
@@ -90,9 +124,28 @@ describe("ProjectPathScanner.extractDeclarations block macros", () => {
     });
 
     it("records a declaration whose name merely starts with one of them", () => {
-        const source = ["Inventory := module:", "    blockCount:int = 1", "    ifState:logic = true", "    forEachItem:int = 2", ""].join("\n");
+        const source = [
+            "Inventory := module:",
+            "    blockCount:int = 1",
+            "    ifState:logic = true",
+            "    forEachItem:int = 2",
+            "    arrayOf:int = 3",
+            "    mapping:int = 4",
+            "    assertion:logic = false",
+            "    letter:int = 5",
+            "",
+        ].join("\n");
 
-        expect(paths(source)).toEqual(["module:Inventory", "variable:Inventory.blockCount", "variable:Inventory.ifState", "variable:Inventory.forEachItem"]);
+        expect(paths(source)).toEqual([
+            "module:Inventory",
+            "variable:Inventory.blockCount",
+            "variable:Inventory.ifState",
+            "variable:Inventory.forEachItem",
+            "variable:Inventory.arrayOf",
+            "variable:Inventory.mapping",
+            "variable:Inventory.assertion",
+            "variable:Inventory.letter",
+        ]);
     });
 
     it("records a module-scope variable as before", () => {

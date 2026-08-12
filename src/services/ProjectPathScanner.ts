@@ -216,25 +216,34 @@ export class ProjectPathScanner {
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
 
+            // Ahead of every `continue` below, so that no line can leave the
+            // depth behind: a braced `using` clause spans lines, and skipping
+            // its opener while still counting its `}` would drive the depth
+            // below the point any enclosing module opened from.
+            //
+            // A brace between single quotes is a char literal. Masking leaves
+            // single quotes alone, because one opens a char literal and an
+            // identifier's quoted suffix alike and it cannot tell them apart,
+            // but a suffix cannot hold a brace, so this much is unambiguous.
+            // Counting one would strand the depth for the rest of the file,
+            // where indentation used to recover it at the next dedent.
+            const depthAtLineStart = braceDepth;
+            for (let column = 0; column < line.length; column++) {
+                const character = line[column];
+                if (character !== "{" && character !== "}") {
+                    continue;
+                }
+                if (line[column - 1] === "'" && line[column + 1] === "'") {
+                    continue;
+                }
+                braceDepth += character === "{" ? 1 : -1;
+            }
+
             // A Verse comment is already blank here, so the empty test is what
             // skips one; `//` is not a Verse comment form and masking leaves it
             // alone.
             if (line === "" || line.startsWith("//")) {
                 continue;
-            }
-
-            // Counted before the `using` skip below, and ahead of every other
-            // `continue` in this loop, so no line can leave the depth behind: a
-            // braced `using` clause spans lines, and skipping its opener while
-            // still counting its `}` would drive the depth below the point any
-            // enclosing module opened from.
-            const depthAtLineStart = braceDepth;
-            for (const character of line) {
-                if (character === "{") {
-                    braceDepth++;
-                } else if (character === "}") {
-                    braceDepth--;
-                }
             }
 
             if (line.startsWith("using")) {
@@ -276,8 +285,8 @@ export class ProjectPathScanner {
                 }
             }
 
-            // After the pop loop: this brace opens the body, so it must not
-            // also be read as the depth that closes it.
+            // The depth the line started at, never the one its `{` just
+            // produced: a body closes back at the depth its brace opened from.
             if (opensAwaitedBody && topBeforePop) {
                 topBeforePop.closeDepth = depthAtLineStart;
             }

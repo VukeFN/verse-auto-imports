@@ -171,8 +171,8 @@ describe("ProjectPathScanner.extractDeclarations module forms", () => {
     // top-level module of the same name.
     describe("braced module bodies", () => {
         it("nests the members of a same-line brace body written at the module's own indent", () => {
-            const source = "Systems<public> := module{\nB<public> := module:\n    X<public> := class {}\n}\n";
-            expect(declare(source).map((node) => node.fullPath)).toEqual(["Systems", "Systems.B", "Systems.B.X"]);
+            const source = "Systems<public> := module{\nB<public> := module:\n    X<public> := class {}\n}\nLoose<public> := class {}\n";
+            expect(declare(source).map((node) => node.fullPath)).toEqual(["Systems", "Systems.B", "Systems.B.X", "Loose"]);
         });
 
         it("nests the members of a next-line brace body written at the module's own indent", () => {
@@ -201,6 +201,18 @@ describe("ProjectPathScanner.extractDeclarations module forms", () => {
             // to the other shows up here as a lost or a surplus segment.
             const source = "A<public> := module{\nB<public> := module:\n    C<public> := module{\nD<public> := class {}\n    }\n    E<public> := class {}\n}\nF<public> := class {}\n";
             expect(declare(source).map((node) => node.fullPath)).toEqual(["A", "A.B", "A.B.C", "A.B.C.D", "A.B.E", "F"]);
+        });
+
+        it("keeps a brace written as a char literal out of the depth", () => {
+            // Masking cannot blank a char literal, because a single quote opens
+            // an identifier's quoted suffix too. A brace cannot appear in such
+            // a suffix, so one between quotes is always a literal, and counting
+            // it would hold the module open for the rest of the file.
+            const held = "Systems<public> := module{\nOpen<public>:char = '{'\nB<public> := class {}\n}\nLoose<public> := class {}\n";
+            expect(declare(held).map((node) => node.fullPath)).toEqual(["Systems", "Systems.Open", "Systems.B", "Loose"]);
+
+            const closed = "Systems<public> := module{\nShut<public>:char = '}'\nB<public> := class {}\n}\nLoose<public> := class {}\n";
+            expect(declare(closed).map((node) => node.fullPath)).toEqual(["Systems", "Systems.Shut", "Systems.B", "Loose"]);
         });
 
         it("keeps the brace of a using clause out of the depth that closes the module holding it", () => {

@@ -224,10 +224,16 @@ export function resolveFolderModuleLocations(modulePath: string, contentRelative
 /**
  * The Content-relative directory of a workspace-relative source file, or null
  * when the file sits outside the Content folder and so cannot provide an
- * importable module location. Mirrors the path normalization of the converter's
- * filesystem scan.
+ * importable module location.
+ *
+ * Exported so the converter's filesystem scan maps paths through this rather
+ * than through a second copy of the rule: the two must agree on where Content
+ * starts, or the same project resolves differently depending on which of them
+ * asked.
+ *
+ * @param sourceFile workspace-relative, separated by "/"
  */
-function toContentRelativeDir(sourceFile: string, workspaceIsContent: boolean): string | null {
+export function toContentRelativeDir(sourceFile: string, workspaceIsContent: boolean): string | null {
     const lastSlash = sourceFile.lastIndexOf("/");
     const dir = lastSlash === -1 ? "" : sourceFile.slice(0, lastSlash);
 

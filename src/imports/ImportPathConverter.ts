@@ -4,7 +4,7 @@ import { logger } from "../utils";
 import { maskCommentsAndStrings } from "../utils/verseText";
 import { ProjectPathHandler } from "../project";
 import { ProjectPathCache } from "../services";
-import { resolveFolderModuleLocations } from "../services/moduleLocationLookup";
+import { resolveFolderModuleLocations, toContentRelativeDir } from "../services/moduleLocationLookup";
 import { ImportFormatter } from "./ImportFormatter";
 import { LINE_SPLIT, scanConvertibleImports } from "./ImportScanner";
 
@@ -325,14 +325,6 @@ export class ImportPathConverter {
     }
 
     /**
-     * Appends the locations of the `.verse` files explicitly declaring this
-     * name as a module, which is the other way a module comes to exist and the
-     * one no folder attests to.
-     *
-     * Capped at 100 files scanned, so a project larger than that resolves from
-     * whichever of them the search returned.
-     */
-    /**
      * Where a workspace-wide `.verse` scan has to look, and whether the
      * workspace folder is itself the Content folder - which decides both the
      * glob and how a found path maps back to a Content-relative one.
@@ -349,6 +341,14 @@ export class ImportPathConverter {
         };
     }
 
+    /**
+     * Appends the locations of the `.verse` files explicitly declaring this
+     * name as a module, which is the other way a module comes to exist and the
+     * one no folder attests to.
+     *
+     * Capped at 100 files scanned, so a project larger than that resolves from
+     * whichever of them the search returned.
+     */
     private async searchExplicitModuleDefinitions(modulePath: string, moduleName: string, pathSegments: string[], locations: string[]): Promise<void> {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders || workspaceFolders.length === 0) return;
@@ -433,23 +433,12 @@ export class ImportPathConverter {
 
         const contentRelativeDirs = new Set<string>();
         for (const file of verseFiles) {
-            let directory = path.dirname(path.relative(workspaceFolders[0].uri.fsPath, file.fsPath)).replace(/\\/g, "/");
-            if (directory === ".") directory = "";
+            const workspaceRelative = path.relative(workspaceFolders[0].uri.fsPath, file.fsPath).replace(/\\/g, "/");
+            const directory = toContentRelativeDir(workspaceRelative, workspaceIsContent);
 
-            // A workspace opened at Content already yields Content-relative
-            // paths; anywhere else they carry the Content/ segment, and a file
-            // outside Content contributes no importable module.
-            if (!workspaceIsContent) {
-                if (directory === CONTENT_FOLDER) {
-                    directory = "";
-                } else if (directory.startsWith(`${CONTENT_FOLDER}/`)) {
-                    directory = directory.substring(CONTENT_FOLDER.length + 1);
-                } else {
-                    continue;
-                }
-            }
-
-            contentRelativeDirs.add(directory);
+            // null is a file outside Content, which contributes no importable
+            // module.
+            if (directory !== null) contentRelativeDirs.add(directory);
         }
 
         for (const location of resolveFolderModuleLocations(modulePath, contentRelativeDirs)) {
@@ -467,9 +456,14 @@ export class ImportPathConverter {
      * folder near the current file (searchImplicitModules), then an explicit
      * declaration anywhere in the project (searchExplicitModuleDefinitions),
      * then a folder module anywhere in the project
-     * (searchProjectFolderModules). Ordered that way because proximity is the
-     * better evidence of which module was meant, and because a folder module
-     * exists only on the filesystem, where no declaration cache can see it.
+     * (searchProjectFolderModules).
+     *
+     * Ordered by how well each answers "which module was meant". Proximity
+     * comes first, being the strongest signal of intent. A declaration
+     * outranks a distant folder because it names the module outright, where a
+     * folder chain across the project is positional evidence alone - which is
+     * also why the last phase is the likeliest of the three to come back with
+     * several candidates rather than one.
      *
      * The last phase is the compiler's own recovery for this failure: where the
      * scope walk resolves nothing, it searches every module in the program and

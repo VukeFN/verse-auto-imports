@@ -53,6 +53,19 @@ describe("ImportCodeLensProvider.provideCodeLenses", () => {
         return expect(lensTitlesFor("using { /Verse.org/Simulation }\n\ncode()")).resolves.toEqual([]);
     });
 
+    // Converting reads the statement as a module path and searches the
+    // workspace for a folder or a `:= module` declaration of that name. An
+    // alias is neither, so the lens offered to rewrite the line into an import
+    // of whichever namesake the project happened to hold.
+    it("offers nothing on a using naming a module alias the file declares", () => {
+        return expect(lensTitlesFor("Gfx := import(/mygame@fortnite.com/mygame/Systems/Graphics)\nusing { Gfx }\n\ncode()")).resolves.toEqual([]);
+    });
+
+    it("still offers a lens on a real relative import beside an alias", () => {
+        const text = "Gfx := import(/mygame@fortnite.com/mygame/Systems/Graphics)\nusing { Gadgets.Tools }\n\ncode()";
+        return expect(lensTitlesFor(text)).resolves.toEqual(["$(arrow-both)  Use absolute path"]);
+    });
+
     it("offers nothing on an import inside a block comment", () => {
         // The lens used to appear here, and acting on it edited a line inside
         // the comment.

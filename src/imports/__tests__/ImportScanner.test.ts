@@ -35,6 +35,18 @@ describe("allUsingPaths", () => {
         expect(allUsingPaths(["using:", "    /A", "code()"])).toEqual(["/A"]);
     });
 
+    // Neither a blank line nor a comment ends an indented block, so the path
+    // below one is still the pair's body. Missing it is the one error this must
+    // not make: the caller reads an empty answer as permission to remove an
+    // import, and a relative path left unreported is what makes that unsafe.
+    it("reads the path of a pair a blank line separates from its opener", () => {
+        expect(allUsingPaths(["using:", "", "    Features", "code()"])).toEqual(["Features"]);
+    });
+
+    it("reads the path of a pair a comment separates from its opener", () => {
+        expect(allUsingPaths(["using:", "    # the path below", "    Features", "code()"])).toEqual(["Features"]);
+    });
+
     it("ignores an import inside a block comment", () => {
         expect(allUsingPaths(["<#", "using { /Old }", "#>", "using { /A }", "code()"])).toEqual(["/A"]);
     });
@@ -300,6 +312,37 @@ describe("scanModuleImports", () => {
         expect(rewritableImports(scanModuleImports(["using:", "    Economy.Shop", "code()"]))).toEqual([
             { path: "Economy.Shop", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
         ]);
+    });
+
+    // The path is the first line of code below the opener, not the line
+    // directly below it: neither a blank line nor a comment ends an indented
+    // block. Read as `lines[opener + 1]` the pair was invisible, so the import
+    // counted as absent and a diagnostic asking for it wrote a second copy.
+    //
+    // Pinned, and the span reaches the path: a writer rebuilds a span from its
+    // path alone, so rewriting this one would delete the lines between.
+    it("consumes a pair holding a blank line, pinned", () => {
+        expect(scanModuleImports(["using:", "", "    /Verse.org/Random", "code()"])).toEqual([
+            { path: "/Verse.org/Random", startLine: 0, endLine: 2, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    it("consumes a pair holding a comment indented into it, pinned", () => {
+        expect(scanModuleImports(["using:", "    # the path below", "    /Verse.org/Simulation", "code()"])).toEqual([
+            { path: "/Verse.org/Simulation", startLine: 0, endLine: 2, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // A comment written back at column 0 leaves the block open just as an
+    // indented one does, so the pair reaches past it.
+    it("consumes a pair holding a comment written at column 0, pinned", () => {
+        expect(scanModuleImports(["using:", "# a note of its own", "    /A", "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 2, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    it("offers no rewritable import for a pair holding a blank line", () => {
+        expect(rewritableImports(scanModuleImports(["using:", "", "    /A", "code()"]))).toEqual([]);
     });
 
     // The tail is tested against the line's code, not its raw text. A `$`

@@ -29,10 +29,6 @@ export class ImportHandler {
         this.documentEditor = new ImportDocumentEditor(outputChannel, this.formatter);
     }
 
-    extractExistingImports(document: vscode.TextDocument): string[] {
-        return this.documentEditor.extractExistingImports(document);
-    }
-
     async extractImportSuggestions(errorMessage: string): Promise<ImportSuggestion[]> {
         return this.suggestionExtractor.extractImportSuggestions(errorMessage);
     }

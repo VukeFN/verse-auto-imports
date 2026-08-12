@@ -876,6 +876,28 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         expect(applyEditMock()).not.toHaveBeenCalled();
     });
 
+    // The pair's path is the first line of code below the opener, so a blank
+    // line inside the pair does not end it. Scanned as the line directly below
+    // the opener the import was invisible, and the file ended up importing the
+    // same path twice.
+    it("recognizes an import an indented pair provides across a blank line", async () => {
+        const input = ["using:", "", "    /Verse.org/Simulation", "", "hello := 1"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Verse.org/Simulation }"]);
+
+        expect(success).toBe(true);
+        expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
+    it("recognizes an import an indented pair provides across a comment", async () => {
+        const input = ["using:", "    # the path below", "    /Verse.org/Simulation", "", "hello := 1"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Verse.org/Simulation }"]);
+
+        expect(success).toBe(true);
+        expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
     it("adds an import that exists only inside a block comment, above the comment", async () => {
         const input = ["<#", "using { /Fortnite.com/Devices }", "#>", "", "my_device := class(creative_device):", "    Button : button_device = button_device{}"].join("\n");
 

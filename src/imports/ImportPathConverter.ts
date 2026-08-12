@@ -13,13 +13,12 @@ interface ImportConversionResult {
     /**
      * The statement to write in place of `originalImport`, whichever direction
      * the conversion runs: convertToFullPath puts the absolute form here and
-     * convertFromFullPath the relative one, so the name reads true on only one
-     * of the two paths.
+     * convertFromFullPath the relative one.
      *
      * Empty while `isAmbiguous`, where the statement cannot be built until the
      * user has picked from `possiblePaths`.
      */
-    fullPathImport: string;
+    convertedImport: string;
     moduleName: string;
     /** Whether the module resolved to more than one location, listed in `possiblePaths`. */
     isAmbiguous: boolean;
@@ -595,7 +594,7 @@ export class ImportPathConverter {
 
         return {
             originalImport: importStatement,
-            fullPathImport: relativeImport,
+            convertedImport: relativeImport,
             moduleName: modulePathSegments[modulePathSegments.length - 1],
             isAmbiguous: false,
             line,
@@ -681,11 +680,11 @@ export class ImportPathConverter {
             const fullPath = ImportPathConverter.buildFullVersePath(projectVersePath, location, modulePath);
             logger.debug("ImportPathConverter", `Constructed full path: ${fullPath}`);
 
-            const fullPathImport = usesCurlyBraces ? `using { ${fullPath} }` : `using. ${fullPath}`;
+            const convertedImport = usesCurlyBraces ? `using { ${fullPath} }` : `using. ${fullPath}`;
 
             return {
                 originalImport: importStatement,
-                fullPathImport,
+                convertedImport,
                 moduleName,
                 isAmbiguous: false,
                 line,
@@ -695,7 +694,7 @@ export class ImportPathConverter {
 
             return {
                 originalImport: importStatement,
-                fullPathImport: "",
+                convertedImport: "",
                 moduleName,
                 isAmbiguous: true,
                 possiblePaths,
@@ -709,7 +708,7 @@ export class ImportPathConverter {
      * lines run. Any of them may be ambiguous, so a caller applying the whole
      * set has a choice to put to the user for each one.
      */
-    async convertAllImportsInDocument(document: vscode.TextDocument): Promise<ImportConversionResult[]> {
+    async convertAllImportsToFullPath(document: vscode.TextDocument): Promise<ImportConversionResult[]> {
         const results: ImportConversionResult[] = [];
         const text = document.getText();
         const lines = text.split(LINE_SPLIT);
@@ -772,7 +771,7 @@ export class ImportPathConverter {
             return false;
         }
 
-        let finalImport = conversion.fullPathImport;
+        let finalImport = conversion.convertedImport;
         if (conversion.isAmbiguous && selectedPath) {
             const usesCurlyBraces = ImportPathConverter.usesBracedStyle(conversion.originalImport);
             finalImport = usesCurlyBraces ? `using { ${selectedPath} }` : `using. ${selectedPath}`;

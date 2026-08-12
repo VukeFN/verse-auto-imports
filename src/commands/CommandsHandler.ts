@@ -33,7 +33,7 @@ export interface CommandsDependencies {
  */
 interface PathConversionResult {
     originalImport: string;
-    fullPathImport: string;
+    convertedImport: string;
     moduleName: string;
     isAmbiguous: boolean;
     possiblePaths?: string[];
@@ -513,7 +513,7 @@ export class CommandsHandler {
                 return;
             }
 
-            vscode.window.setStatusBarMessage(`Using absolute path: ${result.fullPathImport}`, CommandsHandler.STATUS_MESSAGE_DURATION_MS);
+            vscode.window.setStatusBarMessage(`Using absolute path: ${result.convertedImport}`, CommandsHandler.STATUS_MESSAGE_DURATION_MS);
             this.finalizeConversion(documentUri);
         }
     }
@@ -522,7 +522,7 @@ export class CommandsHandler {
         const documentUri = document.uri.toString();
         this.prepareForConversion(documentUri);
 
-        const results = (await this.deps.importPathConverter.convertAllImportsInDocument(document)) as PathConversionResult[];
+        const results = (await this.deps.importPathConverter.convertAllImportsToFullPath(document)) as PathConversionResult[];
 
         if (results.length === 0) {
             vscode.window.showInformationMessage("No relative imports found to convert.");
@@ -575,7 +575,7 @@ export class CommandsHandler {
             return;
         }
 
-        vscode.window.setStatusBarMessage(`Using relative path: ${result.fullPathImport}`, CommandsHandler.STATUS_MESSAGE_DURATION_MS);
+        vscode.window.setStatusBarMessage(`Using relative path: ${result.convertedImport}`, CommandsHandler.STATUS_MESSAGE_DURATION_MS);
         this.finalizeConversion(documentUri);
     }
 

@@ -295,7 +295,7 @@
         },
         "verseAutoImports.moduleVisibility.definitionsFileName": {
           "type": "string",
-          "default": "definitions.verse",
+          "default": "_definitions.verse",
           "description": "Name of the file at the Content root that the 'Make Module Public' quick fix writes <public> module declarations into. Existing declarations elsewhere in the project are edited in place instead, whatever this is set to.",
           "order": 35
         },

@@ -187,7 +187,7 @@ export class ModuleVisibilityWriter {
      * reported success.
      */
     private definitionsUri(contentRoot: vscode.Uri): vscode.Uri | null {
-        const fileName = vscode.workspace.getConfiguration("verseAutoImports").get<string>("moduleVisibility.definitionsFileName", "definitions.verse").trim();
+        const fileName = vscode.workspace.getConfiguration("verseAutoImports").get<string>("moduleVisibility.definitionsFileName", "_definitions.verse").trim();
 
         if (!/^[^\\/:*?"<>|]+\.verse$/.test(fileName)) {
             return null;

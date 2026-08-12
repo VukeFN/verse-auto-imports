@@ -35,6 +35,17 @@ describe("resolveVisibility", () => {
         expect(resolved.edits).toEqual([{ file: "file://a", path: "Gadgets/Tools", span: { start: 5, end: 5 }, text: "<public>" }]);
     });
 
+    it("edits a declaration nested in a braced module whose members sit at its own indent", () => {
+        const found = declarationsIn("file://a", "Gadgets", "Systems := module{\nTools := module:\n    X:int = 1\n}\n");
+
+        const resolved = resolveVisibility([], segments(["Gadgets", false], ["Systems", false], ["Tools", true]), found);
+
+        // A chain here would be a second part of a module that is already
+        // declared, written under a path this declaration does not carry.
+        expect(resolved.chain).toEqual([]);
+        expect(resolved.edits).toEqual([{ file: "file://a", path: "Gadgets/Systems/Tools", span: { start: 24, end: 24 }, text: "<public>" }]);
+    });
+
     it("rewrites every part of a module, since later parts must repeat the specifier", () => {
         const found = [...declarationsIn("file://a", "Gadgets", "Tools := module {}\n"), ...declarationsIn("file://b", "Gadgets", "Tools := module:\n    X:int = 1\n")];
 

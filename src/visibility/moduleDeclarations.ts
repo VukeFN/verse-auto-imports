@@ -80,15 +80,30 @@ export interface ModuleDeclaration {
 }
 
 /**
+ * An enclosing module the scan is still inside, and what will close it.
+ *
+ * `closeDepth` is the brace depth just outside a braced body, and null when
+ * indentation closes the entry instead - the colon, dotted and `>` forms.
+ * `line` is held because a declaration sharing its parent's line is inside it,
+ * which is what the dotted chain means.
+ */
+interface OpenModule {
+    chain: string[];
+    indent: number;
+    line: number;
+    closeDepth: number | null;
+}
+
+/**
  * Every explicit module declaration in the text, in source order.
  *
- * Nesting is read two ways, because the three declaration styles do not agree
- * on how a body opens. A declaration on the same line as the one before it is
- * nested in it, which is what the dotted and same-line brace chains mean;
- * otherwise indentation decides, as it does for the colon style and for a
- * brace opened on the following line. A one-line `module {}` followed by a
- * MORE indented sibling is therefore read as nesting - invalid Verse anyway,
- * and the alternative is tracking brace depth as well.
+ * Nesting is read from how each body was opened, because the declaration
+ * styles do not agree on what closes one. A braced body ends at the brace
+ * returning the depth to where it opened, so its members are free to sit at or
+ * left of the declaration's own indent; both brace placements open such a body,
+ * the one on the declaration's line and the one on the next. A colon body, and
+ * the dotted form, end instead at the first later line back at or left of the
+ * declaration.
  *
  * Text inside comments and string literals is masked before matching, so a
  * commented-out declaration is not reported and a `#` inside a string does not
@@ -101,20 +116,37 @@ export function findExplicitModuleDeclarations(content: string): ModuleDeclarati
     const searchable = maskCommentsAndStrings(content);
     const pattern = new RegExp(MODULE_DECLARATION.source, "g");
     const lineStarts = buildLineStarts(content);
-    const open: { chain: string[]; indent: number; line: number }[] = [];
+    const open: OpenModule[] = [];
+
+    // Brace depth at the declaration being read. Counted forward over the gap
+    // between one match and the next, so every brace in the file is seen once
+    // and a closing brace is never missed for sitting between declarations.
+    let braceDepth = 0;
+    let counted = 0;
 
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(searchable)) !== null) {
         const [, name, specifierBlock] = match;
         const nameStart = match.index;
+        braceDepth = countBraces(searchable, counted, nameStart, braceDepth);
+        counted = nameStart;
+
         const line = lineOf(lineStarts, nameStart);
         const indent = indentOf(content, lineStarts[line - 1]);
-        while (open.length > 0 && open[open.length - 1].line !== line && indent <= open[open.length - 1].indent) {
+        // Stops at the first entry still open, which is what keeps indentation
+        // from closing an outer module while a braced one nested inside it is
+        // still waiting for its `}`.
+        while (open.length > 0 && closesBefore(open[open.length - 1], braceDepth, indent, line)) {
             open.pop();
         }
 
         const chain = open.length > 0 ? [...open[open.length - 1].chain, name] : [name];
-        open.push({ chain, indent, line });
+        // The terminator is the match's last character. A `{` opens the body
+        // from the depth measured here, never the one it produces: the
+        // declaration's own braces are a `scoped{...}` list and so balance out,
+        // and they are counted on the way to the next match rather than now.
+        const closeDepth = match[0].endsWith("{") ? braceDepth : null;
+        open.push({ chain, indent, line, closeDepth });
 
         const nameEnd = nameStart + name.length;
         const declaration: ModuleDeclaration = {
@@ -174,6 +206,52 @@ function findAccessLevel(specifierBlock: string): { index: number; length: numbe
     }
 
     return named;
+}
+
+/**
+ * Whether an open module ends before a declaration at this depth, indent and
+ * line.
+ *
+ * A braced body ends at the brace returning the depth to where it opened, and
+ * no indentation closes one - that is what lets its members sit at or left of
+ * the declaration. An indented body ends at the first later line back at or
+ * left of its declaration; a declaration on the parent's own line is inside it,
+ * which is what the dotted chain means.
+ */
+function closesBefore(open: OpenModule, braceDepth: number, indent: number, line: number): boolean {
+    if (open.closeDepth !== null) {
+        return braceDepth <= open.closeDepth;
+    }
+
+    return open.line !== line && indent <= open.indent;
+}
+
+/**
+ * The brace depth after the half-open range, starting from the depth before it.
+ * Counted on masked text, so a brace in a comment or a string contributes none.
+ */
+function countBraces(searchable: string, start: number, end: number, depth: number): number {
+    let braceDepth = depth;
+
+    for (let i = start; i < end; i++) {
+        const character = searchable[i];
+        if (character !== "{" && character !== "}") {
+            continue;
+        }
+
+        // A single-quoted brace delimits nothing. Masking leaves single quotes
+        // alone because one opens a char literal and an identifier's quoted
+        // suffix alike, but neither reading makes this brace a body's, and
+        // counting one would strand the depth for the rest of the file with
+        // nothing left to recover it.
+        if (searchable[i - 1] === "'" && searchable[i + 1] === "'") {
+            continue;
+        }
+
+        braceDepth += character === "{" ? 1 : -1;
+    }
+
+    return braceDepth;
 }
 
 /** Offset of the first character of every line, so a line number is a binary search. */

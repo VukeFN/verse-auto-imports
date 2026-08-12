@@ -304,11 +304,9 @@ export class ProjectPathScanner {
             // and is dropped with it. The pop loop above has already closed
             // the module for a line that left it.
             //
-            // Read rather than acted on here, because a module declared inside
-            // the subtree still has to reach the stack: only an entry of its
-            // own carries the depth its braced body closes at, and without one
-            // the enclosing skipped entry is popped by the first member written
-            // back at its indent, which a braced body permits.
+            // Read rather than acted on, because a module declared in there
+            // still has to reach the stack to bound its own body; only the
+            // declarations below it are dropped where they stand.
             const insideSkipped = moduleStack.length > 0 && moduleStack[moduleStack.length - 1].skipped;
 
             currentModulePath = moduleStack.length > 0 ? moduleStack[moduleStack.length - 1].name : "";

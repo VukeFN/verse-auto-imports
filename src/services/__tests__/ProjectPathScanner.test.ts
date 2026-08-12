@@ -316,9 +316,26 @@ describe("ProjectPathScanner.extractDeclarations module forms", () => {
                 expect(declare(source).map((node) => node.fullPath)).toEqual(["Inventory", "Inventory.Item"]);
             });
 
-            it("drops the colon-only form, which closed correctly without any entry of its own", () => {
+            it("keeps dropping the colon-only form, which indentation alone already bounded", () => {
                 const source = "Systems<private> := module:\n    Inner := module:\n        X := module:\n            Deep := class {}\nInventory := module {}\n";
                 expect(declare(source).map((node) => node.fullPath)).toEqual(["Inventory"]);
+            });
+
+            it("returns a kept parent's sibling to the parent rather than to file scope", () => {
+                // The other harm the untracked body caused: the scan reached
+                // file scope inside the subtree, so a declaration after it
+                // rejoined at no prefix instead of at the module it sits in.
+                const source = "Keep := module:\n    Systems<private> := module:\n        Inner := module{\nX := module {}\n        }\n    Kept := class {}\n";
+                expect(declare(source).map((node) => node.fullPath)).toEqual(["Keep", "Keep.Kept"]);
+            });
+
+            it("runs an unclosed body inside the skipped module to the file end", () => {
+                // Not valid Verse, so this pins degradation rather than a shape
+                // a user can compile: the body no brace closed costs the
+                // declarations after it, which is what the kept path already
+                // does, rather than offering them at a path that does not exist.
+                const source = "Systems<private> := module:\n    Inner := module{\nX := module {}\nInventory := module {}\n";
+                expect(declare(source).map((node) => node.fullPath)).toEqual([]);
             });
         });
     });

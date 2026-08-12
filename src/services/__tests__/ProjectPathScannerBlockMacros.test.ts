@@ -2,11 +2,13 @@ import { ProjectPathScanner } from "../ProjectPathScanner";
 import { ProjectPathNode } from "../../types";
 
 /**
- * The fall-through variable pattern needs only a name and a colon, which the
- * keyword opening a Verse block macro satisfies, so a `block:` written inside a
- * function body was recorded as a variable declaration and offered downstream
- * as an import candidate. Verse reserves every one of those keywords, so none
- * of them can name a declaration.
+ * A Verse block macro reaches two of the declaration patterns: the fall-through
+ * variable pattern needs only a name and a colon, which a bare `block:`
+ * satisfies, and the function pattern needs a name, a parenthesised list and a
+ * colon, which `if (X > 0):` satisfies. Either way one was recorded as a
+ * declaration and offered downstream as an import candidate. Verse reserves
+ * every one of those keywords, so none of them can name a declaration, whatever
+ * shape follows it.
  *
  * extractDeclarations is pure, so these run without the VS Code runtime.
  */
@@ -54,6 +56,34 @@ describe("ProjectPathScanner.extractDeclarations block macros", () => {
             expect(paths(`Inventory := module:\n    ${keyword}:\n`)).toEqual(["module:Inventory"]);
         },
     );
+
+    it("records the declarations in a function body and none of its parenthesised block macros", () => {
+        const source = [
+            "Inventory := module:",
+            "    Run<public>()<suspends>:void =",
+            "        if (X > 0):",
+            "            Print(:)",
+            "        for (Item : Items):",
+            "            Print(:)",
+            "        case (X):",
+            "            Print(:)",
+            "",
+        ].join("\n");
+
+        expect(paths(source)).toEqual(["module:Inventory", "function:Inventory.Run"]);
+    });
+
+    // `if(X > 0)` carries no space, which is what the function pattern keys on:
+    // a shape reaching it without one must be rejected too.
+    it.each(["if (X > 0)", "if(X > 0)", "for (Item : Items)", "case (X)", "race (A, B)", "sync (A, B)", "branch (A)", "spawn (A)", "loop (A)"])("records no declaration for `%s:`", (head) => {
+        expect(paths(`Inventory := module:\n    ${head}:\n`)).toEqual(["module:Inventory"]);
+    });
+
+    it("records a function whose name merely starts with one of them", () => {
+        const source = ["Inventory := module:", "    ifMatches(X:int)<transacts>:logic = true", "    forEach(X:int):void = block:", "    caseOf(X:int):int = X", ""].join("\n");
+
+        expect(paths(source)).toEqual(["module:Inventory", "function:Inventory.ifMatches", "function:Inventory.forEach", "function:Inventory.caseOf"]);
+    });
 
     it("records a variable whose name is none of them", () => {
         expect(paths("Inventory := module:\n    Count:int = 0\n")).toEqual(["module:Inventory", "variable:Inventory.Count"]);

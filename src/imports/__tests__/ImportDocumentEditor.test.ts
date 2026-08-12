@@ -191,6 +191,16 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, [], curlySorted)).toBeNull();
     });
 
+    // The end of the pinning rule, asserted where it can be seen: a pair whose
+    // path a comment separates from its opener is pinned, so the block is
+    // rebuilt above it and the comment inside it survives. Were such a pair
+    // ever rewritable, this rebuild would emit the path alone and the note
+    // would be gone.
+    it("keeps a comment written inside an indented pair", () => {
+        const input = ["using { /B }", "using:", "    # note", "    /A", "", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe(["using { /B }", "", "using:", "    # note", "    /A", "", "code()"].join("\n"));
+    });
+
     // The `using:` opens nothing here, so there is no pair to read - but the
     // line is still not reproducible from the path before the `;`, and
     // rebuilding it deletes the `; using:` the author wrote.
@@ -869,6 +879,28 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
 
     it("recognizes an import that already exists as an indented pair and makes no edit", async () => {
         const input = ["using:", "    /Verse.org/Simulation", "", "hello := 1"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Verse.org/Simulation }"]);
+
+        expect(success).toBe(true);
+        expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
+    // The pair's path is the first line of code below the opener, so a blank
+    // line inside the pair does not end it. Scanned as the line directly below
+    // the opener the import was invisible, and the file ended up importing the
+    // same path twice.
+    it("recognizes an import an indented pair provides across a blank line", async () => {
+        const input = ["using:", "", "    /Verse.org/Simulation", "", "hello := 1"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Verse.org/Simulation }"]);
+
+        expect(success).toBe(true);
+        expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
+    it("recognizes an import an indented pair provides across a comment", async () => {
+        const input = ["using:", "    # the path below", "    /Verse.org/Simulation", "", "hello := 1"].join("\n");
 
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Verse.org/Simulation }"]);
 

@@ -101,6 +101,13 @@ export class ImportFormatter {
      * @param nextLine The following line, which carries the content for the
      *   indented style. When it is not given and the line is `using:`, this
      *   conservatively returns `true`.
+     *
+     *   A `nextLine` that is given and carries no path must answer `false`,
+     *   blank and comment-only lines included. ImportScanner's loop gate reads
+     *   that answer to route a `using:` whose path sits further down onto its
+     *   pinned branch; answering `true` there makes the pair rewritable, and a
+     *   writer rebuilding that span from one path deletes the lines the author
+     *   wrote inside it.
      */
     static isModuleImport(line: string, nextLine?: string, options?: IsModuleImportOptions): boolean {
         const trimmed = line.trim();

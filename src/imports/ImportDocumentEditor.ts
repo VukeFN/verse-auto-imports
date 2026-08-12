@@ -129,10 +129,11 @@ function attachedCommentStart(importStartLine: number, classifications: LineClas
  * statements sharing its line owns its span alone.
  *
  * An indented `using:` pair reaches past the statement the same way, and has to
- * be asked separately: the pair's own scan entry spans both lines, but a line
- * may write a complete `using` and then open a pair, and that statement's entry
- * ends on the opener. Reading the opener alone leaves the path line free, and a
- * new import written there splits a pair that must stay adjacent.
+ * be asked separately: the pair's own scan entry already reaches its path line,
+ * but a line may write a complete `using` and then open a pair, and that
+ * statement's entry ends on the opener. Reading the opener alone leaves the
+ * path line free, and a new import written there leaves the `using:` with no
+ * body.
  *
  * The two rules alternate rather than run in turn, because either can extend a
  * span the other then extends again: a pair's path line may itself open a
@@ -596,29 +597,6 @@ export class ImportDocumentEditor {
             }
         }
         return runs;
-    }
-
-    /**
-     * The module import statements a document holds, deduplicated, with an
-     * indented pair (`using:` plus its path line) joined into one statement.
-     * Local-scope `using` is not among them.
-     */
-    extractExistingImports(document: vscode.TextDocument): string[] {
-        logger.debug("ImportDocumentEditor", "Extracting existing imports from document");
-        const lines = document.getText().split(LINE_SPLIT);
-        const imports = new Set<string>();
-
-        for (const imp of scanModuleImports(lines)) {
-            const statement = lines
-                .slice(imp.startLine, imp.endLine + 1)
-                .map((line) => line.trim())
-                .join(" ");
-            logger.trace("ImportDocumentEditor", `Found import: ${statement}`);
-            imports.add(statement);
-        }
-
-        logger.debug("ImportDocumentEditor", `Extracted ${imports.size} existing imports`);
-        return Array.from(imports);
     }
 
     /**

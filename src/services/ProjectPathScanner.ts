@@ -21,17 +21,20 @@ const SCAN_CONCURRENCY = 8;
  * ReservedSymbols.inl, which is where that file says language-level
  * reservations live; every other member is reserved in that file.
  *
- * Only a word ReservedSymbols.inl marks `Reserved` may join. A `ReservedFuture`
- * word is still a legal identifier today, so `profile`, `await` and `upon` -
- * block macros in every other respect - are knowingly left out, and a line one
- * of them heads is knowingly misrecorded. Adding one would drop a declaration
- * that legally carries that name.
+ * A word may join only where ReservedSymbols.inl marks it `Reserved` and the
+ * version gate on that entry is already met. The classification alone is not
+ * the test: an unmet gate falls through to NotReserved, leaving the word a
+ * legal identifier. That keeps out `profile`, `await` and `upon`, which are
+ * `ReservedFuture`, and `dictate`, which is `Reserved` behind a gate of
+ * `Latest + 1` that no shipped version meets. All four are block macros in
+ * every other respect, so a line one of them heads is knowingly misrecorded -
+ * the alternative is dropping a declaration that legally carries the name.
  *
  * `batch`, `when` and `first` name macros the language has not released, and
- * are held anyway: they are already reserved, so the guarantee above holds now
- * and the set needs no revisit when they ship. `batch` alone is reserved from
- * uploaded-at version 4000 rather than from the beginning, so a file uploaded
- * before that could name a declaration with it.
+ * are held anyway: each is reserved and gated at a version that has shipped,
+ * which is the whole of what makes rejecting its line safe. `batch`'s gate is
+ * uploaded-at 4000 rather than the beginning, so only a file uploaded before
+ * that could still carry a declaration named for it.
  */
 const RESERVED_LINE_KEYWORDS = new Set([
     "block",

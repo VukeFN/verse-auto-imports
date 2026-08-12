@@ -89,13 +89,15 @@ describe("ProjectPathScanner.extractDeclarations block macros", () => {
         expect(paths(`Inventory := module:\n    ${keyword}:\n`)).toEqual(["module:Inventory"]);
     });
 
-    // `do:` is not optional decoration on the block form of `first`: it is what
-    // separates the iteration clauses from the body, so rejecting one word of
-    // the pair and not the other leaves the construct half-handled. `X` is the
-    // iteration binding, recorded under the module path for the reason the
-    // first case above gives.
-    it("records no declaration for either line of the `first:`/`do:` pair", () => {
-        const source = ["Inventory := module:", "    Top<public>(Xs:[]int)<decides>:int =", "        first:", "            X : Xs", "            X > 0", "        do:", "            X", ""].join("\n");
+    // `do:` is not optional decoration on the block form of `first` or of
+    // `for`: it is what separates the iteration clauses from the body, so
+    // rejecting one word of the pair and not the other leaves the construct
+    // half-handled. `X` is the iteration binding, recorded under the module
+    // path for the reason the first case above gives.
+    it.each(["first", "for"])("records no declaration for either line of the `%s:`/`do:` pair", (keyword) => {
+        const source = ["Inventory := module:", "    Top<public>(Xs:[]int)<decides>:int =", `        ${keyword}:`, "            X : Xs", "            X > 0", "        do:", "            X", ""].join(
+            "\n",
+        );
 
         expect(paths(source)).toEqual(["module:Inventory", "function:Inventory.Top", "variable:Inventory.X"]);
     });
@@ -178,10 +180,11 @@ describe("ProjectPathScanner.extractDeclarations block macros", () => {
         ]);
     });
 
-    // Every ReservedFuture word the sweep for this set considered and left out.
-    // Each is a block macro in every other respect, so what keeps it out is only
-    // that Verse still lets a declaration carry the name.
-    it.each(["profile", "await", "upon"])("records a variable named `%s`, which Verse has not yet reserved", (name) => {
+    // Every word the sweep for this set considered and left out. Each is a
+    // block macro in every other respect, so what keeps it out is only that
+    // Verse still lets a declaration carry the name - `dictate` because its
+    // version gate is unreachable, the rest because they are ReservedFuture.
+    it.each(["profile", "await", "upon", "dictate"])("records a variable named `%s`, which Verse has not yet reserved", (name) => {
         expect(paths(`Inventory := module:\n    ${name}:int = 5\n`)).toEqual(["module:Inventory", `variable:Inventory.${name}`]);
     });
 

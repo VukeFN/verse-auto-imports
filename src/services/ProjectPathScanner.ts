@@ -8,6 +8,21 @@ import { ProjectPathData, ProjectPathNode, ProjectScanOptions } from "../types";
 const SCAN_CONCURRENCY = 8;
 
 /**
+ * The Verse words that open a line as a bare `keyword:` - the block macros, and
+ * the reserved types written the same way.
+ *
+ * Verse reserves every one of them, so none can name a declaration: the parser
+ * demotes a reserved word to an identifier only where `:=` follows it, and that
+ * is an object-notation key rather than a declaration either way. `block`,
+ * `loop`, `race`, `rush`, `sync`, `branch`, `defer`, `spawn`, `case`, `for`,
+ * `and`, `or`, `option` and `logic` are reserved in the compiler's
+ * ReservedSymbols.inl; `if`, `then`, `else` and `not` are reserved by the
+ * parser's own token table instead, which is where that file says
+ * language-level reservations live.
+ */
+const RESERVED_LINE_KEYWORDS = new Set(["block", "loop", "if", "then", "else", "race", "rush", "sync", "branch", "defer", "spawn", "case", "for", "and", "or", "not", "option", "logic"]);
+
+/**
  * A module whose body the scan is inside, held while its declarations are read
  * so each can be given the path it sits at.
  *
@@ -518,6 +533,15 @@ export class ProjectPathScanner {
                 }
 
                 if (/\([^)]*\)\s*(?:<[^>]+>)?\s*:/.test(line)) {
+                    continue;
+                }
+
+                // The two guards above are backstops for a declaration; this
+                // one is not. A block macro inside a function body is spelled
+                // `keyword:`, which is all this pattern asks for, and the scan
+                // does not track function bodies, so position cannot reject one
+                // and the name is what is left.
+                if (RESERVED_LINE_KEYWORDS.has(name)) {
                     continue;
                 }
 

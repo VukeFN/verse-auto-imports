@@ -16,18 +16,22 @@ const SCAN_CONCURRENCY = 8;
  * What makes rejecting them safe is that Verse reserves each, so none can name
  * a declaration - the parser demotes a reserved word to an identifier only
  * where `:=` follows it, and that is an object-notation key rather than a
- * declaration either way. All but four are reserved in the compiler's
- * ReservedSymbols.inl; `if`, `then`, `else` and `not` are reserved by the
- * parser's own token table instead, which is where that file says
- * language-level reservations live.
+ * declaration either way. `if`, `then`, `else`, `not` and `do` are reserved by
+ * the parser's own token table rather than in the compiler's
+ * ReservedSymbols.inl, which is where that file says language-level
+ * reservations live; every other member is reserved in that file.
  *
  * Only a word ReservedSymbols.inl marks `Reserved` may join. A `ReservedFuture`
- * word is still a legal identifier today, so `profile` - a block macro in every
- * other respect - would drop a real declaration if it were added here.
+ * word is still a legal identifier today, so `profile`, `await` and `upon` -
+ * block macros in every other respect - are knowingly left out, and a line one
+ * of them heads is knowingly misrecorded. Adding one would drop a declaration
+ * that legally carries that name.
  *
  * `batch`, `when` and `first` name macros the language has not released, and
  * are held anyway: they are already reserved, so the guarantee above holds now
- * and the set needs no revisit when they ship.
+ * and the set needs no revisit when they ship. `batch` alone is reserved from
+ * uploaded-at version 4000 rather than from the beginning, so a file uploaded
+ * before that could name a declaration with it.
  */
 const RESERVED_LINE_KEYWORDS = new Set([
     "block",
@@ -48,6 +52,7 @@ const RESERVED_LINE_KEYWORDS = new Set([
     "not",
     "option",
     "logic",
+    "do",
     "array",
     "map",
     "assert",

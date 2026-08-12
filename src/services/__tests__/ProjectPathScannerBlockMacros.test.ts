@@ -77,6 +77,7 @@ describe("ProjectPathScanner.extractDeclarations block macros", () => {
         "not",
         "option",
         "logic",
+        "do",
         "array",
         "map",
         "assert",
@@ -86,6 +87,17 @@ describe("ProjectPathScanner.extractDeclarations block macros", () => {
         "first",
     ])("records no declaration for a bare `%s:`", (keyword) => {
         expect(paths(`Inventory := module:\n    ${keyword}:\n`)).toEqual(["module:Inventory"]);
+    });
+
+    // `do:` is not optional decoration on the block form of `first`: it is what
+    // separates the iteration clauses from the body, so rejecting one word of
+    // the pair and not the other leaves the construct half-handled. `X` is the
+    // iteration binding, recorded under the module path for the reason the
+    // first case above gives.
+    it("records no declaration for either line of the `first:`/`do:` pair", () => {
+        const source = ["Inventory := module:", "    Top<public>(Xs:[]int)<decides>:int =", "        first:", "            X : Xs", "            X > 0", "        do:", "            X", ""].join("\n");
+
+        expect(paths(source)).toEqual(["module:Inventory", "function:Inventory.Top", "variable:Inventory.X"]);
     });
 
     it("records the declarations in a function body and none of its parenthesised block macros", () => {
@@ -106,12 +118,22 @@ describe("ProjectPathScanner.extractDeclarations block macros", () => {
 
     // `if(X > 0)` carries no space, which is what the function pattern keys on:
     // a shape reaching it without one must be rejected too.
-    it.each(["if (X > 0)", "if(X > 0)", "for (Item : Items)", "case (X)", "race (A, B)", "sync (A, B)", "branch (A)", "spawn (A)", "loop (A)", "when(X)", "when (X > 1 and Y < 10)"])(
-        "records no declaration for `%s:`",
-        (head) => {
-            expect(paths(`Inventory := module:\n    ${head}:\n`)).toEqual(["module:Inventory"]);
-        },
-    );
+    it.each([
+        "if (X > 0)",
+        "if(X > 0)",
+        "for (Item : Items)",
+        "case (X)",
+        "race (A, B)",
+        "sync (A, B)",
+        "branch (A)",
+        "spawn (A)",
+        "loop (A)",
+        "when(X)",
+        "when (X > 1 and Y < 10)",
+        "first(I -> Y : Xs; X = Y)",
+    ])("records no declaration for `%s:`", (head) => {
+        expect(paths(`Inventory := module:\n    ${head}:\n`)).toEqual(["module:Inventory"]);
+    });
 
     it("records a function whose name merely starts with one of them", () => {
         const source = ["Inventory := module:", "    ifMatches(X:int)<transacts>:logic = true", "    forEach(X:int):void = block:", "    caseOf(X:int):int = X", ""].join("\n");
@@ -133,6 +155,10 @@ describe("ProjectPathScanner.extractDeclarations block macros", () => {
             "    mapping:int = 4",
             "    assertion:logic = false",
             "    letter:int = 5",
+            "    whenever:int = 6",
+            "    firstly:int = 7",
+            "    batched:int = 8",
+            "    doOnce:logic = true",
             "",
         ].join("\n");
 
@@ -145,7 +171,18 @@ describe("ProjectPathScanner.extractDeclarations block macros", () => {
             "variable:Inventory.mapping",
             "variable:Inventory.assertion",
             "variable:Inventory.letter",
+            "variable:Inventory.whenever",
+            "variable:Inventory.firstly",
+            "variable:Inventory.batched",
+            "variable:Inventory.doOnce",
         ]);
+    });
+
+    // Every ReservedFuture word the sweep for this set considered and left out.
+    // Each is a block macro in every other respect, so what keeps it out is only
+    // that Verse still lets a declaration carry the name.
+    it.each(["profile", "await", "upon"])("records a variable named `%s`, which Verse has not yet reserved", (name) => {
+        expect(paths(`Inventory := module:\n    ${name}:int = 5\n`)).toEqual(["module:Inventory", `variable:Inventory.${name}`]);
     });
 
     it("records a module-scope variable as before", () => {

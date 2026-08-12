@@ -115,8 +115,9 @@ export class ProjectPathScanner {
      * `sourceLine` is 1-based, so it is one more than the `vscode.Position` line
      * for the same declaration. `fullPath` carries the dotted chain of enclosing
      * modules, so it equals `name` only at file scope. Declarations nested in a
-     * class or struct body are not filtered out here; only indentation-scoped
-     * module nesting is tracked.
+     * class or struct body are not filtered out here; only module nesting is
+     * tracked, each module scoped by its braces or by its indentation according
+     * to how its body was opened.
      *
      * Comments and string literals are masked before the scan, so a
      * commented-out declaration is neither recorded nor pushed onto the module
@@ -133,6 +134,11 @@ export class ProjectPathScanner {
         const lines = maskCommentsAndStrings(content).split("\n");
 
         let currentModulePath = "";
+        // Brace depth across the file, counted on the masked lines so comments
+        // and string literals contribute none. Verse delimits a braced body by
+        // its braces alone, so this is the only thing that can close one: its
+        // members are free to sit at or left of the declaration's own indent.
+        let braceDepth = 0;
         // A skipped module is on the stack for its indent alone, so that what
         // it contains is dropped with it rather than losing the enclosing
         // segment from its path. Nothing is ever pushed above a skipped entry,
@@ -140,8 +146,10 @@ export class ProjectPathScanner {
         //
         // `awaitingBrace` is true only between a module declaration that ended
         // without opening a body and the next line considered, which is where
-        // its `{` may be.
-        const moduleStack: { name: string; indent: number; skipped: boolean; awaitingBrace: boolean }[] = [];
+        // its `{` may be. `closeDepth` is the brace depth just outside a braced
+        // body, and null while indentation is what closes the entry: the colon,
+        // dotted and `>` forms, and a braced one whose `{` is still to come.
+        const moduleStack: { name: string; indent: number; skipped: boolean; awaitingBrace: boolean; closeDepth: number | null }[] = [];
 
         // A declaration carries any number of stacked specifiers, of which at
         // most one is a visibility; the rest (<native>, <final>, ...) are noise
@@ -215,6 +223,20 @@ export class ProjectPathScanner {
                 continue;
             }
 
+            // Counted before the `using` skip below, and ahead of every other
+            // `continue` in this loop, so no line can leave the depth behind: a
+            // braced `using` clause spans lines, and skipping its opener while
+            // still counting its `}` would drive the depth below the point any
+            // enclosing module opened from.
+            const depthAtLineStart = braceDepth;
+            for (const character of line) {
+                if (character === "{") {
+                    braceDepth++;
+                } else if (character === "}") {
+                    braceDepth--;
+                }
+            }
+
             if (line.startsWith("using")) {
                 continue;
             }
@@ -235,12 +257,29 @@ export class ProjectPathScanner {
                 topBeforePop.awaitingBrace = false;
             }
 
-            // Indentation alone closes a module: a line at or left of the open
-            // module's own indent is outside it.
+            // How a body was opened decides what closes it. A braced body ends
+            // at the brace returning the depth to where it opened, so its entry
+            // is popped on the next line the scan considers - a closing brace
+            // declares nothing, so reading it a line late costs no path. An
+            // indented body ends at the first line back at or left of its
+            // declaration. The loop stops at the first entry still open, which
+            // is what keeps indentation from closing an outer module while a
+            // braced one nested inside it is still waiting for its `}`.
             if (!opensAwaitedBody) {
-                while (moduleStack.length > 0 && indent <= moduleStack[moduleStack.length - 1].indent) {
+                while (moduleStack.length > 0) {
+                    const openModule = moduleStack[moduleStack.length - 1];
+                    const closed = openModule.closeDepth !== null ? depthAtLineStart <= openModule.closeDepth : indent <= openModule.indent;
+                    if (!closed) {
+                        break;
+                    }
                     moduleStack.pop();
                 }
+            }
+
+            // After the pop loop: this brace opens the body, so it must not
+            // also be read as the depth that closes it.
+            if (opensAwaitedBody && topBeforePop) {
+                topBeforePop.closeDepth = depthAtLineStart;
             }
 
             // An import checks every path segment from the root, so anything
@@ -259,15 +298,22 @@ export class ProjectPathScanner {
                 const visibility = extractVisibility(specifiers);
                 const isPublic = visibility === "public";
                 const awaitingBrace = bodyTerminator === undefined;
+                // A `{` here opens the body on this line, and it opens from the
+                // depth the line started at: everything left of it belongs to
+                // the declaration, whose only braces are a `scoped{...}` list
+                // and so are balanced. The other terminators open a body
+                // indentation closes, and a body still awaiting its brace has
+                // no depth to measure until that brace is seen.
+                const closeDepth = bodyTerminator === "{" ? depthAtLineStart : null;
 
                 const fullPath = currentModulePath ? `${currentModulePath}.${name}` : name;
 
                 if (shouldSkipDeclaration(visibility, true)) {
-                    moduleStack.push({ name: fullPath, indent, skipped: true, awaitingBrace });
+                    moduleStack.push({ name: fullPath, indent, skipped: true, awaitingBrace, closeDepth });
                     continue;
                 }
 
-                moduleStack.push({ name: fullPath, indent, skipped: false, awaitingBrace });
+                moduleStack.push({ name: fullPath, indent, skipped: false, awaitingBrace, closeDepth });
                 currentModulePath = fullPath;
 
                 nodes.push({

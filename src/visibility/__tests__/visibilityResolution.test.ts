@@ -35,6 +35,31 @@ describe("resolveVisibility", () => {
         expect(resolved.edits).toEqual([{ file: "file://a", path: "Gadgets/Tools", span: { start: 5, end: 5 }, text: "<public>" }]);
     });
 
+    it("edits a declaration nested in a braced module whose members sit at its own indent", () => {
+        const found = declarationsIn("file://a", "Gadgets", "Systems := module{\nTools := module:\n    X:int = 1\n}\n");
+
+        const resolved = resolveVisibility([], segments(["Gadgets", false], ["Systems", false], ["Tools", true]), found);
+
+        // A chain here would be a second part of a module that is already
+        // declared, written under a path this declaration does not carry.
+        expect(resolved.chain).toEqual([]);
+        expect(resolved.edits).toEqual([{ file: "file://a", path: "Gadgets/Systems/Tools", span: { start: 24, end: 24 }, text: "<public>" }]);
+    });
+
+    it("rewrites the real declaration of a module following a braced body written left of its declaration", () => {
+        const content = "Outer := module:\n    Inner := module{\nMember := module:\n    Q:int = 1\n    }\n    Kept<internal> := module {}\n";
+        const found = declarationsIn("file://a", "Gadgets", content);
+
+        const resolved = resolveVisibility([], segments(["Gadgets", false], ["Outer", false], ["Kept", true]), found);
+
+        expect(resolved.chain).toEqual([]);
+        expect(resolved.edits).toHaveLength(1);
+        expect(resolved.edits[0]).toMatchObject({ file: "file://a", path: "Gadgets/Outer/Kept", text: "<public>" });
+        // The specifier that is really there is rewritten. A second part
+        // declaring a different one is ErrSemantic_MismatchedPartialAttributes.
+        expect(content.slice(resolved.edits[0].span.start, resolved.edits[0].span.end)).toBe("<internal>");
+    });
+
     it("rewrites every part of a module, since later parts must repeat the specifier", () => {
         const found = [...declarationsIn("file://a", "Gadgets", "Tools := module {}\n"), ...declarationsIn("file://b", "Gadgets", "Tools := module:\n    X:int = 1\n")];
 

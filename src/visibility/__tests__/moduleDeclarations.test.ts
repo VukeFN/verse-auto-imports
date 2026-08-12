@@ -100,6 +100,72 @@ describe("findExplicitModuleDeclarations", () => {
         expect(declarations.map((declaration) => declaration.chain)).toEqual([["Outer"], ["Outer", "Inner"], ["Outer", "Other"]]);
     });
 
+    it("nests a braced module's members where they sit at or left of its own indent", () => {
+        const content = "Systems<scoped{ModuleA}> := module{\nB<public> := module:\n    X<public> := module {}\n}\nLater := module {}\n";
+
+        const declarations = findExplicitModuleDeclarations(content);
+
+        expect(declarations.map((declaration) => declaration.chain)).toEqual([["Systems"], ["Systems", "B"], ["Systems", "B", "X"], ["Later"]]);
+    });
+
+    it("nests the same way when the brace opens the body on the next line", () => {
+        const content = "Systems := module\n{\nB := module:\n    X := module {}\n}\nLater := module {}\n";
+
+        const declarations = findExplicitModuleDeclarations(content);
+
+        expect(declarations.map((declaration) => declaration.chain)).toEqual([["Systems"], ["Systems", "B"], ["Systems", "B", "X"], ["Later"]]);
+    });
+
+    it("returns a sibling to the enclosing module when the braced body it follows was written left of its declaration", () => {
+        const content = "Outer := module:\n    Inner := module{\nMember := module:\n    Q:int = 1\n    }\n    Kept := module {}\n";
+
+        const declarations = findExplicitModuleDeclarations(content);
+
+        // `Member` reads as open on indentation alone at `Kept`, so closing only
+        // from the top would leave it shielding `Inner`, whose `}` has passed.
+        expect(declarations.map((declaration) => declaration.chain)).toEqual([["Outer"], ["Outer", "Inner"], ["Outer", "Inner", "Member"], ["Outer", "Kept"]]);
+    });
+
+    it("returns the sibling the same way when the brace opened the body on the next line", () => {
+        const content = "Outer := module:\n    Inner := module\n    {\nMember := module:\n    Q:int = 1\n    }\n    Kept := module {}\n";
+
+        const declarations = findExplicitModuleDeclarations(content);
+
+        expect(declarations.map((declaration) => declaration.chain)).toEqual([["Outer"], ["Outer", "Inner"], ["Outer", "Inner", "Member"], ["Outer", "Kept"]]);
+    });
+
+    it("closes one braced body of several without closing those still open around it", () => {
+        const content = "Systems := module{\nB := module:\n    C := module{\nD := module:\n        Z:int = 1\n    }\n    E := module {}\n}\nSibling := module {}\n";
+
+        const declarations = findExplicitModuleDeclarations(content);
+
+        expect(declarations.map((declaration) => declaration.chain)).toEqual([["Systems"], ["Systems", "B"], ["Systems", "B", "C"], ["Systems", "B", "C", "D"], ["Systems", "B", "E"], ["Sibling"]]);
+    });
+
+    it("keeps the chain of braces opened on one line", () => {
+        const declarations = findExplicitModuleDeclarations("M := module{ N := module{\n}}\n");
+
+        expect(declarations.map((declaration) => declaration.chain)).toEqual([["M"], ["M", "N"]]);
+    });
+
+    it("holds a braced module open through a colon module written at its indent", () => {
+        const content = "Outer := module:\n    Inner := module{\n    Leaf := module:\n        Y:int = 1\n    }\nSibling := module:\n";
+
+        const declarations = findExplicitModuleDeclarations(content);
+
+        expect(declarations.map((declaration) => declaration.chain)).toEqual([["Outer"], ["Outer", "Inner"], ["Outer", "Inner", "Leaf"], ["Sibling"]]);
+    });
+
+    it("leaves a single-quoted brace out of the depth that closes a module", () => {
+        // A quoted suffix cannot hold a brace, so one between quotes delimits
+        // nothing; counting it would strand the depth for the rest of the file.
+        const held = "Systems := module{\nOpen:char = '{'\nB := module:\n    X:int = 1\n}\nLater := module {}\n";
+        expect(findExplicitModuleDeclarations(held).map((declaration) => declaration.chain)).toEqual([["Systems"], ["Systems", "B"], ["Later"]]);
+
+        const closed = "Systems := module{\nShut:char = '}'\nB := module:\n    X:int = 1\n}\nLater := module {}\n";
+        expect(findExplicitModuleDeclarations(closed).map((declaration) => declaration.chain)).toEqual([["Systems"], ["Systems", "B"], ["Later"]]);
+    });
+
     it("skips a declaration inside a line comment", () => {
         expect(findExplicitModuleDeclarations("# Ghost := module {}\nReal := module {}\n").map((declaration) => declaration.name)).toEqual(["Real"]);
     });

@@ -73,7 +73,9 @@ describe("ProjectPathScanner.extractDeclarations block macros", () => {
         expect(paths(source)).toEqual(["module:Inventory", "function:Inventory.Run"]);
     });
 
-    it.each(["if (X > 0)", "for (Item : Items)", "case (X)", "race (A, B)", "sync (A, B)", "branch (A)", "spawn (A)", "loop (A)"])("records no declaration for `%s:`", (head) => {
+    // `if(X > 0)` carries no space, which is what the function pattern keys on:
+    // a shape reaching it without one must be rejected too.
+    it.each(["if (X > 0)", "if(X > 0)", "for (Item : Items)", "case (X)", "race (A, B)", "sync (A, B)", "branch (A)", "spawn (A)", "loop (A)"])("records no declaration for `%s:`", (head) => {
         expect(paths(`Inventory := module:\n    ${head}:\n`)).toEqual(["module:Inventory"]);
     });
 

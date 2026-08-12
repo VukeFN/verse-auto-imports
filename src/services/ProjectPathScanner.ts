@@ -330,17 +330,17 @@ export class ProjectPathScanner {
 
             currentModulePath = moduleStack.length > 0 ? moduleStack[moduleStack.length - 1].name : "";
 
-            // Ahead of every pattern rather than inside one: a reserved word
-            // cannot name any declaration, so what follows it cannot make the
-            // line one. A block macro is written `keyword:` and
-            // `keyword (Cond):`, and those reach different patterns - the
-            // variable fall-through and the function pattern - so a guard on
-            // either branch alone leaves the other spelling recorded. The scan
-            // does not track function bodies, so position cannot reject a block
-            // macro and the name is what is left.
+            // A reserved word cannot name any declaration, so what follows it
+            // cannot make the line one - which is why this sits ahead of every
+            // pattern rather than inside one. The scan does not track function
+            // bodies, so position cannot reject a block macro and the name is
+            // what is left.
             //
-            // Below the brace counting and the module stack, which every line
-            // owes whether or not it declares anything.
+            // Load-bearing placement, in both directions. Below the brace
+            // counting and the module stack maintenance, which every line owes
+            // whether or not it declares anything; above the module push, so a
+            // word wrongly added to the set would not merely drop its own line
+            // but re-parent every declaration nested under it.
             const leadingWord = line.match(leadingWordPattern);
             if (leadingWord && RESERVED_LINE_KEYWORDS.has(leadingWord[1])) {
                 continue;

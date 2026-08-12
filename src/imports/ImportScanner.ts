@@ -1213,8 +1213,7 @@ export function allUsingPaths(lines: string[]): string[] {
 const MODULE_ALIAS_STATEMENT = /^(?:\([^()]*:\)\s*)?([A-Za-z_][A-Za-z0-9_]*(?:'[^']*')?)(?:\s*<[^<>\n]+>)*\s*:=\s*import\s*(?:\(\s*\/[^\s()[\]]*\s*\)|\[\s*\/[^\s()[\]]*\s*\])$/;
 
 /**
- * The names a file binds to a module with `Name := import(/Path)`, at file
- * scope.
+ * The names a file binds to a module with `Name := import(/Path)`, at column 0.
  *
  * The names alone, never the modules they alias. An alias does not bring its
  * module's members into scope - it binds one name to one module - so a file
@@ -1225,17 +1224,20 @@ const MODULE_ALIAS_STATEMENT = /^(?:\([^()]*:\)\s*)?([A-Za-z_][A-Za-z0-9_]*(?:'[
  *
  * What the names are for is the opposite question: which `using` statements
  * name something that is not a module path. An alias is an ordinary identifier
- * bound in the file's own scope, so `using { Gfx }` naming an alias is
- * indistinguishable, by content alone, from one naming a same-directory folder
- * module - and a reader that resolves it as a path finds whichever namesake the
- * workspace holds. See scanConvertibleImports.
+ * rather than a path, so `using { Gfx }` naming an alias is indistinguishable,
+ * by content alone, from one naming a same-directory folder module - and a
+ * reader that resolves it as a path finds whichever namesake the workspace
+ * holds. See scanConvertibleImports.
  *
- * Only this file is read, which does not see every alias a `using` here could
- * name. An alias binds in the enclosing module rather than in the file: a
- * snippet is not a logical scope, so the definition lands in the module every
- * file of the folder module shares, and a sibling file's alias resolves here
- * unqualified. A `using` naming one of those is still offered a conversion.
- * Closing that needs a workspace scan no line-based reader can make.
+ * Only this file is read. That is a chosen boundary, not the whole rule: an
+ * alias binds in the enclosing module rather than in the file, because a snippet
+ * is not a logical scope, so the definition lands in the module every file of
+ * the folder module shares and a sibling file's alias resolves here unqualified
+ * (Tests/Modules/Import.versetest:33-44, the `assert_valid` block "Importing
+ * something in one snippet is also visible in another"). A `using` naming a
+ * sibling file's alias is therefore still offered a conversion. Following the
+ * rule across files needs a workspace-wide alias scan no line-based reader can
+ * make, and the gap is left open deliberately rather than for want of noticing.
  *
  * An alias indented inside a module body is skipped for the opposite reason: it
  * binds in that module, which a column-0 `using` is outside of.
@@ -1319,11 +1321,12 @@ export interface ConvertibleImport {
  *   line of statement text and replaces that one line.
  * - A `using` rooted at a module alias the file declares is excluded. Both
  *   directions of the conversion read the statement as a module path, and an
- *   alias is a name bound in the file rather than a path: going absolute hunts
- *   the workspace for a folder or a `:= module` declaration of that name and
- *   writes whichever namesake it finds, which silently imports a different
- *   module than the alias names. The file is the only evidence of which names
- *   are aliases, so no conversion can recover it later. See scanModuleAliases.
+ *   alias is a name rather than a path: going absolute hunts the workspace for
+ *   a folder or a `:= module` declaration of that name and writes whichever
+ *   namesake it finds, which silently imports a different module than the alias
+ *   names. The declaration is the only evidence of which names are aliases, so
+ *   no conversion can recover it later. See scanModuleAliases, whose read stops
+ *   at this file and so misses a sibling file's declaration.
  */
 export function scanConvertibleImports(lines: string[]): ConvertibleImport[] {
     const aliases = scanModuleAliases(lines);

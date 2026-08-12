@@ -103,7 +103,9 @@ interface OpenModule {
  * left of the declaration's own indent; both brace placements open such a body,
  * the one on the declaration's line and the one on the next. A colon body, and
  * the dotted form, end instead at the first later line back at or left of the
- * declaration.
+ * declaration. A closing brace takes every module inside its body along,
+ * whatever their own indentation would say, so the two are resolved in that
+ * order.
  *
  * Text inside comments and string literals is masked before matching, so a
  * commented-out declaration is not reported and a `#` inside a string does not
@@ -133,10 +135,19 @@ export function findExplicitModuleDeclarations(content: string): ModuleDeclarati
 
         const line = lineOf(lineStarts, nameStart);
         const indent = indentOf(content, lineStarts[line - 1]);
-        // Stops at the first entry still open, which is what keeps indentation
-        // from closing an outer module while a braced one nested inside it is
-        // still waiting for its `}`.
-        while (open.length > 0 && closesBefore(open[open.length - 1], braceDepth, indent, line)) {
+
+        // Closed braced bodies go first, outermost in, because one takes every
+        // module inside it along. A colon module written left of the brace's own
+        // declaration reads as open on indentation alone, and closing only from
+        // the top would let it shield the closed brace beneath it.
+        const closedBrace = outermostClosedBrace(open, braceDepth);
+        if (closedBrace !== -1) {
+            open.length = closedBrace;
+        }
+
+        // What is left closes innermost out, and stops at a braced body still
+        // waiting for its `}`.
+        while (open.length > 0 && closedByIndent(open[open.length - 1], indent, line)) {
             open.pop();
         }
 
@@ -209,21 +220,28 @@ function findAccessLevel(specifierBlock: string): { index: number; length: numbe
 }
 
 /**
- * Whether an open module ends before a declaration at this depth, indent and
- * line.
+ * Index of the outermost open module whose braced body has already closed, and
+ * so of the first entry the stack no longer holds; -1 while none has closed.
  *
- * A braced body ends at the brace returning the depth to where it opened, and
- * no indentation closes one - that is what lets its members sit at or left of
- * the declaration. An indented body ends at the first later line back at or
- * left of its declaration; a declaration on the parent's own line is inside it,
- * which is what the dotted chain means.
+ * Only a braced body can be found closed from below like this. Its depth test
+ * holds anywhere in the file, whereas an indent compared across a brace
+ * boundary means nothing - a module inside the braces may be written left of
+ * the declaration that opened them.
  */
-function closesBefore(open: OpenModule, braceDepth: number, indent: number, line: number): boolean {
-    if (open.closeDepth !== null) {
-        return braceDepth <= open.closeDepth;
-    }
+function outermostClosedBrace(open: readonly OpenModule[], braceDepth: number): number {
+    return open.findIndex((entry) => entry.closeDepth !== null && braceDepth <= entry.closeDepth);
+}
 
-    return open.line !== line && indent <= open.indent;
+/**
+ * Whether an open module that indentation delimits ends before a declaration at
+ * this indent and line. A declaration on the parent's own line is inside it,
+ * which is what the dotted chain means.
+ *
+ * False for a braced body, whose end no indentation can announce. That is what
+ * stops the pop loop at one, leaving the modules below it open.
+ */
+function closedByIndent(open: OpenModule, indent: number, line: number): boolean {
+    return open.closeDepth === null && open.line !== line && indent <= open.indent;
 }
 
 /**

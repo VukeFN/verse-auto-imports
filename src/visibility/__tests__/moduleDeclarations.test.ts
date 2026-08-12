@@ -109,11 +109,37 @@ describe("findExplicitModuleDeclarations", () => {
     });
 
     it("nests the same way when the brace opens the body on the next line", () => {
-        const content = "Systems := module\n{\nB := module:\n    X:int = 1\n}\nLater := module {}\n";
+        const content = "Systems := module\n{\nB := module:\n    X := module {}\n}\nLater := module {}\n";
 
         const declarations = findExplicitModuleDeclarations(content);
 
-        expect(declarations.map((declaration) => declaration.chain)).toEqual([["Systems"], ["Systems", "B"], ["Later"]]);
+        expect(declarations.map((declaration) => declaration.chain)).toEqual([["Systems"], ["Systems", "B"], ["Systems", "B", "X"], ["Later"]]);
+    });
+
+    it("returns a sibling to the enclosing module when the braced body it follows was written left of its declaration", () => {
+        const content = "Outer := module:\n    Inner := module{\nMember := module:\n    Q:int = 1\n    }\n    Kept := module {}\n";
+
+        const declarations = findExplicitModuleDeclarations(content);
+
+        // `Member` reads as open on indentation alone at `Kept`, so closing only
+        // from the top would leave it shielding `Inner`, whose `}` has passed.
+        expect(declarations.map((declaration) => declaration.chain)).toEqual([["Outer"], ["Outer", "Inner"], ["Outer", "Inner", "Member"], ["Outer", "Kept"]]);
+    });
+
+    it("returns the sibling the same way when the brace opened the body on the next line", () => {
+        const content = "Outer := module:\n    Inner := module\n    {\nMember := module:\n    Q:int = 1\n    }\n    Kept := module {}\n";
+
+        const declarations = findExplicitModuleDeclarations(content);
+
+        expect(declarations.map((declaration) => declaration.chain)).toEqual([["Outer"], ["Outer", "Inner"], ["Outer", "Inner", "Member"], ["Outer", "Kept"]]);
+    });
+
+    it("closes one braced body of several without closing those still open around it", () => {
+        const content = "Systems := module{\nB := module:\n    C := module{\nD := module:\n        Z:int = 1\n    }\n    E := module {}\n}\nSibling := module {}\n";
+
+        const declarations = findExplicitModuleDeclarations(content);
+
+        expect(declarations.map((declaration) => declaration.chain)).toEqual([["Systems"], ["Systems", "B"], ["Systems", "B", "C"], ["Systems", "B", "C", "D"], ["Systems", "B", "E"], ["Sibling"]]);
     });
 
     it("keeps the chain of braces opened on one line", () => {

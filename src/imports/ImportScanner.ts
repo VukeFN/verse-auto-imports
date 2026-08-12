@@ -360,6 +360,22 @@ export function classifyLines(lines: string[]): LineClassification[] {
 }
 
 /**
+ * The first line of code below `from`, or `-1` where there is none.
+ *
+ * Blank and comment lines are passed over, because neither ends what a
+ * statement above them opened: an indented block runs through both, and so does
+ * the whitespace a braced clause may open across.
+ */
+function firstCodeLineBelow(classifications: LineClassification[], from: number): number {
+    for (let line = from + 1; line < classifications.length; line++) {
+        if (classifications[line].kind === "code") {
+            return line;
+        }
+    }
+    return -1;
+}
+
+/**
  * The line holding the path that the `using:` ending line `opener` opens, or
  * `-1` where that line opens no pair.
  *
@@ -392,19 +408,134 @@ export function indentedPairPathLine(classifications: LineClassification[], open
         return -1;
     }
 
-    for (let line = opener + 1; line < classifications.length; line++) {
-        const classification = classifications[line];
-        if (classification.kind !== "code") {
-            continue;
-        }
+    const pathLine = firstCodeLineBelow(classifications, opener);
+    if (pathLine !== -1) {
         // Indentation read from the code, so a line closing a block comment
         // ahead of its statement reads as indented. Harmless in both
         // directions: were that statement really at column 0, the opener
         // opened nothing and the file did not compile to begin with.
-        return /^\s/.test(classification.codeWithoutComments) ? line : -1;
+        return /^\s/.test(classifications[pathLine].codeWithoutComments) ? pathLine : -1;
     }
 
     return -1;
+}
+
+/**
+ * The lines a braced `using` opened on `opener` occupies, with every path
+ * written between its braces, or null where the line opens no such span.
+ *
+ * The braced style is the one import shape whose statement can outlive its
+ * line. A macro's braced clause opens across whitespace and line breaks alike,
+ * so the `{` may sit below the `using` and the `}` below the path, and inside
+ * the braces a line ending separates elements exactly as `;` does. The
+ * single-line patterns in ImportFormatter read only the shape that opens and
+ * closes on one line, which is why every caller that has to see a span asks
+ * this instead of asking them.
+ *
+ * Read from the classifications rather than the raw text, so a brace written in
+ * a comment or inside a string literal closes nothing.
+ *
+ * Indentation is the caller's question, not this one's: scanModuleImports asks
+ * only about column 0, allUsingPaths about every line.
+ *
+ * Null for the single-line form, whose whole span is the opener - the statement
+ * patterns already read it, and offering it here would have a caller count it
+ * twice - and null for an unclosed `{`, which no file that compiles writes.
+ *
+ * @returns the closing brace's line, with the paths the braces hold. More than
+ *   one path where the file does not compile: a `using` clause takes a single
+ *   path, and a buffer being edited need not compile yet.
+ */
+function bracedUsingSpan(classifications: LineClassification[], opener: number): { paths: string[]; endLine: number } | null {
+    const openerCode = classifications[opener].codeOutsideLiterals.trim();
+
+    // Where the braces begin. On the opener's own line for `using {`, and on
+    // the first line of code below it for a `using` whose brace is written
+    // there - a line break before the `{` is whitespace to the parser, so both
+    // spell the same clause.
+    let braceLine: number;
+    if (/^using\s*\{/.test(openerCode)) {
+        braceLine = opener;
+    } else if (/^using$/.test(openerCode)) {
+        const below = firstCodeLineBelow(classifications, opener);
+        if (below === -1 || !classifications[below].codeOutsideLiterals.trim().startsWith("{")) {
+            return null;
+        }
+        braceLine = below;
+    } else {
+        return null;
+    }
+
+    // The `}` that returns the depth to where the clause opened, with the
+    // column it sits at, so the content is cut at that brace rather than at the
+    // last one on its line.
+    let depth = 0;
+    let endLine = -1;
+    let closeAt = -1;
+    for (let line = braceLine; line < classifications.length && endLine === -1; line++) {
+        const code = classifications[line].codeOutsideLiterals;
+        for (let column = 0; column < code.length; column++) {
+            if (code[column] === "{") {
+                depth++;
+                continue;
+            }
+            if (code[column] !== "}") {
+                continue;
+            }
+            depth--;
+            if (depth <= 0) {
+                endLine = line;
+                closeAt = column;
+                break;
+            }
+        }
+    }
+
+    // A `}` that is itself comment text closes nothing, so there is no clause
+    // here rather than a clause whose last line is trivia. The masking these
+    // lines carry removes a comment written on the line; it knows nothing of an
+    // indented comment opened above it, which is what can leave the whole
+    // closing line inert while still spelling a brace.
+    if (endLine === -1 || endLine === opener || classifications[endLine].kind !== "code") {
+        return null;
+    }
+
+    const braceCode = classifications[braceLine].codeOutsideLiterals;
+    const between: string[] = [];
+    if (braceLine === endLine) {
+        between.push(braceCode.slice(braceCode.indexOf("{") + 1, closeAt));
+    } else {
+        between.push(braceCode.slice(braceCode.indexOf("{") + 1));
+        for (let line = braceLine + 1; line < endLine; line++) {
+            // Only code, because a `<#>` written on the opener makes the lines
+            // indented past it comment text, and the masking these lines carry
+            // knows nothing of a comment opened above them. Counting such a
+            // path as imported withholds the import the file actually needs,
+            // which is the direction pairPathBelow refuses the same shape in.
+            if (classifications[line].kind === "code") {
+                between.push(classifications[line].codeOutsideLiterals);
+            }
+        }
+        between.push(classifications[endLine].codeOutsideLiterals.slice(0, closeAt));
+    }
+
+    // A line ending and a `;` separate elements alike, and the text arrives
+    // here one line to an entry, so splitting on `;` leaves one element each.
+    //
+    // Content is classified the way pairPathBelow classifies the line under a
+    // `using:`, by handing isModuleImport a `using:` and the content as its
+    // next line. The two shapes ask the same question - is this bare text a
+    // module path - and asking it a second way here is the looser copy that
+    // ends with the reader and the writer disagreeing.
+    const paths: string[] = [];
+    for (const element of between.flatMap((text) => text.split(";"))) {
+        const content = element.trim();
+        if (content && ImportFormatter.isModuleImport("using:", content, { atFileScope: true })) {
+            paths.push(content);
+        }
+    }
+
+    return { paths, endLine };
 }
 
 /**
@@ -437,6 +568,14 @@ export function indentedPairPathLine(classifications: LineClassification[], open
  *   content: a pair opened after a `using` keeps a path the classification
  *   declines, because its entry is the only one spanning the path line and
  *   dropping it would let a writer split the pair. See pairPathBelow.
+ * - The braced style whose `}` closes on a later line is consumed as one entry
+ *   spanning the opener and that brace, pinned, since the span holds lines no
+ *   rebuild from a path reproduces. Both spellings of it are read, the `{` on
+ *   the `using`'s own line and the `{` on the line below, because a line break
+ *   before the brace is whitespace to the parser. Without this the span is
+ *   invisible whole: the opener fails a classification that needs the closing
+ *   brace on one line, and the path between the braces is indented, which the
+ *   rule above skips. See bracedUsingSpan.
  * - Content classification (module import vs local-scope using) is delegated
  *   to ImportFormatter.isModuleImport, passing `{ atFileScope: true }` since
  *   every candidate here already sits at column 0. So a bare identifier at
@@ -644,6 +783,44 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
                     trailingComment: ImportFormatter.extractTrailingComment(lines[pair.pathLine]),
                 });
                 i = pair.pathLine + 1;
+                continue;
+            }
+
+            // The braced clause this line opens, `using{` over an indented path
+            // over its own `}`. The classification refuses the opener - the
+            // single-line pattern needs the closing brace on the line it reads -
+            // and the path between the braces is indented, so the scan skips
+            // that too. The whole span goes uncounted, and a writer then adds a
+            // second copy of a path the file already imports.
+            //
+            // Pinned, like everything else this branch records. The span holds
+            // lines no rebuild from one path reproduces: the braces may sit
+            // around a comment or a blank line the author wrote, and collapsing
+            // the span onto a single line is a rewrite nothing asked for.
+            // Counting the path is what the duplicate needed.
+            const braced = bracedUsingSpan(classifications, i);
+            if (braced) {
+                for (const bracedPath of braced.paths) {
+                    imports.push({
+                        path: bracedPath,
+                        startLine: i,
+                        endLine: braced.endLine,
+                        anchorsCommentBelow: anchorsCommentBelow(i, braced.endLine),
+                        rebuildLosesText: true,
+                        // The opener's own comment. Nothing re-emits a pinned
+                        // entry, and the path sits on a line inside the braces
+                        // rather than after the statement.
+                        trailingComment: ImportFormatter.extractTrailingComment(trimmed),
+                    });
+                }
+                // Resumed *on* the closing line, not past it. A `;` separates
+                // statements exactly as a newline does, so `}; using { /B }`
+                // writes an import after the clause closes, and stepping over
+                // that line loses it - which is this branch's own failure,
+                // a path that does not count as present and is then written
+                // a second time. Only the lines between the braces are
+                // consumed here; the closing line is read like any other.
+                i = braced.endLine;
                 continue;
             }
 
@@ -936,6 +1113,9 @@ function usingPathsOnLine(formatter: ImportFormatter, code: string): string[] {
  *   for the line's own statement.
  * - A line contributes every `using` usingPathsOnLine finds on it, in written
  *   order, rather than the first.
+ * - A braced clause whose `}` closes on a later line contributes the paths
+ *   between its braces. No line of that span writes a `using` statement holding
+ *   them, so nothing else here would offer them. See bracedUsingSpan.
  * - A `using:` opening an indented pair is recognised at the end of its line
  *   rather than as the whole of it, since a statement can precede it there too.
  *   The pair is the one shape counted once, because its path is read from the
@@ -965,6 +1145,23 @@ export function allUsingPaths(lines: string[]): string[] {
 
         const trimmed = codeWithoutComments.trim();
         paths.push(...usingPathsOnLine(formatter, trimmed));
+
+        // A braced clause whose `}` closes on a later line writes its path
+        // between the braces rather than as a statement of its own, so
+        // usingPathsOnLine finds nothing on any line of the span - not on the
+        // opener, which holds no path, and not on the path's own line, which
+        // holds no `using`. A path this reader misses is what the caller reads
+        // as permission to remove an import.
+        //
+        // No line of the span is stepped over. The lines between the braces
+        // write paths and no `using` of their own, so the loop reaching them
+        // adds no second copy, and the closing line may write a statement after
+        // its `}` that skipping the line would lose - a dropped path being the
+        // one error this must not make.
+        const braced = bracedUsingSpan(classifications, i);
+        if (braced) {
+            paths.push(...braced.paths);
+        }
 
         // A `using:` opening an indented pair carries no path of its own -
         // extractPathFromImport reads neither pattern out of it - so the path

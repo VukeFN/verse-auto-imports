@@ -284,5 +284,59 @@ describe("ProjectPathScanner.extractDeclarations module forms", () => {
                 expect(declare(source).map((node) => node.fullPath)).toEqual(["A", "A.X", "B", "B.Y"]);
             });
         });
+
+        // A skipped module the colon form delimits is held open by indentation
+        // alone, and a braced body opened inside it may write its members back
+        // at that indent - which pops the skipped entry unless the braced body
+        // has an entry of its own carrying the depth it closes at. Without one
+        // the scan believes it is at file scope while still inside the subtree,
+        // and offers its modules as top-level candidates: paths the compiler
+        // rejects at their first segment, colliding with any genuine top-level
+        // module of the same name.
+        describe("a braced body inside a skipped module", () => {
+            it("holds the skipped module open across a member written back at its indent", () => {
+                const source = "Systems<private> := module:\n    Inner := module{\nX := module {}\n    }\nInventory := module {}\n";
+                expect(declare(source).map((node) => node.fullPath)).toEqual(["Inventory"]);
+            });
+
+            it("holds it open for a scoped module the same way", () => {
+                const source = "Systems<scoped{ModuleA}> := module:\n    Inner := module{\nX := module {}\n    }\nInventory := module {}\n";
+                expect(declare(source).map((node) => node.fullPath)).toEqual(["Inventory"]);
+            });
+
+            it("holds it open where the brace opened the body on the next line", () => {
+                const source = "Systems<private> := module:\n    Inner := module\n    {\nX := module {}\n    }\nInventory := module {}\n";
+                expect(declare(source).map((node) => node.fullPath)).toEqual(["Inventory"]);
+            });
+
+            it("returns a sibling after the skipped body to file scope, its own members included", () => {
+                // A sibling recorded without its members, or with a `Systems.`
+                // prefix, is the same wrong pop bound reported the other way up.
+                const source = "Systems<private> := module:\n    Inner := module{\nX := module {}\n    }\nInventory := module:\n    Item := class {}\n";
+                expect(declare(source).map((node) => node.fullPath)).toEqual(["Inventory", "Inventory.Item"]);
+            });
+
+            it("keeps dropping the colon-only form, which indentation alone already bounded", () => {
+                const source = "Systems<private> := module:\n    Inner := module:\n        X := module:\n            Deep := class {}\nInventory := module {}\n";
+                expect(declare(source).map((node) => node.fullPath)).toEqual(["Inventory"]);
+            });
+
+            it("returns a kept parent's sibling to the parent rather than to file scope", () => {
+                // The other harm the untracked body caused: the scan reached
+                // file scope inside the subtree, so a declaration after it
+                // rejoined at no prefix instead of at the module it sits in.
+                const source = "Keep := module:\n    Systems<private> := module:\n        Inner := module{\nX := module {}\n        }\n    Kept := class {}\n";
+                expect(declare(source).map((node) => node.fullPath)).toEqual(["Keep", "Keep.Kept"]);
+            });
+
+            it("runs an unclosed body inside the skipped module to the file end", () => {
+                // Not valid Verse, so this pins degradation rather than a shape
+                // a user can compile: the body no brace closed costs the
+                // declarations after it, which is what the kept path already
+                // does, rather than offering them at a path that does not exist.
+                const source = "Systems<private> := module:\n    Inner := module{\nX := module {}\nInventory := module {}\n";
+                expect(declare(source).map((node) => node.fullPath)).toEqual([]);
+            });
+        });
     });
 });

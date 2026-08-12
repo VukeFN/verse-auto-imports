@@ -11,10 +11,12 @@ const SCAN_CONCURRENCY = 8;
  * A module whose body the scan is inside, held while its declarations are read
  * so each can be given the path it sits at.
  *
- * A skipped module is on the stack for its indent alone, so that what it
+ * A skipped module is on the stack for its bounds alone, so that what it
  * contains is dropped with it rather than losing the enclosing segment from its
- * path. Nothing is ever pushed above a skipped entry, because every declaration
- * under one is skipped before it can be.
+ * path. A module declared inside one is pushed too, marked skipped in turn: a
+ * braced body opened in there closes on its brace, and an entry no one tracks
+ * leaves that depth unaccounted for, which returns the scan to file scope while
+ * it is still inside the subtree.
  */
 interface OpenModule {
     /** Dotted path of the module itself, enclosing segments included. */
@@ -301,9 +303,11 @@ export class ProjectPathScanner {
             // still inside a skipped module is as unreachable as the module
             // and is dropped with it. The pop loop above has already closed
             // the module for a line that left it.
-            if (moduleStack.length > 0 && moduleStack[moduleStack.length - 1].skipped) {
-                continue;
-            }
+            //
+            // Read rather than acted on, because a module declared in there
+            // still has to reach the stack to bound its own body; only the
+            // declarations below it are dropped where they stand.
+            const insideSkipped = moduleStack.length > 0 && moduleStack[moduleStack.length - 1].skipped;
 
             currentModulePath = moduleStack.length > 0 ? moduleStack[moduleStack.length - 1].name : "";
 
@@ -323,12 +327,16 @@ export class ProjectPathScanner {
 
                 const fullPath = currentModulePath ? `${currentModulePath}.${name}` : name;
 
-                if (shouldSkipDeclaration(visibility, true)) {
-                    moduleStack.push({ name: fullPath, indent, skipped: true, awaitingBrace, closeDepth });
+                // Skipped is inherited: a module the specifier alone would keep
+                // is still unreachable when an enclosing one is not.
+                const skipped = insideSkipped || shouldSkipDeclaration(visibility, true);
+
+                moduleStack.push({ name: fullPath, indent, skipped, awaitingBrace, closeDepth });
+
+                if (skipped) {
                     continue;
                 }
 
-                moduleStack.push({ name: fullPath, indent, skipped: false, awaitingBrace, closeDepth });
                 currentModulePath = fullPath;
 
                 nodes.push({
@@ -339,6 +347,12 @@ export class ProjectPathScanner {
                     sourceFile: filePath,
                     sourceLine: i + 1,
                 });
+                continue;
+            }
+
+            // Every declaration below opens no body, so none of them needs an
+            // entry to bound; inside a skipped module they are simply dropped.
+            if (insideSkipped) {
                 continue;
             }
 

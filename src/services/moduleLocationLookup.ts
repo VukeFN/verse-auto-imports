@@ -168,12 +168,72 @@ export function resolveModuleLocations(modulePath: string, moduleNameIndex: Read
 }
 
 /**
+ * The locations a module import path could refer to as a chain of folders,
+ * given every Content-relative directory the project holds `.verse` files in.
+ *
+ * Folders are implicit modules, so a directory attests to a module chain with
+ * no declaration anywhere to read. Each input directory therefore stands for
+ * itself and for every ancestor of it: only `Systems/Combat/Weapons` need hold
+ * a `.verse` file for `Systems` and `Systems/Combat` to be modules too.
+ *
+ * Matching is case-sensitive and on whole segments, so `Systems/XCombat/Weapons`
+ * does not answer a request for `Combat/Weapons`. Results are sorted, because
+ * they are put to the user as an ordered list of paths to choose between and
+ * the directory enumeration behind them has no guaranteed order.
+ *
+ * @param modulePath separated by "/", as extractModuleFromImport produces
+ * @param contentRelativeDirs directories relative to the Content root, "" for the root itself
+ * @returns distinct locations under the contract at the top of this file: "" or "/Dir/Sub"
+ */
+export function resolveFolderModuleLocations(modulePath: string, contentRelativeDirs: Iterable<string>): string[] {
+    const requested = modulePath
+        .replace(/^\//, "")
+        .split("/")
+        .filter((s) => s.length > 0);
+    if (requested.length === 0) {
+        return [];
+    }
+
+    const locations = new Set<string>();
+
+    for (const dir of contentRelativeDirs) {
+        const segments = dir.split("/").filter((s) => s.length > 0);
+
+        // Every ancestor of the directory, the directory itself included, is a
+        // module chain the request could name the tail of.
+        for (let depth = segments.length; depth >= requested.length; depth--) {
+            let matches = true;
+            for (let i = 0; i < requested.length; i++) {
+                if (segments[depth - requested.length + i] !== requested[i]) {
+                    matches = false;
+                    break;
+                }
+            }
+            if (!matches) {
+                continue;
+            }
+
+            const locationSegments = segments.slice(0, depth - requested.length);
+            locations.add(locationSegments.length > 0 ? "/" + locationSegments.join("/") : "");
+        }
+    }
+
+    return Array.from(locations).sort();
+}
+
+/**
  * The Content-relative directory of a workspace-relative source file, or null
  * when the file sits outside the Content folder and so cannot provide an
- * importable module location. Mirrors the path normalization of the converter's
- * filesystem scan.
+ * importable module location.
+ *
+ * Exported so the converter's filesystem scan maps paths through this rather
+ * than through a second copy of the rule: the two must agree on where Content
+ * starts, or the same project resolves differently depending on which of them
+ * asked.
+ *
+ * @param sourceFile workspace-relative, separated by "/"
  */
-function toContentRelativeDir(sourceFile: string, workspaceIsContent: boolean): string | null {
+export function toContentRelativeDir(sourceFile: string, workspaceIsContent: boolean): string | null {
     const lastSlash = sourceFile.lastIndexOf("/");
     const dir = lastSlash === -1 ? "" : sourceFile.slice(0, lastSlash);
 

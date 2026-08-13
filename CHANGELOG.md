@@ -10,6 +10,14 @@ Where an entry resolves a tracked issue, it ends with a `[#N]` reference linked 
 
 Pending changes are kept as one file per change under [changelog.d/](changelog.d/) and assembled here at release.
 
+## [0.11.1] - 2026-08-13
+
+### Fixed
+
+- **Project scan**: A Verse block macro written inside a function body is no longer recorded as a variable declaration, so keywords such as `block`, `loop` and `if` stop appearing as import and completion candidates ([#344])
+- **Project scan**: a Verse block macro written with a parenthesised head, such as `if (Cond):` or `for (Item : Items):`, is no longer recorded as a function declaration or offered as an import candidate ([#350])
+- **Project scan**: a line opening with a Verse block macro such as `array:`, `map:`, `assert:` or `let:` is no longer recorded as a declaration, so it stops appearing as an import candidate or completion entry ([#353])
+
 ## [0.11.0] - 2026-08-12
 
 ### Added
@@ -408,7 +416,8 @@ See [GitHub Releases](https://github.com/VukeFN/verse-auto-imports/releases) for
 
 <!-- Version comparisons. The chain starts at 0.6.0: no v0.4.x or v0.5.x tags exist. -->
 
-[Unreleased]: https://github.com/vukefn/verse-auto-imports/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/vukefn/verse-auto-imports/compare/v0.11.1...HEAD
+[0.11.1]: https://github.com/vukefn/verse-auto-imports/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/vukefn/verse-auto-imports/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/vukefn/verse-auto-imports/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/vukefn/verse-auto-imports/compare/v0.8.0...v0.9.0
@@ -423,6 +432,9 @@ See [GitHub Releases](https://github.com/VukeFN/verse-auto-imports/releases) for
 
 <!-- Issue references -->
 
+[#344]: https://github.com/vukefn/verse-auto-imports/issues/344
+[#350]: https://github.com/vukefn/verse-auto-imports/issues/350
+[#353]: https://github.com/vukefn/verse-auto-imports/issues/353
 [#60]: https://github.com/vukefn/verse-auto-imports/issues/60
 [#61]: https://github.com/vukefn/verse-auto-imports/issues/61
 [#71]: https://github.com/vukefn/verse-auto-imports/issues/71

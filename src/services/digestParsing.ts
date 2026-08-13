@@ -13,7 +13,15 @@
  * importable). Module import paths are resolved from, in precedence order, an
  * explicit `# Module import path:` comment, a scope qualifier `(/path:)`, the
  * enclosing module on the stack, or the file's root domain.
+ *
+ * Comments are skipped only where `#` opens the line. Verse also has `<# #>` and
+ * `<#>` comments, and a `#` after code or inside a string is not a comment at
+ * all, so this is a narrower rule than the language's. It holds because the
+ * digests are machine-generated and carry only whole-line `#` comments; a
+ * hand-written file would need the masking that ProjectPathScanner does.
  */
+
+import { lineIndentWidth, popClosedBlocks } from "../utils/verseText";
 
 /** A single importable declaration extracted from a digest file. */
 export interface DigestEntry {
@@ -93,15 +101,6 @@ export function rootDomainForDigestFile(fileName: string): string {
         return "/Verse.org";
     }
     return "";
-}
-
-/**
- * Returns the leading indentation width of a line, counting each tab as four
- * spaces so mixed indentation compares consistently.
- */
-function indentOf(rawLine: string): number {
-    const match = rawLine.match(/^[ \t]*/);
-    return match ? match[0].replace(/\t/g, "    ").length : 0;
 }
 
 /**
@@ -211,13 +210,11 @@ export function parseDigestContent(content: string, rootDomain: string): ParsedD
             continue;
         }
 
-        const indent = indentOf(rawLine);
+        const indent = lineIndentWidth(rawLine);
         while (moduleStack.length > 0 && indent <= moduleStack[moduleStack.length - 1].indent) {
             moduleStack.pop();
         }
-        while (classBodyIndents.length > 0 && indent <= classBodyIndents[classBodyIndents.length - 1]) {
-            classBodyIndents.pop();
-        }
+        popClosedBlocks(classBodyIndents, indent);
 
         // Anything still inside a class/struct/interface/enum body is a member.
         if (classBodyIndents.length > 0) {

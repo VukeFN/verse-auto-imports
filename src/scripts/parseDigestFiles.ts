@@ -10,9 +10,10 @@
 
 import * as fs from "fs";
 import * as path from "path";
-// Import the shared parser directly (not via the services barrel, which pulls in
-// `vscode` and would break ts-node).
+// Import the shared parser and manifest directly (not via the services barrel,
+// which pulls in `vscode` and would break ts-node).
 import { parseDigestContent, rootDomainForDigestFile } from "../services/digestParsing";
+import { BUNDLED_DIGEST_NAMES, digestDataFile, digestSourceFile } from "../services/digestManifest";
 
 interface PrecompiledDigest {
     version: string;
@@ -22,8 +23,6 @@ interface PrecompiledDigest {
     entries: ReturnType<typeof parseDigestContent>["entries"];
     moduleIndex: ReturnType<typeof parseDigestContent>["moduleIndex"];
 }
-
-const DIGEST_FILES = ["Fortnite.digest.verse", "UnrealEngine.digest.verse", "Verse.digest.verse"];
 
 const VERSION = "1.0.0";
 
@@ -75,7 +74,8 @@ function main() {
 
     let totalEntries = 0;
 
-    for (const digestFile of DIGEST_FILES) {
+    for (const digestName of BUNDLED_DIGEST_NAMES) {
+        const digestFile = digestSourceFile(digestName);
         const inputPath = path.join(utilsDir, digestFile);
 
         if (!fs.existsSync(inputPath)) {
@@ -90,7 +90,7 @@ function main() {
         const moduleCount = Object.keys(digest.moduleIndex).length;
         totalEntries += entryCount;
 
-        const outputFile = digestFile.replace(".verse", ".json");
+        const outputFile = digestDataFile(digestName);
         const outputPath = path.join(dataDir, outputFile);
 
         fs.writeFileSync(outputPath, JSON.stringify(digest, null, 2));

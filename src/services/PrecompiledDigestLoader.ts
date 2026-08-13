@@ -3,6 +3,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { logger } from "../utils";
 import { DigestEntry } from "./DigestParser";
+import { BUNDLED_DIGEST_NAMES, digestDataFile } from "./digestManifest";
 
 /**
  * One `src/data/*.digest.json` payload, as written by `npm run parse-digest`.
@@ -32,8 +33,6 @@ export class PrecompiledDigestLoader {
     private moduleIndex: Map<string, string[]> = new Map();
     private loaded: boolean = false;
     private loadError: Error | null = null;
-
-    private static readonly DIGEST_FILES = ["Fortnite.digest.json", "UnrealEngine.digest.json", "Verse.digest.json"];
 
     constructor(private extensionContext: vscode.ExtensionContext) {}
 
@@ -88,7 +87,8 @@ export class PrecompiledDigestLoader {
     private async loadFromDirectory(dataDir: string): Promise<number> {
         let successCount = 0;
 
-        for (const fileName of PrecompiledDigestLoader.DIGEST_FILES) {
+        for (const digestName of BUNDLED_DIGEST_NAMES) {
+            const fileName = digestDataFile(digestName);
             const filePath = path.join(dataDir, fileName);
 
             if (!fs.existsSync(filePath)) {
@@ -100,8 +100,9 @@ export class PrecompiledDigestLoader {
                 const content = fs.readFileSync(filePath, "utf8");
                 const digest: PrecompiledDigest = JSON.parse(content);
 
-                // First file to declare an identifier wins, so DIGEST_FILES
-                // order is the precedence between the three domains.
+                // First file to declare an identifier wins, so
+                // BUNDLED_DIGEST_NAMES order is the precedence between the
+                // three domains.
                 for (const [identifier, entry] of Object.entries(digest.entries)) {
                     if (!this.digestCache.has(identifier)) {
                         this.digestCache.set(identifier, entry);

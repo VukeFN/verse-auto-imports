@@ -113,6 +113,30 @@ export function maskCommentsAndStrings(content: string): string {
     return masked.join("");
 }
 
+/**
+ * Leading whitespace width of a whole line, each tab counted as four spaces, for
+ * a scan that already holds the line rather than an offset into the file.
+ */
+export function lineIndentWidth(rawLine: string): number {
+    return indentOf(rawLine, 0);
+}
+
+/**
+ * Pops every open block the line at `indent` has left, so the stack is left
+ * holding only the blocks that still enclose it.
+ *
+ * A block's body is the lines indented past its head, so a line back at or
+ * inside the head's own indent closes it. The compiler decides that byte-wise,
+ * extending the opening line's whitespace prefix; comparing widths agrees on any
+ * consistently indented file and diverges only where tabs and spaces mix inside
+ * one body.
+ */
+export function popClosedBlocks(openBlockIndents: number[], indent: number): void {
+    while (openBlockIndents.length > 0 && indent <= openBlockIndents[openBlockIndents.length - 1]) {
+        openBlockIndents.pop();
+    }
+}
+
 /** Leading whitespace of a line, each tab counted as four spaces so mixed indentation compares. */
 export function indentOf(content: string, lineStart: number): number {
     let width = 0;

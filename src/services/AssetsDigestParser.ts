@@ -3,6 +3,7 @@ import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
 import { logger } from "../utils";
+import { lineIndentWidth, popClosedBlocks } from "../utils/verseText";
 import { ProjectPathHandler } from "../project";
 
 /**
@@ -144,6 +145,12 @@ export class AssetsDigestParser {
      * members (which share the instance declaration shape) are not mistaken for
      * asset names.
      *
+     * Comments are skipped only where `#` is the line's first non-whitespace
+     * character, which is narrower than Verse's own rule: `<# #>` and `<#>`
+     * comments, a `#` after code, and a `#` inside a string are all missed.
+     * UEFN generates this file and writes only whole-line `#` comments into it,
+     * so the narrow rule holds here.
+     *
      * @param content Raw text of the Assets.digest.verse file.
      * @returns The distinct asset type names, in first-seen order.
      */
@@ -154,15 +161,13 @@ export class AssetsDigestParser {
         const classBodyIndents: number[] = [];
 
         for (const rawLine of content.split("\n")) {
-            const indent = AssetsDigestParser.indentOf(rawLine);
+            const indent = lineIndentWidth(rawLine);
             const line = rawLine.trim();
             if (line === "" || line.startsWith("#")) {
                 continue;
             }
 
-            while (classBodyIndents.length > 0 && indent <= classBodyIndents[classBodyIndents.length - 1]) {
-                classBodyIndents.pop();
-            }
+            popClosedBlocks(classBodyIndents, indent);
 
             const classMatch = line.match(CLASS_OR_STRUCT_DECL);
             if (classMatch) {
@@ -181,15 +186,6 @@ export class AssetsDigestParser {
         }
 
         return [...names];
-    }
-
-    /**
-     * Returns the leading indentation width of a line, counting each tab as four
-     * spaces so mixed indentation compares consistently.
-     */
-    private static indentOf(rawLine: string): number {
-        const match = rawLine.match(/^[ \t]*/);
-        return match ? match[0].replace(/\t/g, "    ").length : 0;
     }
 
     /**

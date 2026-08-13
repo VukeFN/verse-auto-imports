@@ -14,11 +14,12 @@
  * explicit `# Module import path:` comment, a scope qualifier `(/path:)`, the
  * enclosing module on the stack, or the file's root domain.
  *
- * Comments are skipped only where `#` opens the line. Verse also has `<# #>` and
- * `<#>` comments, and a `#` after code or inside a string is not a comment at
- * all, so this is a narrower rule than the language's. It holds because the
- * digests are machine-generated and carry only whole-line `#` comments; a
- * hand-written file would need the masking that ProjectPathScanner does.
+ * Comments are skipped only where `#` is the line's first non-whitespace
+ * character. Verse also has `<# #>` and `<#>` comments, and a `#` after code or
+ * inside a string is not a comment at all, so this is a narrower rule than the
+ * language's. It holds because the digests are machine-generated and carry only
+ * whole-line `#` comments; a hand-written file would need the masking that
+ * ProjectPathScanner does.
  */
 
 import { lineIndentWidth, popClosedBlocks } from "../utils/verseText";
@@ -211,6 +212,8 @@ export function parseDigestContent(content: string, rootDomain: string): ParsedD
         }
 
         const indent = lineIndentWidth(rawLine);
+        // Holds frames rather than bare indents, so it cannot use
+        // popClosedBlocks; the closing rule has to stay in step with it.
         while (moduleStack.length > 0 && indent <= moduleStack[moduleStack.length - 1].indent) {
             moduleStack.pop();
         }

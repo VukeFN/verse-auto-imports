@@ -114,8 +114,8 @@ export function maskCommentsAndStrings(content: string): string {
 }
 
 /**
- * Leading whitespace width of a whole line, for a scan that already holds the
- * line rather than an offset into the file.
+ * Leading whitespace width of a whole line, each tab counted as four spaces, for
+ * a scan that already holds the line rather than an offset into the file.
  */
 export function lineIndentWidth(rawLine: string): number {
     return indentOf(rawLine, 0);

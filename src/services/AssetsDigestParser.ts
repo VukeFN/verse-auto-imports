@@ -145,10 +145,11 @@ export class AssetsDigestParser {
      * members (which share the instance declaration shape) are not mistaken for
      * asset names.
      *
-     * Comments are skipped only where `#` opens the line, which is narrower than
-     * Verse's own rule: `<# #>` and `<#>` comments, a `#` after code, and a `#`
-     * inside a string are all missed. UEFN generates this file and writes only
-     * whole-line `#` comments into it, so the narrow rule holds here.
+     * Comments are skipped only where `#` is the line's first non-whitespace
+     * character, which is narrower than Verse's own rule: `<# #>` and `<#>`
+     * comments, a `#` after code, and a `#` inside a string are all missed.
+     * UEFN generates this file and writes only whole-line `#` comments into it,
+     * so the narrow rule holds here.
      *
      * @param content Raw text of the Assets.digest.verse file.
      * @returns The distinct asset type names, in first-seen order.

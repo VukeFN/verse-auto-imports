@@ -503,16 +503,19 @@ export class ImportDocumentEditor {
      * compiles is the worse of the two.
      *
      * Only the relative imports below count, and an absolute one below is
-     * knowingly let through. A grouped file writes one group above the other by
-     * definition, so under localFirst every digest import sits below the local
-     * group: reading an absolute import as a possible provider would refuse
-     * that group to every relative path and leave the strategy with nothing to
-     * do. The residual is real, and is not the same judgement pinnedBounds
-     * makes - a relative path can still land above an absolute import in a
-     * later block that could be bringing its first segment into scope, where a
-     * pinned absolute import of the same shape would have pushed it below.
-     * A pinned line cannot be moved or grouped, so nothing chose that order;
-     * the grouping strategy is the user choosing this one.
+     * knowingly let through. Refusing a block for an absolute import below it
+     * would refuse every block to every relative path, since a grouped file
+     * writes one group above another and an absolute import ends up below some
+     * relative one either way. The residual is real, and is not the same
+     * judgement pinnedBounds makes - a relative path can still land above an
+     * absolute import in a later block that could be bringing its first segment
+     * into scope, where a pinned absolute import of the same shape would have
+     * pushed it below. A pinned line cannot be moved or grouped, so nothing
+     * chose that order; the grouping strategy is the user choosing this one.
+     *
+     * Within one block no strategy carries an absolute import below a relative
+     * one (ImportFormatter.groupAndFormatImports). This guard is what the block
+     * that function cannot see still needs.
      */
     private blockKeepsRelativeOrder(importBlocks: ImportBlock[], blockIndex: number, path: string): boolean {
         if (!this.formatter.resolvesAgainstScopeAbove(path)) {

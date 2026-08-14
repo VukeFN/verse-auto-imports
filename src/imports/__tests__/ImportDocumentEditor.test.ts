@@ -1169,6 +1169,28 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         expect(insertsAtTop).toHaveLength(0);
     });
 
+    // Regrouping an ungrouped block writes the whole block, so localFirst gets
+    // to move the digest import there. Below a relative import that may resolve
+    // through it, the file stops compiling.
+    it("preserve + localFirst: regrouping a block keeps the digest import above the relative ones", async () => {
+        mockConfig({
+            "behavior.preserveImportLocations": true,
+            "behavior.importGrouping": "localFirst",
+        });
+        const header = ["# Header comment line 1", "# Header comment line 2", ""];
+        const input = [...header, "using { /Verse.org/Simulation }", "using { Economy.Shop }", "", "hello := 1"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
+
+        expect(success).toBe(true);
+        const operations = appliedOperations(0);
+
+        const replace = operations.find((op) => op.kind === "replace");
+        expect(replace).toBeDefined();
+        expect(replace!.text.indexOf("/Verse.org/Simulation")).toBeLessThan(replace!.text.indexOf("Economy.Shop"));
+        expect(replace!.text.indexOf("/Verse.org/Simulation")).toBeLessThan(replace!.text.indexOf("Features"));
+    });
+
     it("preserve + digestFirst: a new bare local import lands after the dotted local import already in its block", async () => {
         mockConfig({
             "behavior.preserveImportLocations": true,

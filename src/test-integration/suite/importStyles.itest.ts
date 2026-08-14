@@ -52,20 +52,22 @@ describe("import styles matrix (playbook T6)", () => {
         assert.ok(!/^using\./m.test(text), "dot form must be gone after flipping back");
     });
 
-    it("importGrouping digestFirst puts digest imports before local ones; localFirst reverses", async () => {
-        await settings.set("behavior.importGrouping", "digestFirst");
-        let text = await runOptimizeImports(document);
-        let digestIndex = importLineIndex(text, "/Fortnite.com/Devices");
-        let localIndex = importLineIndex(text, "Gadgets.Tools");
-        assert.ok(digestIndex !== -1 && localIndex !== -1, `imports missing after optimize:\n${text}`);
-        assert.ok(digestIndex < localIndex, `digestFirst violated:\n${text}`);
-
-        await settings.set("behavior.importGrouping", "localFirst");
-        text = await runOptimizeImports(document);
-        digestIndex = importLineIndex(text, "/Fortnite.com/Devices");
-        localIndex = importLineIndex(text, "Gadgets.Tools");
-        assert.ok(digestIndex !== -1 && localIndex !== -1, `imports missing after optimize:\n${text}`);
-        assert.ok(localIndex < digestIndex, `localFirst violated:\n${text}`);
+    // `Gadgets.Tools` is the fixture's only local import and it is relative, so
+    // localFirst may not hoist it: a relative path resolves its first segment
+    // against what the `using` statements above it brought into scope, and a
+    // digest import moved below it can be the one bringing that segment. Both
+    // strategies therefore write the same order here, and the unit tests in
+    // ImportFormatter.test.ts cover the local absolute path localFirst does
+    // hoist.
+    it("importGrouping digestFirst puts digest imports before local ones; localFirst leaves a relative local below them", async () => {
+        for (const grouping of ["digestFirst", "localFirst"]) {
+            await settings.set("behavior.importGrouping", grouping);
+            const text = await runOptimizeImports(document);
+            const digestIndex = importLineIndex(text, "/Fortnite.com/Devices");
+            const localIndex = importLineIndex(text, "Gadgets.Tools");
+            assert.ok(digestIndex !== -1 && localIndex !== -1, `imports missing after optimize:\n${text}`);
+            assert.ok(digestIndex < localIndex, `${grouping} violated:\n${text}`);
+        }
 
         await settings.set("behavior.importGrouping", "none");
     });

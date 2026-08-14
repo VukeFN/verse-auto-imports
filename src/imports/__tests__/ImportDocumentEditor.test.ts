@@ -2212,9 +2212,9 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
 });
 
 /**
- * Both writers read their own output back before applying it (#386), so a
- * composition bug reaches the user as a refused edit rather than as text
- * silently missing from the file.
+ * Both writers read their own output back before applying it, so a composition
+ * bug reaches the user as a refused edit rather than as text silently missing
+ * from the file.
  *
  * The bug has to be injected: the point of the check is the bug nobody has
  * written yet, and a writer that is currently correct cannot demonstrate it.
@@ -2282,6 +2282,82 @@ describe("ImportDocumentEditor rewrite verification", () => {
 
         expect(success).toBe(true);
         expect(appliedOperations(0)[0].text).toContain("using { /B }");
+    });
+
+    // insertImportLines documents its past-the-end branch as the thing standing
+    // between the writer and "one unreadable line where two belong". An
+    // insertion carries no range, so nothing else here would notice.
+    it("refuses to add imports when an insertion splices onto a line of code", async () => {
+        type InsertImportLines = (edit: vscode.WorkspaceEdit, document: vscode.TextDocument, line: number, statements: string[], eol: string, blankLineAfter: boolean) => void;
+        jest.spyOn(editor as unknown as { insertImportLines: InsertImportLines }, "insertImportLines").mockImplementation((edit, document, _line, statements, eol) => {
+            edit.insert(document.uri, new vscode.Position(0, "code()".length), statements.join(eol) + eol);
+        });
+
+        const success = await editor.addImportsToDocument(fakeDocument("code()"), ["using { /B }"]);
+
+        expect(success).toBe(false);
+        expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
+    /**
+     * The guard refuses edits, so a false positive is the extension silently
+     * ceasing to import. This is the net for that: every document shape the
+     * writers treat differently, against every setting combination that picks a
+     * different branch, all of which must still reach applyEdit.
+     */
+    describe("does not refuse a correct rewrite", () => {
+        const documents: Array<[string, string]> = [
+            ["an empty file", ""],
+            ["no trailing newline", "using { /A }\ncode()"],
+            ["a trailing newline", "using { /A }\ncode()\n"],
+            ["CRLF", "using { /A }\r\ncode()\r\n"],
+            ["only imports", "using { /A }\nusing { /B }"],
+            ["no imports at all", "code()\nmore()"],
+            ["a header comment", "# licence\n\nusing { /A }\n\ncode()"],
+            ["an annotated import", "# why /A is here\nusing { /A }\n\ncode()"],
+            ["an import pinned by a second statement", "X := 1; using { /A }\ncode()"],
+            ["a commented-out import", "<#\nusing { /Old }\n#>\nusing { /A }\n\ncode()"],
+            ["an indented using pair", "using{\n    /A\n}\ncode()"],
+            ["a using inside a module body", "using { /A }\n\nM := module:\n    using { /B }\n    F():void = {}"],
+            ["two gapped blocks", "using { /A }\n\nusing { Local.One }\n\ncode()"],
+            ["a relative import under an absolute one", "using { /A }\nusing { Local.One }\n\ncode()"],
+        ];
+
+        const settings: Array<[string, Record<string, unknown>]> = [
+            ["defaults", {}],
+            ["consolidating", { "behavior.preserveImportLocations": false }],
+            ["consolidating, unsorted", { "behavior.preserveImportLocations": false, "behavior.sortImportsAlphabetically": false }],
+            ["grouped local first", { "behavior.importGrouping": "localFirst" }],
+            ["grouped digest first, consolidating", { "behavior.importGrouping": "digestFirst", "behavior.preserveImportLocations": false }],
+            ["dot syntax, consolidating", { "behavior.importSyntax": "dot", "behavior.preserveImportLocations": false }],
+        ];
+
+        /** Answers `overrides`, and the declared default for everything else. */
+        function useSettings(overrides: Record<string, unknown>): void {
+            (vscode.workspace.getConfiguration as jest.Mock).mockReturnValueOnce({
+                get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => (key in overrides ? overrides[key] : defaultValue)),
+                update: jest.fn().mockResolvedValue(undefined),
+            });
+        }
+
+        for (const [documentName, input] of documents) {
+            for (const [settingsName, overrides] of settings) {
+                it(`adds an import to ${documentName} with ${settingsName}`, async () => {
+                    useSettings(overrides);
+
+                    const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
+
+                    expect(success).toBe(true);
+                    expect(applyEditMock()).toHaveBeenCalled();
+                });
+
+                it(`organizes ${documentName} with ${settingsName}`, async () => {
+                    useSettings(overrides);
+
+                    await expect(editor.organizeImports(fakeDocument(input), ["/Fortnite.com/Devices"])).resolves.toBe(true);
+                });
+            }
+        }
     });
 });
 

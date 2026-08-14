@@ -39,26 +39,28 @@ describe("verifyOrganizedRewrite", () => {
     });
 
     // The whole point of the guard: a rebuild that loses a line of the user's
-    // own code must never reach applyEdit.
-    it("reports a body line the rebuild lost", () => {
+    // own code must never reach applyEdit. The line in the message is the input
+    // document's, not a position in the filtered sequence, since it is all a
+    // maintainer gets when the guard fires.
+    it("reports a body line the rebuild lost, by its line in the input", () => {
         const before = "using { /A }\ncode()\nmore()";
         const after = "using { /A }\n\ncode()";
 
-        expect(verifyOrganizedRewrite(before, after, [])).toBe('1 code line(s) outside the imports were lost, from "more()"');
+        expect(verifyOrganizedRewrite(before, after, [])).toBe('1 code line(s) were lost, from line 3: "more()"');
     });
 
     it("reports a body line the rebuild claimed twice", () => {
         const before = "using { /A }\ncode()\nmore()";
         const after = "using { /A }\n\ncode()\ncode()\nmore()";
 
-        expect(verifyOrganizedRewrite(before, after, [])).toContain("code line 2 outside the imports");
+        expect(verifyOrganizedRewrite(before, after, [])).toBe('line 3 became "code()", was "more()"');
     });
 
     it("reports a body line the rebuild rewrote", () => {
         const before = "using { /A }\ncode()";
         const after = "using { /A }\n\ncodeX()";
 
-        expect(verifyOrganizedRewrite(before, after, [])).toBe('code line 1 outside the imports became "codeX()", was "code()"');
+        expect(verifyOrganizedRewrite(before, after, [])).toBe('line 2 became "codeX()", was "code()"');
     });
 
     // Withholding an already-made import deletes the comments written for it on
@@ -93,20 +95,20 @@ describe("verifyImportEdits", () => {
     it("passes an edit that only inserts", () => {
         const lines = ["code()"];
 
-        expect(verifyImportEdits(lines, [insertion(0, "using { /A }\n")])).toBeNull();
+        expect(verifyImportEdits(lines, [insertion(0, "using { /A }\n")], ["/A"])).toBeNull();
     });
 
     it("passes a block replacement that writes its paths back", () => {
         const lines = ["using { /B }", "using { /A }", "code()"];
 
-        expect(verifyImportEdits(lines, [removal(0, 2, "using { /A }\nusing { /B }\n")])).toBeNull();
+        expect(verifyImportEdits(lines, [removal(0, 2, "using { /A }\nusing { /B }\n")], [])).toBeNull();
     });
 
     it("passes a consolidation that deletes a block and rewrites it at the top", () => {
         const lines = ["code()", "using { /A }", "using { /B }"];
         const edits = [insertion(0, "using { /A }\nusing { /B }\n"), removal(1, 3)];
 
-        expect(verifyImportEdits(lines, edits)).toBeNull();
+        expect(verifyImportEdits(lines, edits, [])).toBeNull();
     });
 
     // The off-by-one the ticket names: a run reaching one line past the block
@@ -114,13 +116,13 @@ describe("verifyImportEdits", () => {
     it("refuses a range that reaches past the imports onto code", () => {
         const lines = ["using { /A }", "code()"];
 
-        expect(verifyImportEdits(lines, [removal(0, 2, "using { /A }\n")])).toBe('the queued edits remove line 2, which is code rather than an import: "code()"');
+        expect(verifyImportEdits(lines, [removal(0, 2, "using { /A }\n")], [])).toBe('the queued edits remove line 2, which is code rather than an import: "code()"');
     });
 
     it("refuses a deletion that never writes the path back", () => {
         const lines = ["using { /A }", "using { /B }", "code()"];
 
-        expect(verifyImportEdits(lines, [removal(0, 2)])).toBe("the queued edits remove /A, /B without writing it back");
+        expect(verifyImportEdits(lines, [removal(0, 2)], [])).toBe("the queued edits remove /A, /B without writing it back");
     });
 
     // A path written twice is still imported while either line is left alone,
@@ -128,19 +130,19 @@ describe("verifyImportEdits", () => {
     it("passes a deletion that leaves another statement for the same path", () => {
         const lines = ["using { /A }", "using { /A }", "code()"];
 
-        expect(verifyImportEdits(lines, [removal(1, 2)])).toBeNull();
+        expect(verifyImportEdits(lines, [removal(1, 2)], [])).toBeNull();
     });
 
     it("treats a range ending at character 0 as stopping above that line", () => {
         const lines = ["using { /A }", "code()"];
 
-        expect(verifyImportEdits(lines, [removal(0, 1, "using { /A }\n")])).toBeNull();
+        expect(verifyImportEdits(lines, [removal(0, 1, "using { /A }\n")], [])).toBeNull();
     });
 
     it("counts a line a range only partly covers as removed", () => {
         const lines = ["using { /A }", "code()"];
 
-        expect(verifyImportEdits(lines, [{ startLine: 0, startCharacter: 0, endLine: 1, endCharacter: 3, newText: "using { /A }\n" }])).toContain("line 2, which is code");
+        expect(verifyImportEdits(lines, [{ startLine: 0, startCharacter: 0, endLine: 1, endCharacter: 3, newText: "using { /A }\n" }], [])).toContain("line 2, which is code");
     });
 
     // VS Code clamps a range past the end onto the document, so there is no
@@ -148,16 +150,32 @@ describe("verifyImportEdits", () => {
     it("ignores the part of a range that reaches past the last line", () => {
         const lines = ["using { /A }"];
 
-        expect(verifyImportEdits(lines, [removal(0, 5, "using { /A }\n")])).toBeNull();
+        expect(verifyImportEdits(lines, [removal(0, 5, "using { /A }\n")], [])).toBeNull();
     });
 
     // insertImportLines writes past the last line from the end of that line
     // rather than from column 0, which is still an insertion and removes
-    // nothing.
+    // nothing. Its text opens with the break that keeps it off that line.
     it("passes an insertion anchored at the end of the last line", () => {
         const lines = ["using { /A }", "code()"];
         const endOfLastLine: QueuedEdit = { startLine: 1, startCharacter: 6, endLine: 1, endCharacter: 6, newText: "\nusing { /B }" };
 
-        expect(verifyImportEdits(lines, [endOfLastLine])).toBeNull();
+        expect(verifyImportEdits(lines, [endOfLastLine], ["/B"])).toBeNull();
+    });
+
+    // The hazard insertImportLines documents its past-the-end branch to avoid:
+    // the same position with the break missing splices the statement onto the
+    // code already there and leaves one unreadable line where two belong.
+    it("refuses an insertion that splices into the middle of a line", () => {
+        const lines = ["code()"];
+        const spliced: QueuedEdit = { startLine: 0, startCharacter: 6, endLine: 0, endCharacter: 6, newText: "using { /B }\n" };
+
+        expect(verifyImportEdits(lines, [spliced], ["/B"])).toBe('the queued edits splice "using { /B }\\n" into the middle of line 1');
+    });
+
+    it("refuses an import no caller asked for", () => {
+        const lines = ["using { /A }", "code()"];
+
+        expect(verifyImportEdits(lines, [insertion(0, "using { /EVIL }\n")], [])).toBe("the queued edits import /EVIL, which nothing asked for");
     });
 });

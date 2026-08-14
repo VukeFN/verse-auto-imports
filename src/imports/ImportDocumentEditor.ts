@@ -1015,9 +1015,9 @@ export class ImportDocumentEditor {
             }
         }
 
-        const unsafe = verifyImportEdits(lines, queuedEditsFor(edit, document.uri));
-        if (unsafe) {
-            logger.error("ImportDocumentEditor", `Refusing to update imports: ${unsafe}`);
+        const refusal = verifyImportEdits(lines, queuedEditsFor(edit, document.uri), newImportPaths);
+        if (refusal) {
+            logger.error("ImportDocumentEditor", `Refusing to update imports: ${refusal}`);
             return false;
         }
 
@@ -1294,9 +1294,9 @@ export class ImportDocumentEditor {
             return true;
         }
 
-        const unsafe = verifyOrganizedRewrite(text, organized, additionalPaths);
-        if (unsafe) {
-            logger.error("ImportDocumentEditor", `Refusing to organize imports: ${unsafe}`);
+        const refusal = verifyOrganizedRewrite(text, organized, additionalPaths);
+        if (refusal) {
+            logger.error("ImportDocumentEditor", `Refusing to organize imports: ${refusal}`);
             return false;
         }
 

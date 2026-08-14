@@ -24,6 +24,16 @@ interface ScannedFile {
 }
 
 /**
+ * A project file the scan listed but could not open.
+ *
+ * Not a file that declares nothing: a part written in ignorance of one it holds
+ * can disagree with it, which the compiler rejects.
+ */
+interface UnreadableFile {
+    unreadable: vscode.Uri;
+}
+
+/**
  * Applies the `<public>` declarations that make an internal module reachable.
  *
  * The whole project is scanned before anything is written, because a second
@@ -102,7 +112,12 @@ export class ModuleVisibilityWriter {
         // Every module on the path is looked up, the reachable prefix included:
         // the chain written into the definitions file has to nest through them,
         // and a part it writes must repeat whatever they already declare.
-        const { declarations, scanned } = await this.findDeclarations(workspaceFolder, [...prefix, ...segments.map((segment) => segment.name)], definitionsKey);
+        const scan = await this.findDeclarations(workspaceFolder, [...prefix, ...segments.map((segment) => segment.name)], definitionsKey);
+        if ("unreadable" in scan) {
+            return { reason: `'${vscode.workspace.asRelativePath(scan.unreadable, false)}' could not be read, so whether it declares part of '${request.moduleName}' is unknown.` };
+        }
+
+        const { declarations, scanned } = scan;
         const resolved = resolveVisibility(prefix, segments, declarations);
 
         if (resolved.conflicts.length > 0) {
@@ -148,7 +163,11 @@ export class ModuleVisibilityWriter {
         for (const specifierEdit of specifierEdits) {
             const file = scanned.get(specifierEdit.file);
             if (!file) {
-                continue;
+                // Every SpecifierEdit.file is a key findDeclarations put in
+                // `scanned`, so a miss means the two disagree about which files
+                // were read. Skipping the edit would half-apply the module.
+                logger.error("ModuleVisibilityWriter", `No scanned text for ${specifierEdit.file}`);
+                throw new Error(`ModuleVisibilityWriter: no scanned text for ${specifierEdit.file}`);
             }
 
             const { start, end } = specifierEdit.span;
@@ -200,6 +219,9 @@ export class ModuleVisibilityWriter {
      * The definitions file's text, "" when it does not exist, or undefined when
      * it exists but could not be read - which must not be treated as empty,
      * since that would discard whatever it holds.
+     *
+     * The undefined is now rare rather than gone: where findFiles listed the
+     * file, findDeclarations opens it first and refuses there instead.
      */
     private async readDefinitions(uri: vscode.Uri): Promise<string | undefined> {
         try {
@@ -217,14 +239,17 @@ export class ModuleVisibilityWriter {
 
     /**
      * Every explicit declaration of any of these module names in the project,
-     * bound to its Content-relative path, with the text each was read from.
+     * bound to its Content-relative path, with the text each was read from, or
+     * the first file the scan could not open.
      *
      * The whole project is read rather than a capped sample: a declaration
      * missed here becomes a second, possibly conflicting part written into the
      * definitions file, which is a compile error rather than a worse
-     * suggestion. Text comes from openTextDocument, as ProjectPathScanner's
-     * does, so an offset addresses the buffer the edit will be applied to
-     * rather than what is currently on disk.
+     * suggestion. The scan is therefore all-or-nothing: a file it cannot open
+     * stops it, and the caller must fail closed on that rather than proceed on
+     * a partial answer. Text comes from openTextDocument, as
+     * ProjectPathScanner's does, so an offset addresses the buffer the edit will
+     * be applied to rather than what is currently on disk.
      *
      * @param definitionsKey the definitions file, whose text is kept even when
      * it declares none of these modules, because the caller appends to it. A
@@ -235,7 +260,7 @@ export class ModuleVisibilityWriter {
         workspaceFolder: vscode.WorkspaceFolder,
         names: readonly string[],
         definitionsKey: string,
-    ): Promise<{ declarations: FoundDeclaration[]; scanned: Map<string, ScannedFile> }> {
+    ): Promise<{ declarations: FoundDeclaration[]; scanned: Map<string, ScannedFile> } | UnreadableFile> {
         const workspaceIsContent = path.basename(workspaceFolder.uri.fsPath) === CONTENT_FOLDER;
         const searchPattern = workspaceIsContent ? "**/*.verse" : `${CONTENT_FOLDER}/**/*.verse`;
         const verseFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(workspaceFolder, searchPattern), "**/*.digest.verse");
@@ -249,6 +274,12 @@ export class ModuleVisibilityWriter {
                 if (!result) {
                     continue;
                 }
+                if ("unreadable" in result) {
+                    // The caller refuses on this, and reports it, so the rest
+                    // of the scan has nothing left to answer.
+                    logger.debug("ModuleVisibilityWriter", `Stopped the scan at unreadable file ${result.unreadable.toString()}`);
+                    return result;
+                }
                 const key = result.file.uri.toString();
                 if (result.declarations.length > 0 || key === definitionsKey) {
                     scanned.set(key, result.file);
@@ -261,13 +292,21 @@ export class ModuleVisibilityWriter {
         return { declarations, scanned };
     }
 
-    /** The wanted declarations in one file, or null when it holds none, cannot be read, or sits outside Content. */
+    /**
+     * The wanted declarations in one file, null when it holds none or sits
+     * outside Content, or the file itself when it could not be opened.
+     *
+     * The last is not one of the nulls: those two files declare nothing, where
+     * an unopened one is unknown. The outside-Content test runs first and
+     * deliberately - a file there is skipped without ever being opened, so an
+     * unreadable one cannot refuse the request.
+     */
     private async readDeclarations(
         uri: vscode.Uri,
         workspaceFolder: vscode.WorkspaceFolder,
         workspaceIsContent: boolean,
         wanted: ReadonlySet<string>,
-    ): Promise<{ file: ScannedFile; declarations: FoundDeclaration[] } | null> {
+    ): Promise<{ file: ScannedFile; declarations: FoundDeclaration[] } | UnreadableFile | null> {
         const directory = this.contentRelativeDirectory(uri, workspaceFolder, workspaceIsContent);
         if (directory === null) {
             return null;
@@ -277,7 +316,10 @@ export class ModuleVisibilityWriter {
             (document) => document.getText(),
             () => null,
         );
-        if (text === null || !text.includes("module")) {
+        if (text === null) {
+            return { unreadable: uri };
+        }
+        if (!text.includes("module")) {
             return null;
         }
 

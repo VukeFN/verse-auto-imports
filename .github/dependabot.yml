@@ -7,6 +7,12 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "deps"
+    ignore:
+      # Held at the engines.vscode floor so every compile type-checks against
+      # the oldest host the extension claims to support. Raising it is a
+      # deliberate change to that promise, made together with engines.vscode -
+      # and an automerged bump here would undo the guard unnoticed.
+      - dependency-name: "@types/vscode"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"

@@ -64,26 +64,62 @@ const QUALIFIER_RE = /^\((\/[^()]*):\)/;
  */
 const DECL_RE = /^(\w+)((?:<[^>]+>)*)\s*(:=|:|\()/;
 
-/**
- * A parametric type head: an identifier, its specifier groups, a type-parameter
- * list, then `:=` and a declaration keyword, e.g.
- * `subscribable<public>(t:type) := interface:` or
- * `event<native><public>(t:type) := class(signalable(t)):`. Captures name,
- * specifiers, and keyword.
- *
- * This must be checked before {@link DECL_RE}, whose `(` alternative would
- * otherwise mistake the type-parameter list for a function signature and leak the
- * type's members. The parameter list is matched as `\([^)]*\)`: in the digests,
- * type-parameter lists never nest parentheses (nested parens only appear after
- * `:=`, in base-type lists).
- */
-const PARAM_TYPE_DECL_RE = /^(\w+)((?:<[^>]+>)*)\([^)]*\)\s*:=\s*(module|class|struct|interface|enum)\b/;
+/** The start of a parametric type head: an identifier, its specifier groups, and the `(` opening its type-parameter list. */
+const PARAM_TYPE_HEAD_RE = /^(\w+)((?:<[^>]+>)*)\(/;
+
+/** The `:=` and declaration keyword that must follow a parametric type's parameter list. */
+const PARAM_TYPE_TAIL_RE = /^\s*:=\s*(module|class|struct|interface|enum)\b/;
 
 /** Recognizes the declaration keyword after `:=` (module, class, struct, ...). */
 const DECL_KEYWORD_RE = /^\s*(module|class|struct|interface|enum)\b/;
 
 /** Extracts the explicit module import path from a `# Module import path:` comment. */
 const MODULE_PATH_COMMENT_RE = /#\s*Module import path:\s*(\S+)/;
+
+/**
+ * A parametric type declared with a type-parameter list, such as
+ * `subscribable<public>(t:type) := interface:` or
+ * `agent_group<native><public>(member_info:subtype(member_info_interface)) := class(...):`,
+ * or null where the line is not one.
+ *
+ * Must be tried before {@link DECL_RE}, whose `(` alternative would otherwise read
+ * the type-parameter list as a function signature and leak the type's members to
+ * module scope.
+ *
+ * The parameter list is walked for its matching `)` rather than matched by a
+ * regex, because a Verse parenthesized parameter list holds general expressions
+ * (`Paren := '(' List ')' Space`, VerseGrammar.h) and a parameter may itself be
+ * an invocation carrying another paren group, to any depth. Any fixed depth here
+ * would hold only until a digest refresh exceeded it.
+ *
+ * @param work The trimmed line with any scope qualifier prefix already removed.
+ */
+function matchParametricTypeHead(work: string): { name: string; specifiers: string; keyword: string } | null {
+    const head = work.match(PARAM_TYPE_HEAD_RE);
+    if (!head) {
+        return null;
+    }
+
+    let depth = 0;
+    let index = head[0].length - 1;
+    for (; index < work.length; index++) {
+        if (work[index] === "(") {
+            depth++;
+        } else if (work[index] === ")") {
+            depth--;
+            if (depth === 0) {
+                index++;
+                break;
+            }
+        }
+    }
+    if (depth !== 0) {
+        return null;
+    }
+
+    const tail = work.slice(index).match(PARAM_TYPE_TAIL_RE);
+    return tail ? { name: head[1], specifiers: head[2], keyword: tail[1] } : null;
+}
 
 /**
  * Maps a digest file name to the root module domain its top-level declarations
@@ -238,10 +274,9 @@ export function parseDigestContent(content: string, rootDomain: string): ParsedD
         // Parametric type heads (`name<...>(t:type) := interface:`) must be matched
         // before DECL_RE, whose `(` branch would misread the parameter list as a
         // function signature and leak the type's members.
-        const paramType = work.match(PARAM_TYPE_DECL_RE);
+        const paramType = matchParametricTypeHead(work);
         if (paramType) {
-            const paramSpecifiers = paramType[2];
-            recordModuleOrType(paramType[1], paramSpecifiers.includes("<public>"), paramType[3], qualifierPath, indent);
+            recordModuleOrType(paramType.name, paramType.specifiers.includes("<public>"), paramType.keyword, qualifierPath, indent);
             continue;
         }
 

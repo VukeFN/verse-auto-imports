@@ -184,6 +184,49 @@ describe("parseDigestContent - declaration recognition", () => {
         expect(entries["Length"]).toBeUndefined();
     });
 
+    it("records a parametric type head whose parameter list nests parentheses", () => {
+        // A parameter constrained by `subtype(...)` closes a paren inside the
+        // parameter list, so a list matched as `([^)]*)` ends at the wrong `)`.
+        const digest = [
+            "AgentGroup<public> := module:",
+            "    agent_group<native><public>(member_info:subtype(member_info_interface)) := class<unique>(agent_group_interface(member_info)):",
+            "        AddMember<public>(Agent:agent, MemberInfo:member_info)<transacts>:result(void, add_member_error) = external {}",
+            "        AddMemberEvent<override><native><final>:listenable(tuple(agent, member_info)) = external {}",
+        ].join("\n");
+
+        const { entries, moduleIndex } = parseDigestContent(digest, "/Verse.org");
+
+        expect(entries["agent_group"]).toMatchObject({
+            modulePath: "/Verse.org/AgentGroup",
+            type: "class",
+            isPublic: true,
+        });
+        expect(entries["AddMember"]).toBeUndefined();
+        expect(entries["AddMemberEvent"]).toBeUndefined();
+        expect(moduleIndex["/Verse.org/AgentGroup"]).not.toContain("AddMember");
+    });
+
+    it("records a parametric type head whose parameter list nests parentheses more than one deep", () => {
+        // The nesting depth is a property of the digest Epic ships, not of the
+        // language, so the parameter list is walked rather than matched at a depth.
+        const digest = ["Verse<public> := module:", "    deep<public>(t:subtype(container(payload(inner)))) := interface:", "        Unwrap<public>()<transacts>:t = external {}"].join("\n");
+
+        const { entries } = parseDigestContent(digest, "/Verse.org");
+
+        expect(entries["deep"]).toMatchObject({ modulePath: "/Verse.org/Verse", type: "class" });
+        expect(entries["Unwrap"]).toBeUndefined();
+    });
+
+    it("still reads a function whose parameter list nests parentheses as a function", () => {
+        // The balanced walk must not turn every nested-paren head into a type: only
+        // `:=` plus a declaration keyword after the list makes one.
+        const digest = ["Verse<public> := module:", "    MakeGroup<public>(Members:[]tuple(agent, int))<transacts>:agent_group = external {}"].join("\n");
+
+        const { entries } = parseDigestContent(digest, "/Verse.org");
+
+        expect(entries["MakeGroup"]).toMatchObject({ modulePath: "/Verse.org/Verse", type: "function" });
+    });
+
     it("skips receiver-style extension methods", () => {
         const digest = ["Devices<public> := module:", "    (Target:agent).GetName<public>()<transacts>:string = external {}"].join("\n");
 

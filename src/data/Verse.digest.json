@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-08-07T14:31:23.586Z",
+  "generatedAt": "2026-08-14T12:40:55.458Z",
   "sourceFile": "Verse.digest.verse",
   "sourceBuild": "++Fortnite+Release-41.30-CL-56430492",
   "entries": {
@@ -13,19 +13,7 @@
     "chat_channel": {
       "identifier": "chat_channel",
       "modulePath": "/Verse.org/Chat",
-      "type": "function",
-      "isPublic": true
-    },
-    "Name": {
-      "identifier": "Name",
-      "modulePath": "/Verse.org/Chat",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Group": {
-      "identifier": "Group",
-      "modulePath": "/Verse.org/Chat",
-      "type": "variable",
+      "type": "class",
       "isPublic": true
     },
     "has_voice_member_info": {
@@ -37,7 +25,7 @@
     "voice_channel": {
       "identifier": "voice_channel",
       "modulePath": "/Verse.org/Chat",
-      "type": "function",
+      "type": "class",
       "isPublic": true
     },
     "add_channel_error": {
@@ -1015,49 +1003,13 @@
     "agent_group_interface": {
       "identifier": "agent_group_interface",
       "modulePath": "/Verse.org/AgentGroup",
-      "type": "function",
-      "isPublic": true
-    },
-    "GetMemberMap": {
-      "identifier": "GetMemberMap",
-      "modulePath": "/Verse.org/AgentGroup",
-      "type": "function",
-      "isPublic": true
-    },
-    "AddMemberEvent": {
-      "identifier": "AddMemberEvent",
-      "modulePath": "/Verse.org/AgentGroup",
-      "type": "variable",
-      "isPublic": true
-    },
-    "RemoveMemberEvent": {
-      "identifier": "RemoveMemberEvent",
-      "modulePath": "/Verse.org/AgentGroup",
-      "type": "variable",
-      "isPublic": true
-    },
-    "MemberInfoChangeEvent": {
-      "identifier": "MemberInfoChangeEvent",
-      "modulePath": "/Verse.org/AgentGroup",
-      "type": "variable",
+      "type": "class",
       "isPublic": true
     },
     "agent_group": {
       "identifier": "agent_group",
       "modulePath": "/Verse.org/AgentGroup",
-      "type": "function",
-      "isPublic": true
-    },
-    "AddMember": {
-      "identifier": "AddMember",
-      "modulePath": "/Verse.org/AgentGroup",
-      "type": "function",
-      "isPublic": true
-    },
-    "RemoveMember": {
-      "identifier": "RemoveMember",
-      "modulePath": "/Verse.org/AgentGroup",
-      "type": "function",
+      "type": "class",
       "isPublic": true
     },
     "add_member_error": {
@@ -2823,8 +2775,6 @@
     "/Verse.org/Chat": [
       "Chat",
       "chat_channel",
-      "Name",
-      "Group",
       "has_voice_member_info",
       "voice_channel",
       "add_channel_error",
@@ -3010,13 +2960,7 @@
       "AgentGroup",
       "member_info_interface",
       "agent_group_interface",
-      "GetMemberMap",
-      "AddMemberEvent",
-      "RemoveMemberEvent",
-      "MemberInfoChangeEvent",
       "agent_group",
-      "AddMember",
-      "RemoveMember",
       "add_member_error",
       "remove_member_error"
     ],

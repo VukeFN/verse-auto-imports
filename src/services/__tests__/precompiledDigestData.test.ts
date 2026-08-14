@@ -85,4 +85,28 @@ describe("precompiled digest data (41.30)", () => {
             expect(fortnite.entries[leaked]).toBeUndefined();
         }
     });
+
+    it("records parametric types whose parameter list nests parentheses", () => {
+        // These four heads constrain their parameter with `subtype(...)`, so a
+        // parameter list matched at a fixed nesting depth ends at the wrong `)`
+        // and reads the head as a function.
+        for (const id of ["chat_channel", "voice_channel", "agent_group_interface", "agent_group"]) {
+            expect(verse.entries[id]).toBeDefined();
+            expect(verse.entries[id].type).toBe("class");
+        }
+    });
+
+    it("keeps the members of nested-paren parametric types out of module scope", () => {
+        // Every one of these is an ordinary identifier a user could write, so a
+        // phantom entry turns their own unknown-identifier error into a spurious
+        // high-confidence import.
+        for (const leaked of ["Name", "Group"]) {
+            expect(verse.entries[leaked]).toBeUndefined();
+            expect(verse.moduleIndex["/Verse.org/Chat"]).not.toContain(leaked);
+        }
+        for (const leaked of ["GetMemberMap", "AddMember", "RemoveMember", "AddMemberEvent", "RemoveMemberEvent", "MemberInfoChangeEvent"]) {
+            expect(verse.entries[leaked]).toBeUndefined();
+            expect(verse.moduleIndex["/Verse.org/AgentGroup"]).not.toContain(leaked);
+        }
+    });
 });

@@ -1191,6 +1191,32 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         expect(replace!.text.indexOf("/Verse.org/Simulation")).toBeLessThan(replace!.text.indexOf("Features"));
     });
 
+    // A file localFirst organized has two local blocks, one either side of the
+    // digest one. A new absolute local import belongs in the upper one: sending
+    // every local path to the last local block would put it below the digest
+    // group the strategy exists to hoist it above.
+    it("preserve + localFirst: a new absolute local import joins the block above the digest group, a relative one the block below", async () => {
+        mockConfig({
+            "behavior.preserveImportLocations": true,
+            "behavior.importGrouping": "localFirst",
+        });
+        const input = ["using { /mygame@fortnite.com/mygame/Utils }", "", "using { /Verse.org/Simulation }", "", "using { Economy.Shop }", "", "hello := 1"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /mygame@fortnite.com/mygame/Combat }", "using { Features }"]);
+
+        expect(success).toBe(true);
+        const replaces = appliedOperations(0).filter((op) => op.kind === "replace");
+
+        const upper = replaces.find((op) => op.range!.start.line === 0);
+        expect(upper).toBeDefined();
+        expect(upper!.text).toContain("/mygame@fortnite.com/mygame/Combat");
+
+        const lower = replaces.find((op) => op.range!.start.line === 4);
+        expect(lower).toBeDefined();
+        expect(lower!.text).toContain("Features");
+        expect(lower!.text).not.toContain("Combat");
+    });
+
     it("preserve + digestFirst: a new bare local import lands after the dotted local import already in its block", async () => {
         mockConfig({
             "behavior.preserveImportLocations": true,

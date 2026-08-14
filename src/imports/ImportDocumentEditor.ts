@@ -513,9 +513,10 @@ export class ImportDocumentEditor {
      * pushed it below. A pinned line cannot be moved or grouped, so nothing
      * chose that order; the grouping strategy is the user choosing this one.
      *
-     * Within one block no strategy carries an absolute import below a relative
-     * one (ImportFormatter.groupAndFormatImports). This guard is what the block
-     * that function cannot see still needs.
+     * Within one block localFirst no longer carries a digest import below a
+     * relative one (ImportFormatter.groupAndFormatImports), which leaves this
+     * guard the block that function cannot see. Only that pairing: a strategy
+     * preserving written order still emits whatever order the file had.
      */
     private blockKeepsRelativeOrder(importBlocks: ImportBlock[], blockIndex: number, path: string): boolean {
         if (!this.formatter.resolvesAgainstScopeAbove(path)) {
@@ -711,7 +712,8 @@ export class ImportDocumentEditor {
 
             if (hasGrouping && importBlocks.length >= 2) {
                 let digestBlockIndex = -1;
-                let localBlockIndex = -1;
+                let firstLocalBlockIndex = -1;
+                let lastLocalBlockIndex = -1;
 
                 importBlocks.forEach((block, index) => {
                     const blockPaths = block.imports.map((imp) => imp.path);
@@ -724,18 +726,31 @@ export class ImportDocumentEditor {
                     if (hasDigest && !hasLocal) {
                         digestBlockIndex = index;
                     } else if (hasLocal && !hasDigest) {
-                        localBlockIndex = index;
+                        firstLocalBlockIndex = firstLocalBlockIndex === -1 ? index : firstLocalBlockIndex;
+                        lastLocalBlockIndex = index;
                     }
                 });
 
+                // localFirst writes the local imports as two groups either side
+                // of the digest one (ImportFormatter.groupAndFormatImports), so
+                // a file it organized offers two local blocks rather than one.
+                // Which of them a new local path belongs in is the question
+                // selectTargetBlockIndex already answers: an absolute path
+                // needs nothing in scope and goes in the first, a relative one
+                // may resolve through anything above it and goes in the last.
+                // The two indices coincide under every other strategy, which
+                // leaves one local block and the same answer either way.
                 const newDigestPaths: string[] = [];
-                const newLocalPaths: string[] = [];
+                const newLocalAbsolutePaths: string[] = [];
+                const newLocalRelativePaths: string[] = [];
 
                 for (const path of newImportPaths) {
                     if (this.formatter.isDigestImport(path)) {
                         newDigestPaths.push(path);
+                    } else if (this.formatter.resolvesAgainstScopeAbove(path)) {
+                        newLocalRelativePaths.push(path);
                     } else {
-                        newLocalPaths.push(path);
+                        newLocalAbsolutePaths.push(path);
                     }
                 }
 
@@ -765,21 +780,32 @@ export class ImportDocumentEditor {
                     return { taken, unhandled };
                 };
 
-                const digest = splitForBlock(digestBlockIndex, newDigestPaths);
-                const local = splitForBlock(localBlockIndex, newLocalPaths);
+                // Collected per block before any edit is made, because the two
+                // local routes reach the same block under every strategy but
+                // localFirst. Rewriting that block once per route would leave
+                // two replacements over the same lines, and the second would
+                // drop what the first added.
+                const takenByBlock = new Map<number, string[]>();
+                const unhandledPaths: string[] = [];
 
-                if (digest.taken.length > 0) {
-                    this.createBlockReplacementEdit(edit, document, importBlocks[digestBlockIndex], digest.taken, preferDotSyntax, sortAlphabetically, eol);
+                for (const [blockIndex, paths] of [
+                    [digestBlockIndex, newDigestPaths],
+                    [firstLocalBlockIndex, newLocalAbsolutePaths],
+                    [lastLocalBlockIndex, newLocalRelativePaths],
+                ] as Array<[number, string[]]>) {
+                    const { taken, unhandled } = splitForBlock(blockIndex, paths);
+                    if (taken.length > 0) {
+                        takenByBlock.set(blockIndex, [...(takenByBlock.get(blockIndex) ?? []), ...taken]);
+                    }
+                    // Imports no block took: one with no matching block, and
+                    // one its matching block cannot hold - because a pinned
+                    // import keeps it out, or a relative import below it does.
+                    unhandledPaths.push(...unhandled);
                 }
 
-                if (local.taken.length > 0) {
-                    this.createBlockReplacementEdit(edit, document, importBlocks[localBlockIndex], local.taken, preferDotSyntax, sortAlphabetically, eol);
+                for (const blockIndex of [...takenByBlock.keys()].sort((a, b) => a - b)) {
+                    this.createBlockReplacementEdit(edit, document, importBlocks[blockIndex], takenByBlock.get(blockIndex)!, preferDotSyntax, sortAlphabetically, eol);
                 }
-
-                // Imports no block took: one with no matching block, and one
-                // its matching block cannot hold - because a pinned import
-                // keeps it out, or because a relative import below it does.
-                const unhandledPaths = [...digest.unhandled, ...local.unhandled];
 
                 if (unhandledPaths.length > 0) {
                     const desired = importBlocks.length > 0 ? importBlocks[importBlocks.length - 1].end + 1 : 0;

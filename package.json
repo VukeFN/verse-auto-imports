@@ -215,7 +215,7 @@
             "localFirst"
           ],
           "default": "none",
-          "description": "Controls grouping of digest imports (/Verse.org, /Fortnite.com, /UnrealEngine.com) vs local imports. 'none' disables grouping, 'digestFirst' places digest imports before local, 'localFirst' places local imports before digest.",
+          "description": "Controls grouping of digest imports (/Verse.org, /Fortnite.com, /UnrealEngine.com) vs local imports. 'none' disables grouping, 'digestFirst' places digest imports before local, 'localFirst' places local imports before digest except where a local import uses a relative path, which Verse requires to stay below the imports it may resolve through.",
           "order": 13
         },
         "verseAutoImports.behavior.emptyLinesAfterImports": {

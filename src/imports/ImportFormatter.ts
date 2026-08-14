@@ -377,8 +377,9 @@ export class ImportFormatter {
      * local absolutes stay on top - and yields only where the compiler forbids
      * it.
      *
-     * `digestFirst` needs no such split: it already writes every absolute path
-     * above every relative one.
+     * `digestFirst` needs no such split: the only imports it moves are the
+     * digest ones, and it moves them up. Whatever order the local imports were
+     * written in survives, so nothing it does crosses a provider.
      *
      * @param sortAlphabetically Enables the rank sort, which is not alphabetical
      *   order - see sortImportsByRank for why plain alphabetical order breaks
@@ -417,18 +418,26 @@ export class ImportFormatter {
             return this.joinGroups([format(digestImports), format(localImports)]);
         }
 
-        // With nothing to write between them the local imports stay one group:
-        // splitting them by rank would separate imports the strategy never had
-        // a reason to move apart.
+        // With no digest group to write between them the local imports stay one
+        // group: splitting them would separate imports nothing needs apart, and
+        // with the sort off it would reorder what the author wrote. Where there
+        // is a digest group the split happens whatever the sort setting says,
+        // since crossing that group is what stops the file compiling.
         if (digestImports.length === 0) {
             return format(localImports);
         }
 
-        return this.joinGroups([
-            format(localImports.filter((path) => !this.resolvesAgainstScopeAbove(path))),
-            format(digestImports),
-            format(localImports.filter((path) => this.resolvesAgainstScopeAbove(path))),
-        ]);
+        // Partitioned in one pass rather than filtered twice, so the two groups
+        // are complements by construction: predicates that have to stay each
+        // other's negation put a path in both, or in neither, once one is
+        // edited alone.
+        const localAbsolute: string[] = [];
+        const localRelative: string[] = [];
+        for (const path of localImports) {
+            (this.resolvesAgainstScopeAbove(path) ? localRelative : localAbsolute).push(path);
+        }
+
+        return this.joinGroups([format(localAbsolute), format(digestImports), format(localRelative)]);
     }
 
     /**

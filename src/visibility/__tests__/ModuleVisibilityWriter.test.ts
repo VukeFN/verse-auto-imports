@@ -17,7 +17,7 @@ const REQUEST = {
  * Text is served through openTextDocument, which is where production reads it,
  * so an offset a test asserts on addresses the same string the writer parsed.
  */
-const givenProject = (files: Record<string, string>, root = ROOT): void => {
+const givenProject = (files: Record<string, string>, root = ROOT): vscode.Uri[] => {
     (vscode.workspace as any).workspaceFolders = [{ uri: vscode.Uri.file(root), name: root.split("/").pop(), index: 0 }];
 
     const uris = Object.keys(files).map((relative) => vscode.Uri.file(`${root}/${relative}`));
@@ -34,6 +34,18 @@ const givenProject = (files: Record<string, string>, root = ROOT): void => {
         const content = byUri.get(uri.toString());
         return content === undefined ? Promise.reject(new Error("ENOENT")) : Promise.resolve({ getText: () => content });
     });
+
+    return uris;
+};
+
+/**
+ * Adds a file the scan lists but cannot open, as one deleted between findFiles
+ * and the read behaves. Call after givenProject, whose URIs it extends.
+ */
+const alsoListsUnreadable = (listed: readonly vscode.Uri[], relative: string): vscode.Uri => {
+    const uri = vscode.Uri.file(`${ROOT}/${relative}`);
+    (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([...listed, uri]);
+    return uri;
 };
 
 const writer = (): ModuleVisibilityWriter => {
@@ -265,6 +277,43 @@ describe("ModuleVisibilityWriter", () => {
         await writer().makeModulePublic(REQUEST);
 
         expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("could not write"));
+    });
+
+    it("refuses when a project file the scan listed cannot be read", async () => {
+        const listed = givenProject({ "Content/Scripts/main.verse": "using { Gadgets.Tools }\n" });
+        alsoListsUnreadable(listed, "Content/Gadgets/hidden.verse");
+
+        await writer().makeModulePublic(REQUEST);
+
+        expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
+        // A success notification here would report a half-written module as
+        // done, so its absence is half of what the refusal is worth.
+        expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("Content/Gadgets/hidden.verse"));
+    });
+
+    it("refuses even where the files it could read already answer the request", async () => {
+        // Completeness of the scan gates the write, not its result: the file
+        // that could not be read may hold a part of Tools that rewriting this
+        // one would contradict.
+        const listed = givenProject({ "Content/Gadgets/tools.verse": "Tools := module:\n    X:int = 1\n" });
+        alsoListsUnreadable(listed, "Content/Gadgets/more-tools.verse");
+
+        await writer().makeModulePublic(REQUEST);
+
+        expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
+    });
+
+    it("proceeds when the file it could not read sits outside Content", async () => {
+        // The outside-Content test has to stay ahead of the open: a file there
+        // declares nothing the request can contradict, and refusing on one
+        // would stop every project that keeps .verse files outside Content.
+        const listed = givenProject({ "Content/Scripts/main.verse": "using { Gadgets.Tools }\n" });
+        alsoListsUnreadable(listed, "Plugins/other.verse");
+
+        await writer().makeModulePublic(REQUEST);
+
+        expect(appliedOperations()[0]).toMatchObject({ kind: "createFile" });
     });
 
     it("resolves paths without the Content prefix when the workspace is Content itself", async () => {

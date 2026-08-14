@@ -123,6 +123,43 @@ class WorkspaceEdit {
             }
         }
     }
+
+    /**
+     * The text edits recorded here, grouped by uri as real VS Code returns
+     * them: an insert is a TextEdit over the empty range at its position, and a
+     * delete one with no text, which is how the editor stores both. A createFile
+     * is not a text edit and does not appear.
+     */
+    entries(): [unknown, TextEdit[]][] {
+        const byUri = new Map<string, { uri: unknown; edits: TextEdit[] }>();
+
+        for (const operation of this.operations) {
+            const textEdit = WorkspaceEdit.asTextEdit(operation);
+            if (!textEdit) {
+                continue;
+            }
+
+            const key = String(operation.uri);
+            const entry = byUri.get(key) ?? { uri: operation.uri, edits: [] };
+            entry.edits.push(textEdit);
+            byUri.set(key, entry);
+        }
+
+        return [...byUri.values()].map(({ uri, edits }) => [uri, edits]);
+    }
+
+    private static asTextEdit(operation: RecordedEditOperation): TextEdit | null {
+        switch (operation.kind) {
+            case "insert":
+                return new TextEdit(new Range(operation.position!, operation.position!), operation.text!);
+            case "delete":
+                return new TextEdit(operation.range!, "");
+            case "replace":
+                return new TextEdit(operation.range!, operation.text!);
+            default:
+                return null;
+        }
+    }
 }
 
 /**

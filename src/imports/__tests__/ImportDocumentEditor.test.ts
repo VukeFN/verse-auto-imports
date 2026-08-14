@@ -2259,6 +2259,156 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
     });
 });
 
+/**
+ * Both writers read their own output back before applying it, so a composition
+ * bug reaches the user as a refused edit rather than as text silently missing
+ * from the file.
+ *
+ * The bug has to be injected: the point of the check is the bug nobody has
+ * written yet, and a writer that is currently correct cannot demonstrate it.
+ */
+describe("ImportDocumentEditor rewrite verification", () => {
+    let editor: ImportDocumentEditor;
+    const applyEditMock = () => vscode.workspace.applyEdit as unknown as jest.Mock;
+
+    beforeEach(() => {
+        const outputChannel = vscode.window.createOutputChannel("test");
+        editor = new ImportDocumentEditor(outputChannel, new ImportFormatter());
+        applyEditMock().mockClear();
+    });
+
+    it("refuses to organize when the rebuild loses a line of code", async () => {
+        const input = "using { /B }\nusing { /A }\ncode()\nmore()";
+        jest.spyOn(editor, "buildOrganizedContent").mockReturnValue("using { /A }\nusing { /B }\n\ncode()");
+
+        const success = await editor.organizeImports(fakeDocument(input), []);
+
+        expect(success).toBe(false);
+        expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
+    it("refuses to organize when the rebuild drops an import", async () => {
+        const input = "using { /B }\nusing { /A }\ncode()";
+        jest.spyOn(editor, "buildOrganizedContent").mockReturnValue("using { /A }\n\ncode()");
+
+        const success = await editor.organizeImports(fakeDocument(input), []);
+
+        expect(success).toBe(false);
+        expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
+    it("organizes as usual when the rebuild is sound", async () => {
+        const input = "using { /B }\nusing { /A }\ncode()";
+
+        const success = await editor.organizeImports(fakeDocument(input), []);
+
+        expect(success).toBe(true);
+        expect(appliedOperations(0)[0].text).toBe("using { /A }\nusing { /B }\n\ncode()");
+    });
+
+    // The off-by-one the ticket names, on the path that has no output text to
+    // read: a hoisted run reaching one line past its block deletes the code
+    // line below it.
+    it("refuses to add imports when a queued deletion reaches onto code", async () => {
+        const input = "using { /A }\ncode()";
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValueOnce({
+            get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => (key === "behavior.preserveImportLocations" ? false : defaultValue)),
+            update: jest.fn().mockResolvedValue(undefined),
+        });
+        jest.spyOn(editor as unknown as { hoistedRuns: () => Array<{ start: number; end: number }> }, "hoistedRuns").mockReturnValue([{ start: 0, end: 1 }]);
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /B }"]);
+
+        expect(success).toBe(false);
+        expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
+    it("adds imports as usual when the queued edits touch nothing but imports", async () => {
+        const input = "using { /A }\ncode()";
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /B }"]);
+
+        expect(success).toBe(true);
+        expect(appliedOperations(0)[0].text).toContain("using { /B }");
+    });
+
+    // insertImportLines documents its past-the-end branch as the thing standing
+    // between the writer and "one unreadable line where two belong". An
+    // insertion carries no range, so nothing else here would notice.
+    it("refuses to add imports when an insertion splices onto a line of code", async () => {
+        type InsertImportLines = (edit: vscode.WorkspaceEdit, document: vscode.TextDocument, line: number, statements: string[], eol: string, blankLineAfter: boolean) => void;
+        jest.spyOn(editor as unknown as { insertImportLines: InsertImportLines }, "insertImportLines").mockImplementation((edit, document, _line, statements, eol) => {
+            edit.insert(document.uri, new vscode.Position(0, "code()".length), statements.join(eol) + eol);
+        });
+
+        const success = await editor.addImportsToDocument(fakeDocument("code()"), ["using { /B }"]);
+
+        expect(success).toBe(false);
+        expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
+    /**
+     * The guard refuses edits, so a false positive is the extension silently
+     * ceasing to import. This is the net for that: every document shape the
+     * writers treat differently, against every setting combination that picks a
+     * different branch, all of which must still reach applyEdit.
+     */
+    describe("does not refuse a correct rewrite", () => {
+        const documents: Array<[string, string]> = [
+            ["an empty file", ""],
+            ["no trailing newline", "using { /A }\ncode()"],
+            ["a trailing newline", "using { /A }\ncode()\n"],
+            ["CRLF", "using { /A }\r\ncode()\r\n"],
+            ["only imports", "using { /A }\nusing { /B }"],
+            ["no imports at all", "code()\nmore()"],
+            ["a header comment", "# licence\n\nusing { /A }\n\ncode()"],
+            ["an annotated import", "# why /A is here\nusing { /A }\n\ncode()"],
+            ["an import pinned by a second statement", "X := 1; using { /A }\ncode()"],
+            ["a commented-out import", "<#\nusing { /Old }\n#>\nusing { /A }\n\ncode()"],
+            ["an indented using pair", "using{\n    /A\n}\ncode()"],
+            ["a using inside a module body", "using { /A }\n\nM := module:\n    using { /B }\n    F():void = {}"],
+            ["two gapped blocks", "using { /A }\n\nusing { Local.One }\n\ncode()"],
+            ["a relative import under an absolute one", "using { /A }\nusing { Local.One }\n\ncode()"],
+        ];
+
+        const settings: Array<[string, Record<string, unknown>]> = [
+            ["defaults", {}],
+            ["consolidating", { "behavior.preserveImportLocations": false }],
+            ["consolidating, unsorted", { "behavior.preserveImportLocations": false, "behavior.sortImportsAlphabetically": false }],
+            ["grouped local first", { "behavior.importGrouping": "localFirst" }],
+            ["grouped digest first, consolidating", { "behavior.importGrouping": "digestFirst", "behavior.preserveImportLocations": false }],
+            ["dot syntax, consolidating", { "behavior.importSyntax": "dot", "behavior.preserveImportLocations": false }],
+        ];
+
+        /** Answers `overrides`, and the declared default for everything else. */
+        function useSettings(overrides: Record<string, unknown>): void {
+            (vscode.workspace.getConfiguration as jest.Mock).mockReturnValueOnce({
+                get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => (key in overrides ? overrides[key] : defaultValue)),
+                update: jest.fn().mockResolvedValue(undefined),
+            });
+        }
+
+        for (const [documentName, input] of documents) {
+            for (const [settingsName, overrides] of settings) {
+                it(`adds an import to ${documentName} with ${settingsName}`, async () => {
+                    useSettings(overrides);
+
+                    const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
+
+                    expect(success).toBe(true);
+                    expect(applyEditMock()).toHaveBeenCalled();
+                });
+
+                it(`organizes ${documentName} with ${settingsName}`, async () => {
+                    useSettings(overrides);
+
+                    await expect(editor.organizeImports(fakeDocument(input), ["/Fortnite.com/Devices"])).resolves.toBe(true);
+                });
+            }
+        }
+    });
+});
+
 describe("ImportDocumentEditor.ensureEmptyLinesAfterImports", () => {
     let editor: ImportDocumentEditor;
     const applyEditMock = () => vscode.workspace.applyEdit as unknown as jest.Mock;

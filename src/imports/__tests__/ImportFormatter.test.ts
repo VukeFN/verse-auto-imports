@@ -298,9 +298,33 @@ describe("ImportFormatter.groupAndFormatImports", () => {
         expect(result).toEqual(["using { /Verse.org/Simulation }", "", "using { Zeta }", "using { Economy.Shop }"]);
     });
 
-    it("localFirst with sorting: local group precedes the digest group", () => {
-        const result = formatter.groupAndFormatImports(["/Verse.org/Simulation", "Economy.Shop", "Features"], false, true, "localFirst");
-        expect(result).toEqual(["using { Economy.Shop }", "using { Features }", "", "using { /Verse.org/Simulation }"]);
+    it("localFirst with sorting: the local absolute group precedes the digest group", () => {
+        const result = formatter.groupAndFormatImports(["/Verse.org/Simulation", "/mygame@fortnite.com/mygame/Utils", "/mygame@fortnite.com/mygame/Combat"], false, true, "localFirst");
+        expect(result).toEqual(["using { /mygame@fortnite.com/mygame/Combat }", "using { /mygame@fortnite.com/mygame/Utils }", "", "using { /Verse.org/Simulation }"]);
+    });
+
+    // A relative path resolves its first segment against what the `using`
+    // statements above it brought into scope, so a digest import written below
+    // one that resolves through it stops the file compiling. localFirst yields
+    // for the relative imports and keeps the preference for the absolute ones.
+    it("localFirst: the relative local imports go below the digest group, the absolute ones stay above it", () => {
+        const result = formatter.groupAndFormatImports(["/Verse.org/Simulation", "Economy.Shop", "/mygame@fortnite.com/mygame/Utils", "Features"], false, true, "localFirst");
+        expect(result).toEqual(["using { /mygame@fortnite.com/mygame/Utils }", "", "using { /Verse.org/Simulation }", "", "using { Economy.Shop }", "using { Features }"]);
+    });
+
+    it("localFirst without sorting: the relative locals keep their written order below the digest group", () => {
+        const result = formatter.groupAndFormatImports(["/Verse.org/Simulation", "Features", "Economy.Shop"], false, false, "localFirst");
+        expect(result).toEqual(["using { /Verse.org/Simulation }", "", "using { Features }", "using { Economy.Shop }"]);
+    });
+
+    it("localFirst with no absolute local import opens no blank line above the digest group", () => {
+        const result = formatter.groupAndFormatImports(["/Verse.org/Simulation", "Economy.Shop"], false, true, "localFirst");
+        expect(result).toEqual(["using { /Verse.org/Simulation }", "", "using { Economy.Shop }"]);
+    });
+
+    it("localFirst with no digest import writes one group and no blank line", () => {
+        const result = formatter.groupAndFormatImports(["/mygame@fortnite.com/mygame/Utils", "Economy.Shop"], false, true, "localFirst");
+        expect(result).toEqual(["using { /mygame@fortnite.com/mygame/Utils }", "using { Economy.Shop }"]);
     });
 
     // An out-of-enum value reaches here from a hand-edited settings.json, a case

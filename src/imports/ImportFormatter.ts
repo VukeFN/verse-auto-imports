@@ -365,7 +365,21 @@ export class ImportFormatter {
 
     /**
      * The formatted `using` statements for a set of paths, with an empty string
-     * between the two groups when a grouping strategy puts imports in both.
+     * between each pair of groups a grouping strategy puts imports in.
+     *
+     * `localFirst` writes three groups rather than two once the paths include a
+     * digest import: the local absolute paths, then the digest ones, then the
+     * local relative paths. A relative path resolves its first segment against
+     * what the `using` statements above it brought into scope
+     * (resolvesAgainstScopeAbove), so a digest import written below one that
+     * resolves through it stops the file compiling. The preference is honoured
+     * wherever it is free - an absolute path needs nothing above it, so the
+     * local absolutes stay on top - and yields only where the compiler forbids
+     * it.
+     *
+     * `digestFirst` needs no such split: the only imports it moves are the
+     * digest ones, and it moves them up. Whatever order the local imports were
+     * written in survives, so nothing it does crosses a provider.
      *
      * @param sortAlphabetically Enables the rank sort, which is not alphabetical
      *   order - see sortImportsByRank for why plain alphabetical order breaks
@@ -398,18 +412,42 @@ export class ImportFormatter {
             localImports = this.sortImportsByRank(localImports);
         }
 
-        const formattedDigestImports = digestImports.map((path) => this.formatImportStatement(path, preferDotSyntax));
-        const formattedLocalImports = localImports.map((path) => this.formatImportStatement(path, preferDotSyntax));
+        const format = (paths: string[]): string[] => paths.map((path) => this.formatImportStatement(path, preferDotSyntax));
 
-        // Only the two grouped strategies reach here, so the pair covers both.
-        const [firstGroup, secondGroup] = importGrouping === "digestFirst" ? [formattedDigestImports, formattedLocalImports] : [formattedLocalImports, formattedDigestImports];
-
-        const formattedImports: string[] = [...firstGroup];
-        if (firstGroup.length > 0 && secondGroup.length > 0) {
-            formattedImports.push("");
+        if (importGrouping === "digestFirst") {
+            return this.joinGroups([format(digestImports), format(localImports)]);
         }
-        formattedImports.push(...secondGroup);
 
-        return formattedImports;
+        // With no digest group to write between them the local imports stay one
+        // group: splitting them would separate imports nothing needs apart, and
+        // with the sort off it would reorder what the author wrote. Where there
+        // is a digest group the split happens whatever the sort setting says,
+        // since crossing that group is what stops the file compiling.
+        if (digestImports.length === 0) {
+            return format(localImports);
+        }
+
+        // Partitioned in one pass rather than filtered twice, so the two groups
+        // are complements by construction: predicates that have to stay each
+        // other's negation put a path in both, or in neither, once one is
+        // edited alone.
+        const localAbsolute: string[] = [];
+        const localRelative: string[] = [];
+        for (const path of localImports) {
+            (this.resolvesAgainstScopeAbove(path) ? localRelative : localAbsolute).push(path);
+        }
+
+        return this.joinGroups([format(localAbsolute), format(digestImports), format(localRelative)]);
+    }
+
+    /**
+     * The groups run together with one empty string between each adjacent pair.
+     *
+     * An empty group contributes no separator of its own, so a strategy whose
+     * groups do not all have imports writes one blank line between the ones that
+     * do, rather than opening or closing the run with a stray blank line.
+     */
+    private joinGroups(groups: string[][]): string[] {
+        return groups.filter((group) => group.length > 0).reduce<string[]>((result, group) => (result.length === 0 ? [...group] : [...result, "", ...group]), []);
     }
 }

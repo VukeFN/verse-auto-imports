@@ -144,7 +144,10 @@ live digest emits `<scoped {...}>` specifiers and instance declarations).
 1. [ ] importSyntax curly -> dot: optimize rewrites the block to `using.`
        style; flip back and it returns (idempotent on repeat runs).
 2. [ ] importGrouping digestFirst: digest imports first, blank line, then
-       `Gadgets.Tools`. localFirst reverses. none keeps flat.
+       `Gadgets.Tools`. localFirst matches it here -- `Gadgets.Tools` is a
+       relative path, which stays below the imports it may resolve through,
+       and the fixture has no absolute local import for localFirst to hoist.
+       none keeps flat.
 3. [ ] sortImportsAlphabetically respected within groups.
 4. [ ] behavior.emptyLinesAfterImports honored after each optimize.
 

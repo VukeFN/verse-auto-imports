@@ -1169,6 +1169,54 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         expect(insertsAtTop).toHaveLength(0);
     });
 
+    // Regrouping an ungrouped block writes the whole block, so localFirst gets
+    // to move the digest import there. Below a relative import that may resolve
+    // through it, the file stops compiling.
+    it("preserve + localFirst: regrouping a block keeps the digest import above the relative ones", async () => {
+        mockConfig({
+            "behavior.preserveImportLocations": true,
+            "behavior.importGrouping": "localFirst",
+        });
+        const header = ["# Header comment line 1", "# Header comment line 2", ""];
+        const input = [...header, "using { /Verse.org/Simulation }", "using { Economy.Shop }", "", "hello := 1"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
+
+        expect(success).toBe(true);
+        const operations = appliedOperations(0);
+
+        const replace = operations.find((op) => op.kind === "replace");
+        expect(replace).toBeDefined();
+        expect(replace!.text.indexOf("/Verse.org/Simulation")).toBeLessThan(replace!.text.indexOf("Economy.Shop"));
+        expect(replace!.text.indexOf("/Verse.org/Simulation")).toBeLessThan(replace!.text.indexOf("Features"));
+    });
+
+    // A file localFirst organized has two local blocks, one either side of the
+    // digest one. A new absolute local import belongs in the upper one: sending
+    // every local path to the last local block would put it below the digest
+    // group the strategy exists to hoist it above.
+    it("preserve + localFirst: a new absolute local import joins the block above the digest group, a relative one the block below", async () => {
+        mockConfig({
+            "behavior.preserveImportLocations": true,
+            "behavior.importGrouping": "localFirst",
+        });
+        const input = ["using { /mygame@fortnite.com/mygame/Utils }", "", "using { /Verse.org/Simulation }", "", "using { Economy.Shop }", "", "hello := 1"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /mygame@fortnite.com/mygame/Combat }", "using { Features }"]);
+
+        expect(success).toBe(true);
+        const replaces = appliedOperations(0).filter((op) => op.kind === "replace");
+
+        const upper = replaces.find((op) => op.range!.start.line === 0);
+        expect(upper).toBeDefined();
+        expect(upper!.text).toContain("/mygame@fortnite.com/mygame/Combat");
+
+        const lower = replaces.find((op) => op.range!.start.line === 4);
+        expect(lower).toBeDefined();
+        expect(lower!.text).toContain("Features");
+        expect(lower!.text).not.toContain("Combat");
+    });
+
     it("preserve + digestFirst: a new bare local import lands after the dotted local import already in its block", async () => {
         mockConfig({
             "behavior.preserveImportLocations": true,

@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { logger } from "../utils";
 import { ImportFormatter } from "./ImportFormatter";
+import { QueuedEdit, verifyImportEdits, verifyOrganizedRewrite } from "./ImportRewriteGuard";
 import { allUsingPaths, classifyLines, indentedPairPathLine, LINE_SPLIT, LineClassification, pinnedImports, rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
 
 /**
@@ -50,6 +51,27 @@ function documentEol(document: vscode.TextDocument): LineEnding {
  */
 function resolveEol(document: vscode.TextDocument, text: string): LineEnding {
     return detectEol(text) ?? documentEol(document);
+}
+
+/**
+ * The edits queued for one document, in the shape ImportRewriteGuard reads.
+ *
+ * Taken from the WorkspaceEdit rather than recorded as the writers build it, so
+ * the guard answers for what is about to be applied rather than for what some
+ * parallel bookkeeping says was meant.
+ */
+function queuedEditsFor(edit: vscode.WorkspaceEdit, uri: vscode.Uri): QueuedEdit[] {
+    return edit
+        .entries()
+        .filter(([entryUri]) => entryUri.toString() === uri.toString())
+        .flatMap(([, edits]) => edits)
+        .map((textEdit) => ({
+            startLine: textEdit.range.start.line,
+            startCharacter: textEdit.range.start.character,
+            endLine: textEdit.range.end.line,
+            endCharacter: textEdit.range.end.character,
+            newText: textEdit.newText,
+        }));
 }
 
 /**
@@ -993,6 +1015,12 @@ export class ImportDocumentEditor {
             }
         }
 
+        const unsafe = verifyImportEdits(lines, queuedEditsFor(edit, document.uri));
+        if (unsafe) {
+            logger.error("ImportDocumentEditor", `Refusing to update imports: ${unsafe}`);
+            return false;
+        }
+
         try {
             const success = await vscode.workspace.applyEdit(edit);
             logger.info("ImportDocumentEditor", success ? "Successfully updated imports in document" : "Failed to update imports in document");
@@ -1264,6 +1292,12 @@ export class ImportDocumentEditor {
         if (organized === null || organized === text) {
             logger.debug("ImportDocumentEditor", "No import changes needed by organize");
             return true;
+        }
+
+        const unsafe = verifyOrganizedRewrite(text, organized, additionalPaths);
+        if (unsafe) {
+            logger.error("ImportDocumentEditor", `Refusing to organize imports: ${unsafe}`);
+            return false;
         }
 
         const edit = new vscode.WorkspaceEdit();

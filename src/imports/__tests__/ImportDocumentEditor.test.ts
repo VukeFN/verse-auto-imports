@@ -2211,6 +2211,80 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
     });
 });
 
+/**
+ * Both writers read their own output back before applying it (#386), so a
+ * composition bug reaches the user as a refused edit rather than as text
+ * silently missing from the file.
+ *
+ * The bug has to be injected: the point of the check is the bug nobody has
+ * written yet, and a writer that is currently correct cannot demonstrate it.
+ */
+describe("ImportDocumentEditor rewrite verification", () => {
+    let editor: ImportDocumentEditor;
+    const applyEditMock = () => vscode.workspace.applyEdit as unknown as jest.Mock;
+
+    beforeEach(() => {
+        const outputChannel = vscode.window.createOutputChannel("test");
+        editor = new ImportDocumentEditor(outputChannel, new ImportFormatter());
+        applyEditMock().mockClear();
+    });
+
+    it("refuses to organize when the rebuild loses a line of code", async () => {
+        const input = "using { /B }\nusing { /A }\ncode()\nmore()";
+        jest.spyOn(editor, "buildOrganizedContent").mockReturnValue("using { /A }\nusing { /B }\n\ncode()");
+
+        const success = await editor.organizeImports(fakeDocument(input), []);
+
+        expect(success).toBe(false);
+        expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
+    it("refuses to organize when the rebuild drops an import", async () => {
+        const input = "using { /B }\nusing { /A }\ncode()";
+        jest.spyOn(editor, "buildOrganizedContent").mockReturnValue("using { /A }\n\ncode()");
+
+        const success = await editor.organizeImports(fakeDocument(input), []);
+
+        expect(success).toBe(false);
+        expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
+    it("organizes as usual when the rebuild is sound", async () => {
+        const input = "using { /B }\nusing { /A }\ncode()";
+
+        const success = await editor.organizeImports(fakeDocument(input), []);
+
+        expect(success).toBe(true);
+        expect(appliedOperations(0)[0].text).toBe("using { /A }\nusing { /B }\n\ncode()");
+    });
+
+    // The off-by-one the ticket names, on the path that has no output text to
+    // read: a hoisted run reaching one line past its block deletes the code
+    // line below it.
+    it("refuses to add imports when a queued deletion reaches onto code", async () => {
+        const input = "using { /A }\ncode()";
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValueOnce({
+            get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => (key === "behavior.preserveImportLocations" ? false : defaultValue)),
+            update: jest.fn().mockResolvedValue(undefined),
+        });
+        jest.spyOn(editor as unknown as { hoistedRuns: () => Array<{ start: number; end: number }> }, "hoistedRuns").mockReturnValue([{ start: 0, end: 1 }]);
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /B }"]);
+
+        expect(success).toBe(false);
+        expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
+    it("adds imports as usual when the queued edits touch nothing but imports", async () => {
+        const input = "using { /A }\ncode()";
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /B }"]);
+
+        expect(success).toBe(true);
+        expect(appliedOperations(0)[0].text).toContain("using { /B }");
+    });
+});
+
 describe("ImportDocumentEditor.ensureEmptyLinesAfterImports", () => {
     let editor: ImportDocumentEditor;
     const applyEditMock = () => vscode.workspace.applyEdit as unknown as jest.Mock;

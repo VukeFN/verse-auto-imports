@@ -2,23 +2,27 @@ import * as fs from "fs";
 import * as path from "path";
 import { parseDigestContent, rootDomainForDigestFile } from "../digestParsing";
 import { BUNDLED_DIGEST_NAMES, digestSourceFile } from "../digestManifest";
+import { lineIndentWidth } from "../../utils/verseText";
 
 /**
  * Refresh-time invariant sweep over the bundled `.verse` digests.
  *
- * Every other digest test pins hand-picked identifiers, which is why the parser
- * shipped four misparsed parametric heads and eight leaked members while its
- * "records parametric types but not their members" test stayed green. These
- * assertions instead hold for every declaration in every bundled digest, so a
- * future Epic drop carrying a shape the parser does not handle fails here rather
- * than reaching `src/data`.
+ * Every other digest test pins hand-picked identifiers, so it holds only for the
+ * names someone thought to list. These assertions hold for every declaration in
+ * all three bundled digests, so a refresh carrying a shape the parser mishandles
+ * fails here rather than reaching `src/data`.
  *
- * The walk below is deliberately a second, independent implementation. Deriving
- * the expectation from the parser under test would only restate whatever the
- * parser does, which is the failure mode this file exists to catch. It stays
- * coarse on purpose: it reads any module-scope line as declaring its leading
- * identifier, so it can only ever admit more names than the parser should, never
- * fewer.
+ * What the walk below buys, and what it does not, because the difference is easy
+ * to overread: it re-derives head recognition rather than calling the parser, so
+ * it catches a regression in `matchParametricTypeHead`. It does NOT catch a
+ * declaration shape that it and the parser misread alike, because it encodes the
+ * same head grammar - a paren inside a string literal on the head line is one.
+ * Closing that gap needs a rule taken from the compiler grammar, not a second
+ * reading of the same digests.
+ *
+ * The leak check compares names rather than declaration lines, a `DigestEntry`
+ * carrying no line number. A member whose name also occurs at module scope
+ * elsewhere in the same file is therefore invisible to it.
  */
 
 const UTILS_DIR = path.resolve(__dirname, "..", "..", "utils");
@@ -49,20 +53,6 @@ interface DigestWalk {
     moduleScopeNames: Set<string>;
     /** Every parametric type head found at module scope. */
     parametricHeads: ParametricHead[];
-}
-
-function indentWidth(rawLine: string): number {
-    let width = 0;
-    for (const character of rawLine) {
-        if (character === " ") {
-            width += 1;
-        } else if (character === "\t") {
-            width += 4;
-        } else {
-            break;
-        }
-    }
-    return width;
 }
 
 /**
@@ -115,7 +105,7 @@ function walkDigest(content: string): DigestWalk {
             continue;
         }
 
-        const indent = indentWidth(rawLine);
+        const indent = lineIndentWidth(rawLine);
         while (typeBodyIndents.length > 0 && indent <= typeBodyIndents[typeBodyIndents.length - 1]) {
             typeBodyIndents.pop();
         }

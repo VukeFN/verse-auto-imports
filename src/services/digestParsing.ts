@@ -271,9 +271,7 @@ export function parseDigestContent(content: string, rootDomain: string): ParsedD
             continue;
         }
 
-        // Parametric type heads (`name<...>(t:type) := interface:`) must be matched
-        // before DECL_RE, whose `(` branch would misread the parameter list as a
-        // function signature and leak the type's members.
+        // Before DECL_RE: the order is load-bearing, and matchParametricTypeHead says why.
         const paramType = matchParametricTypeHead(work);
         if (paramType) {
             recordModuleOrType(paramType.name, paramType.specifiers.includes("<public>"), paramType.keyword, qualifierPath, indent);

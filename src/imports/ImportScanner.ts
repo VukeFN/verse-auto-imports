@@ -145,7 +145,7 @@ export function classifyLines(lines: string[]): LineClassification[] {
     // interpolation is a state scanLine has just declined to read, since the
     // line holding it is re-lexed with literal tracking off; carrying it would
     // resume a literal on the next line that this line was never lexed as.
-    const state: LexState = { depth: 0, markerIndent: null, openFrames: [] };
+    const state: LexState = { depth: 0, markerIndent: null, openFrames: [], lineComment: null };
 
     for (let i = 0; i < lines.length; i++) {
         const scan = scanLine(lines[i], state);
@@ -163,6 +163,7 @@ export function classifyLines(lines: string[]): LineClassification[] {
 
         state.depth = scan.depth;
         state.markerIndent = scan.markerIndent;
+        state.lineComment = scan.lineComment;
     }
 
     return classifications;
@@ -423,11 +424,16 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
     //
     // A span always starts at depth 0: lines inside a block comment are skipped
     // below, and the `using:` opening an indented pair holds no `#` to open one
-    // on the path line. Only depth 0 yields opensIndentedComment, so a `<#>`
-    // inside a block comment on the same span cannot be mistaken for a marker.
+    // on the path line. The state starts fresh here, so a `<#>` inside a block
+    // comment on the same span cannot be mistaken for a marker: only a marker
+    // this span itself opened can yield opensIndentedComment.
+    //
+    // A marker whose tail opens a block defers its body to a line below, so it
+    // yields no opensIndentedComment on the span at all; the unclosed depth left
+    // at the end is what reports it, and reports it as the opener it also is.
     const anchorsCommentBelow = (startLine: number, endLine: number): boolean => {
         // Empty and never carried, for the reason classifyLines gives.
-        const state: LexState = { depth: 0, markerIndent: null, openFrames: [] };
+        const state: LexState = { depth: 0, markerIndent: null, openFrames: [], lineComment: null };
         for (let line = startLine; line <= endLine; line++) {
             const scan = scanLine(lines[line], state);
             if (scan.opensIndentedComment) {
@@ -435,6 +441,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
             }
             state.depth = scan.depth;
             state.markerIndent = scan.markerIndent;
+            state.lineComment = scan.lineComment;
         }
         return state.depth > 0;
     };

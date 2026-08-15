@@ -36,7 +36,7 @@ export { indentOf };
  * `}`, `"` and `\` inside one.
  */
 export function maskCommentsAndStrings(content: string): string {
-    const state: LexState = { depth: 0, markerIndent: null, openFrames: [] };
+    const state: LexState = { depth: 0, markerIndent: null, openFrames: [], lineComment: null };
     // Split on "\n" alone so a CRLF line keeps its "\r" and the masked line is
     // exactly as long as the line it replaces; joining then rebuilds the file
     // byte for byte.
@@ -47,6 +47,7 @@ export function maskCommentsAndStrings(content: string): string {
             state.depth = lexed.depth;
             state.markerIndent = lexed.markerIndent;
             state.openFrames = lexed.openFrames;
+            state.lineComment = lexed.lineComment;
             return lexed.masked;
         })
         .join("\n");

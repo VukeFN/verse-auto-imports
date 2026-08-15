@@ -214,13 +214,29 @@ describe("ModuleVisibilityWriter", () => {
         expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("re-declaring Gadgets and Gadgets/Deep"));
     });
 
+    it("punctuates a list of repeats so a path carrying a keyword cannot be read as two", async () => {
+        // One conflict per declared ancestor, so three is ordinary rather than
+        // exotic. Joined with bare "and" throughout, the keyword clause fuses
+        // with the path after it and the reader cannot tell them apart.
+        givenProject({ "Content/_definitions.verse": "Gadgets := module:\n    Deep := module:\n        Tools<internal> := module {}\n" });
+
+        await writer().makeModulePublic({
+            targetPath: `${PROJECT}/Gadgets/Deep/Tools/More`,
+            importerPath: `${PROJECT}/Scripts`,
+            moduleName: "More",
+        });
+
+        const [warning] = (vscode.window.showWarningMessage as jest.Mock).mock.calls[0];
+        expect(warning).toContain("re-declaring Gadgets, Gadgets/Deep, and Gadgets/Deep/Tools (declared internal)");
+    });
+
     it("refuses when an ancestor is declared in a user file, naming the declaration the chain would repeat", async () => {
         givenProject({ "Content/gadgets.verse": "Gadgets<internal> := module:\n    X:int = 1\n" });
 
         await writer().makeModulePublic(REQUEST);
 
         expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
-        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("re-declaring Gadgets, declared internal"));
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("re-declaring Gadgets (declared internal)"));
     });
 
     it("edits an existing declaration instead of writing a second part", async () => {
@@ -261,7 +277,7 @@ describe("ModuleVisibilityWriter", () => {
         expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
         // "widening" is what separates this refusal from the nesting one below;
         // the module name alone appears in both.
-        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("widening Gadgets/Tools, declared private"));
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("widening Gadgets/Tools (declared private)"));
     });
 
     it("refuses to declare a module inside a scoped one, without quoting it as a specifier it is not", async () => {
@@ -271,7 +287,7 @@ describe("ModuleVisibilityWriter", () => {
 
         expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
         const [warning] = (vscode.window.showWarningMessage as jest.Mock).mock.calls[0];
-        expect(warning).toContain("declaring a module inside Gadgets, declared scoped");
+        expect(warning).toContain("declaring a module inside Gadgets (declared scoped)");
         // The declaration reads `<scoped{Scripts}>`; printing `<scoped>` would
         // quote the file as saying something that does not compile.
         expect(warning).not.toContain("<scoped>");

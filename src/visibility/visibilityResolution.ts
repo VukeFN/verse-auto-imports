@@ -77,10 +77,9 @@ const PUBLIC_SPECIFIER = "<public>";
  * The edits and the declaration chain that make the planned segments reachable.
  *
  * A module's access level comes from its first explicit part, and every later
- * part must repeat the same specifier or the compiler raises
- * `ErrSemantic_MismatchedPartialAttributes` - so where a module is already
- * declared, EVERY part of it is rewritten rather than one, and the chain
- * repeats whatever specifier the project already declares.
+ * part must carry the same specifier or the compiler raises
+ * `ErrSemantic_MismatchedPartialAttributes`. That is why a module the project
+ * already declares has EVERY part of it rewritten rather than one.
  *
  * Three kinds of module are reported as conflicts rather than written. One
  * declared anything other than `<public>` or `<internal>` is a deliberate
@@ -96,9 +95,12 @@ const PUBLIC_SPECIFIER = "<public>";
  * carries is reported, and only a module with no declaration at all is safe to
  * write.
  *
- * A conflict does not empty the chain: it still describes what a write would
- * have put in the file, so the caller can report it. Refusing is the caller's
- * job.
+ * A conflict leaves the chain intact rather than emptying it, so the caller can
+ * name the nesting it refused. One consequence is worth knowing before editing
+ * either half: because every declared module the retained chain carries is a
+ * `repeat`, a specifier this function copies off an existing declaration only
+ * ever describes that nesting, and never reaches a file. Refusing is the
+ * caller's job.
  *
  * @param prefix Content-relative segments above the planned ones. They are
  * already reachable, but the chain is written at the Content root, so it has to
@@ -172,15 +174,21 @@ export function resolveVisibility(prefix: readonly string[], segments: readonly 
             }
         }
 
-        // What the file says now, not what the edits above would make it say:
-        // this is reported to the user, who has to find the declaration.
-        declared.push({ chainIndex: chain.length, path: modulePath, keyword: declarations[0].declaration.visibility?.keyword });
+        // What the files say now, not what the edits above would make them say:
+        // this is reported to the user, who has to go and find the declaration.
+        // The part carrying a specifier is preferred over whichever the scan
+        // happened to reach first, since parts agree by construction and the
+        // one that names the access level is the one worth pointing at.
+        const declaredElsewhere = declarations.find((entry) => entry.declaration.visibility) ?? declarations[0];
+        declared.push({ chainIndex: chain.length, path: modulePath, keyword: declaredElsewhere.declaration.visibility?.keyword });
 
-        // Repeat what the project already declares, so a part written below
-        // this one cannot disagree with the parts that exist. Only `public` and
-        // `internal` reach here - every other keyword left through the branch
-        // above, which is what keeps a keyword-only repeat safe.
-        const declaredKeyword = segment.needsPublic ? "public" : declarations[0].declaration.visibility?.keyword;
+        // Carried so the chain describes the nesting exactly as a part of it
+        // would have had to be written - the specifier included, since one that
+        // disagreed with the existing parts would be a second defect rather
+        // than a remedy. Only `public` and `internal` reach here; every other
+        // keyword left through the branch above, which is what keeps naming a
+        // keyword here safe.
+        const declaredKeyword = segment.needsPublic ? "public" : declaredElsewhere.declaration.visibility?.keyword;
         chain.push({ name: segment.name, specifier: declaredKeyword });
         written.push(false);
     }

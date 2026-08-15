@@ -543,13 +543,20 @@ export class ModuleVisibilityWriter {
  * remedy before it is read.
  */
 function refusalForConflicts(moduleName: string, conflicts: readonly VisibilityConflict[]): string {
+    // Bracketed rather than trailing a comma, and the list punctuated: one
+    // conflict per declared ancestor is ordinary, and a reader given
+    // `A and B, declared internal and C` cannot tell where a path ends.
+    const joined = (items: readonly string[]) => (items.length <= 2 ? items.join(" and ") : `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`);
+
     const listed = (reason: VisibilityConflict["reason"]) =>
-        conflicts
-            .filter((conflict) => conflict.reason === reason)
-            // A repeat of a declaration carrying no specifier has no keyword to
-            // name, and `declared undefined` would read as one it does carry.
-            .map((conflict) => (conflict.keyword ? `${conflict.path}, declared ${conflict.keyword}` : conflict.path))
-            .join(" and ");
+        joined(
+            conflicts
+                .filter((conflict) => conflict.reason === reason)
+                // A repeat of a declaration carrying no specifier has no
+                // keyword to name, and `declared undefined` would read as one
+                // it does carry.
+                .map((conflict) => (conflict.keyword ? `${conflict.path} (declared ${conflict.keyword})` : conflict.path)),
+        );
 
     const widen = listed("widen");
     const nest = listed("nest");

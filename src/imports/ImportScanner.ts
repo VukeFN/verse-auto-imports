@@ -196,6 +196,26 @@ function firstCodeLineBelow(classifications: LineClassification[], from: number)
 }
 
 /**
+ * The first line below `from` holding anything at all, or `-1` where there is
+ * none.
+ *
+ * Blank lines alone are passed over, for the half of firstCodeLineBelow's
+ * reason that survives when the answer may be a comment: a blank line ends
+ * nothing, so what follows a run of them is still inside whatever was open
+ * above it. A line inside a block comment is never blank - classifyLines reads
+ * one as comment - so this stops on the comment body rather than running past
+ * it.
+ */
+function firstContentLineBelow(classifications: LineClassification[], from: number): number {
+    for (let line = from + 1; line < classifications.length; line++) {
+        if (classifications[line].kind !== "blank") {
+            return line;
+        }
+    }
+    return -1;
+}
+
+/**
  * The line holding the path that the `using:` ending line `opener` opens, or
  * `-1` where that line opens no pair.
  *
@@ -264,6 +284,12 @@ export function indentedPairPathLine(classifications: LineClassification[], open
  * file scope. Writing below it instead keeps the comment inside the body it was
  * written in, which is where it reads correctly anyway.
  *
+ * Reached past blank lines for the same reason the code line is: a blank line
+ * ends no block, so a comment written below one is as far inside the body as a
+ * comment written directly under the last statement. A line at column 0 is what
+ * says the body is over, and that line answers `-1` whether it is code or a
+ * comment - a column-0 comment is prose about what follows, not the body's own.
+ *
  * Answers one line rather than the whole span, so a caller re-anchors and asks
  * again: a body can hold a nested opener, and each answer is the next question.
  */
@@ -282,9 +308,9 @@ export function indentedBodyLine(classifications: LineClassification[], opener: 
         return codeLine;
     }
 
-    const next = classifications[opener + 1];
-    if (next !== undefined && next.kind === "comment" && /^\s/.test(next.codeWithoutComments)) {
-        return opener + 1;
+    const contentLine = firstContentLineBelow(classifications, opener);
+    if (contentLine !== -1 && classifications[contentLine].kind === "comment" && /^\s/.test(classifications[contentLine].codeWithoutComments)) {
+        return contentLine;
     }
 
     return -1;

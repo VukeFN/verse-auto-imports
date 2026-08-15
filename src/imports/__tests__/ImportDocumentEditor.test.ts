@@ -303,9 +303,36 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlySorted)).toBe(["using { Gadgets.Tools }", "", "code()", "using { /A } <#"].join("\n"));
     });
 
+    // A blank line ends no block, so a comment written below one is as far
+    // inside the body as one written directly under the last statement.
+    it("writes it below a body's trailing comment even where a blank line separates the two", () => {
+        const input = ["using { /A }; M := module:", "    Body<public>():int = 1", "", "    # what the module is for", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(
+            ["using { /A }; M := module:", "    Body<public>():int = 1", "", "    # what the module is for", "using { Gadgets.Tools }", "code()"].join("\n"),
+        );
+    });
+
+    // A comment at column 0 is prose about what follows rather than the body's
+    // own, so the span stops above it and the import is written there.
+    it("stops the span at a column-0 comment below the body", () => {
+        const input = ["using { /A }; M := module:", "    Body<public>():int = 1", "# what the code below does", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(
+            ["using { /A }; M := module:", "    Body<public>():int = 1", "using { Gadgets.Tools }", "# what the code below does", "code()"].join("\n"),
+        );
+    });
+
     it("does not write it into the comment body an unclosed opener runs over", () => {
         const input = ["code()", "using { /A } <# note", "more note"].join("\n");
         expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlySorted)).toBe(["using { Gadgets.Tools }", "", "code()", "using { /A } <# note", "more note"].join("\n"));
+    });
+
+    // The floor is the last line owned by the *lowest* pinned import, so an
+    // unwritable one has to be passed over rather than take the whole floor
+    // with it: dropping the maximum would carry the path above the provider
+    // pinned higher up, which is the order the floor exists to keep.
+    it("keeps the floor a pinned import above an unclosed opener raises", () => {
+        const input = ["using { Features }; X := 1", "code()", "using { /B } <# note"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Features.Shop"], curlySorted)).toBe(["using { Features }; X := 1", "using { Features.Shop }", "code()", "using { /B } <# note"].join("\n"));
     });
 
     // A line writing two complete statements read as its first path alone, so

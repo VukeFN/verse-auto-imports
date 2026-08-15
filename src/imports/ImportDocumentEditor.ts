@@ -543,26 +543,35 @@ export class ImportDocumentEditor {
                 ceiling = ceiling === -1 ? imp.startLine : Math.min(ceiling, imp.startLine);
                 continue;
             }
-            if (needsScopeAbove) {
-                floor = Math.max(floor, pinnedSpanEnd(imp, classifications));
+            if (!needsScopeAbove) {
+                continue;
             }
-        }
-
-        // A floor names the line a new import is written below, so a floor with
-        // no writable line below it bounds nothing. That is the buffer ending
-        // inside an unclosed `<#`: every line the comment covers is already in
-        // the span, and appending past the last one writes into the comment -
-        // where the scan, which skips a line opened inside a block comment,
-        // then reads the path as absent and adds it again on the next compile.
-        //
-        // Dropped rather than refused. The path falls back to the block at the
-        // top, which is where an absolute path in the same file already goes,
-        // and a file holding an unclosed opener does not compile either way.
-        // Declining to write it at all is the worse of the two: see the
-        // grounded extras in buildOrganizedContent for why an added path that
-        // silently lands nowhere is not an option.
-        if (floor !== -1 && floor === classifications.length - 1 && classifications[floor].endsInsideBlockComment) {
-            floor = -1;
+            // A floor names the line a new import is written below, so a span
+            // with no writable line below it bounds nothing. That is the buffer
+            // ending inside an unclosed `<#`: every line the comment covers is
+            // already in the span, and appending past the last one writes into
+            // the comment - where the scan, which skips a line opened inside a
+            // block comment, reads the path as absent and adds it again on the
+            // next compile.
+            //
+            // Skipped here rather than dropped from the result, because the
+            // floor is the maximum over every pinned import and only this one
+            // is unwritable. Zeroing the maximum would discard the floors
+            // raised by the pinned imports above it, and carry the new path
+            // over one that could be bringing its first segment into scope.
+            //
+            // Skipped rather than refused, too. Where it was the only floor the
+            // path falls back to the block at the top, which is where an
+            // absolute path in the same file already goes, and a file holding
+            // an unclosed opener does not compile either way. Declining to
+            // write it at all is the worse of the two: see the grounded extras
+            // in buildOrganizedContent for why an added path that silently
+            // lands nowhere is not an option.
+            const spanEnd = pinnedSpanEnd(imp, classifications);
+            if (spanEnd === classifications.length - 1 && classifications[spanEnd].endsInsideBlockComment) {
+                continue;
+            }
+            floor = Math.max(floor, spanEnd);
         }
 
         return { floor, ceiling };

@@ -649,14 +649,21 @@ export class ImportPathConverter {
      * descends the segments after it byte-exact from whichever match it takes.
      * So a nearer module of that name decides the whole reference, and one that
      * does not carry the rest of the chain breaks a reference whose full chain
-     * exists elsewhere - which is why matching the whole chain would confirm a
-     * spelling the compiler cannot read.
+     * exists elsewhere.
      *
      * Anything but one location refuses. Two or more mean a nearer namesake
      * shadows the target or clashes with it, and no relative spelling reaches
      * past it, so there is no conversion to offer rather than a longer one to
      * find. None means nothing here can place the module, which is exactly the
      * position this check exists to stop a conversion being written from.
+     *
+     * Two blind spots, both inherited from the search rather than added here.
+     * A namesake that exists only as an explicit `X := module` declaration is
+     * invisible while a folder answers first, because the declaration scan runs
+     * only when the folder phases found nothing. And a folder whose name
+     * differs from the reference only in case satisfies the search on a
+     * case-insensitive filesystem, so this confirms the casing it asked about
+     * rather than the casing on disk.
      */
     private async referenceResolvesTo(reference: string, fullPath: string, documentUri: vscode.Uri | undefined, projectVersePath: string): Promise<boolean> {
         const referenceSegments = reference.split(".");
@@ -686,7 +693,10 @@ export class ImportPathConverter {
      * The relative form of an absolute import, in the style the author wrote,
      * or null when there is none to give: a built-in module, an import that
      * was never absolute, a workspace with no `.uefnproject` to take the
-     * project path from, or a path that shortens to nothing.
+     * project path from, a path outside the project, a path that shortens to
+     * nothing, an importing file the Content root does not hold, or a
+     * shortened form that does not resolve back to the module the absolute
+     * path named.
      *
      * Shortened against the module the importing file sits in, which is the
      * dialect the compiler speaks: its own suggestions arrive spelled that way
@@ -698,18 +708,15 @@ export class ImportPathConverter {
      * choose between.
      *
      * Shortening is proposed, not trusted: the reference is resolved back
-     * through the same workspace search the other direction uses, and a
-     * reference that does not name the module the absolute path named is
-     * refused. Refusing is the only safe answer available - the conversion
-     * writes over an import that compiles today, so a spelling this cannot
-     * confirm would trade a working import for a broken or a silently
-     * different one.
+     * through the same workspace search the other direction uses. Refusing is
+     * the only safe answer available, because the conversion writes over an
+     * import that compiles today.
      *
-     * @param documentUri The file the import is written in. Without it the
-     *   project root stands in as the scope, which is what shortens an import
-     *   when the file cannot be placed under Content.
+     * @param documentUri The file the import is written in. It must sit under
+     *   the project's Content root, since that placement is both the scope to
+     *   shorten against and the vantage point the result is verified from.
      */
-    async convertFromFullPath(importStatement: string, documentUri?: vscode.Uri, line?: number): Promise<ImportConversionResult | null> {
+    async convertFromFullPath(importStatement: string, documentUri: vscode.Uri, line?: number): Promise<ImportConversionResult | null> {
         if (this.isBuiltinModule(importStatement)) {
             logger.debug("ImportPathConverter", "Cannot convert built-in module to relative path");
             return null;
@@ -749,7 +756,18 @@ export class ImportPathConverter {
             return null;
         }
 
-        const scopePath = (documentUri && this.enclosingModulePath(documentUri, projectVersePath)) || projectVersePath;
+        // A file the Content root does not hold has no module scope, and
+        // standing the project root in for one was a guess the verification
+        // cannot catch: only the first phase of the module search walks outward
+        // from the document, and the phases behind it scan the workspace, so
+        // they answer the same for any file that asks. They would confirm a
+        // reference written into a scope nothing here can name.
+        const scopePath = this.enclosingModulePath(documentUri, projectVersePath);
+        if (!scopePath) {
+            logger.debug("ImportPathConverter", `Cannot place the importing file under the project's Content root: ${documentUri.fsPath}`);
+            return null;
+        }
+
         const shortened = ImportPathConverter.relativizeAgainst(fullPath, scopePath, projectSegments.length);
 
         // Nothing left over means the target is the importing file's own module

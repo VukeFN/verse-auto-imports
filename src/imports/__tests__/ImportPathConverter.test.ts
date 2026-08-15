@@ -568,17 +568,19 @@ describe("ImportPathConverter.convertFromFullPath scope-relative shortening", ()
     });
 
     // The two below used to shorten against the project root as a fallback. A
-    // file the module search cannot place is a file whose scope is unknown, and
-    // a reference written into an unknown scope is a guess: nothing here can
-    // say which module it reaches, or whether it reaches one at all. The
-    // conversion overwrites an import that compiles, so a guess is the one
-    // thing it must not write.
+    // file the Content root does not hold has no module scope, and a reference
+    // written into a scope nothing can name is a guess: neither which module it
+    // reaches nor whether it reaches one is answerable. The conversion
+    // overwrites an import that compiles, so a guess is the one thing it must
+    // not write.
     it("offers no conversion for a file outside Content", async () => {
         expect(await relativeFormOf(`${projectVersePath}/Systems/Economy/Shop`, vscode.Uri.file(`${workspaceRoot}/Plugins/Feature.verse`))).toBeUndefined();
     });
 
     it("offers no conversion when no workspace folder holds the file", async () => {
-        setWorkspaceFolders(undefined);
+        // A folder is open, just not one this file sits under - which is what
+        // leaves the file unplaceable, rather than the workspace being empty.
+        setWorkspaceFolders([{ uri: { fsPath: "C:/Elsewhere" }, name: "Elsewhere", index: 0 }]);
 
         expect(await relativeFormOf(`${projectVersePath}/Systems/Economy/Shop`, fileAt("Systems/Economy"))).toBeUndefined();
     });
@@ -642,6 +644,23 @@ describe("ImportPathConverter.convertFromFullPath resolve-back", () => {
     afterEach(() => {
         setWorkspaceFolders(undefined);
         (vscode.workspace.fs.stat as jest.Mock).mockRejectedValue(new Error("ENOENT"));
+        (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([]);
+    });
+
+    it("offers no conversion for a file the Content root does not hold, even with the project scanned", async () => {
+        // The check cannot speak for a file it cannot place. Only the first
+        // phase of the module search walks outward from the document; the
+        // phases behind it scan the workspace, and answer the same for any
+        // file that asks - so they confirm a reference for a scope nothing
+        // here knows, and the conversion writes it.
+        //
+        // Stubbing findFiles is what makes this test honest. Left at the
+        // mock's empty default it passes against the unguarded code too,
+        // which is not the case production runs.
+        stubFolderTree(workspaceRoot, ["Systems", "Systems/Economy", "Systems/Economy/Shop"]);
+        (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([vscode.Uri.file(`${workspaceRoot}/Content/Systems/Economy/Shop/Item.verse`)]);
+
+        expect(await relativeFormOf(`${projectVersePath}/Systems/Economy/Shop`, vscode.Uri.file(`${workspaceRoot}/Plugins/Feature.verse`))).toBeUndefined();
     });
 
     it("offers no conversion when a namesake sits between the file and the target", async () => {

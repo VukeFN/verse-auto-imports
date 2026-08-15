@@ -657,15 +657,19 @@ export class ImportPathConverter {
      * find. None means nothing here can place the module, which is exactly the
      * position this check exists to stop a conversion being written from.
      *
-     * Two blind spots, both inherited from the search rather than added here.
-     * A namesake that exists only as an explicit `X := module` declaration is
-     * invisible while a folder answers first, because the declaration scan runs
-     * only when the folder phases found nothing. And a folder whose name
-     * differs from the reference only in case satisfies the search on a
-     * case-insensitive filesystem, so this confirms the casing it asked about
-     * rather than the casing on disk.
+     * The check is only as good as the search under it, and that search has
+     * blind spots this does not close - these among them, rather than these
+     * alone. A namesake that exists only as an explicit `X := module`
+     * declaration is invisible while a folder answers first, because the
+     * declaration scan runs only when the folder phases found nothing. A folder
+     * whose name differs from the reference only in case satisfies the search
+     * on a case-insensitive filesystem, so this confirms the casing it asked
+     * about rather than the casing on disk. And the scanning phases read
+     * `workspaceFolders[0]` rather than the folder holding the document, so in
+     * a multi-root workspace they can answer from a tree the importing file is
+     * nowhere in.
      */
-    private async referenceResolvesTo(reference: string, fullPath: string, documentUri: vscode.Uri | undefined, projectVersePath: string): Promise<boolean> {
+    private async referenceResolvesTo(reference: string, fullPath: string, documentUri: vscode.Uri, projectVersePath: string): Promise<boolean> {
         const referenceSegments = reference.split(".");
         const firstSegment = referenceSegments[0];
         const fullSegments = ImportPathConverter.splitPath(fullPath);

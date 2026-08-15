@@ -153,6 +153,32 @@ const probes: Probe[] = [
         live: ["L1"],
     },
     {
+        // The comment outlives the block rather than ending at it: `Text`
+        // resumes where `BlockCmt()` returned, so it runs to the `Ending` of the
+        // line the `#>` sits on. The tail of that line was being read as code.
+        name: "a line comment resumes after the block opened in it closes",
+        source: "# D1 <# D2\nD3 := 1\n#> D4\nL1 := 1\n",
+        live: ["L1"],
+    },
+    {
+        // The marker's own tail is lexed at line-comment place, so the same rule
+        // reaches it: the `<#` opens a real block, and the body waits for it.
+        // The body's indentation comes from the line that closed the block, so
+        // `D4` indented past it is body text and `L1` back at its column is not.
+        name: "a `<#` inside a `<#>` marker's own tail outlives the marker's line",
+        source: "<#> D1 <# D2\nD3 := 1\n#>\n    D4\nL1 := 1\n",
+        live: ["L1"],
+    },
+    {
+        // The other direction of the same resume, at marker-body place. The
+        // dedented `D3` inside the block ends nothing - a body measures its
+        // lines through `Scan`, which a block comment never reaches - so `D5` is
+        // still body text and only `L1` is a statement.
+        name: "a marker body resumes after the block opened in it closes",
+        source: "<#>\n    D1 <# D2\nD3 := 1\n    #> D4\n    D5\nL1 := 1\n",
+        live: ["L1"],
+    },
+    {
         // The `<#>` arm falls to three characters of text at line-comment place,
         // so this opens neither a block nor a body. The lexer has to test it
         // before it tests `<#`, or the tail reads as an opener that never

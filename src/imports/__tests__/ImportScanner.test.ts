@@ -107,6 +107,18 @@ describe("allUsingPaths", () => {
         expect(allUsingPaths(["<# note #> using { Economy.Shop }", "using { /A }", "code()"])).toEqual(["Economy.Shop", "/A"]);
     });
 
+    // The mirror of the two above, and the reason neither of them generalises: a
+    // block opened at code scope hands the rest of the closing line back to
+    // code, where one opened inside a line comment hands it back to the comment,
+    // which runs to that line's end. Collecting the path there suppresses an
+    // import the file has not really made.
+    //
+    // Pinned here rather than on scanModuleImports, which never reads a line
+    // that opens inside a block comment and so cannot see this at all.
+    it("does not collect a using written after the #> that closes a block a line comment opened", () => {
+        expect(allUsingPaths(["# note <#", "using { Economy.Shop }", "#> using { /Dead }", "using { /A }", "code()"])).toEqual(["/A"]);
+    });
+
     it("does not read an identifier that merely starts with using", () => {
         expect(allUsingPaths(["usingFoo := 1", "usings := 3", "usingMap := map{Economy.Shop => 1}", "using { /A }", "code()"])).toEqual(["/A"]);
     });
@@ -1072,6 +1084,14 @@ describe("scanModuleImports", () => {
         expect(scanModuleImports(lines)).toEqual([{ path: "/Verse.org/Simulation", startLine: 3, endLine: 3, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" }]);
     });
 
+    it("treats a <# in an indented comment marker's own tail as the block opener it is", () => {
+        // The marker's tail is lexed at line-comment place, so the same rule
+        // reaches it and the `<#` opens a real block. Swallowing the tail
+        // instead leaves the block unopened and the import inside it live.
+        const lines = ["<#> disabled below <#", "using { /Old/Path }", "#>", "using { /Verse.org/Simulation }"];
+        expect(scanModuleImports(lines)).toEqual([{ path: "/Verse.org/Simulation", startLine: 3, endLine: 3, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" }]);
+    });
+
     it("returns entries in document order with correct spans across mixed styles", () => {
         const lines = ["using { /A }", "using:", "    /B", "using. /C"];
         expect(scanModuleImports(lines)).toEqual([
@@ -1284,6 +1304,20 @@ describe("classifyLines", () => {
 
     it("ends a line comment that opened and closed a block on its own line", () => {
         expect(kinds(["# see <# aside #> below", "code()"])).toEqual(["comment", "code"]);
+    });
+
+    it("reads a block opener in an indented comment marker's own tail as one", () => {
+        expect(kinds(["<#> see <# below", "code()", "#>", "code()"])).toEqual(["comment", "comment", "comment", "code"]);
+    });
+
+    it("keeps a line comment over the tail of the line its block closed on", () => {
+        expect(kinds(["# see <# below", "code()", "#> code()", "code()"])).toEqual(["comment", "comment", "comment", "code"]);
+    });
+
+    it("keeps a marker body over the tail of the line its block closed on", () => {
+        // The dedented line inside the block ends nothing, so the body is still
+        // open when the `#>` hands the rest of its line back to it.
+        expect(kinds(["<#> notes", "    body <# below", "code()", "    #> code()", "    still body", "code()"])).toEqual(["comment", "comment", "comment", "comment", "comment", "code"]);
     });
 
     it("keeps a # inside a string literal in the line's code", () => {

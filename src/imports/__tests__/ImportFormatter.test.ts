@@ -96,6 +96,22 @@ describe("ImportFormatter.stripTrailingComment", () => {
     it("returns an empty string when the content is only a comment", () => {
         expect(ImportFormatter.stripTrailingComment(" # just a note")).toBe("");
     });
+
+    it("keeps a `#` inside a quoted segment suffix, which is identifier text", () => {
+        expect(ImportFormatter.stripTrailingComment(" /mygame@fortnite.com/mygame/Mod'a#b' ")).toBe("/mygame@fortnite.com/mygame/Mod'a#b'");
+    });
+
+    it("splits at the comment after a suffix holding a `#`, not at the one inside it", () => {
+        expect(ImportFormatter.stripTrailingComment("/mygame@fortnite.com/mygame/Mod'a#b' # note")).toBe("/mygame@fortnite.com/mygame/Mod'a#b'");
+    });
+
+    it("splits at the first opener, at an offset into the original text", () => {
+        // Split at the `<#`, as it always has been. Pinned because the offset
+        // is the one thing the lexer's code strings cannot supply: the comment
+        // is removed with nothing in its place, so the code half here is eleven
+        // characters longer than the split point rather than equal to it.
+        expect(ImportFormatter.stripTrailingComment("us<##>ing { /A } # note")).toBe("us");
+    });
 });
 
 describe("ImportFormatter.extractTrailingComment", () => {
@@ -113,6 +129,10 @@ describe("ImportFormatter.extractTrailingComment", () => {
 
     it("returns an empty string when there is no comment", () => {
         expect(ImportFormatter.extractTrailingComment("using { /A }")).toBe("");
+    });
+
+    it("returns an empty string for a `#` inside a quoted segment suffix", () => {
+        expect(ImportFormatter.extractTrailingComment("using { /mygame@fortnite.com/mygame/Mod'a#b' }")).toBe("");
     });
 
     it("recomposes the original with stripTrailingComment, which splits at the same point", () => {

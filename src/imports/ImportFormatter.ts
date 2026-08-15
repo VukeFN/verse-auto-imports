@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { lexVerseLine } from "../utils/verseLexer";
 
 /** Options controlling `ImportFormatter.isModuleImport`'s classification. */
 export interface IsModuleImportOptions {
@@ -23,10 +24,10 @@ export class ImportFormatter {
      *
      * A comment left on the content is re-emitted inside the braces -
      * `using { /X # note }`, where it swallows the closing brace and the
-     * statement no longer parses. A path may hold no `#`, but the captures that
-     * produce one may: the braced capture stops only at its `}`, and the dotted
-     * and indented forms read to end of line. So the comment arrives here still
-     * attached, and this is where it comes off.
+     * statement no longer parses. The captures that produce the content reach
+     * past the statement: the braced capture stops only at its `}`, and the
+     * dotted and indented forms read to end of line. So the comment arrives
+     * here still attached, and this is where it comes off.
      */
     static stripTrailingComment(content: string): string {
         const commentStart = ImportFormatter.commentStartIndex(content);
@@ -53,17 +54,17 @@ export class ImportFormatter {
      * has none. One home for the rule, so the two halves of the split cannot
      * drift apart.
      *
-     * `#` opens a line comment and `<#` opens a block comment. Neither
-     * character is legal in a module path, so the first `#` is always the
-     * start of trivia rather than of the path.
+     * Which `#` opens a comment is the lexer's question, not one to re-decide
+     * here: `IsIdentifierQuotable` (VerseGrammar.h:377) admits a bare `#` inside
+     * a quoted segment suffix, so `Mod'a#b'` is one identifier and splitting at
+     * that `#` yields a different module plus an unterminated suffix left
+     * behind as a comment.
+     *
+     * Content that ends inside an unterminated literal reports no comment, and
+     * so is kept whole rather than split at a `#` the lexer never resolved.
      */
     private static commentStartIndex(content: string): number {
-        const hashIndex = content.indexOf("#");
-        if (hashIndex === -1) {
-            return -1;
-        }
-        // For a `<#` block comment the `<` opens the comment, not the path.
-        return hashIndex > 0 && content[hashIndex - 1] === "<" ? hashIndex - 1 : hashIndex;
+        return lexVerseLine(content, { depth: 0, markerIndent: null }).commentStart;
     }
 
     /**

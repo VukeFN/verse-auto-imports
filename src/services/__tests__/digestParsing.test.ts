@@ -27,7 +27,7 @@ describe("parseDigestContent - module path resolution", () => {
 
         const { entries } = parseDigestContent(digest, "/Fortnite.com");
 
-        expect(entries["Chat"].modulePath).toBe("/Some.custom/Path");
+        expect(entries["Chat"][0].modulePath).toBe("/Some.custom/Path");
     });
 
     it("resolves a comment-less top-level module against the file's root domain", () => {
@@ -35,8 +35,8 @@ describe("parseDigestContent - module path resolution", () => {
 
         const { entries } = parseDigestContent(digest, "/Fortnite.com");
 
-        expect(entries["Devices"].modulePath).toBe("/Fortnite.com/Devices");
-        expect(entries["button_device"].modulePath).toBe("/Fortnite.com/Devices");
+        expect(entries["Devices"][0].modulePath).toBe("/Fortnite.com/Devices");
+        expect(entries["button_device"][0].modulePath).toBe("/Fortnite.com/Devices");
     });
 
     it("resolves a nested module from its own indented comment", () => {
@@ -50,9 +50,9 @@ describe("parseDigestContent - module path resolution", () => {
 
         const { entries } = parseDigestContent(digest, "/Verse.org");
 
-        expect(entries["Simulation"].modulePath).toBe("/Verse.org/Simulation");
-        expect(entries["Tags"].modulePath).toBe("/Verse.org/Simulation/Tags");
-        expect(entries["tag"].modulePath).toBe("/Verse.org/Simulation/Tags");
+        expect(entries["Simulation"][0].modulePath).toBe("/Verse.org/Simulation");
+        expect(entries["Tags"][0].modulePath).toBe("/Verse.org/Simulation/Tags");
+        expect(entries["tag"][0].modulePath).toBe("/Verse.org/Simulation/Tags");
     });
 
     it("resolves a scope-qualified module from its '(/path:)' prefix", () => {
@@ -60,7 +60,7 @@ describe("parseDigestContent - module path resolution", () => {
 
         const { entries } = parseDigestContent(digest, "/Fortnite.com");
 
-        expect(entries["Assets"].modulePath).toBe("/Fortnite.com/Assets");
+        expect(entries["Assets"][0].modulePath).toBe("/Fortnite.com/Assets");
     });
 
     it("applies a pending comment to the next module only, not a later comment-less module", () => {
@@ -77,9 +77,9 @@ describe("parseDigestContent - module path resolution", () => {
 
         const { entries } = parseDigestContent(digest, "/Fortnite.com");
 
-        expect(entries["movement_types"].modulePath).toBe("/Fortnite.com/AI/movement_types");
-        expect(entries["Devices"].modulePath).toBe("/Fortnite.com/Devices");
-        expect(entries["button_device"].modulePath).toBe("/Fortnite.com/Devices");
+        expect(entries["movement_types"][0].modulePath).toBe("/Fortnite.com/AI/movement_types");
+        expect(entries["Devices"][0].modulePath).toBe("/Fortnite.com/Devices");
+        expect(entries["button_device"][0].modulePath).toBe("/Fortnite.com/Devices");
     });
 
     it("attributes declarations to the parent module after a nested module's block ends", () => {
@@ -89,9 +89,9 @@ describe("parseDigestContent - module path resolution", () => {
 
         const { entries } = parseDigestContent(digest, "/Fortnite.com");
 
-        expect(entries["Inner"].modulePath).toBe("/Fortnite.com/Outer/Inner");
-        expect(entries["inner_thing"].modulePath).toBe("/Fortnite.com/Outer/Inner");
-        expect(entries["outer_thing"].modulePath).toBe("/Fortnite.com/Outer");
+        expect(entries["Inner"][0].modulePath).toBe("/Fortnite.com/Outer/Inner");
+        expect(entries["inner_thing"][0].modulePath).toBe("/Fortnite.com/Outer/Inner");
+        expect(entries["outer_thing"][0].modulePath).toBe("/Fortnite.com/Outer");
     });
 });
 
@@ -105,12 +105,12 @@ describe("parseDigestContent - declaration recognition", () => {
 
         const { entries } = parseDigestContent(digest, "/Verse.org");
 
-        expect(entries["creative_device"]).toMatchObject({
+        expect(entries["creative_device"][0]).toMatchObject({
             modulePath: "/Verse.org/Simulation",
             type: "class",
             isPublic: true,
         });
-        expect(entries["vector3"]).toMatchObject({
+        expect(entries["vector3"][0]).toMatchObject({
             modulePath: "/Verse.org/Simulation",
             type: "class",
             isPublic: true,
@@ -124,7 +124,7 @@ describe("parseDigestContent - declaration recognition", () => {
 
         const { entries } = parseDigestContent(digest, "/Verse.org");
 
-        expect(entries["agent"]).toMatchObject({ modulePath: "/Verse.org/Simulation", isPublic: true });
+        expect(entries["agent"][0]).toMatchObject({ modulePath: "/Verse.org/Simulation", isPublic: true });
         expect(entries["internal_type"]).toBeUndefined();
     });
 
@@ -159,7 +159,7 @@ describe("parseDigestContent - declaration recognition", () => {
 
         const { entries } = parseDigestContent(digest, "/Verse.org");
 
-        expect(entries["subscribable"]).toMatchObject({
+        expect(entries["subscribable"][0]).toMatchObject({
             modulePath: "/Verse.org/Verse",
             type: "class",
             isPublic: true,
@@ -178,8 +178,8 @@ describe("parseDigestContent - declaration recognition", () => {
 
         const { entries } = parseDigestContent(digest, "/Verse.org");
 
-        expect(entries["event"]).toMatchObject({ modulePath: "/Verse.org/Verse", type: "class" });
-        expect(entries["listenable"]).toMatchObject({ modulePath: "/Verse.org/Verse", type: "class" });
+        expect(entries["event"][0]).toMatchObject({ modulePath: "/Verse.org/Verse", type: "class" });
+        expect(entries["listenable"][0]).toMatchObject({ modulePath: "/Verse.org/Verse", type: "class" });
         expect(entries["Await"]).toBeUndefined();
         expect(entries["Length"]).toBeUndefined();
     });
@@ -196,7 +196,7 @@ describe("parseDigestContent - declaration recognition", () => {
 
         const { entries, moduleIndex } = parseDigestContent(digest, "/Verse.org");
 
-        expect(entries["agent_group"]).toMatchObject({
+        expect(entries["agent_group"][0]).toMatchObject({
             modulePath: "/Verse.org/AgentGroup",
             type: "class",
             isPublic: true,
@@ -213,7 +213,7 @@ describe("parseDigestContent - declaration recognition", () => {
 
         const { entries } = parseDigestContent(digest, "/Verse.org");
 
-        expect(entries["deep"]).toMatchObject({ modulePath: "/Verse.org/Verse", type: "class" });
+        expect(entries["deep"][0]).toMatchObject({ modulePath: "/Verse.org/Verse", type: "class" });
         expect(entries["Unwrap"]).toBeUndefined();
     });
 
@@ -224,7 +224,7 @@ describe("parseDigestContent - declaration recognition", () => {
 
         const { entries } = parseDigestContent(digest, "/Verse.org");
 
-        expect(entries["MakeGroup"]).toMatchObject({ modulePath: "/Verse.org/Verse", type: "function" });
+        expect(entries["MakeGroup"][0]).toMatchObject({ modulePath: "/Verse.org/Verse", type: "function" });
     });
 
     it("skips receiver-style extension methods", () => {
@@ -237,18 +237,55 @@ describe("parseDigestContent - declaration recognition", () => {
 });
 
 describe("parseDigestContent - deduplication and module index", () => {
-    it("keeps the first occurrence of an identifier across different modules", () => {
+    it("keeps every module that declares an identifier, in declaration order", () => {
         const digest = ["Devices<public> := module:", "    shared_thing<public> := class<concrete>(base):", "", "Other<public> := module:", "    shared_thing<public> := class<concrete>(base):"].join(
             "\n",
         );
 
         const { entries, moduleIndex } = parseDigestContent(digest, "/Fortnite.com");
 
-        // Entry dedups to the first occurrence...
-        expect(entries["shared_thing"].modulePath).toBe("/Fortnite.com/Devices");
-        // ...but every occurrence is still indexed under its own module.
+        // Both modules can be imported to reach the name, so both are offered;
+        // the first declared leads, because that is the one a caller taking a
+        // single answer gets.
+        expect(entries["shared_thing"].map((declaration) => declaration.modulePath)).toEqual(["/Fortnite.com/Devices", "/Fortnite.com/Other"]);
         expect(moduleIndex["/Fortnite.com/Devices"]).toContain("shared_thing");
         expect(moduleIndex["/Fortnite.com/Other"]).toContain("shared_thing");
+    });
+
+    it("keeps a name declared with different types in each module distinct", () => {
+        // `Ease` is a variable in Fortnite's InterpolationTypes and a function
+        // in Verse's Easing, and the quick-fix label names the type, so one
+        // shared type across the paths would mislabel one of them.
+        const digest = [
+            "Devices<public> := module:",
+            "    Ease<public>:interpolation_type = external {}",
+            "",
+            "Easing<public> := module:",
+            "    Ease<public>(X:float)<reads>:float = external {}",
+        ].join("\n");
+
+        const { entries } = parseDigestContent(digest, "/Fortnite.com");
+
+        expect(entries["Ease"]).toEqual([
+            expect.objectContaining({ modulePath: "/Fortnite.com/Devices", type: "variable" }),
+            expect.objectContaining({ modulePath: "/Fortnite.com/Easing", type: "function" }),
+        ]);
+    });
+
+    it("records a module-scope overload once, not once per declaration", () => {
+        // `ToString` is declared four times in its own module in the shipped
+        // Verse digest. One entry per declaration would offer the identical
+        // import that many times.
+        const digest = [
+            "Verse<public> := module:",
+            "    ToString<public>(X:int)<reads>:string = external {}",
+            "    ToString<public>(X:float)<reads>:string = external {}",
+            "    ToString<public>(X:logic)<reads>:string = external {}",
+        ].join("\n");
+
+        const { entries } = parseDigestContent(digest, "/Verse.org");
+
+        expect(entries["ToString"].map((declaration) => declaration.modulePath)).toEqual(["/Verse.org/Verse"]);
     });
 
     it("accumulates every member of a re-opened module in the module index", () => {

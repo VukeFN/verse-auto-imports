@@ -33,14 +33,16 @@ describe("DigestParser", () => {
      * Identifiers chosen so that one is a strict substring of the others - the
      * shape that produced a 226-entry quick-fix list for `device`.
      */
-    const FORTNITE_ENTRIES: Record<string, DigestEntry> = {
-        device: entry("device", "/Fortnite.com/Devices"),
-        button_device: entry("button_device", "/Fortnite.com/Devices"),
-        trigger_device: entry("trigger_device", "/Fortnite.com/Devices"),
+    const FORTNITE_ENTRIES: Record<string, DigestEntry[]> = {
+        device: [entry("device", "/Fortnite.com/Devices")],
+        button_device: [entry("button_device", "/Fortnite.com/Devices")],
+        trigger_device: [entry("trigger_device", "/Fortnite.com/Devices")],
     };
 
     /** Whether the data directory and its files can be read this test. */
     let dataReadable: boolean;
+    /** The digest files the mocked data directory holds, keyed by file name. */
+    let digestFiles: Record<string, Record<string, DigestEntry[]>>;
     let parser: DigestParser;
 
     const showErrorMessage = vscode.window.showErrorMessage as unknown as jest.Mock;
@@ -52,6 +54,7 @@ describe("DigestParser", () => {
 
     beforeEach(() => {
         dataReadable = true;
+        digestFiles = { "Fortnite.digest.json": FORTNITE_ENTRIES };
         showErrorMessage.mockClear();
 
         jest.spyOn(fs, "existsSync").mockImplementation((target) => {
@@ -59,11 +62,18 @@ describe("DigestParser", () => {
                 return false;
             }
             const asString = String(target);
-            return asString === DATA_DIR || asString === path.join(DATA_DIR, "Fortnite.digest.json");
+            return asString === DATA_DIR || Object.keys(digestFiles).some((fileName) => asString === path.join(DATA_DIR, fileName));
         });
 
-        jest.spyOn(fs, "readFileSync").mockImplementation((() =>
-            JSON.stringify({ version: "1", generatedAt: "", sourceFile: "", sourceBuild: "", entries: FORTNITE_ENTRIES, moduleIndex: {} })) as unknown as typeof fs.readFileSync);
+        jest.spyOn(fs, "readFileSync").mockImplementation(((target: fs.PathOrFileDescriptor) =>
+            JSON.stringify({
+                version: "2",
+                generatedAt: "",
+                sourceFile: "",
+                sourceBuild: "",
+                entries: digestFiles[path.basename(String(target))] ?? {},
+                moduleIndex: {},
+            })) as unknown as typeof fs.readFileSync);
 
         parser = newParser();
     });
@@ -91,6 +101,43 @@ describe("DigestParser", () => {
 
         it("returns nothing for an identifier the digests do not declare", async () => {
             expect(await parser.lookupIdentifier("no_such_identifier")).toEqual([]);
+        });
+    });
+
+    /**
+     * Regression tests for issue #375.
+     *
+     * An identifier public in more than one module used to resolve to whichever
+     * file BUNDLED_DIGEST_NAMES reached first, so the whole SpatialMath surface
+     * answered with the deprecated /UnrealEngine.com/Temporary path and the user
+     * was never shown that /Verse.org/SpatialMath existed.
+     */
+    describe("when more than one module declares an identifier", () => {
+        beforeEach(() => {
+            digestFiles = {
+                "UnrealEngine.digest.json": {
+                    Distance: [entry("Distance", "/UnrealEngine.com/Temporary/SpatialMath")],
+                },
+                "Verse.digest.json": {
+                    Distance: [entry("Distance", "/Verse.org/SpatialMath")],
+                },
+            };
+        });
+
+        it("returns every declaring module, led by the one the manifest prefers", async () => {
+            const results = await parser.lookupIdentifier("Distance");
+
+            expect(results.map((result) => result.modulePath)).toEqual(["/UnrealEngine.com/Temporary/SpatialMath", "/Verse.org/SpatialMath"]);
+        });
+
+        it("keeps one entry per module path when a file repeats a declaration", async () => {
+            digestFiles["Verse.digest.json"] = {
+                Distance: [entry("Distance", "/Verse.org/SpatialMath"), entry("Distance", "/Verse.org/SpatialMath")],
+            };
+
+            const results = await parser.lookupIdentifier("Distance");
+
+            expect(results.map((result) => result.modulePath)).toEqual(["/UnrealEngine.com/Temporary/SpatialMath", "/Verse.org/SpatialMath"]);
         });
     });
 

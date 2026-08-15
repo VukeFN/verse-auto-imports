@@ -34,12 +34,39 @@ export interface DigestEntry {
 }
 
 /**
- * The result of parsing one digest file: entries keyed by identifier (first
- * occurrence wins) plus an index from module path to the identifiers it exposes.
+ * The result of parsing one digest file: every declaration of an identifier
+ * keyed by that identifier, plus an index from module path to the identifiers
+ * it exposes.
+ *
+ * An identifier maps to a list because one name is often public in several
+ * modules at once - `Distance` is declared by both SpatialMath modules - and
+ * each of those modules is a valid `using` target the user may need to choose
+ * between. The list holds one declaration per module path, in declaration
+ * order.
  */
 export interface ParsedDigest {
-    entries: Record<string, DigestEntry>;
+    entries: Record<string, DigestEntry[]>;
     moduleIndex: Record<string, string[]>;
+}
+
+/**
+ * Appends a declaration unless the identifier already has one from that module,
+ * and reports whether it was appended.
+ *
+ * Shared by the two places that build an identifier's declaration list - the
+ * parser within one file, the loader across files - because both rest on the
+ * same invariant: one entry per module path, so a name is never offered as the
+ * same import twice. Module-scope overloads make that a live case rather than a
+ * defensive one, `ToString` being declared four times in its own module.
+ *
+ * @param declarations Mutated in place.
+ */
+export function appendDeclaration(declarations: DigestEntry[], declaration: DigestEntry): boolean {
+    if (declarations.some((existing) => existing.modulePath === declaration.modulePath)) {
+        return false;
+    }
+    declarations.push(declaration);
+    return true;
 }
 
 /** An open module on the indentation stack, holding its resolved import path. */
@@ -176,15 +203,15 @@ function containingModulePath(qualifierPath: string | null, stack: ModuleFrame[]
  * Parses the raw text of a Verse API digest file into module-scoped entries.
  *
  * Only public, module-scope declarations are recorded; class/struct/interface/enum
- * members are skipped by indentation tracking. Entries deduplicate on first
- * occurrence, while the module index records every occurrence so a re-opened
- * module still contributes all of its members.
+ * members are skipped by indentation tracking. An identifier declared in several
+ * modules keeps one entry per module, while the module index records every
+ * occurrence so a re-opened module still contributes all of its members.
  *
  * @param content Raw text of a `*.digest.verse` file.
  * @param rootDomain Root module domain for the file, from {@link rootDomainForDigestFile}.
  */
 export function parseDigestContent(content: string, rootDomain: string): ParsedDigest {
-    const entries: Record<string, DigestEntry> = {};
+    const entries: Record<string, DigestEntry[]> = {};
     const moduleIndex = new Map<string, Set<string>>();
 
     const addEntry = (identifier: string, modulePath: string, type: DigestEntry["type"], isPublic: boolean): void => {
@@ -198,10 +225,8 @@ export function parseDigestContent(content: string, rootDomain: string): ParsedD
         }
         members.add(identifier);
 
-        if (entries[identifier]) {
-            return; // First occurrence wins.
-        }
-        entries[identifier] = { identifier, modulePath, type, isPublic };
+        const declarations = entries[identifier] ?? (entries[identifier] = []);
+        appendDeclaration(declarations, { identifier, modulePath, type, isPublic });
     };
 
     // Explicit path from the most recent `# Module import path:` comment, applied

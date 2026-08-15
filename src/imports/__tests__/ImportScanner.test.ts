@@ -5,6 +5,13 @@ describe("allUsingPaths", () => {
         expect(allUsingPaths(["using { /A }", "using { Features }", "using { Economy.Shop }", "code()"])).toEqual(["/A", "Features", "Economy.Shop"]);
     });
 
+    // Truncated at the `#` in its suffix, the path counts as a different module
+    // and the one the file really imports reads as absent, so a diagnostic
+    // asking for it writes a second copy above the `using` already making it.
+    it("collects a path whose quoted segment suffix holds a `#`", () => {
+        expect(allUsingPaths(["using { /mygame@fortnite.com/mygame/Mod'a#b' }"])).toEqual(["/mygame@fortnite.com/mygame/Mod'a#b'"]);
+    });
+
     // The whole reason this exists: scanModuleImports skips indented lines, so
     // an import in a module body is invisible to it.
     // No line of the span writes a `using` statement holding this path: the
@@ -942,6 +949,23 @@ describe("scanModuleImports", () => {
         expect(scanModuleImports(lines)).toEqual([
             { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, rebuildLosesText: false, trailingComment: "<# disabled below" },
             { path: "/B", startLine: 3, endLine: 3, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
+        ]);
+    });
+
+    it("keeps a path whose quoted segment suffix holds a `#`", () => {
+        // `IsIdentifierQuotable` (VerseGrammar.h:377) excludes `#` only before
+        // a `>`, so a bare one inside a suffix is part of the identifier. Split
+        // at it the entry is still rewritable, and a rebuild from the truncated
+        // path writes a different module with the rest of the real one left
+        // behind as an unterminated comment.
+        expect(scanModuleImports(["using { /mygame@fortnite.com/mygame/Mod'a#b' }"])).toEqual([
+            { path: "/mygame@fortnite.com/mygame/Mod'a#b'", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
+        ]);
+    });
+
+    it("splits the real trailing comment of a line whose suffix holds a `#`", () => {
+        expect(scanModuleImports(["using { /mygame@fortnite.com/mygame/Mod'a#b' } # note"])).toEqual([
+            { path: "/mygame@fortnite.com/mygame/Mod'a#b'", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "# note" },
         ]);
     });
 

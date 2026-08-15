@@ -53,13 +53,11 @@ interface Probe {
     /** The head the language gives this line. */
     head: HeadShape;
     /**
-     * Which callers record the declared name, written out rather than derived
-     * from the callers' own policy code.
+     * Which callers record the declared name.
      *
-     * Deriving it was tried and is what let a widened `assets` rule ship: an
-     * oracle that recomputes what it is checking agrees with the bug. Both
-     * halves of this corpus are authored, so the second can fail while the
-     * first passes.
+     * Written out rather than computed from the callers' policy: an oracle that
+     * recomputes what it is checking agrees with the bug. Authoring both halves
+     * is what lets the second fail while the first passes.
      */
     reports: { digest: boolean; assets: boolean; scanner: boolean };
 }
@@ -130,10 +128,8 @@ const probes: Probe[] = [
         reports: { digest: false, assets: false, scanner: true },
     },
     {
-        // The other kept divergence. In a digest an unclosed `(` can only be a
-        // signature wrapping to the next line; in project source it is far more
-        // often a call wrapping inside a body, so the scan declines it. The
-        // test below this corpus carries that second reading in full.
+        // The other kept divergence; `ProjectPathScanner.declarationType` says
+        // why. The test below this corpus carries the scan's reading in full.
         name: "an unclosed parameter list is a signature to one caller and a statement to another",
         source: "WrapFunc<public>(\n",
         head: { name: "WrapFunc", keyword: null, operator: "(", hasParams: false, hasReceiver: false },

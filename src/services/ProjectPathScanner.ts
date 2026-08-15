@@ -21,7 +21,9 @@ const SCAN_CONCURRENCY = 8;
  * be a signature wrapping to the next line, which is why the digest parser
  * reads it as a function; this scan reads project source, where the same shape
  * is far more often a call wrapping inside a function body, and recording those
- * would fill the index with statements.
+ * would fill the index with statements. The cost is a genuine module-scope
+ * signature that wraps across lines, which is lost here - as it was by the
+ * patterns this replaced, which needed a closing `)` and a `:` on one line.
  */
 function declarationType(head: DeclarationHead): ProjectPathNode["type"] | null {
     if (head.keyword) {

@@ -18,19 +18,25 @@ export { indentOf };
  * The text with every comment, `"` string and char literal replaced by spaces,
  * so offsets still address the original.
  *
- * A line that ends inside an open literal is left masked from the point it
- * opened, rather than re-read with literal tracking off. This reader must fail
- * towards blanking: its callers match declarations against what it returns, and
- * text it wrongly offers as code becomes a declaration one of them edits as if
- * it were real. The import scanner takes the opposite fallback on the same
+ * A line that ends inside an unterminated literal is left masked from the point
+ * it opened, and the literal does not carry to the line below. This reader must
+ * fail towards blanking: its callers match declarations against what it returns,
+ * and text it wrongly offers as code becomes a declaration one of them edits as
+ * if it were real. The import scanner takes the opposite fallback on the same
  * lines, for the opposite reason; see lexVerseLine.
+ *
+ * An open interpolation is carried, because it is the one literal state a
+ * newline does not end and the file below it is being read wrong otherwise: the
+ * `{` of `"Score: {` is inside the literal and blanked, so leaving the matching
+ * `}` on the next line at code scope strands the brace depth for the rest of the
+ * file. Which states may carry is the lexer's to decide, not this reader's.
  *
  * A quoted segment suffix is left standing, since it is part of an identifier
  * rather than literal text. Nothing can hide there: the grammar forbids `{`,
  * `}`, `"` and `\` inside one.
  */
 export function maskCommentsAndStrings(content: string): string {
-    const state: LexState = { depth: 0, markerIndent: null };
+    const state: LexState = { depth: 0, markerIndent: null, openFrames: [] };
     // Split on "\n" alone so a CRLF line keeps its "\r" and the masked line is
     // exactly as long as the line it replaces; joining then rebuilds the file
     // byte for byte.
@@ -40,6 +46,7 @@ export function maskCommentsAndStrings(content: string): string {
             const lexed = lexVerseLine(line, state);
             state.depth = lexed.depth;
             state.markerIndent = lexed.markerIndent;
+            state.openFrames = lexed.openFrames;
             return lexed.masked;
         })
         .join("\n");
@@ -83,10 +90,11 @@ export function popClosedBlocks(openBlockIndents: number[], indent: number): voi
  * depth as proof that a brace was missed:
  *
  * - `maskCommentsAndStrings` balances every literal it closes, and cannot
- *   balance one it does not. Each line is masked from the point a literal opened
- *   to the line's end, so an interpolation spanning lines - `"Score: {` over
- *   `Points}"` - loses its `{` and keeps its `}`, and nothing downstream can
- *   recover the pair.
+ *   balance one the file never closes. An unterminated `"` is masked only to its
+ *   own line's end and does not carry, so a `}` the author wrote inside that
+ *   string on a later line arrives here as a real one. An interpolation does
+ *   carry - the language lets one span lines - so `"Score: {` over `Points}"`
+ *   balances.
  * - `codeOutsideLiterals` consults only the frame open before each character, so
  *   an interpolation's opening `{` is blanked while its closing `}` survives
  *   even on one line. Callers reading a single line accept that, since a clause

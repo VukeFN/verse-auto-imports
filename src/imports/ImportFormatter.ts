@@ -65,7 +65,7 @@ export class ImportFormatter {
      * so is kept whole rather than split at a `#` the lexer never resolved.
      */
     private static commentStartIndex(content: string): number {
-        return lexVerseLine(content, { depth: 0, markerIndent: null }).commentStart;
+        return lexVerseLine(content, { depth: 0, markerIndent: null, openFrames: [] }).commentStart;
     }
 
     /**

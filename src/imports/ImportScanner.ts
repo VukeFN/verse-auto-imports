@@ -141,7 +141,11 @@ export interface LineClassification {
  */
 export function classifyLines(lines: string[]): LineClassification[] {
     const classifications: LineClassification[] = new Array(lines.length);
-    const state: LexState = { depth: 0, markerIndent: null };
+    // Left empty and never carried, unlike the two beside it. An open
+    // interpolation is a state scanLine has just declined to read, since the
+    // line holding it is re-lexed with literal tracking off; carrying it would
+    // resume a literal on the next line that this line was never lexed as.
+    const state: LexState = { depth: 0, markerIndent: null, openFrames: [] };
 
     for (let i = 0; i < lines.length; i++) {
         const scan = scanLine(lines[i], state);
@@ -422,7 +426,8 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
     // on the path line. Only depth 0 yields opensIndentedComment, so a `<#>`
     // inside a block comment on the same span cannot be mistaken for a marker.
     const anchorsCommentBelow = (startLine: number, endLine: number): boolean => {
-        const state: LexState = { depth: 0, markerIndent: null };
+        // Empty and never carried, for the reason classifyLines gives.
+        const state: LexState = { depth: 0, markerIndent: null, openFrames: [] };
         for (let line = startLine; line <= endLine; line++) {
             const scan = scanLine(lines[line], state);
             if (scan.opensIndentedComment) {

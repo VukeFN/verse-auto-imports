@@ -1,4 +1,6 @@
 import { ImportFormatter } from "./ImportFormatter";
+import { LexedLine, LexState, lexVerseLine } from "../utils/verseLexer";
+import { scanBraces } from "../utils/verseText";
 
 /**
  * Splits text into lines without keeping the carriage return of a CRLF pair.
@@ -67,211 +69,27 @@ export interface ScannedImport {
     trailingComment: string;
 }
 
-/** What one line of a document leaves behind for the line below it. */
-interface LineScan {
-    /** The block-comment nesting depth the next line starts at. */
-    depth: number;
-    /** Whether the line carries any text outside a comment. */
-    hasCode: boolean;
-    /**
-     * Nothing is put in a removed comment's place, so text on either side of
-     * one joins. That is what the field is for: a comment splicing a token
-     * apart, `us<##>ing { /A }`, rejoins into a `using` a search of the whole
-     * line can find, and a missed `using` is the one error its callers cannot
-     * survive. Putting a space there instead loses that, and buys only
-     * `X := 1<# note #>using { /A }` - a shape two statements with nothing
-     * between them do not compile as anyway.
-     */
-    codeWithoutComments: string;
-    /**
-     * `codeWithoutComments` with the contents of every `"` string replaced by
-     * spaces, so a `using` written as string text is not offered as a statement
-     * the line makes.
-     *
-     * Read this wherever a path is going to count as imported. The text of a
-     * string is data, not a statement, and recording a path from it both
-     * suppresses an import the file needs and - because a path that counts as
-     * pinned withholds the movable import of the same path from the rebuilt
-     * block - deletes the real `using` the author wrote.
-     *
-     * A `'` is deliberately not masked, though the lexer opens a char literal
-     * on one. The same character closes a path's quoted segment suffix,
-     * `Economy.Shop'Loc'`, and masking it truncates the path to `Economy.Shop`,
-     * a different module that exists; see ImportFormatter.DOTTED_STATEMENT.
-     * Nothing is lost by that, because a char literal holds one character and a
-     * `using` cannot fit in one.
-     *
-     * Spaces rather than nothing, so the text on either side of a string does
-     * not join into a token neither side wrote. `codeWithoutComments` removes
-     * comments without replacement on purpose, for the opposite reason; the two
-     * differ because a comment can splice a token apart and a string cannot.
-     *
-     * Equal to `codeWithoutComments` on a line that ended inside an open
-     * literal or interpolation, which the second lexing pass reads with literal
-     * tracking off. Nothing there can be classified, so nothing is masked, and
-     * a `using` written in an unterminated string on such a line still counts
-     * as present.
-     */
-    codeOutsideLiterals: string;
-    /**
-     * Whether the line holds a `<#>` marker, which makes every line below it
-     * indented past it part of the comment it opens.
-     */
-    opensIndentedComment: boolean;
-}
-
 /**
- * Advances `<# ... #>` block-comment nesting across one line, and reports
- * whether anything on the line was code rather than comment text.
+ * One line read with the block-comment depth and `<#>` marker state the lines
+ * above it left open, taking the scanner's fallback for a line that ends inside
+ * a literal.
  *
- * Three Verse rules decide what counts as an opener:
+ * That fallback re-reads the line with literal tracking off, which reads a `#`
+ * as a comment opener wherever it sits. Nothing could be lexed past the point
+ * the literal was left open - a string may legitimately be open there, since an
+ * interpolation block spans lines - so the rest of that line is trivia this
+ * cannot classify, and treating it as literal content is what would let a
+ * `using` written in a trailing comment read as the line's own statement.
  *
- * - Block comments nest, so an inner `#>` closes only the innermost `<#`.
- * - `<#>` is the *indented* comment marker, not a block opener. Its body is
- *   the indented lines below it, which the scanner already skips, so the only
- *   thing that matters here is not mistaking it for a `<#` that never closes.
- *   The rest of its line is comment text.
- * - A `#` line comment runs to the end of the line, so a `<#` inside one is
- *   text rather than an opener.
- * - A bare `#` inside a string or char literal is content, so a line is lexed
- *   far enough to tell the two apart, and no further. A string's `{ ... }`
- *   interpolation holds ordinary code, so the two alternate: a `"` inside one
- *   opens a fresh literal rather than closing the literal around it, and a `#`
- *   written directly in one opens a comment exactly as it would at code scope.
- *   `<#` is the exception in both directions - it really does open a comment
- *   inside a string, so it is read before the literal state is consulted, and a
- *   literal survives across the comment written into it.
- *
- * A line still inside a literal or an interpolation at its end is read again
- * with literals ignored. Nothing could be lexed past the point it was left open
- * - a string may legitimately be open there, since an interpolation block spans
- * lines - so the rest of that line is trivia this cannot classify, and treating
- * it as literal content is what would let a `using` written in a trailing
- * comment read as the line's own statement.
+ * It is the opposite of the fallback maskCommentsAndStrings takes on the same
+ * line, and deliberately so: a `using` this misses is read by a caller as
+ * permission to remove an import, where text the masker wrongly offers as code
+ * becomes a declaration its caller edits as if it were real. See lexVerseLine,
+ * which reports the line as open rather than choosing for either of them.
  */
-function scanLine(line: string, depth: number): LineScan {
-    return lexLine(line, depth, true) ?? lexLine(line, depth, false)!;
-}
-
-/** One literal or interpolation open at a point in a line. */
-type LexFrame =
-    | { kind: "literal"; quote: string }
-    /**
-     * The `{ ... }` blocks written inside the interpolation, which a `}` has to
-     * close before one can close the interpolation itself. Without the count a
-     * `}` ending a map or a block, `"a{map{1=>2}}b"`, reads as the end of the
-     * interpolation and the string's remaining text is lexed as code.
-     */
-    | { kind: "interpolation"; braces: number };
-
-/**
- * One pass of scanLine, or null when literal tracking was asked for and the
- * line ended inside a literal or an interpolation.
- *
- * @param trackLiterals false reads a `#` as a comment opener wherever it sits.
- */
-function lexLine(line: string, depth: number, trackLiterals: boolean): LineScan | null {
-    let nesting = depth;
-    let hasCode = false;
-    let codeWithoutComments = "";
-    let codeOutsideLiterals = "";
-    let i = 0;
-    // What is open at this point, innermost last, and empty at code scope. A
-    // stack rather than one quote because interpolation alternates the two:
-    // `"a{F("b")}c"` writes a string inside the interpolation of a string.
-    //
-    // Kept across the `nesting > 0` branch, because a block comment written
-    // inside a string does not end it: `"a<#c#>#b"` is the string `"a#b"`.
-    const open: LexFrame[] = [];
-
-    while (i < line.length) {
-        if (nesting > 0) {
-            if (line.startsWith("<#", i)) {
-                nesting += 1;
-                i += 2;
-            } else if (line.startsWith("#>", i)) {
-                nesting -= 1;
-                i += 2;
-            } else {
-                i += 1;
-            }
-            continue;
-        }
-
-        if (line.startsWith("<#>", i)) {
-            return { depth: nesting, hasCode, codeWithoutComments, codeOutsideLiterals, opensIndentedComment: true };
-        }
-
-        const innermost = trackLiterals ? open[open.length - 1] : undefined;
-
-        // Inside an interpolation this is code scope again, so a `#` there ends
-        // the line as one at the head of it would. Returning the line read so
-        // far, rather than null, is what keeps the text before it: the fallback
-        // pass ends at the first `#` on the line, which may sit further back
-        // inside string text this pass has already read as content.
-        if (line[i] === "#" && innermost?.kind !== "literal") {
-            return { depth: nesting, hasCode, codeWithoutComments, codeOutsideLiterals, opensIndentedComment: false };
-        }
-
-        if (line.startsWith("<#", i)) {
-            nesting += 1;
-            i += 2;
-            continue;
-        }
-
-        if (innermost?.kind === "literal") {
-            // An escape and the character it escapes are one unit, or `"a\"b"`
-            // closes at the quote it escapes and the rest of the line is read
-            // as code. `\{` is the same rule, and is what keeps an escaped brace
-            // from opening an interpolation.
-            if (line[i] === "\\") {
-                codeWithoutComments += line.slice(i, i + 2);
-                codeOutsideLiterals += innermost.quote === '"' ? "  " : line.slice(i, i + 2);
-                i += 2;
-                continue;
-            }
-
-            if (line[i] === innermost.quote) {
-                open.pop();
-            } else if (line[i] === "{" && innermost.quote === '"') {
-                // Only a `"` string interpolates. A char literal is one
-                // character or one escape, so the `{` of `'{'` is content.
-                open.push({ kind: "interpolation", braces: 0 });
-            }
-        } else if (trackLiterals) {
-            if (line[i] === '"' || line[i] === "'") {
-                open.push({ kind: "literal", quote: line[i] });
-            } else if (innermost?.kind === "interpolation") {
-                if (line[i] === "{") {
-                    innermost.braces += 1;
-                } else if (line[i] === "}") {
-                    if (innermost.braces > 0) {
-                        innermost.braces -= 1;
-                    } else {
-                        open.pop();
-                    }
-                }
-            }
-        }
-
-        if (!/\s/.test(line[i])) {
-            hasCode = true;
-        }
-        codeWithoutComments += line[i];
-        // Only a `"` string. A `'` opens a char literal here, but the same
-        // character ends a path's quoted segment suffix, `Economy.Shop'Loc'`,
-        // and masking that truncates the path to `Economy.Shop` - a different
-        // module that exists. Nothing is lost by leaving `'` alone: a char
-        // literal holds one character, which cannot be a `using`.
-        codeOutsideLiterals += innermost?.kind === "literal" && innermost.quote === '"' ? " " : line[i];
-        i += 1;
-    }
-
-    return open.length === 0 ? { depth: nesting, hasCode, codeWithoutComments, codeOutsideLiterals, opensIndentedComment: false } : null;
-}
-
-function indentWidth(line: string): number {
-    return line.length - line.trimStart().length;
+function scanLine(line: string, state: LexState): LexedLine {
+    const tracked = lexVerseLine(line, state);
+    return tracked.endedOpen ? lexVerseLine(line, state, false) : tracked;
 }
 
 /** What a line contributes at file scope. */
@@ -302,7 +120,7 @@ export interface LineClassification {
     /**
      * `codeWithoutComments` with every literal's contents masked. Read this, not
      * `codeWithoutComments`, wherever a path found on the line is going to count
-     * as imported; see LineScan.codeOutsideLiterals.
+     * as imported; see LexedLine.codeOutsideLiterals.
      */
     codeOutsideLiterals: string;
 }
@@ -323,37 +141,24 @@ export interface LineClassification {
  */
 export function classifyLines(lines: string[]): LineClassification[] {
     const classifications: LineClassification[] = new Array(lines.length);
-    let depth = 0;
-    // The indentation of the `<#>` marker whose body we are inside, if any.
-    let indentedCommentIndent: number | null = null;
+    const state: LexState = { depth: 0, markerIndent: null };
 
     for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const insideBlockComment = depth > 0;
-        const blank = line.trim() === "";
-
-        // An indented comment runs until a line that is neither blank nor
-        // indented past its marker. Blank lines do not end it.
-        if (indentedCommentIndent !== null && !blank && indentWidth(line) <= indentedCommentIndent) {
-            indentedCommentIndent = null;
-        }
-        const insideIndentedComment = indentedCommentIndent !== null && !insideBlockComment;
-
-        const scan = scanLine(line, depth);
-        const kind: LineKind = blank ? (insideBlockComment ? "comment" : "blank") : insideIndentedComment || !scan.hasCode ? "comment" : "code";
+        const scan = scanLine(lines[i], state);
+        const insideBlockComment = scan.depthBefore > 0;
+        const blank = lines[i].trim() === "";
+        const kind: LineKind = blank ? (insideBlockComment ? "comment" : "blank") : scan.insideIndentedComment || !scan.hasCode ? "comment" : "code";
 
         classifications[i] = {
             kind,
             insideBlockComment,
-            continuesCommentAbove: insideBlockComment || insideIndentedComment,
+            continuesCommentAbove: insideBlockComment || scan.insideIndentedComment,
             codeWithoutComments: scan.codeWithoutComments,
             codeOutsideLiterals: scan.codeOutsideLiterals,
         };
 
-        if (!insideBlockComment && !insideIndentedComment && scan.opensIndentedComment) {
-            indentedCommentIndent = indentWidth(line);
-        }
-        depth = scan.depth;
+        state.depth = scan.depth;
+        state.markerIndent = scan.markerIndent;
     }
 
     return classifications;
@@ -469,26 +274,21 @@ function bracedUsingSpan(classifications: LineClassification[], opener: number):
     // The `}` that returns the depth to where the clause opened, with the
     // column it sits at, so the content is cut at that brace rather than at the
     // last one on its line.
+    //
+    // Counted by scanBraces, the one brace primitive, rather than by a loop of
+    // its own: a second counter is a second opinion about which `{` delimits a
+    // body.
     let depth = 0;
     let endLine = -1;
     let closeAt = -1;
     for (let line = braceLine; line < classifications.length && endLine === -1; line++) {
         const code = classifications[line].codeOutsideLiterals;
-        for (let column = 0; column < code.length; column++) {
-            if (code[column] === "{") {
-                depth++;
-                continue;
-            }
-            if (code[column] !== "}") {
-                continue;
-            }
-            depth--;
-            if (depth <= 0) {
-                endLine = line;
-                closeAt = column;
-                break;
-            }
+        const scan = scanBraces(code, 0, code.length, depth);
+        if (scan.closedAt !== -1) {
+            endLine = line;
+            closeAt = scan.closedAt;
         }
+        depth = scan.depth;
     }
 
     // A `}` that is itself comment text closes nothing, so there is no clause
@@ -594,7 +394,7 @@ function bracedUsingSpan(classifications: LineClassification[], opener: number):
  * - A path is only ever read from the line's statements, never from the text of
  *   a `"` string it writes. A `'` is not treated as opening literal text here,
  *   because it also closes a path's quoted segment suffix; see
- *   LineScan.codeOutsideLiterals for why that costs nothing.
+ *   LexedLine.codeOutsideLiterals for why that costs nothing.
  * - A collected import that itself opens a comment over the lines below it is
  *   flagged with `anchorsCommentBelow`. It is a real import and still counts
  *   as present, but no writer may rebuild or move its line, because where the
@@ -622,15 +422,16 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
     // on the path line. Only depth 0 yields opensIndentedComment, so a `<#>`
     // inside a block comment on the same span cannot be mistaken for a marker.
     const anchorsCommentBelow = (startLine: number, endLine: number): boolean => {
-        let depth = 0;
+        const state: LexState = { depth: 0, markerIndent: null };
         for (let line = startLine; line <= endLine; line++) {
-            const scan = scanLine(lines[line], depth);
+            const scan = scanLine(lines[line], state);
             if (scan.opensIndentedComment) {
                 return true;
             }
-            depth = scan.depth;
+            state.depth = scan.depth;
+            state.markerIndent = scan.markerIndent;
         }
-        return depth > 0;
+        return state.depth > 0;
     };
 
     // The path the indented pair opened on `opener` takes, with the line
@@ -714,7 +515,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
         const codeWithoutComments = classifications[i].codeWithoutComments.trim();
         // Every path recorded below is read from this rather than from
         // `codeWithoutComments`, because every one of them counts as imported.
-        // See LineScan.codeOutsideLiterals for what a path read out of string
+        // See LexedLine.codeOutsideLiterals for what a path read out of string
         // text costs. `codeWithoutComments` still answers what text the line
         // holds, which is a question about the whole line and not about its
         // statements.

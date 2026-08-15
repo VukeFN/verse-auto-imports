@@ -340,3 +340,42 @@ describe("ProjectPathScanner.extractDeclarations module forms", () => {
         });
     });
 });
+
+/**
+ * The class, struct and interface patterns ended at their keyword with no word
+ * boundary, and everything after it is optional, so each matched the prefix of
+ * any identifier beginning with one of those words.
+ *
+ * A declaration recorded as a type is what tells a dotted suggestion where the
+ * module path ends, so a call misread as a class makes every segment after it
+ * address members of a type that does not exist.
+ */
+describe("ProjectPathScanner.extractDeclarations declaration keyword boundary", () => {
+    type ScannerParams = ConstructorParameters<typeof ProjectPathScanner>;
+
+    const scanner = new ProjectPathScanner({ appendLine: jest.fn() } as unknown as ScannerParams[0], {} as unknown as ScannerParams[1]);
+
+    const typed = (source: string): Array<{ name: string; type: string }> => scanner.extractDeclarations(source, "Content/Inventory.verse").map((node) => ({ name: node.name, type: node.type }));
+
+    it.each([
+        ["class", "Items", "Items := classify_items(Source)\n"],
+        ["struct", "Layout", "Layout := structure_of(Source)\n"],
+        ["interface", "Bridge", "Bridge := interfaces_for(Source)\n"],
+    ])("does not read a call to a function named after `%s` as a type declaration", (_keyword, name, source) => {
+        // Recorded as the variable it is, rather than dropped: the line really
+        // does declare the name.
+        expect(typed(source)).toEqual([{ name, type: "variable" }]);
+    });
+
+    it.each([
+        ["class", "Item", "Item := class:\n"],
+        ["struct", "Point", "Point := struct:\n"],
+        ["interface", "Usable", "Usable := interface:\n"],
+    ])("still records the `%s` declaration the boundary sits after", (keyword, name, source) => {
+        expect(typed(source)).toEqual([{ name, type: keyword }]);
+    });
+
+    it("still records a type whose keyword carries specifiers", () => {
+        expect(typed("Item := class<final>(base):\n")).toEqual([{ name: "Item", type: "class" }]);
+    });
+});

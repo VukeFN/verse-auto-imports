@@ -51,7 +51,7 @@ async function main(): Promise<void> {
             // --extensionTestsPath is ignored outside extension development
             // mode, and an empty path list silently never runs the suite. The
             // extension under test must come from the installed vsix, which
-            // carries the `verse` language contribution itself - hence no
+            // carries the `verse` language contribution itself, hence no
             // --disable-extensions either.
             extensionDevelopmentPath: [hostAnchorPath],
             extensionTestsPath,

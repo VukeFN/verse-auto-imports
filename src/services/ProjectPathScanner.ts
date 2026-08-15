@@ -8,6 +8,19 @@ import { ProjectPathData, ProjectPathNode, ProjectScanOptions } from "../types";
 const SCAN_CONCURRENCY = 8;
 
 /**
+ * A declaration keyword introducing the right-hand side of a `:=`, for the
+ * backstop that catches a type whose own pattern did not match the exact shape
+ * written.
+ *
+ * Anchored at the `:=` and closed with `\b`, because a keyword this recognises
+ * loosely costs a whole declaration: a substring test reads
+ * `Items := classify_items(X)` as a type and drops the line, where the same
+ * missing boundary in the class, struct and interface patterns above only
+ * mistyped it. Nothing here may be tested with `includes`.
+ */
+const DECLARATION_KEYWORD_AFTER_ASSIGN = /:=\s*(?:class|struct|module|interface|enum)\b/;
+
+/**
  * The keywords a Verse block macro is spelled with, and the operators and types
  * that share their shape closely enough to reach a declaration pattern.
  *
@@ -594,7 +607,7 @@ export class ProjectPathScanner {
                 // recognised by `:=` with a declaration keyword, and a function,
                 // recognised by a parameter list before the colon. Either would
                 // otherwise be recorded as a variable.
-                if (line.includes(":=") && (line.includes("class") || line.includes("struct") || line.includes("module") || line.includes("interface") || line.includes("enum"))) {
+                if (DECLARATION_KEYWORD_AFTER_ASSIGN.test(line)) {
                     continue;
                 }
 

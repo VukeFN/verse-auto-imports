@@ -991,7 +991,11 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         expect(applyEditMock()).not.toHaveBeenCalled();
     });
 
-    it("adds an import that exists only inside a block comment, above the comment", async () => {
+    // The commented-out copy stays inert and the live one is added anyway. It
+    // goes below the comment rather than above it: the comment opens the file,
+    // so it is the header, which is the same reading buildOrganizedContent
+    // makes of this shape.
+    it("adds an import that exists only inside a block comment, below the comment", async () => {
         const input = ["<#", "using { /Fortnite.com/Devices }", "#>", "", "my_device := class(creative_device):", "    Button : button_device = button_device{}"].join("\n");
 
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
@@ -1000,7 +1004,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const operations = appliedOperations(0);
         expect(operations).toHaveLength(1);
         expect(operations[0].kind).toBe("insert");
-        expect(operations[0].position).toEqual({ line: 0, character: 0 });
+        expect(operations[0].position).toEqual({ line: 4, character: 0 });
         expect(operations[0].text).toBe("using { /Fortnite.com/Devices }\n\n");
     });
 
@@ -1508,6 +1512,62 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
 
         expect(operations.some((op) => op.kind === "replace")).toBe(false);
         expect(operations.some((op) => op.kind === "delete")).toBe(false);
+    });
+
+    // The rule that a header stays above the block was held by the organize
+    // path alone, so every add-path branch that writes at the top of a file
+    // wrote at line 0. A file with a header and no import block reaches one of
+    // these on every configuration, and the licence ended up in the middle of
+    // the file.
+    describe("adding to a headered file with no import block", () => {
+        it("preserve + grouping none: writes the new import below the header", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["# Copyright 2026 MyGame", "", "hello := 1"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
+
+            expect(success).toBe(true);
+            const insert = appliedOperations(0).find((op) => op.kind === "insert");
+            expect(insert).toBeDefined();
+            expect(insert!.position!.line).toBe(2);
+            expect(insert!.text).toBe("using { /Fortnite.com/Devices }\n\n");
+        });
+
+        // Grouping with no block of its own to regroup: the file's only import
+        // is pinned, which is a block to no placement decision.
+        it("preserve + digestFirst: writes below the header when the only import is pinned", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "digestFirst",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["# Copyright 2026 MyGame", "", "using { Economy.Shop } <#> note", "    body", "hello := 1"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
+
+            expect(success).toBe(true);
+            const insert = appliedOperations(0).find((op) => op.kind === "insert");
+            expect(insert).toBeDefined();
+            expect(insert!.position!.line).toBe(2);
+            expect(insert!.text).toBe("using { /Fortnite.com/Devices }\n\n");
+        });
+
+        it("consolidating: writes the consolidated block below the header", async () => {
+            mockConfig({ "behavior.preserveImportLocations": false });
+            const input = ["# Copyright 2026 MyGame", "", "using { /Verse.org/Simulation }", "", "hello := 1"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
+
+            expect(success).toBe(true);
+            const insert = appliedOperations(0).find((op) => op.kind === "insert");
+            expect(insert).toBeDefined();
+            expect(insert!.position!.line).toBe(2);
+            expect(insert!.text).toBe("using { /Fortnite.com/Devices }\nusing { /Verse.org/Simulation }\n");
+        });
     });
 
     // An import anchored by a comment marker belongs to no import block, so

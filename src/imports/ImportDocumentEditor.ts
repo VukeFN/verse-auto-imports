@@ -666,6 +666,14 @@ export class ImportDocumentEditor {
         const classifications = classifyLines(lines);
         const pinned = pinnedImports(scannedImports);
 
+        // The top of the file for anything written here, in place of line 0:
+        // writing above the header puts it into the middle of the file, which
+        // headerLineCount calls the one place a header must never be. Every
+        // line it covers is comment or blank - it ends at the first code line,
+        // and an import line is code - so no `using` is crossed by starting
+        // below it, and no resolution order changes.
+        const headerEnd = headerLineCount(classifications);
+
         const importBlocks: ImportBlock[] = [];
         for (const imp of rewritableImports(scannedImports)) {
             logger.debug("ImportDocumentEditor", `Found existing import at line ${imp.startLine}: ${imp.path}`);
@@ -825,7 +833,7 @@ export class ImportDocumentEditor {
                 }
 
                 if (unhandledPaths.length > 0) {
-                    const desired = importBlocks.length > 0 ? importBlocks[importBlocks.length - 1].end + 1 : 0;
+                    const desired = importBlocks.length > 0 ? importBlocks[importBlocks.length - 1].end + 1 : headerEnd;
                     for (const [line, paths] of this.groupByPlacementLine(unhandledPaths, desired, pinned, classifications, diagnosticLinesByPath)) {
                         this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, importBlocks.length === 0);
                     }
@@ -883,7 +891,7 @@ export class ImportDocumentEditor {
                         // rewritable import opens or extends a block, so no
                         // block means none of them, which is also why the
                         // trailing comments here are always empty.
-                        for (const [line, paths] of this.groupByPlacementLine(allImportsArray, 0, pinned, classifications, diagnosticLinesByPath)) {
+                        for (const [line, paths] of this.groupByPlacementLine(allImportsArray, headerEnd, pinned, classifications, diagnosticLinesByPath)) {
                             this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, true);
                         }
                     }
@@ -959,7 +967,7 @@ export class ImportDocumentEditor {
                             this.createBlockReplacementEdit(edit, document, importBlocks[index], pathsByBlock.get(index)!, preferDotSyntax, true, eol);
                         }
 
-                        for (const [line, paths] of this.groupByPlacementLine(unblockedPaths, 0, pinned, classifications, diagnosticLinesByPath)) {
+                        for (const [line, paths] of this.groupByPlacementLine(unblockedPaths, headerEnd, pinned, classifications, diagnosticLinesByPath)) {
                             this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, true, importGrouping), eol, true);
                         }
                     } else {
@@ -983,7 +991,7 @@ export class ImportDocumentEditor {
                         // precede it sits there, which is the one case a file
                         // whose only import is pinned always reaches. That is
                         // what groupByPlacementLine answers, from either start.
-                        const desired = importBlocks.length > 0 ? importBlocks[importBlocks.length - 1].end + 1 : 0;
+                        const desired = importBlocks.length > 0 ? importBlocks[importBlocks.length - 1].end + 1 : headerEnd;
                         const blankLineAfter = importBlocks.length === 0;
 
                         for (const [line, paths] of this.groupByPlacementLine(newImportPathsArray, desired, pinned, classifications, diagnosticLinesByPath)) {
@@ -1024,8 +1032,7 @@ export class ImportDocumentEditor {
                 // No blank line after the block: ensureEmptyLinesAfterImports
                 // runs once the edit has been applied and puts the configured
                 // number there.
-                const importsText = formattedImports.join(eol) + eol;
-                edit.insert(document.uri, new vscode.Position(0, 0), importsText);
+                this.insertImportLines(edit, document, headerEnd, formattedImports, eol, false);
             }
 
             for (const [line, paths] of [...newPathsByLine].sort(([a], [b]) => a - b)) {

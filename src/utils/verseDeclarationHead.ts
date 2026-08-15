@@ -4,9 +4,7 @@
  * Every reader in the extension that has to decide "does this line declare a
  * name, and what kind" goes through this, so the head grammar is learned in one
  * place. Nothing outside this file may re-decide what a declared name, a
- * specifier group, a parameter list or a declaration keyword looks like; a
- * second opinion about any of them is what the three matchers this replaced
- * disagreed over, each having gained a grammar fix the others did not.
+ * specifier group, a parameter list or a declaration keyword looks like.
  *
  * No VS Code dependencies, so importing this from a pure module is safe.
  *
@@ -59,7 +57,9 @@ export type DeclarationKeyword = (typeof DECLARATION_KEYWORDS)[number];
  * because two further spellings of the module grammar outside this file -
  * `ImportPathConverter.buildModuleDefinitionRegex` and `moduleDeclarations`'
  * `MODULE_DECLARATION` - accept it, and dropping it here alone would put this
- * matcher out of step with them.
+ * matcher out of step with them. Parity with those two is partial either way:
+ * both end at `module\s*[:>{.]`, so neither admits the keyword specifiers this
+ * does.
  */
 const BODY_TERMINATORS = new Set([":", "{", ".", ">"]);
 
@@ -78,7 +78,6 @@ const KEYWORD_RE = new RegExp(`^(${DECLARATION_KEYWORDS.join("|")})\\b`);
  * `[Receiver '.'] Name Specifiers* [ParamList] Specifiers* Operator [Keyword Specifiers* [SuperList] [Terminator]]`
  */
 export interface DeclarationHead {
-    /** The declared identifier. */
     name: string;
     /** The specifier groups written on the name, verbatim ("<native><public>"), or "". */
     specifiers: string;

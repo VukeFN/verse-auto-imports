@@ -3,7 +3,7 @@ import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
 import { logger } from "../utils";
-import { matchDeclarationHead } from "../utils/verseDeclarationHead";
+import { DeclarationHead, matchDeclarationHead } from "../utils/verseDeclarationHead";
 import { lineIndentWidth, popClosedBlocks } from "../utils/verseText";
 import { ProjectPathHandler } from "../project";
 
@@ -14,6 +14,24 @@ import { ProjectPathHandler } from "../project";
  * keeps ordinary constant assignments out.
  */
 const EXTERNAL_INSTANCE_TAIL = /^\s*\w+\s*=\s*external\b/;
+
+/**
+ * Whether the head declares an asset instance rather than a function: a plain
+ * typed name whose value is `external`.
+ *
+ * The parameter-list test is load-bearing and not redundant. A module-scope
+ * function is written `GetColor<public>()<transacts>:vector3 = external {}`,
+ * whose tail is an instance's tail exactly - only the parameter list tells the
+ * two apart. Recording one here puts a function name into the asset-class set,
+ * and `ImportSuggestionExtractor.splitModulePathAndClass` truncates a dotted
+ * module path at the first segment that set accepts, so it emits a short
+ * `using` path.
+ *
+ * @param line The trimmed declaration line the head was read from.
+ */
+export function declaresExternalInstance(head: DeclarationHead, line: string): boolean {
+    return head.keyword === null && head.params === null && head.receiver === null && head.operator === ":" && EXTERNAL_INSTANCE_TAIL.test(line.slice(head.end));
+}
 
 /**
  * The set of asset type names UEFN generated for this project, read from its
@@ -172,7 +190,7 @@ export class AssetsDigestParser {
             }
 
             // Instances only count at module scope, never as class/struct members.
-            if (classBodyIndents.length === 0 && head.operator === ":" && EXTERNAL_INSTANCE_TAIL.test(line.slice(head.end))) {
+            if (classBodyIndents.length === 0 && declaresExternalInstance(head, line)) {
                 names.add(head.name);
             }
         }

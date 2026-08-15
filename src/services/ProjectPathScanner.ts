@@ -9,21 +9,28 @@ import { ProjectPathData, ProjectPathNode, ProjectScanOptions } from "../types";
 const SCAN_CONCURRENCY = 8;
 
 /**
- * What kind of declaration a head makes.
+ * What kind of declaration a head makes, or null where it makes none.
  *
  * A module head does not reach here: it opens a body this cannot bound, so the
  * scan takes it in its own branch beforehand.
  *
  * A receiver-style extension method is a function declared in this module, and
- * is indexed here where the two digest parsers deliberately skip it. Anything
- * carrying a parameter list is a function whichever operator follows, including
- * an unclosed one, which is a signature continuing on the line below.
+ * is indexed here where the two digest parsers deliberately skip it.
+ *
+ * An unclosed `(` is declined rather than guessed at. In a digest it can only
+ * be a signature wrapping to the next line, which is why the digest parser
+ * reads it as a function; this scan reads project source, where the same shape
+ * is far more often a call wrapping inside a function body, and recording those
+ * would fill the index with statements.
  */
-function declarationType(head: DeclarationHead): ProjectPathNode["type"] {
+function declarationType(head: DeclarationHead): ProjectPathNode["type"] | null {
     if (head.keyword) {
         return head.keyword;
     }
-    if (head.receiver !== null || head.params !== null || head.operator === "(") {
+    if (head.operator === "(") {
+        return null;
+    }
+    if (head.receiver !== null || head.params !== null) {
         return "function";
     }
     return "variable";
@@ -433,13 +440,11 @@ export class ProjectPathScanner {
                 continue;
             }
 
-            // One head, one decision. The five near-identical branches this
-            // replaced each carried their own spelling of the same grammar, and
-            // the backstop that caught what they missed carried a sixth - so a
-            // keyword rule had two independent homes and a missing one was paid
-            // for twice. `declarationType` reads the head the module branch
-            // above already matched, which is what leaves no shape for a
-            // backstop to be needed for.
+            const type = declarationType(head);
+            if (type === null) {
+                continue;
+            }
+
             const visibility = extractVisibility(head.specifiers);
             if (shouldSkipDeclaration(visibility)) {
                 continue;
@@ -448,7 +453,7 @@ export class ProjectPathScanner {
             nodes.push({
                 name: head.name,
                 fullPath: currentModulePath ? `${currentModulePath}.${head.name}` : head.name,
-                type: declarationType(head),
+                type,
                 isPublic: visibility === "public",
                 sourceFile: filePath,
                 sourceLine: i + 1,

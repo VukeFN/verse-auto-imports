@@ -28,37 +28,13 @@ const scanner = new ProjectPathScanner(
 interface HeadShape {
     name: string;
     keyword: DeclarationHead["keyword"];
+    operator: DeclarationHead["operator"];
     hasParams: boolean;
     hasReceiver: boolean;
 }
 
 function shapeOf(head: DeclarationHead | null): HeadShape | null {
-    return head && { name: head.name, keyword: head.keyword, hasParams: head.params !== null, hasReceiver: head.receiver !== null };
-}
-
-/**
- * What each caller's documented policy makes of a head, written once so the
- * expectations below are derived from the shared grammar rather than restated
- * per caller - restating them is how three matchers drifted apart in the first
- * place.
- *
- * The two `false` answers are the deliberate divergences, and they are policy
- * rather than grammar: all three callers see the same head and choose.
- */
-function policy(head: DeclarationHead | null, line: string): { digest: boolean; assets: boolean; scanner: boolean } {
-    if (!head) {
-        return { digest: false, assets: false, scanner: false };
-    }
-    const isExternalInstance = head.operator === ":" && /^\s*\w+\s*=\s*external\b/.test(line.slice(head.end));
-    return {
-        // The API digest index declines receiver-style extension methods.
-        digest: head.receiver === null,
-        // The assets parser wants asset type names only: a class, a struct, or
-        // an `external` instance at module scope.
-        assets: head.receiver === null && (head.keyword === "class" || head.keyword === "struct" || isExternalInstance),
-        // The project scan indexes every declaration, extension methods included.
-        scanner: true,
-    };
+    return head && { name: head.name, keyword: head.keyword, operator: head.operator, hasParams: head.params !== null, hasReceiver: head.receiver !== null };
 }
 
 /** The names each caller records, in the order it records them. */
@@ -76,7 +52,23 @@ interface Probe {
     source: string;
     /** The head the language gives this line. */
     head: HeadShape;
+    /**
+     * Which callers record the declared name, written out rather than derived
+     * from the callers' own policy code.
+     *
+     * Deriving it was tried and is what let a widened `assets` rule ship: an
+     * oracle that recomputes what it is checking agrees with the bug. Both
+     * halves of this corpus are authored, so the second can fail while the
+     * first passes.
+     */
+    reports: { digest: boolean; assets: boolean; scanner: boolean };
 }
+
+/** Records in the digest index and the project scan, but is no asset type. */
+const NOT_AN_ASSET_TYPE = { digest: true, assets: false, scanner: true };
+
+/** Records everywhere: a class or struct is an asset type name too. */
+const EVERYWHERE = { digest: true, assets: true, scanner: true };
 
 const probes: Probe[] = [
     {
@@ -85,12 +77,14 @@ const probes: Probe[] = [
         // Tests/CompatibilityConstraints.versetest:1147.
         name: "an enum takes as many specifier groups on its keyword as a class does",
         source: "Colour<public> := enum<open><persistable>:\n",
-        head: { name: "Colour", keyword: "enum", hasParams: false, hasReceiver: false },
+        head: { name: "Colour", keyword: "enum", operator: ":=", hasParams: false, hasReceiver: false },
+        reports: NOT_AN_ASSET_TYPE,
     },
     {
         name: "an enum with one keyword specifier is the same rule",
         source: "Colour<public> := enum<open>:\n",
-        head: { name: "Colour", keyword: "enum", hasParams: false, hasReceiver: false },
+        head: { name: "Colour", keyword: "enum", operator: ":=", hasParams: false, hasReceiver: false },
+        reports: NOT_AN_ASSET_TYPE,
     },
     {
         // ProjectPathScanner's enum required a `:`, so a braced body was
@@ -98,7 +92,8 @@ const probes: Probe[] = [
         // Tests/Attributes/available.versetest:40.
         name: "an enum body opens with a brace as readily as with a colon",
         source: "Colour<public> := enum<open> { A, B }\n",
-        head: { name: "Colour", keyword: "enum", hasParams: false, hasReceiver: false },
+        head: { name: "Colour", keyword: "enum", operator: ":=", hasParams: false, hasReceiver: false },
+        reports: NOT_AN_ASSET_TYPE,
     },
     {
         // `\([^)]*\)` cannot cross the inner `)`, so ProjectPathScanner dropped
@@ -106,77 +101,109 @@ const probes: Probe[] = [
         // an expression, so the list nests to any depth and must be walked.
         name: "a parameter list nests, and is walked rather than matched",
         source: "GetComponent<public>(component_type:castable_subtype(component))<transacts>:void = external {}\n",
-        head: { name: "GetComponent", keyword: null, hasParams: true, hasReceiver: false },
+        head: { name: "GetComponent", keyword: null, operator: ":", hasParams: true, hasReceiver: false },
+        reports: NOT_AN_ASSET_TYPE,
+    },
+    {
+        // A function's tail is an asset instance's tail exactly, so only the
+        // parameter list separates them. Recording one as an asset type name
+        // moves where a dotted suggestion is split into module and class.
+        name: "a module-scope function ending in `= external` is not an asset instance",
+        source: "GetColor<public>()<transacts>:vector3 = external {}\n",
+        head: { name: "GetColor", keyword: null, operator: ":", hasParams: true, hasReceiver: false },
+        reports: NOT_AN_ASSET_TYPE,
     },
     {
         // A type-parameter list before the `:=`. digestParsing walked it;
         // ProjectPathScanner had no pattern for it at all.
         name: "a type-parameter list precedes the declaration keyword",
         source: "Pair<public>(t:subtype(comparable)) := class:\n",
-        head: { name: "Pair", keyword: "class", hasParams: true, hasReceiver: false },
+        head: { name: "Pair", keyword: "class", operator: ":=", hasParams: true, hasReceiver: false },
+        reports: EVERYWHERE,
     },
     {
         // The kept divergence: one head, two policies. The receiver is walked
         // for its matching `)` like any other paren group.
         name: "a receiver-style extension method is one head the callers answer differently",
         source: "(Prop:creative_prop).Method<public>()<transacts>:void = external {}\n",
-        head: { name: "Method", keyword: null, hasParams: true, hasReceiver: true },
+        head: { name: "Method", keyword: null, operator: ":", hasParams: true, hasReceiver: true },
+        reports: { digest: false, assets: false, scanner: true },
     },
     {
-        // #373's C-04. A keyword that only prefixes the identifier opens no
-        // body, so the line declares a variable and is not dropped either - the
-        // two ways this has been got wrong.
+        // The other kept divergence. In a digest an unclosed `(` can only be a
+        // signature wrapping to the next line; in project source it is far more
+        // often a call wrapping inside a body, so the scan declines it. The
+        // test below this corpus carries that second reading in full.
+        name: "an unclosed parameter list is a signature to one caller and a statement to another",
+        source: "WrapFunc<public>(\n",
+        head: { name: "WrapFunc", keyword: null, operator: "(", hasParams: false, hasReceiver: false },
+        reports: { digest: true, assets: false, scanner: false },
+    },
+    {
+        // A keyword that only prefixes the identifier opens no body, so the
+        // line declares a variable - and is not dropped either, which is the
+        // other way this has been got wrong.
         name: "a keyword that merely prefixes an identifier declares no type",
         source: "Items<public> := classify_items(X)\n",
-        head: { name: "Items", keyword: null, hasParams: false, hasReceiver: false },
+        head: { name: "Items", keyword: null, operator: ":=", hasParams: false, hasReceiver: false },
+        reports: NOT_AN_ASSET_TYPE,
     },
     {
         name: "a class takes stacked keyword specifiers and a superclass list",
         source: "Thing<public> := class<abstract><castable>(base_device):\n",
-        head: { name: "Thing", keyword: "class", hasParams: false, hasReceiver: false },
+        head: { name: "Thing", keyword: "class", operator: ":=", hasParams: false, hasReceiver: false },
+        reports: EVERYWHERE,
     },
     {
         name: "a class body opens with a brace",
         source: "Thing<public> := class { }\n",
-        head: { name: "Thing", keyword: "class", hasParams: false, hasReceiver: false },
+        head: { name: "Thing", keyword: "class", operator: ":=", hasParams: false, hasReceiver: false },
+        reports: EVERYWHERE,
     },
     {
         // Four groups, as shipped in Verse.digest.verse.
         name: "specifier groups stack without bound",
         source: "Point<public> := struct<concrete><computes><persistable><uht_comparable>:\n",
-        head: { name: "Point", keyword: "struct", hasParams: false, hasReceiver: false },
+        head: { name: "Point", keyword: "struct", operator: ":=", hasParams: false, hasReceiver: false },
+        reports: EVERYWHERE,
     },
     {
         name: "an interface is the same head as a class",
         source: "Shape<public> := interface<epic_internal>:\n",
-        head: { name: "Shape", keyword: "interface", hasParams: false, hasReceiver: false },
+        head: { name: "Shape", keyword: "interface", operator: ":=", hasParams: false, hasReceiver: false },
+        reports: NOT_AN_ASSET_TYPE,
     },
     {
         name: "a module declares with a colon",
         source: "Inner<public> := module:\n",
-        head: { name: "Inner", keyword: "module", hasParams: false, hasReceiver: false },
+        head: { name: "Inner", keyword: "module", operator: ":=", hasParams: false, hasReceiver: false },
+        reports: NOT_AN_ASSET_TYPE,
     },
     {
         // The brace opens on the line below, which is the only reason a head
         // ending at the line end is a declaration and not a fragment.
         name: "a module whose brace opens on the next line is still a module",
         source: "Inner<public> := module\n{\n}\n",
-        head: { name: "Inner", keyword: "module", hasParams: false, hasReceiver: false },
+        head: { name: "Inner", keyword: "module", operator: ":=", hasParams: false, hasReceiver: false },
+        reports: NOT_AN_ASSET_TYPE,
     },
     {
         name: "an external instance is a typed name, not a keyword declaration",
         source: "image1<public>:texture = external {}\n",
-        head: { name: "image1", keyword: null, hasParams: false, hasReceiver: false },
+        head: { name: "image1", keyword: null, operator: ":", hasParams: false, hasReceiver: false },
+        reports: EVERYWHERE,
     },
     {
         name: "a typed constant declares a variable",
         source: "Score<public>:int = 0\n",
-        head: { name: "Score", keyword: null, hasParams: false, hasReceiver: false },
+        head: { name: "Score", keyword: null, operator: ":", hasParams: false, hasReceiver: false },
+        reports: NOT_AN_ASSET_TYPE,
     },
     {
         name: "an inferred constant declares a variable",
         source: "Total<public> := 5\n",
-        head: { name: "Total", keyword: null, hasParams: false, hasReceiver: false },
+        head: { name: "Total", keyword: null, operator: ":=", hasParams: false, hasReceiver: false },
+        reports: NOT_AN_ASSET_TYPE,
     },
 ];
 
@@ -191,13 +218,22 @@ describe("the one declaration-head grammar", () => {
 describe("every caller reads that grammar and adds only its own policy", () => {
     for (const probe of probes) {
         it(`${probe.name}: each caller reports what its policy says, and nothing else`, () => {
-            const line = probe.source.split("\n")[0].trim();
-            const expected = policy(matchDeclarationHead(line), line);
             expect(reported(probe.source)).toEqual({
-                digest: expected.digest ? [probe.head.name] : [],
-                assets: expected.assets ? [probe.head.name] : [],
-                scanner: expected.scanner ? [probe.head.name] : [],
+                digest: probe.reports.digest ? [probe.head.name] : [],
+                assets: probe.reports.assets ? [probe.head.name] : [],
+                scanner: probe.reports.scanner ? [probe.head.name] : [],
             });
         });
     }
+});
+
+describe("a statement inside a function body declares nothing", () => {
+    // The realistic shape behind the unclosed-parameter-list probe: project
+    // source holds statements, and a call wrapping across lines opens a `(`
+    // that its own line never closes.
+    const source = ["my_device<public> := class(creative_device):", "    OnBegin<override>()<suspends>:void=", "        SpawnProp(", "            Asset,", "            Position)", ""].join("\n");
+
+    it("the project scan records the class and its method, and neither line of the call", () => {
+        expect(scanner.extractDeclarations(source, "declarations.verse").map((node) => `${node.type}:${node.name}`)).toEqual(["class:my_device", "function:OnBegin"]);
+    });
 });

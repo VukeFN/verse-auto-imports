@@ -192,7 +192,8 @@
           "scope": "window",
           "type": "number",
           "default": 1000,
-          "description": "[DEPRECATED - Use autoImportDebounceDelay instead] Delay in milliseconds before processing diagnostics",
+          "description": "Delay in milliseconds before processing diagnostics",
+          "deprecationMessage": "Deprecated: use verseAutoImports.general.autoImportDebounceDelay instead. An explicitly set value here is still honored while the replacement is unset.",
           "order": 2
         },
         "verseAutoImports.general.autoImportDebounceDelay": {

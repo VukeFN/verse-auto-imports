@@ -7,13 +7,29 @@
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Other"
+    "Programming Languages",
+    "Formatters"
+  ],
+  "keywords": [
+    "verse",
+    "uefn",
+    "fortnite",
+    "imports",
+    "using"
   ],
   "activationEvents": [
     "onLanguage:verse"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "languages": [
+      {
+        "id": "verse",
+        "extensions": [
+          ".verse"
+        ]
+      }
+    ],
     "icons": {
       "verse-imports-icon": {
         "description": "Verse Auto Imports icon",

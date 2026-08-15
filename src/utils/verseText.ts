@@ -90,11 +90,16 @@ export function popClosedBlocks(openBlockIndents: number[], indent: number): voi
  * depth as proof that a brace was missed:
  *
  * - `maskCommentsAndStrings` balances every literal it closes, and cannot
- *   balance one the file never closes. An unterminated `"` is masked only to its
- *   own line's end and does not carry, so a `}` the author wrote inside that
- *   string on a later line arrives here as a real one. An interpolation does
- *   carry - the language lets one span lines - so `"Score: {` over `Points}"`
- *   balances.
+ *   balance one the file never closes. An interpolation does carry across lines
+ *   - the language lets one span them - so `"Score: {` over `Points}"` balances,
+ *   but the two unclosed cases strand the depth in opposite directions. An
+ *   unterminated `"` is masked only to its own line's end and does not carry, so
+ *   a `}` the author wrote inside that string on a later line arrives here as a
+ *   real one and drives the depth down. An interpolation left open at the end of
+ *   the file carries to the end of the file, so the `}` that finally pops it is
+ *   blanked and whatever `{` was open outside the string never gets its closer
+ *   back. Neither file compiles; a reader here has no way to tell either from a
+ *   brace the author really did leave out.
  * - `codeOutsideLiterals` consults only the frame open before each character, so
  *   an interpolation's opening `{` is blanked while its closing `}` survives
  *   even on one line. Callers reading a single line accept that, since a clause

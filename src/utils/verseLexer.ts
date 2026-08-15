@@ -45,7 +45,7 @@
  *
  *   That body being ordinary code also lets it span lines, which is the one
  *   literal state a newline does not end: at String place `Text` stops dead at
- *   the newline (:2083-2099) and `Quote` then requires the closing `"` (:459),
+ *   the newline (:2083-2105) and `Quote` then requires the closing `"` (:3224),
  *   so an open `"` at a line end is error S32 while an open interpolation is
  *   just a list still being read. `openFrames` is that distinction.
  * - A `'` means one of two things, and which one is decided by the character
@@ -143,13 +143,14 @@ export interface LexedLine {
      *
      * Only an interpolation carries, because only an interpolation legally spans
      * a line: `Interp := '{' List '}'` (:2163) makes its body an ordinary list,
-     * while `Text` at String place stops at a newline (:2083-2099) and `Quote`
-     * then requires the closing `"` (:459), so a `"` still open where the line
+     * while `Text` at String place stops at a newline (:2083-2105) and `Quote`
+     * then requires the closing `"` (:3224), so a `"` still open where the line
      * ends is error S32 rather than a string continuing below. Carrying that one
      * would let a single stray quote blank the rest of the file.
      *
-     * `endedOpen` cannot tell the two apart and this can: an empty stack under a
-     * true `endedOpen` is the unterminated literal.
+     * Read this, not `endedOpen`, to decide what carries. `endedOpen` is true
+     * for a carried interpolation as well, so the two are not interchangeable:
+     * an empty stack under a true `endedOpen` is the unterminated literal.
      */
     openFrames: LexFrame[];
     /**
@@ -219,10 +220,13 @@ export interface LexedLine {
  * misses is read by its caller as permission to remove an import. Deciding it
  * here would silently impose one of those on the other.
  *
- * A line ending inside an interpolation is not that case and is settled here,
- * through `openFrames`: the language lets an interpolation span lines, so a
- * reader that carries it is reading the file the compiler reads rather than
- * guessing at a broken one.
+ * Which of those two a line ended inside is settled here, through `openFrames`,
+ * because the language answers it: an interpolation may span lines and a string
+ * may not. `endedOpen` does not carry that answer - it is true of both - so a
+ * reader deciding what to resume must read `openFrames` instead. The two are
+ * still separate signals: the scanner takes its fallback on `endedOpen`,
+ * declining to lex past a point it cannot classify, whether or not the state
+ * there was one it could have carried.
  *
  * @param line one line, with no line terminator. A trailing `\r` from a CRLF
  *   document is harmless and counts as trailing whitespace.
@@ -270,9 +274,12 @@ export function lexVerseLine(line: string, state: LexState, trackLiterals: boole
     // Kept across the `nesting > 0` branch, because a block comment written
     // inside a string does not end it: `"a<#c#>#b"` is the string `"a#b"`.
     //
-    // Copied frame by frame rather than aliased, because an interpolation's
-    // brace count advances in place and one state may lex a line twice -
-    // ImportScanner.scanLine does exactly that to take its fallback.
+    // Copied frame by frame rather than aliased, or this line's pushes and its
+    // interpolation brace counts would land in the caller's own state object.
+    // A caller that never reassigns `openFrames` is relying on it staying as it
+    // set it - both scanner states below hold an empty stack they never write
+    // back, and aliasing would leak every line's literals into the next through
+    // the array they thought was inert.
     //
     // Empty with tracking off, whatever the caller carried: that mode reads a
     // `#` as a comment opener wherever it sits, which is a caller saying it does

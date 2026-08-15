@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { logger } from "../utils";
+import { DeclarationHead, matchDeclarationHead } from "../utils/verseDeclarationHead";
 import { countBraces, indentOf, maskCommentsAndStrings } from "../utils/verseText";
 import { ProjectPathHandler } from "../project";
 import { ProjectPathData, ProjectPathNode, ProjectScanOptions } from "../types";
@@ -8,17 +9,34 @@ import { ProjectPathData, ProjectPathNode, ProjectScanOptions } from "../types";
 const SCAN_CONCURRENCY = 8;
 
 /**
- * A declaration keyword introducing the right-hand side of a `:=`, for the
- * backstop that catches a type whose own pattern did not match the exact shape
- * written.
+ * What kind of declaration a head makes, or null where it makes none.
  *
- * Anchored at the `:=` and closed with `\b`, because a keyword this recognises
- * loosely costs a whole declaration: a substring test reads
- * `Items := classify_items(X)` as a type and drops the line, where the same
- * missing boundary in the class, struct and interface patterns above only
- * mistyped it. Nothing here may be tested with `includes`.
+ * A module head does not reach here: it opens a body this cannot bound, so the
+ * scan takes it in its own branch beforehand.
+ *
+ * A receiver-style extension method is a function declared in this module, and
+ * is indexed here where the two digest parsers deliberately skip it.
+ *
+ * An unclosed `(` is declined rather than guessed at. In a digest it can only
+ * be a signature wrapping to the next line, which is why the digest parser
+ * reads it as a function; this scan reads project source, where the same shape
+ * is far more often a call wrapping inside a function body, and recording those
+ * would fill the index with statements. The cost is a genuine module-scope
+ * signature that wraps across lines, which is lost here - as it was by the
+ * patterns this replaced, which needed a closing `)` and a `:` on one line.
  */
-const DECLARATION_KEYWORD_AFTER_ASSIGN = /:=\s*(?:class|struct|module|interface|enum)\b/;
+function declarationType(head: DeclarationHead): ProjectPathNode["type"] | null {
+    if (head.keyword) {
+        return head.keyword;
+    }
+    if (head.operator === "(") {
+        return null;
+    }
+    if (head.receiver !== null || head.params !== null) {
+        return "function";
+    }
+    return "variable";
+}
 
 /**
  * The keywords a Verse block macro is spelled with, and the operators and types
@@ -277,36 +295,6 @@ export class ProjectPathScanner {
             return false;
         };
 
-        // Every pattern below captures [1] the declared name and [2] the
-        // specifiers attached to that name, matching the shape
-        // `Name<spec><spec> := type<typespec>(parent):`. Specifiers to the
-        // right of `:=` belong to the type, not the name, and are skipped
-        // rather than captured - except by modulePattern, which allows none
-        // there and so does not match a module carrying them.
-        //
-        // A module body takes any of the three styles Verse gives a macro, so
-        // the keyword ends at `:`, `{` or `.` - or at the line end, which is
-        // how a next-line brace reaches a scan that sees one line at a time.
-        // `>` holds parity with the two other spellings of this grammar,
-        // ImportPathConverter.buildModuleDefinitionRegex and
-        // moduleDeclarations' MODULE_DECLARATION. [3] captures which of them
-        // ended the keyword, and is undefined for the line end alone; the
-        // module stack needs that to know a body is still to open.
-        const modulePattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*module\s*(?:([:>{.])|$)/;
-        // `\b` after the keyword, or `Foo := classify_items(X)` declares a class
-        // named Foo: everything after `class` here is optional, so the pattern
-        // matches the prefix of any identifier beginning with one of these
-        // words. modulePattern and enumPattern need no such boundary - each
-        // requires a terminator that a continuing identifier cannot supply.
-        const classPattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*class\b\s*(?:<[^>]+>)*\s*[\(:]?/;
-        const structPattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*struct\b\s*(?:<[^>]+>)*\s*[\(:]?/;
-        const interfacePattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*interface\b\s*(?:<[^>]+>)*\s*[\(:]?/;
-        const enumPattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*enum\s*(?:<[^>]+>)?\s*:/;
-        /** `Name<specifiers>(params)<effects>:` */
-        const functionPattern = /^(\w+)((?:<[^>]+>)*)\s*\([^)]*\)\s*(?:<[^>]+>)*\s*:/;
-        /** `(Type:type).Name<specifiers>(params)<effects>:` */
-        const extensionMethodPattern = /^\([^)]+\)\.(\w+)((?:<[^>]+>)*)\s*\([^)]*\)/;
-        const variablePattern = /^(\w+)((?:<[^>]+>)*)\s*:/;
         /** The word a line opens with, absent where it opens with anything else. */
         const leadingWordPattern = /^(\w+)/;
 
@@ -405,12 +393,16 @@ export class ProjectPathScanner {
                 continue;
             }
 
-            const moduleMatch = line.match(modulePattern);
-            if (moduleMatch) {
-                const [, name, specifiers, bodyTerminator] = moduleMatch;
+            const head = matchDeclarationHead(line);
+            if (!head) {
+                continue;
+            }
+
+            if (head.keyword === "module") {
+                const { name, specifiers, bodyTerminator } = head;
                 const visibility = extractVisibility(specifiers);
                 const isPublic = visibility === "public";
-                const awaitingBrace = bodyTerminator === undefined;
+                const awaitingBrace = bodyTerminator === null;
                 // A `{` here opens the body on this line, and it opens from the
                 // depth the line started at: everything left of it belongs to
                 // the declaration, whose only braces are a `scoped{...}` list
@@ -450,182 +442,24 @@ export class ProjectPathScanner {
                 continue;
             }
 
-            const classMatch = line.match(classPattern);
-            if (classMatch) {
-                const [, name, specifiers] = classMatch;
-                const visibility = extractVisibility(specifiers);
-                const isPublic = visibility === "public";
-
-                if (shouldSkipDeclaration(visibility)) {
-                    continue;
-                }
-
-                const fullPath = currentModulePath ? `${currentModulePath}.${name}` : name;
-
-                nodes.push({
-                    name,
-                    fullPath,
-                    type: "class",
-                    isPublic,
-                    sourceFile: filePath,
-                    sourceLine: i + 1,
-                });
+            const type = declarationType(head);
+            if (type === null) {
                 continue;
             }
 
-            const structMatch = line.match(structPattern);
-            if (structMatch) {
-                const [, name, specifiers] = structMatch;
-                const visibility = extractVisibility(specifiers);
-                const isPublic = visibility === "public";
-
-                if (shouldSkipDeclaration(visibility)) {
-                    continue;
-                }
-
-                const fullPath = currentModulePath ? `${currentModulePath}.${name}` : name;
-
-                nodes.push({
-                    name,
-                    fullPath,
-                    type: "struct",
-                    isPublic,
-                    sourceFile: filePath,
-                    sourceLine: i + 1,
-                });
+            const visibility = extractVisibility(head.specifiers);
+            if (shouldSkipDeclaration(visibility)) {
                 continue;
             }
 
-            const interfaceMatch = line.match(interfacePattern);
-            if (interfaceMatch) {
-                const [, name, specifiers] = interfaceMatch;
-                const visibility = extractVisibility(specifiers);
-                const isPublic = visibility === "public";
-
-                if (shouldSkipDeclaration(visibility)) {
-                    continue;
-                }
-
-                const fullPath = currentModulePath ? `${currentModulePath}.${name}` : name;
-
-                nodes.push({
-                    name,
-                    fullPath,
-                    type: "interface",
-                    isPublic,
-                    sourceFile: filePath,
-                    sourceLine: i + 1,
-                });
-                continue;
-            }
-
-            const enumMatch = line.match(enumPattern);
-            if (enumMatch) {
-                const [, name, specifiers] = enumMatch;
-                const visibility = extractVisibility(specifiers);
-                const isPublic = visibility === "public";
-
-                if (shouldSkipDeclaration(visibility)) {
-                    continue;
-                }
-
-                const fullPath = currentModulePath ? `${currentModulePath}.${name}` : name;
-
-                nodes.push({
-                    name,
-                    fullPath,
-                    type: "enum",
-                    isPublic,
-                    sourceFile: filePath,
-                    sourceLine: i + 1,
-                });
-                continue;
-            }
-
-            const extensionMatch = line.match(extensionMethodPattern);
-            if (extensionMatch) {
-                const [, name, specifiers] = extensionMatch;
-                const visibility = extractVisibility(specifiers);
-                const isPublic = visibility === "public";
-
-                if (shouldSkipDeclaration(visibility)) {
-                    continue;
-                }
-
-                const fullPath = currentModulePath ? `${currentModulePath}.${name}` : name;
-
-                nodes.push({
-                    name,
-                    fullPath,
-                    type: "function",
-                    isPublic,
-                    sourceFile: filePath,
-                    sourceLine: i + 1,
-                });
-                continue;
-            }
-
-            const functionMatch = line.match(functionPattern);
-            if (functionMatch) {
-                const [, name, specifiers] = functionMatch;
-                const visibility = extractVisibility(specifiers);
-                const isPublic = visibility === "public";
-
-                if (shouldSkipDeclaration(visibility)) {
-                    continue;
-                }
-
-                const fullPath = currentModulePath ? `${currentModulePath}.${name}` : name;
-
-                nodes.push({
-                    name,
-                    fullPath,
-                    type: "function",
-                    isPublic,
-                    sourceFile: filePath,
-                    sourceLine: i + 1,
-                });
-                continue;
-            }
-
-            // Last, and it must stay last. The `:` this pattern needs is also
-            // the first character of the `:=` that opens a type declaration, so
-            // it matches those too; the branches above only win by being asked
-            // first, and the guards below cover the shapes they did not match.
-            const variableMatch = line.match(variablePattern);
-            if (variableMatch) {
-                const [, name, specifiers] = variableMatch;
-                const visibility = extractVisibility(specifiers);
-                const isPublic = visibility === "public";
-
-                if (shouldSkipDeclaration(visibility)) {
-                    continue;
-                }
-
-                // Both guards are backstops for a declaration whose specific
-                // pattern above did not match the exact shape written: a type,
-                // recognised by `:=` with a declaration keyword, and a function,
-                // recognised by a parameter list before the colon. Either would
-                // otherwise be recorded as a variable.
-                if (DECLARATION_KEYWORD_AFTER_ASSIGN.test(line)) {
-                    continue;
-                }
-
-                if (/\([^)]*\)\s*(?:<[^>]+>)?\s*:/.test(line)) {
-                    continue;
-                }
-
-                const fullPath = currentModulePath ? `${currentModulePath}.${name}` : name;
-
-                nodes.push({
-                    name,
-                    fullPath,
-                    type: "variable",
-                    isPublic,
-                    sourceFile: filePath,
-                    sourceLine: i + 1,
-                });
-            }
+            nodes.push({
+                name: head.name,
+                fullPath: currentModulePath ? `${currentModulePath}.${head.name}` : head.name,
+                type,
+                isPublic: visibility === "public",
+                sourceFile: filePath,
+                sourceLine: i + 1,
+            });
         }
 
         return nodes;

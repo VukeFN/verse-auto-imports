@@ -307,14 +307,18 @@ const workspace = {
      * outside the project - so a test wanting a folder must register it in
      * workspaceFolders rather than rely on a fallback.
      *
-     * The first containing folder wins, where real VS Code returns the
-     * innermost, and a URI equal to a folder root answers undefined rather than
-     * that folder. A test covering the multi-root UEFN workspace, or nested
-     * folders, needs more than this.
+     * The innermost containing folder wins and a URI equal to a folder root
+     * answers that folder, both as the real API documents. Nesting is compared
+     * by path length, which orders folders correctly precisely because a
+     * containing path is a prefix of what it contains.
      */
     getWorkspaceFolder: jest.fn().mockImplementation((target: { fsPath: string }) => {
-        const normalized = target.fsPath.replace(/\\/g, "/");
-        return workspace.workspaceFolders?.find((folder) => normalized.startsWith(`${folder.uri.fsPath.replace(/\\/g, "/").replace(/\/+$/, "")}/`));
+        const normalized = target.fsPath.replace(/\\/g, "/").replace(/\/+$/, "");
+        const containing = workspace.workspaceFolders?.filter((folder) => {
+            const root = folder.uri.fsPath.replace(/\\/g, "/").replace(/\/+$/, "");
+            return normalized === root || normalized.startsWith(`${root}/`);
+        });
+        return containing?.sort((a, b) => b.uri.fsPath.length - a.uri.fsPath.length)[0];
     }),
     // Rejecting is the "no such file" answer, which is what production code
     // reads a missing file as. A resolving default would make an absent

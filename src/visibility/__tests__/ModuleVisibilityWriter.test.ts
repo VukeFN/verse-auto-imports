@@ -6,6 +6,9 @@ import { ModuleVisibilityWriter } from "../ModuleVisibilityWriter";
 const PROJECT = "/mygame@fortnite.com/mygame";
 const ROOT = "/repo";
 
+/** The second root of a multi-root workspace, which the quick fix is invoked under. */
+const OTHER_ROOT = "/second";
+
 const REQUEST = {
     targetPath: `${PROJECT}/Gadgets/Tools`,
     importerPath: `${PROJECT}/Scripts`,
@@ -84,6 +87,33 @@ const alsoListsUnreadable = (listed: readonly vscode.Uri[], relative: string): v
     const uri = vscode.Uri.file(`${ROOT}/${relative}`);
     (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([...listed, uri]);
     return uri;
+};
+
+/**
+ * Stands the same project up under the second of two workspace folders, and
+ * returns the document URI the quick fix would pass. The first folder is
+ * registered and empty, which is the shape that hid the folder-0 pin: every
+ * single-root test passes either way.
+ */
+const givenSecondFolderProject = (files: Record<string, string>): vscode.Uri => {
+    givenProject(files, OTHER_ROOT);
+    (vscode.workspace as any).workspaceFolders = [
+        { uri: vscode.Uri.file(ROOT), name: "repo", index: 0 },
+        { uri: vscode.Uri.file(OTHER_ROOT), name: "second", index: 1 },
+    ];
+
+    return vscode.Uri.file(`${OTHER_ROOT}/Content/Scripts/main.verse`);
+};
+
+/** A definitionsFileName override that answers differently per workspace folder. */
+const givenPerFolderDefinitionsName = (byRoot: Record<string, string>): void => {
+    (vscode.workspace.getConfiguration as jest.Mock).mockImplementation((_section: string, resource?: { fsPath: string }) => {
+        const root = resource && Object.keys(byRoot).find((candidate) => forwardSlashed(resource).startsWith(`${candidate}/`));
+        return {
+            get: jest.fn().mockImplementation((key: string, fallback?: unknown) => (key === "moduleVisibility.definitionsFileName" && root ? byRoot[root] : fallback)),
+            update: jest.fn(),
+        };
+    });
 };
 
 const writer = (): ModuleVisibilityWriter => {
@@ -503,6 +533,42 @@ describe("ModuleVisibilityWriter", () => {
             const [message] = (vscode.window.showInformationMessage as jest.Mock).mock.calls[0];
             expect(message).toContain("previewed");
             expect(message).not.toContain("declaring");
+        });
+    });
+
+    describe("multi-root workspace", () => {
+        it("writes under the folder holding the document the fix was invoked from", async () => {
+            const source = givenSecondFolderProject({ "Content/Scripts/main.verse": "using { Gadgets.Tools }\n" });
+
+            await writer().makeModulePublic(REQUEST, source);
+
+            expect(forwardSlashed(appliedOperations()[0].uri)).toBe(`${OTHER_ROOT}/Content/_definitions.verse`);
+        });
+
+        it("honours that folder's definitionsFileName rather than the first folder's", async () => {
+            const source = givenSecondFolderProject({ "Content/Scripts/main.verse": "using { Gadgets.Tools }\n" });
+            givenPerFolderDefinitionsName({ [ROOT]: "first.verse", [OTHER_ROOT]: "second.verse" });
+
+            await writer().makeModulePublic(REQUEST, source);
+
+            expect(forwardSlashed(appliedOperations()[0].uri)).toBe(`${OTHER_ROOT}/Content/second.verse`);
+        });
+
+        it("scans that folder for existing declarations, not the first", async () => {
+            const source = givenSecondFolderProject({ "Content/Scripts/main.verse": "using { Gadgets.Tools }\n" });
+
+            await writer().makeModulePublic(REQUEST, source);
+
+            const [pattern] = (vscode.workspace.findFiles as jest.Mock).mock.calls[0];
+            expect(forwardSlashed(pattern.base.uri)).toBe(OTHER_ROOT);
+        });
+
+        it("falls back to the first folder when the caller names no document", async () => {
+            givenSecondFolderProject({ "Content/Scripts/main.verse": "using { Gadgets.Tools }\n" });
+
+            await writer().makeModulePublic(REQUEST);
+
+            expect(forwardSlashed(appliedOperations()[0].uri)).toBe(`${ROOT}/Content/_definitions.verse`);
         });
     });
 });

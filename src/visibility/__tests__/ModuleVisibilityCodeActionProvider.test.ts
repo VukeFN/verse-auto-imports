@@ -6,10 +6,13 @@ const INACCESSIBLE =
 
 const diagnostic = (message: string) => ({ message }) as vscode.Diagnostic;
 
+/** The file the diagnostic was reported on, which is what picks the workspace folder. */
+const SOURCE = vscode.Uri.file("/second/Content/Scripts/main.verse");
+
 const provide = (...messages: string[]) => {
     const provider = new ModuleVisibilityCodeActionProvider();
     const context = { diagnostics: messages.map(diagnostic) } as unknown as vscode.CodeActionContext;
-    return provider.provideCodeActions({} as vscode.TextDocument, {} as vscode.Range, context);
+    return provider.provideCodeActions({ uri: SOURCE } as vscode.TextDocument, {} as vscode.Range, context);
 };
 
 describe("ModuleVisibilityCodeActionProvider", () => {
@@ -32,8 +35,15 @@ describe("ModuleVisibilityCodeActionProvider", () => {
                     importerPath: "/mygame@fortnite.com/mygame/Scripts",
                     moduleName: "Tools",
                 },
+                SOURCE,
             ],
         });
+    });
+
+    it("sends the document alongside it, since the request names no file the folder can be read from", () => {
+        const actions = provide(INACCESSIBLE);
+
+        expect(actions![0].command?.arguments?.[1]).toBe(SOURCE);
     });
 
     it("attaches the diagnostic it answers", () => {

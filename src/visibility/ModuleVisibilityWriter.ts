@@ -73,9 +73,14 @@ export class ModuleVisibilityWriter {
      * else the same request would have changed. That governs what is offered,
      * not what lands - the preview lets the user apply a subset, so what is
      * reported afterwards is intent rather than outcome.
+     *
+     * @param sourceUri the document whose diagnostic asked for this, which is
+     * what picks the workspace folder in a multi-root workspace. Optional, and
+     * falling back to the first folder, because a caller outside the quick fix
+     * has no document to name.
      */
-    async makeModulePublic(request: ModuleVisibilityRequest): Promise<void> {
-        const outcome = await this.buildEdit(request);
+    async makeModulePublic(request: ModuleVisibilityRequest, sourceUri?: vscode.Uri): Promise<void> {
+        const outcome = await this.buildEdit(request, sourceUri);
 
         if ("reason" in outcome) {
             logger.warn("ModuleVisibilityWriter", `Cannot publicize ${request.targetPath}: ${outcome.reason}`);
@@ -117,9 +122,19 @@ export class ModuleVisibilityWriter {
     /**
      * The single edit that satisfies a request, with what every file it was
      * computed from looked like at read time, or why there is none.
+     *
+     * The folder this resolves decides all three of the Content root written
+     * to, the scope `moduleVisibility.definitionsFileName` is read at, and the
+     * subtree the declaration scan sweeps, so a wrong one rules on
+     * declarations it never read rather than merely writing the wrong file.
      */
-    private async buildEdit(request: ModuleVisibilityRequest): Promise<{ edit: vscode.WorkspaceEdit; summary: string; snapshots: Snapshot[] } | Refusal> {
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    private async buildEdit(request: ModuleVisibilityRequest, sourceUri?: vscode.Uri): Promise<{ edit: vscode.WorkspaceEdit; summary: string; snapshots: Snapshot[] } | Refusal> {
+        // The target module cannot be resolved to a folder directly: its path
+        // is a Verse path, and turning one into a URI needs the Content root
+        // this is on the way to finding. The requesting document is in the
+        // right folder already, and the target shares it - the compiler
+        // resolved both under one projectVersePath.
+        const workspaceFolder = (sourceUri ? vscode.workspace.getWorkspaceFolder(sourceUri) : undefined) ?? vscode.workspace.workspaceFolders?.[0];
         if (!workspaceFolder) {
             return { reason: "no workspace folder is open." };
         }

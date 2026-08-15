@@ -148,8 +148,8 @@ export class ProjectPathScanner {
         logger.info("ProjectPathScanner", `Scanning project ${workspaceFolder.name}...`);
 
         try {
-            const projectVersePath = await this.projectPathHandler.getProjectVersePath();
-            const projectName = await this.projectPathHandler.getProjectName();
+            const projectVersePath = await this.projectPathHandler.getProjectVersePath(workspaceFolder.uri);
+            const projectName = await this.projectPathHandler.getProjectName(workspaceFolder.uri);
 
             if (!projectName) {
                 logger.warn("ProjectPathScanner", "No UEFN project found in workspace");

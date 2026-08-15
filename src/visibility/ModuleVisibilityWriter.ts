@@ -125,10 +125,11 @@ export class ModuleVisibilityWriter {
      * The single edit that satisfies a request, with what every file it was
      * computed from looked like at read time, or why there is none.
      *
-     * The folder this resolves decides all three of the Content root written
-     * to, the scope `moduleVisibility.definitionsFileName` is read at, and the
-     * subtree the declaration scan sweeps, so a wrong one rules on
-     * declarations it never read rather than merely writing the wrong file.
+     * The folder this resolves decides all four of the Content root written
+     * to, the project Verse path every module path is measured against, the
+     * scope `moduleVisibility.definitionsFileName` is read at, and the subtree
+     * the declaration scan sweeps, so a wrong one rules on declarations it
+     * never read rather than merely writing the wrong file.
      */
     private async buildEdit(request: ModuleVisibilityRequest, sourceUri?: vscode.Uri): Promise<{ edit: vscode.WorkspaceEdit; summary: string; snapshots: Snapshot[] } | Refusal> {
         // The target module cannot be resolved to a folder directly: its path
@@ -142,7 +143,22 @@ export class ModuleVisibilityWriter {
             return { reason: "no workspace folder is open." };
         }
 
-        const projectVersePath = await this.projectPathHandler.getProjectVersePath();
+        // A folder holding no Content root cannot host the declaration, and a
+        // workspace can carry one legitimately - notes or art opened alongside
+        // the project. A document in such a folder falls back rather than
+        // refusing, since the project's own folder can still serve it.
+        const located = (await this.locateContentRoot(requestedFolder)) ?? (await this.locateContentRoot(firstFolder));
+        if (!located) {
+            return { reason: `no '${CONTENT_FOLDER}' folder was found in the workspace, so there is nowhere to declare the module.` };
+        }
+        const { workspaceFolder, contentRoot } = located;
+
+        // Read for the folder that won above rather than for the requesting
+        // document, because the fallback can settle on a different one. A path
+        // taken from the document's folder would then name a project this edit
+        // is not being written into, and every segment below is measured
+        // against it.
+        const projectVersePath = await this.projectPathHandler.getProjectVersePath(workspaceFolder.uri);
         if (!projectVersePath) {
             return { reason: "no .uefnproject file was found, so module paths cannot be resolved." };
         }
@@ -157,16 +173,6 @@ export class ModuleVisibilityWriter {
         if (segments.length === 0) {
             return { reason: `'${request.moduleName}' is already reachable from the importing module.` };
         }
-
-        // A folder holding no Content root cannot host the declaration, and a
-        // workspace can carry one legitimately - notes or art opened alongside
-        // the project. A document in such a folder falls back rather than
-        // refusing, since the project's own folder can still serve it.
-        const located = (await this.locateContentRoot(requestedFolder)) ?? (await this.locateContentRoot(firstFolder));
-        if (!located) {
-            return { reason: `no '${CONTENT_FOLDER}' folder was found in the workspace, so there is nowhere to declare the module.` };
-        }
-        const { workspaceFolder, contentRoot } = located;
 
         const definitionsUri = this.definitionsUri(contentRoot);
         if (!definitionsUri) {

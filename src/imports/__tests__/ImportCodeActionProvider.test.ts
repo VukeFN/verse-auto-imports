@@ -4,6 +4,27 @@ import { ImportHandler } from "../ImportHandler";
 import { ImportSuggestion } from "../../types";
 
 /**
+ * Drives the provider over one diagnostic whose suggestions are given rather
+ * than extracted, and returns the actions it produced.
+ *
+ * @param message The diagnostic text. It only has to classify as an unknown
+ *   identifier - the stubbed handler, not the message, supplies the suggestions.
+ */
+const provideFor = async (suggestions: ImportSuggestion[], message = "Unknown identifier `button_device`"): Promise<vscode.CodeAction[]> => {
+    const importHandler = { extractImportSuggestions: jest.fn().mockResolvedValue(suggestions) } as unknown as ImportHandler;
+    const provider = new ImportCodeActionProvider({ appendLine: jest.fn() } as unknown as vscode.OutputChannel, importHandler);
+
+    const actions = await provider.provideCodeActions(
+        { uri: { toString: () => "file:///Project/Content/Scripts/device.verse" } } as unknown as vscode.TextDocument,
+        {} as unknown as vscode.Range,
+        { diagnostics: [{ message, range: { start: { line: 7 } } }] } as unknown as vscode.CodeActionContext,
+        {} as unknown as vscode.CancellationToken,
+    );
+
+    return actions ?? [];
+};
+
+/**
  * Regression for issue #135: the provider read quickFix.showDescriptions with a
  * fallback of true where package.json registers false. config.get returns the
  * registered default for a registered setting, so the fallback never reached
@@ -19,20 +40,7 @@ describe("ImportCodeActionProvider quick fix titles", () => {
         ...overrides,
     });
 
-    /** Drives the provider over one diagnostic and returns the action titles. */
-    const titlesFor = async (suggestions: ImportSuggestion[]): Promise<string[]> => {
-        const importHandler = { extractImportSuggestions: jest.fn().mockResolvedValue(suggestions) } as unknown as ImportHandler;
-        const provider = new ImportCodeActionProvider({ appendLine: jest.fn() } as unknown as vscode.OutputChannel, importHandler);
-
-        const actions = await provider.provideCodeActions(
-            { uri: { toString: () => "file:///Project/Content/Scripts/device.verse" } } as unknown as vscode.TextDocument,
-            {} as unknown as vscode.Range,
-            { diagnostics: [{ message: "Unknown identifier `button_device`", range: { start: { line: 7 } } }] } as unknown as vscode.CodeActionContext,
-            {} as unknown as vscode.CancellationToken,
-        );
-
-        return (actions ?? []).map((action) => action.title);
-    };
+    const titlesFor = async (suggestions: ImportSuggestion[]): Promise<string[]> => (await provideFor(suggestions)).map((action) => action.title);
 
     it("omits the description, matching the default package.json registers", async () => {
         expect(await titlesFor([suggestion()])).toEqual(["Add import: using { /Fortnite.com/Devices }"]);
@@ -103,5 +111,28 @@ describe("ImportCodeActionProvider quick fix titles", () => {
                 getConfiguration.mockImplementation(original);
             }
         }
+    });
+});
+
+/**
+ * `isPreferred` is what the editor applies on Ctrl+. Enter, so whichever
+ * suggestion leads the list is the one a user takes without reading the rest.
+ * The suggestions are stubbed here, so this pins only that the lead is what
+ * gets preferred - which module leads is settled upstream, in the digest
+ * manifest, and pinned by digestCollisionOrder.test.ts.
+ */
+describe("ImportCodeActionProvider preferred action", () => {
+    const suggestion = (importStatement: string): ImportSuggestion => ({
+        importStatement,
+        source: "digest_lookup",
+        confidence: "high",
+        description: `class from ${importStatement}`,
+    });
+
+    it("prefers the leading suggestion and no other", async () => {
+        const actions = await provideFor([suggestion("using { /Verse.org/SpatialMath }"), suggestion("using { /UnrealEngine.com/Temporary/SpatialMath }")], "Unknown identifier `vector3`");
+
+        expect(actions.map((action) => action.isPreferred)).toEqual([true, false]);
+        expect(actions[0].title).toBe("Add import: using { /Verse.org/SpatialMath }");
     });
 });

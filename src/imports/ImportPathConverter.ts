@@ -55,7 +55,24 @@ interface TruncationNotice {
     pending: boolean;
 }
 
+/**
+ * Where a file sits relative to the project's Content root: the root as a path
+ * relative to the workspace folder, and the file's directory as a path relative
+ * to that root. Either is `""` for the directory it is measured from.
+ *
+ * The pair travels together because the two spellings of one directory - the
+ * logical `Content/...` the module search reasons in, and the on-disk path a
+ * filesystem check needs - differ by exactly this prefix.
+ */
+interface ContentPlacement {
+    contentRootRelative: string;
+    fileDirRelative: string;
+}
+
 const CONTENT_FOLDER = "Content";
+
+/** The directory UEFN nests a project's plugins under, `<project>/Plugins/<Name>/Content`. */
+const PLUGINS_FOLDER = "Plugins";
 
 /**
  * How many `.verse` files the explicit-declaration scan reads. Far below
@@ -249,13 +266,37 @@ export class ImportPathConverter {
     }
 
     /**
+     * Whether a Content root found below the workspace folder's own top level
+     * is the one `bindings.projectVersePath` addresses - the root plugin's.
+     *
+     * UEFN gives a second plugin a Verse path of its own, so addressing a file
+     * under `Plugins/<Other>/Content` with the project's path would name
+     * modules in the wrong package. Nothing downstream can catch that: the
+     * round-trip check re-derives the scope from the same project path, so it
+     * confirms the reference it was handed.
+     *
+     * The plugin segment is folded rather than compared byte-exact, for the
+     * reason the project prefix is: it is a package name read from the project
+     * file and matched against a directory, not a module name the compiler
+     * resolves.
+     */
+    private static isRootPluginContent(contentRootAbsolute: string, rootPluginName: string | null): boolean {
+        if (!rootPluginName) return false;
+
+        const fold = (segment: string): string => segment.replace(/[a-z]/g, (character) => character.toUpperCase());
+        const pluginDirectory = path.dirname(contentRootAbsolute);
+
+        return fold(path.basename(pluginDirectory)) === fold(rootPluginName) && fold(path.basename(path.dirname(pluginDirectory))) === fold(PLUGINS_FOLDER);
+    }
+
+    /**
      * Where the project's Content root sits inside the workspace folder and
      * where the file sits under that root, both as forward-slash paths with
-     * `""` for the enclosing directory itself, or null when no directory on
-     * the way down to the file is a Content root.
+     * `""` for the enclosing directory itself, or null when the file is under
+     * no Content root this project's Verse path can address.
      *
-     * The root is looked for along that whole path rather than read at a fixed
-     * depth, because UEFN's shipped layout puts Verse under
+     * The root is looked for along the whole path down to the file rather than
+     * read at a fixed depth, because UEFN's shipped layout puts Verse under
      * `<project>/Plugins/<Name>/Content`: a workspace opened at the project
      * root reaches Content three levels down, and a boundary that only admits
      * depth zero places no file in such a project at all.
@@ -263,14 +304,20 @@ export class ImportPathConverter {
      * The shallowest Content wins rather than the nearest. A Content below the
      * root is an ordinary folder module, and taking that one as the root would
      * address every file under it one scope too low.
+     *
+     * A root found below the workspace folder's top level has to be the root
+     * plugin's, since only that one answers to the project's Verse path. A
+     * Content directly under the workspace folder is taken as before, without
+     * that evidence: the workspace is then opened at the thing holding it, and
+     * refusing there would drop the layout that already worked.
      */
-    private static placeUnderContentRoot(workspaceFolderPath: string, documentPath: string): { contentRootRelative: string; fileDirRelative: string } | null {
+    private static placeUnderContentRoot(workspaceFolderPath: string, documentPath: string, rootPluginName: string | null): ContentPlacement | null {
         const relativeFilePath = path.relative(workspaceFolderPath, documentPath).replace(/\\/g, "/");
 
         // path.relative climbs out with `..` for a file the folder does not
         // hold, and a Content segment past that point belongs to some other
         // tree - the placement has to be inside the folder to mean anything.
-        if (relativeFilePath.startsWith("../")) return null;
+        if (relativeFilePath === ".." || relativeFilePath.startsWith("../")) return null;
 
         const fileDir = path.dirname(relativeFilePath).replace(/\\/g, "/");
         const dirSegments = fileDir === "" || fileDir === "." ? [] : fileDir.split("/");
@@ -282,10 +329,12 @@ export class ImportPathConverter {
         const rootIndex = dirSegments.indexOf(CONTENT_FOLDER);
         if (rootIndex < 0) return null;
 
-        return {
-            contentRootRelative: dirSegments.slice(0, rootIndex + 1).join("/"),
-            fileDirRelative: dirSegments.slice(rootIndex + 1).join("/"),
-        };
+        const contentRootRelative = dirSegments.slice(0, rootIndex + 1).join("/");
+        if (rootIndex > 0 && !ImportPathConverter.isRootPluginContent(path.join(workspaceFolderPath, contentRootRelative), rootPluginName)) {
+            return null;
+        }
+
+        return { contentRootRelative, fileDirRelative: dirSegments.slice(rootIndex + 1).join("/") };
     }
 
     /**
@@ -301,7 +350,7 @@ export class ImportPathConverter {
         const workspaceFolder = vscode.workspace.getWorkspaceFolder(currentFileUri);
         if (!workspaceFolder) return;
 
-        const placement = ImportPathConverter.placeUnderContentRoot(workspaceFolder.uri.fsPath, currentFileUri.fsPath);
+        const placement = ImportPathConverter.placeUnderContentRoot(workspaceFolder.uri.fsPath, currentFileUri.fsPath, await this.projectPathHandler.getRootPluginName());
         if (!placement) return;
 
         // Every path below is reasoned about with a leading Content/, whatever
@@ -315,6 +364,9 @@ export class ImportPathConverter {
         // workspace, so the logical prefix is swapped back for wherever the
         // Content root actually sits under it.
         const getFsCheckPath = (logicalPath: string): string => {
+            // The root itself, held so the substring below is never handed a
+            // string shorter than the prefix it drops. Every caller appends a
+            // module name, so nothing reaches this today.
             if (logicalPath === CONTENT_FOLDER) return placement.contentRootRelative;
 
             const belowRoot = logicalPath.substring(CONTENT_FOLDER.length + 1);
@@ -682,11 +734,11 @@ export class ImportPathConverter {
      * name, and one that still resolves, since resolution walks the parent
      * chain outward.
      */
-    private enclosingModulePath(documentUri: vscode.Uri, projectVersePath: string): string | null {
+    private async enclosingModulePath(documentUri: vscode.Uri, projectVersePath: string): Promise<string | null> {
         const workspaceFolder = vscode.workspace.getWorkspaceFolder(documentUri);
         if (!workspaceFolder) return null;
 
-        const placement = ImportPathConverter.placeUnderContentRoot(workspaceFolder.uri.fsPath, documentUri.fsPath);
+        const placement = ImportPathConverter.placeUnderContentRoot(workspaceFolder.uri.fsPath, documentUri.fsPath, await this.projectPathHandler.getRootPluginName());
         if (!placement) return null;
 
         return placement.fileDirRelative ? `${projectVersePath}/${placement.fileDirRelative}` : projectVersePath;
@@ -829,7 +881,7 @@ export class ImportPathConverter {
         // from the document, and the phases behind it scan the workspace, so
         // they answer the same for any file that asks. They would confirm a
         // reference written into a scope nothing here can name.
-        const scopePath = this.enclosingModulePath(documentUri, projectVersePath);
+        const scopePath = await this.enclosingModulePath(documentUri, projectVersePath);
         if (!scopePath) {
             logger.debug("ImportPathConverter", `Cannot place the importing file under the project's Content root: ${documentUri.fsPath}`);
             return null;

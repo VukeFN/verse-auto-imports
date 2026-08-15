@@ -252,10 +252,20 @@ function stubFolderTree(workspaceRoot: string, folders: string[]): void {
     });
 }
 
-/** A converter with project path resolution pinned, so conversion is pure string work. */
-function converterWithProjectPath(projectVersePath: string): ImportPathConverter {
+/**
+ * A converter with project path resolution pinned, so conversion is pure string
+ * work.
+ *
+ * @param rootPluginName What the project file declares as its root plugin, which
+ *   is what admits a Content root nested under `Plugins/<name>`. Left unset, the
+ *   project declares none and only a Content directly under the workspace folder
+ *   places a file.
+ */
+function converterWithProjectPath(projectVersePath: string, rootPluginName: string | null = null): ImportPathConverter {
     const converter = new ImportPathConverter(vscode.window.createOutputChannel("test"));
-    (converter as unknown as { projectPathHandler: { getProjectVersePath: () => Promise<string> } }).projectPathHandler.getProjectVersePath = async () => projectVersePath;
+    const handler = (converter as unknown as { projectPathHandler: { getProjectVersePath: () => Promise<string>; getRootPluginName: () => Promise<string | null> } }).projectPathHandler;
+    handler.getProjectVersePath = async () => projectVersePath;
+    handler.getRootPluginName = async () => rootPluginName;
     return converter;
 }
 
@@ -537,7 +547,8 @@ describe("ImportPathConverter.convertFromFullPath scope-relative shortening", ()
 describe("ImportPathConverter.convertFromFullPath under a nested plugin Content root", () => {
     const projectVersePath = "/mygame@fortnite.com/mygame";
     const workspaceRoot = "C:/Project";
-    const contentRoot = `${workspaceRoot}/Plugins/MyGame/Content`;
+    const rootPluginName = "MyGame";
+    const contentRoot = `${workspaceRoot}/Plugins/${rootPluginName}/Content`;
 
     /** Answers `fs.stat` from directories named relative to the nested Content root. */
     function stubNestedFolderTree(folders: string[]): void {
@@ -551,7 +562,7 @@ describe("ImportPathConverter.convertFromFullPath under a nested plugin Content 
     const fileAt = (contentRelativeDir: string): vscode.Uri => vscode.Uri.file(`${contentRoot}/${contentRelativeDir}/Feature.verse`);
 
     async function relativeFormOf(fullPath: string, fileUri: vscode.Uri): Promise<string | undefined> {
-        const converter = converterWithProjectPath(projectVersePath);
+        const converter = converterWithProjectPath(projectVersePath, rootPluginName);
         return (await converter.convertFromFullPath(`using. ${fullPath}`, fileUri, 0))?.convertedImport;
     }
 
@@ -578,7 +589,7 @@ describe("ImportPathConverter.convertFromFullPath under a nested plugin Content 
     });
 
     it("restores the absolute path the relative form was shortened from", async () => {
-        const converter = converterWithProjectPath(projectVersePath);
+        const converter = converterWithProjectPath(projectVersePath, rootPluginName);
         const fileUri = fileAt("Systems");
         const absolute = `using. ${projectVersePath}/Systems/Gadgets`;
 
@@ -598,6 +609,66 @@ describe("ImportPathConverter.convertFromFullPath under a nested plugin Content 
 
     it("offers no conversion for a file no Content root in the project holds", async () => {
         expect(await relativeFormOf(`${projectVersePath}/Systems/Gadgets`, vscode.Uri.file(`${workspaceRoot}/Plugins/MyGame/Feature.verse`))).toBeUndefined();
+    });
+
+    // Only the root plugin's Content answers to bindings.projectVersePath. A
+    // second plugin carries a Verse path of its own, so placing its files under
+    // the project's path names modules in the wrong package - and the
+    // round-trip check cannot catch it, because it re-derives the scope from
+    // that same project path and so confirms what it was handed.
+    describe("a Content root that is not the root plugin's", () => {
+        const otherPluginContent = `${workspaceRoot}/Plugins/Extra/Content`;
+
+        function stubOtherPluginTree(folders: string[]): void {
+            (vscode.workspace.fs.stat as jest.Mock).mockImplementation(async (uri: { fsPath: string }) => {
+                const contentRelative = uri.fsPath.replace(/\\/g, "/").replace(`${otherPluginContent}/`, "");
+                if (!folders.includes(contentRelative)) throw new Error("ENOENT");
+                return { type: vscode.FileType.Directory };
+            });
+        }
+
+        it("offers no relative form for a file in it", async () => {
+            stubOtherPluginTree(["Systems", "Systems/Gadgets"]);
+
+            expect(await relativeFormOf(`${projectVersePath}/Systems/Gadgets`, vscode.Uri.file(`${otherPluginContent}/Systems/Feature.verse`))).toBeUndefined();
+        });
+
+        it("finds no module location for a file in it, so no absolute form either", async () => {
+            stubOtherPluginTree(["Systems", "Systems/Gadgets"]);
+            const converter = converterWithProjectPath(projectVersePath, rootPluginName);
+
+            expect(await converter.convertToFullPath("using. Gadgets", vscode.Uri.file(`${otherPluginContent}/Systems/Feature.verse`), 0)).toBeNull();
+        });
+
+        it("offers no relative form when the project declares no root plugin at all", async () => {
+            const converter = converterWithProjectPath(projectVersePath, null);
+
+            expect(await converter.convertFromFullPath(`using. ${projectVersePath}/Systems/Gadgets`, fileAt("Systems"), 0)).toBeNull();
+        });
+    });
+
+    it("reads the plugin's Content root, not an unrelated Content beside Plugins", async () => {
+        // A project may hold assets under a Content at its own top level while
+        // the Verse lives in the plugin. The file's own path is what picks the
+        // root, so the two do not compete.
+        setWorkspaceFolders([{ uri: { fsPath: workspaceRoot }, name: "Project", index: 0 }]);
+
+        expect(await relativeFormOf(`${projectVersePath}/Systems/Gadgets`, fileAt("Systems"))).toBe("using. Gadgets");
+    });
+
+    it("takes the workspace folder itself when it is Content, over a Content nested below it", async () => {
+        // The shallowest root is the workspace folder here, so the nested
+        // Plugins/... path below it is an ordinary chain of folder modules.
+        setWorkspaceFolders([{ uri: { fsPath: `${workspaceRoot}/Content` }, name: "Content", index: 0 }]);
+        (vscode.workspace.fs.stat as jest.Mock).mockImplementation(async (uri: { fsPath: string }) => {
+            const relative = uri.fsPath.replace(/\\/g, "/").replace(`${workspaceRoot}/Content/`, "");
+            if (!["Plugins", "Plugins/Extra", "Plugins/Extra/Content", "Plugins/Extra/Content/Gadgets"].includes(relative)) throw new Error("ENOENT");
+            return { type: vscode.FileType.Directory };
+        });
+
+        const fileUri = vscode.Uri.file(`${workspaceRoot}/Content/Plugins/Extra/Content/Feature.verse`);
+
+        expect(await relativeFormOf(`${projectVersePath}/Plugins/Extra/Content/Gadgets`, fileUri)).toBe("using. Gadgets");
     });
 });
 

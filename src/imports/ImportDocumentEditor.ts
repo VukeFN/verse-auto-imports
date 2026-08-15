@@ -267,16 +267,21 @@ export class ImportDocumentEditor {
      * prevent. The spacing pass a writer runs on its own result calls the
      * unserialized applyEmptyLinesAfterImports for the same reason it must:
      * queued here it would wait on the write running it.
+     *
+     * A document's queue only ever moves on when its applyEdit settles. Nothing
+     * times one out, so a write that never settles holds every write behind it.
      */
     private serialize<T>(document: vscode.TextDocument, write: () => Promise<T>): Promise<T> {
         const key = document.uri.toString();
         const previous = this.writes.get(key) ?? Promise.resolve();
 
-        // Both arms run `write`: a rejected predecessor is a write that is over,
-        // not a reason to abandon the queue behind it.
+        // The queued promise below never rejects, so only the first arm can run
+        // today. The second is what keeps that from being load-bearing: a
+        // predecessor that failed is a write that is over, not a reason to
+        // abandon the queue behind it.
         const run = previous.then(write, write);
 
-        // The queued promise never rejects, so a failed write does not reject
+        // Settling rather than rejecting, so a failed write does not reject
         // every write queued behind it as well.
         const queued = run.then(
             () => undefined,
@@ -1370,11 +1375,11 @@ export class ImportDocumentEditor {
      * addImportsToDocument this reorganizes even when nothing new is added.
      */
     async organizeImports(document: vscode.TextDocument, additionalPaths: string[], diagnosticLinesByPath: DiagnosticLinesByPath = NO_DIAGNOSTIC_LINES): Promise<boolean> {
-        return this.serialize(document, () => this.applyOrganized(document, additionalPaths, diagnosticLinesByPath));
+        return this.serialize(document, () => this.applyOrganizedImports(document, additionalPaths, diagnosticLinesByPath));
     }
 
     /** organizeImports, without the wait for the writes ahead of it. */
-    private async applyOrganized(document: vscode.TextDocument, additionalPaths: string[], diagnosticLinesByPath: DiagnosticLinesByPath): Promise<boolean> {
+    private async applyOrganizedImports(document: vscode.TextDocument, additionalPaths: string[], diagnosticLinesByPath: DiagnosticLinesByPath): Promise<boolean> {
         const config = vscode.workspace.getConfiguration("verseAutoImports");
         const preferDotSyntax = config.get<string>("behavior.importSyntax", "curly") === "dot";
         const sortAlphabetically = config.get<boolean>("behavior.sortImportsAlphabetically", true);

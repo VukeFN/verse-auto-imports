@@ -160,6 +160,10 @@ describe("CommandsHandler.optimizeImports", () => {
     // to tell a pinned import that failed to resolve from one that already
     // resolves. Dropped here, the command writes the fix below the statement
     // that needed it and still reports success.
+    //
+    // Asserted through the delegating entry point as well as at
+    // organizeImportsInDocument, since it is the delegation that carries the
+    // evidence to the source action too.
     it("hands the organizer the lines the diagnostics were reported on", async () => {
         activateVerseDocument();
         const diagnosticLinesByPath = new Map([["Features", [4]]]);
@@ -185,15 +189,16 @@ describe("CommandsHandler.organizeImportsInDocument", () => {
     it("organizes the document it is given, with the paths the diagnostics report missing", async () => {
         const document = makeDocument();
         const organizeImports = jest.fn().mockResolvedValue(true);
+        const diagnosticLinesByPath = new Map([["/Fortnite.com/Devices", [3]]]);
         const handler = makeHandler({
             organizeImports,
-            extractImportsFromDiagnostics: jest.fn().mockReturnValue(["/Fortnite.com/Devices"]),
+            extractImportsFromDiagnostics: jest.fn().mockReturnValue({ paths: ["/Fortnite.com/Devices"], diagnosticLinesByPath }),
         });
 
         const applied = await handler.organizeImportsInDocument(document);
 
         expect(applied).toBe(true);
-        expect(organizeImports).toHaveBeenCalledWith(document, ["/Fortnite.com/Devices"]);
+        expect(organizeImports).toHaveBeenCalledWith(document, ["/Fortnite.com/Devices"], diagnosticLinesByPath);
     });
 
     it("does not save, and does not fall back to the active editor", async () => {
@@ -205,7 +210,7 @@ describe("CommandsHandler.organizeImportsInDocument", () => {
 
         await handler.organizeImportsInDocument(document);
 
-        expect(organizeImports).toHaveBeenCalledWith(document, []);
+        expect(organizeImports).toHaveBeenCalledWith(document, [], new Map());
         expect(document.save).not.toHaveBeenCalled();
         expect(active.save).not.toHaveBeenCalled();
     });

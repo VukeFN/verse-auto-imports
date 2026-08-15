@@ -279,9 +279,14 @@ class FileSystemWatcher {
 }
 
 const workspace = {
+    // inspect() is part of the contract, not an extra: the write target is
+    // derived from it, so a stub without it throws rather than answering.
+    // Undefined is the honest default - it says no level overrides the key,
+    // which is what an untouched test workspace looks like.
     getConfiguration: jest.fn().mockReturnValue({
         get: jest.fn().mockImplementation((_key: string, defaultValue?: unknown) => defaultValue),
         update: jest.fn().mockResolvedValue(undefined),
+        inspect: jest.fn().mockReturnValue(undefined),
     }),
     // A fresh disposable per registration, as real VS Code returns. A single
     // shared one would make "every listener this class registered was
@@ -366,6 +371,10 @@ const window = {
     showWarningMessage: jest.fn(),
     showErrorMessage: jest.fn(),
     showQuickPick: jest.fn(),
+    // Settable, like workspaceFolders. Command surfaces scope a setting to the
+    // file in front of the user, so undefined here is the real "no editor
+    // open" case rather than a gap - a test that needs one assigns it.
+    activeTextEditor: undefined as { document: { uri: unknown } } | undefined,
     setStatusBarMessage: jest.fn(),
     /**
      * Runs the task straight away, as real VS Code does, so a command wrapped
@@ -418,6 +427,11 @@ const ConfigurationTarget = {
     Global: 1,
     Workspace: 2,
     WorkspaceFolder: 3,
+};
+
+/** Only the member the menus use; a row without a kind is a normal item. */
+const QuickPickItemKind = {
+    Separator: -1,
 };
 
 const EndOfLine = {
@@ -478,6 +492,7 @@ export {
     DiagnosticSeverity,
     StatusBarAlignment,
     ConfigurationTarget,
+    QuickPickItemKind,
     ProgressLocation,
     EndOfLine,
     FileType,

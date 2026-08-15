@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { logger } from "../utils";
+import { logger, settingsFor } from "../utils";
 import { ImportSuggestion, ImportSuggestionSource, ImportConfidence, MissingImports } from "../types";
 import { DigestParser, AssetsDigestParser } from "../services";
 import { ImportFormatter } from "./ImportFormatter";
@@ -363,7 +363,7 @@ export class ImportSuggestionExtractor {
      * entry it returns declares the name the compiler could not resolve.
      */
     private async lookupIdentifierInDigest(identifier: string): Promise<ImportSuggestion[]> {
-        const config = vscode.workspace.getConfiguration("verseAutoImports");
+        const config = settingsFor();
         const useDigestFiles = config.get<boolean>("experimental.useDigestFiles", false);
         const preferDotSyntax = config.get<string>("behavior.importSyntax", "curly") === "dot";
 
@@ -408,7 +408,7 @@ export class ImportSuggestionExtractor {
     async extractImportSuggestions(errorMessage: string): Promise<ImportSuggestion[]> {
         logger.debug("ImportSuggestionExtractor", `Extracting import suggestions from error: ${errorMessage}`);
 
-        const config = vscode.workspace.getConfiguration("verseAutoImports");
+        const config = settingsFor();
         const preferDotSyntax = config.get<string>("behavior.importSyntax", "curly") === "dot";
         const ambiguousImportMappings = config.get<Record<string, string>>("behavior.ambiguousImports", DEFAULT_AMBIGUOUS_IMPORTS);
 

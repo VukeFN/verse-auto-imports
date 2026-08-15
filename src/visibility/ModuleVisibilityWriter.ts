@@ -1,6 +1,6 @@
 import * as path from "path";
 import * as vscode from "vscode";
-import { logger } from "../utils";
+import { logger, settingsFor } from "../utils";
 import { ProjectPathHandler } from "../project";
 import { appendDeclarationBlock, buildDeclarationBlock } from "./definitionsContent";
 import { findExplicitModuleDeclarations } from "./moduleDeclarations";
@@ -328,7 +328,7 @@ export class ModuleVisibilityWriter {
      * reported success.
      */
     private definitionsUri(contentRoot: vscode.Uri): vscode.Uri | null {
-        const fileName = vscode.workspace.getConfiguration("verseAutoImports").get<string>("moduleVisibility.definitionsFileName", "_definitions.verse").trim();
+        const fileName = settingsFor(contentRoot).get<string>("moduleVisibility.definitionsFileName", "_definitions.verse").trim();
 
         if (!/^[^\\/:*?"<>|]+\.verse$/.test(fileName)) {
             return null;

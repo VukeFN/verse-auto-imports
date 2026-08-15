@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { logger } from "../utils";
+import { logger, settingsFor } from "../utils";
 import { ImportPathConverter } from "./ImportPathConverter";
 import { LINE_SPLIT, scanConvertibleImports } from "./ImportScanner";
 
@@ -49,12 +49,12 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
 
     /** The configured delay before the lenses are hidden, in milliseconds. */
     private getHideDelay(): number {
-        const config = vscode.workspace.getConfiguration("verseAutoImports");
+        const config = settingsFor();
         return config.get<number>("pathConversion.codeLensHideDelay", 1000);
     }
 
     private getVisibilityMode(): "hover" | "always" {
-        const config = vscode.workspace.getConfiguration("verseAutoImports");
+        const config = settingsFor();
         return config.get<"hover" | "always">("pathConversion.codeLensVisibility", "hover");
     }
 
@@ -130,7 +130,7 @@ export class ImportCodeLensProvider implements vscode.CodeLensProvider {
     async provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CodeLens[]> {
         const codeLenses: vscode.CodeLens[] = [];
 
-        const config = vscode.workspace.getConfiguration("verseAutoImports");
+        const config = settingsFor(document.uri);
         const showCodeLens = config.get<boolean>("pathConversion.enableCodeLens", true);
 
         if (!showCodeLens) {

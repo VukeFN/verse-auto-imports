@@ -352,7 +352,7 @@ export class ImportPathConverter {
         const workspaceFolder = vscode.workspace.getWorkspaceFolder(currentFileUri);
         if (!workspaceFolder) return;
 
-        const placement = ImportPathConverter.placeUnderContentRoot(workspaceFolder.uri.fsPath, currentFileUri.fsPath, await this.projectPathHandler.getRootPluginName());
+        const placement = ImportPathConverter.placeUnderContentRoot(workspaceFolder.uri.fsPath, currentFileUri.fsPath, await this.projectPathHandler.getRootPluginName(currentFileUri));
         if (!placement) return;
 
         // Every path below is reasoned about with a leading Content/, whatever
@@ -750,7 +750,7 @@ export class ImportPathConverter {
         const workspaceFolder = vscode.workspace.getWorkspaceFolder(documentUri);
         if (!workspaceFolder) return null;
 
-        const placement = ImportPathConverter.placeUnderContentRoot(workspaceFolder.uri.fsPath, documentUri.fsPath, await this.projectPathHandler.getRootPluginName());
+        const placement = ImportPathConverter.placeUnderContentRoot(workspaceFolder.uri.fsPath, documentUri.fsPath, await this.projectPathHandler.getRootPluginName(documentUri));
         if (!placement) return null;
 
         return placement.fileDirRelative ? `${projectVersePath}/${placement.fileDirRelative}` : projectVersePath;

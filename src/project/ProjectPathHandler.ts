@@ -113,6 +113,13 @@ export class ProjectPathHandler {
         }
 
         for (const folder of workspaceFolders) {
+            // Already searched above, and the answer for a directory does not
+            // change within one call, so asking again would only repeat a
+            // workspace search that has already come back empty.
+            if (scope && folder.uri.toString() === scope.uri.toString()) {
+                continue;
+            }
+
             const found = await this.readProjectFileIn(folder);
             if (found !== undefined) {
                 return found;
@@ -128,15 +135,15 @@ export class ProjectPathHandler {
     }
 
     /**
-     * The project file directly in `base`.
+     * The project file directly in `folder`.
      *
-     * Undefined when the directory holds none, which means the search goes on.
+     * Undefined when the folder holds none, which means the search goes on.
      * Null when it holds one that will not parse, which ends the search:
      * walking on would answer from some parent project's paths, which is worse
      * than answering nothing.
      */
-    private async readProjectFileIn(base: vscode.WorkspaceFolder | vscode.Uri): Promise<UEFNProjectFile | null | undefined> {
-        const files = await vscode.workspace.findFiles(new vscode.RelativePattern(base, "*.uefnproject"), null, 1);
+    private async readProjectFileIn(folder: vscode.WorkspaceFolder): Promise<UEFNProjectFile | null | undefined> {
+        const files = await vscode.workspace.findFiles(new vscode.RelativePattern(folder, "*.uefnproject"), null, 1);
 
         if (files.length === 0) {
             return undefined;

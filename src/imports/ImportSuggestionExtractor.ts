@@ -362,8 +362,8 @@ export class ImportSuggestionExtractor {
      * Always high confidence: the lookup matches the identifier exactly, so an
      * entry it returns declares the name the compiler could not resolve.
      */
-    private async lookupIdentifierInDigest(identifier: string): Promise<ImportSuggestion[]> {
-        const config = settingsFor();
+    private async lookupIdentifierInDigest(identifier: string, resource?: vscode.Uri): Promise<ImportSuggestion[]> {
+        const config = settingsFor(resource);
         const useDigestFiles = config.get<boolean>("experimental.useDigestFiles", false);
         const preferDotSyntax = config.get<string>("behavior.importSyntax", "curly") === "dot";
 
@@ -404,11 +404,17 @@ export class ImportSuggestionExtractor {
      * An unknown identifier is resolved in a fixed order: a configured
      * ambiguous mapping first, then the digest lookup, then the path inferred
      * from a "Did you mean". The order is the precedence, most specific first.
+     *
+     * @param resource The document the message was reported on. Pass it
+     *   wherever one exists: `behavior.importSyntax` is resource-scoped, and a
+     *   statement formatted without it carries the window's syntax while
+     *   ImportDocumentEditor writes the folder's, so in a multi-root workspace
+     *   the quick-fix title stops describing the text the fix inserts.
      */
-    async extractImportSuggestions(errorMessage: string): Promise<ImportSuggestion[]> {
+    async extractImportSuggestions(errorMessage: string, resource?: vscode.Uri): Promise<ImportSuggestion[]> {
         logger.debug("ImportSuggestionExtractor", `Extracting import suggestions from error: ${errorMessage}`);
 
-        const config = settingsFor();
+        const config = settingsFor(resource);
         const preferDotSyntax = config.get<string>("behavior.importSyntax", "curly") === "dot";
         const ambiguousImportMappings = config.get<Record<string, string>>("behavior.ambiguousImports", DEFAULT_AMBIGUOUS_IMPORTS);
 
@@ -440,7 +446,7 @@ export class ImportSuggestionExtractor {
                     return [this.createImportSuggestion(importStatement, "error_message", "high", `Configured import for ${classification.identifier}`)];
                 }
 
-                const digestSuggestions = await this.lookupIdentifierInDigest(classification.identifier);
+                const digestSuggestions = await this.lookupIdentifierInDigest(classification.identifier, resource);
                 if (digestSuggestions.length > 0) {
                     logger.debug("ImportSuggestionExtractor", `Found digest-based suggestions for unknown identifier: ${classification.identifier}`);
                     return digestSuggestions;

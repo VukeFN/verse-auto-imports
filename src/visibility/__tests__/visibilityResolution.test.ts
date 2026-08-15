@@ -94,15 +94,40 @@ describe("resolveVisibility", () => {
         expect(resolved.chain).toEqual([]);
     });
 
-    it("repeats an existing parent specifier in the written chain, so the parts cannot disagree", () => {
+    it("reports a parent the chain would have to repeat, rather than writing a second definition of it", () => {
         const found = declarationsIn("file://a", "", "Gadgets<internal> := module:\n    X:int = 1\n");
 
         const resolved = resolveVisibility([], segments(["Gadgets", false], ["Tools", true]), found);
 
+        expect(resolved.conflicts).toEqual([{ path: "Gadgets", keyword: "internal", reason: "repeat" }]);
+        // The chain still carries what a write would have put in the file, as
+        // the narrowed path does. The conflict is what stops it.
         expect(resolved.chain).toEqual([
             { name: "Gadgets", specifier: "internal" },
             { name: "Tools", specifier: "public" },
         ]);
+    });
+
+    it("reports a repeat of a bare declaration, which carries no keyword to name", () => {
+        const found = declarationsIn("file://a", "", "Gadgets := module:\n    X:int = 1\n");
+
+        const resolved = resolveVisibility([], segments(["Gadgets", false], ["Tools", true]), found);
+
+        // The compiler's duplicate-definition check turns on the existing
+        // declaration being explicit, not on either part's specifier, so a bare
+        // repeat is a second definition exactly as an attributed one is.
+        expect(resolved.conflicts).toEqual([{ path: "Gadgets", reason: "repeat" }]);
+        expect(resolved.conflicts[0].keyword).toBeUndefined();
+    });
+
+    it("says nothing about a repeat the trim drops, since an unwritten part defines nothing", () => {
+        const found = declarationsIn("file://a", "", "Gadgets := module:\n    Tools := module {}\n");
+
+        const resolved = resolveVisibility([], segments(["Gadgets", false], ["Tools", true]), found);
+
+        expect(resolved.chain).toEqual([]);
+        expect(resolved.conflicts).toEqual([]);
+        expect(resolved.edits.map((edit) => edit.path)).toEqual(["Gadgets/Tools"]);
     });
 
     it("reports a deliberate narrowing as a conflict rather than widening it", () => {
@@ -194,11 +219,14 @@ describe("resolveVisibility", () => {
         ]);
     });
 
-    it("repeats a prefix module's declared specifier, so the nesting part cannot disagree", () => {
+    it("reports a repeat of a prefix module, which a written part defines a second time whether or not it is reachable", () => {
         const found = declarationsIn("file://a", "", "Systems<public> := module:\n    X:int = 1\n");
 
         const resolved = resolveVisibility(["Systems"], segments(["Gadgets", false], ["Tools", true]), found);
 
+        expect(resolved.conflicts).toEqual([{ path: "Systems", keyword: "public", reason: "repeat" }]);
+        // The specifier is still repeated in the chain the conflict describes:
+        // a part that disagreed would be a second defect, not a remedy.
         expect(resolved.chain[0]).toEqual({ name: "Systems", specifier: "public" });
         // The prefix is reachable already, so nothing about it is rewritten.
         expect(resolved.edits).toEqual([]);

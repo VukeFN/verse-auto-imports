@@ -164,6 +164,20 @@ export class ProjectPathHandler {
     }
 
     /**
+     * The name of the plugin `bindings.projectVersePath` addresses, or null
+     * when the project file declares no root plugin.
+     *
+     * UEFN nests a project's Verse under `<project>/Plugins/<name>/Content`,
+     * and only the root plugin's Content answers to that path - a second
+     * plugin carries a Verse path of its own. So this is what separates a
+     * Content root the project's path can address from one it cannot.
+     */
+    async getRootPluginName(): Promise<string | null> {
+        const projectFile = await this.findAndParseProjectFile();
+        return projectFile?.plugins?.find((plugin) => plugin.bIsRoot)?.name || null;
+    }
+
+    /**
      * The project's `bindings.modules` map, verbatim. Nothing in `src/` calls
      * this, so what the keys and values mean is UEFN's to define.
      */

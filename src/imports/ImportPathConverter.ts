@@ -1,10 +1,11 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { logger } from "../utils";
-import { maskCommentsAndStrings } from "../utils/verseText";
 import { ProjectPathHandler } from "../project";
 import { ProjectPathCache } from "../services";
-import { resolveFolderModuleLocations, toContentRelativeDir } from "../services/moduleLocationLookup";
+import { buildProjectIndexes, resolveFolderModuleLocations, resolveModuleLocations, toContentRelativeDir } from "../services/moduleLocationLookup";
+import { ProjectPathNode } from "../types";
+import { findExplicitModuleDeclarations } from "../visibility/moduleDeclarations";
 import { ImportFormatter } from "./ImportFormatter";
 import { LINE_SPLIT, scanConvertibleImports } from "./ImportScanner";
 
@@ -32,13 +33,46 @@ interface ImportConversionResult {
     line?: number;
 }
 
+/**
+ * Where a module could be, and whether the search that answered was complete.
+ *
+ * `truncated` says the declaration scan stopped at its file cap, so `locations`
+ * holds whatever a sample of the project attested to. A location absent from it
+ * may still exist, and a single entry is no evidence that the name is
+ * unambiguous, so nothing may be written from a truncated answer.
+ */
+interface ModuleLocationSearch {
+    locations: string[];
+    truncated: boolean;
+}
+
+/**
+ * A notification not yet spent. The condition it reports belongs to the project
+ * rather than to any one import, so a run over a whole document consumes one
+ * between all of them instead of repeating it per line.
+ */
+interface TruncationNotice {
+    pending: boolean;
+}
+
 const CONTENT_FOLDER = "Content";
 
 /**
+ * How many `.verse` files the explicit-declaration scan reads. Far below
+ * FOLDER_SCAN_FILE_LIMIT because this phase opens and lexes every file it
+ * scans, where the folder search reads none.
+ *
+ * A project holding more than this gets no answer from the phase rather than a
+ * sample's answer, so the number bounds how large a project the phase serves,
+ * not only how long it takes.
+ */
+const DECLARATION_SCAN_FILE_LIMIT = 100;
+
+/**
  * How many `.verse` files the project-wide folder search enumerates. Far above
- * the explicit-declaration scan's 100 because this one reads no file contents:
- * it derives folder modules from the paths alone, so a file costs a string
- * split rather than a read.
+ * DECLARATION_SCAN_FILE_LIMIT because this one reads no file contents: it
+ * derives folder modules from the paths alone, so a file costs a string split
+ * rather than a read.
  */
 const FOLDER_SCAN_FILE_LIMIT = 5000;
 
@@ -103,34 +137,6 @@ export class ImportPathConverter {
      */
     static buildFullVersePath(projectVersePath: string, location: string, modulePath: string): string {
         return location === "/" || location === "" ? `${projectVersePath}/${modulePath}` : `${projectVersePath}${location}/${modulePath}`;
-    }
-
-    /**
-     * A regex matching an explicit declaration of one named module, in any of
-     * the three styles Verse writes a macro body in: `module:`, `module { }`
-     * with the brace on either that line or the next, and the dotted
-     * `module. Inner := ...`. A `>` after the keyword is accepted alongside
-     * them.
-     *
-     * No visibility keyword list appears here: nothing reads which specifier
-     * was found, only whether this file declares the module, so any `<...>`
-     * entry is accepted - a `scoped{A, B}` list included, whose specifier does
-     * not end at its keyword.
-     *
-     * A specifier body must exclude `<` and newlines. A body free to span lines
-     * lets a `<` that opens nothing - a comparison operator, say - run on to
-     * the `>` of a LATER declaration's specifier, reporting a file that
-     * declares no such module. The narrowing holds whether or not the text is
-     * masked first, and nothing binds a caller of this builder to mask, so it
-     * cannot be widened to MODULE_DECLARATION's `[^>]`.
-     *
-     * Non-global on purpose: the pattern is reused with `.test()` across many
-     * files, and a global flag would carry `lastIndex` between calls and skip
-     * valid definitions depending on the order the files are read in.
-     */
-    static buildModuleDefinitionRegex(moduleName: string): RegExp {
-        const escaped = moduleName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        return new RegExp(`\\b${escaped}(?:'[^']*')?(?:\\s*<[^<>\\n]+>)*\\s*:=\\s*module\\s*[:>{.]`, "m");
     }
 
     /**
@@ -343,71 +349,71 @@ export class ImportPathConverter {
 
     /**
      * Appends the locations of the `.verse` files explicitly declaring this
-     * name as a module, which is the other way a module comes to exist and the
-     * one no folder attests to.
+     * module, which is the other way a module comes to exist and the one no
+     * folder attests to.
      *
-     * Capped at 100 files scanned, so a project larger than that resolves from
-     * whichever of them the search returned.
+     * Each declaration is read with its enclosing module chain and matched by
+     * resolveModuleLocations, the same segment-aligned matching the cache path
+     * runs. A module declared inside another is an ordinary path scope, so
+     * `Outer.Inner` names the inner one, and a file's directory alone cannot say
+     * which module a declaration is.
+     *
+     * @returns whether the project holds more `.verse` files than
+     * DECLARATION_SCAN_FILE_LIMIT, leaving the rest of it unread
      */
-    private async searchExplicitModuleDefinitions(modulePath: string, moduleName: string, pathSegments: string[], locations: string[]): Promise<void> {
+    private async searchExplicitModuleDefinitions(modulePath: string, locations: string[]): Promise<boolean> {
         const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders || workspaceFolders.length === 0) return;
+        if (!workspaceFolders || workspaceFolders.length === 0) return false;
 
         const { searchPattern, workspaceIsContent } = ImportPathConverter.workspaceScanTargets(workspaceFolders[0]);
 
         // Scope the scan to the project folder. The UEFN-generated workspace is
         // multi-root (Content plus Epic's digest folders); a bare string glob
         // would also read every *.digest.verse on each fallback scan.
-        const verseFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(workspaceFolders[0], searchPattern), "**/*.digest.verse", 100);
-        const modulePattern = ImportPathConverter.buildModuleDefinitionRegex(moduleName);
+        //
+        // One file past the limit is asked for and never read, so that a project
+        // holding exactly the limit is told apart from one holding more. Asking
+        // for the limit itself makes those two answers identical, which is the
+        // conflation the truncation signal exists to end.
+        const verseFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(workspaceFolders[0], searchPattern), "**/*.digest.verse", DECLARATION_SCAN_FILE_LIMIT + 1);
+        const readPartOnly = verseFiles.length > DECLARATION_SCAN_FILE_LIMIT;
 
-        for (const file of verseFiles) {
+        const nodes: ProjectPathNode[] = [];
+        for (const file of verseFiles.slice(0, DECLARATION_SCAN_FILE_LIMIT)) {
             const content = await vscode.workspace.fs.readFile(file).then(
                 (buffer) => Buffer.from(buffer).toString("utf8"),
                 () => null,
             );
+            if (!content) continue;
 
-            // Only a live declaration attests to a location. Matched against
-            // raw text, a commented-out declaration or one quoted in a string
-            // puts its directory into `locations`, which either makes the
-            // conversion ambiguous or writes a path to the wrong file. The two
-            // sibling scanners, moduleDeclarations and ProjectPathScanner, mask
-            // for the same reason.
-            if (!content || !modulePattern.test(maskCommentsAndStrings(content))) continue;
+            // Paths are taken against the folder the glob was rooted at, which
+            // is also the folder workspaceIsContent describes. Asking which
+            // folder each file sits in instead lets the two disagree, and the
+            // Content prefix is then read off one folder and stripped by the
+            // rule of another.
+            const sourceFile = path.relative(workspaceFolders[0].uri.fsPath, file.fsPath).replace(/\\/g, "/");
 
-            logger.debug("ImportPathConverter", `Found module definition in: ${file.fsPath}`);
-            const workspaceFolder = vscode.workspace.getWorkspaceFolder(file);
-            if (!workspaceFolder) continue;
-
-            let relativePath = path.relative(workspaceFolder.uri.fsPath, file.fsPath).replace(/\\/g, "/");
-            relativePath = path.dirname(relativePath).replace(/\\/g, "/");
-
-            if (workspaceIsContent) {
-                relativePath = relativePath === "" || relativePath === "." ? CONTENT_FOLDER : `${CONTENT_FOLDER}/${relativePath}`;
-            }
-
-            if (!relativePath.startsWith(CONTENT_FOLDER)) continue;
-
-            relativePath = relativePath.startsWith(`${CONTENT_FOLDER}/`) ? relativePath.substring(CONTENT_FOLDER.length + 1) : relativePath === CONTENT_FOLDER ? "" : relativePath;
-
-            // A dotted reference names the path to the module as well as the
-            // module, and only the last segment was searched for, so a
-            // declaration whose directory does not end in the rest of the
-            // reference declares a different module of the same name.
-            if (pathSegments.length > 1) {
-                const parentPath = pathSegments.slice(0, -1).join("/");
-                if (!relativePath.endsWith(parentPath)) continue;
-
-                relativePath = relativePath.substring(0, relativePath.length - parentPath.length);
-                if (relativePath.endsWith("/")) relativePath = relativePath.substring(0, relativePath.length - 1);
-            }
-
-            if (!relativePath.startsWith("/") && relativePath !== "") relativePath = "/" + relativePath;
-
-            if (!locations.includes(relativePath)) {
-                locations.push(relativePath);
+            // Only a live declaration attests to a location; a commented-out one
+            // or one quoted in a string names a module that does not exist.
+            // findExplicitModuleDeclarations masks both before matching.
+            for (const declaration of findExplicitModuleDeclarations(content)) {
+                nodes.push({
+                    name: declaration.name,
+                    fullPath: declaration.chain.join("."),
+                    type: "module",
+                    isPublic: declaration.visibility?.keyword === "public",
+                    sourceFile,
+                });
             }
         }
+
+        const { moduleNameIndex } = buildProjectIndexes(nodes);
+        for (const candidate of resolveModuleLocations(modulePath, moduleNameIndex, { workspaceIsContent })) {
+            logger.debug("ImportPathConverter", `Found module definition in: ${candidate.sourceFile}`);
+            if (!locations.includes(candidate.location)) locations.push(candidate.location);
+        }
+
+        return readPartOnly;
     }
 
     /**
@@ -469,14 +475,15 @@ export class ImportPathConverter {
      * scope walk resolves nothing, it searches every module in the program and
      * collects all the matches rather than the first, which is why an ambiguous
      * answer here is a result and not a fault.
+     *
+     * `truncated` covers the declaration scan's own answer and an empty result,
+     * not an answer the folder search gave. The reasoning for that boundary,
+     * and what it knowingly leaves exposed, is at the assignment itself.
      */
-    async findModuleLocations(modulePath: string, currentFileUri?: vscode.Uri): Promise<string[]> {
+    async findModuleLocations(modulePath: string, currentFileUri?: vscode.Uri): Promise<ModuleLocationSearch> {
         const locations: string[] = [];
         const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders || workspaceFolders.length === 0) return locations;
-
-        const pathSegments = modulePath.split("/").filter((s) => s);
-        const moduleName = pathSegments[pathSegments.length - 1];
+        if (!workspaceFolders || workspaceFolders.length === 0) return { locations, truncated: false };
 
         logger.debug("ImportPathConverter", `Searching for module '${modulePath}'`);
 
@@ -509,12 +516,21 @@ export class ImportPathConverter {
             }
         }
 
+        let declarationScanReadPart = false;
+        let answeredByDeclarationScan = false;
         if (locations.length === 0) {
             logger.debug("ImportPathConverter", `Phase 2: Searching explicit module definitions`);
             try {
-                await this.searchExplicitModuleDefinitions(modulePath, moduleName, pathSegments, locations);
+                declarationScanReadPart = await this.searchExplicitModuleDefinitions(modulePath, locations);
             } catch (error) {
+                // A phase that threw read an unknown amount of the project,
+                // which is the position stopping at the cap leaves it in.
+                declarationScanReadPart = true;
                 logger.debug("ImportPathConverter", `Error in Phase 2 (explicit modules): ${error}`);
+            }
+            answeredByDeclarationScan = locations.length > 0;
+            if (declarationScanReadPart) {
+                logger.debug("ImportPathConverter", `Phase 2 read part of the project, so its answer is a sample`);
             }
         }
 
@@ -527,6 +543,20 @@ export class ImportPathConverter {
             }
         }
 
+        // A partial declaration scan clouds its own answer, and clouds an empty
+        // result, where the module may be declared in the part left unread.
+        //
+        // It is deliberately not extended to the folder search's answer, and
+        // that is a trade rather than a proof. A declaration outranks a distant
+        // folder, so a declaration in the unread remainder would have answered
+        // instead of the folder chain, and trusting the folder chain can still
+        // put out the wrong location silently. Distrusting it costs more: a
+        // folder module has no declaration anywhere for this phase or the cache
+        // to hold, so the veto would refuse every folder module in a project
+        // past the cap - the commonest thing that reaches this search at all.
+        // Raising the cap is what shrinks the exposure; the rule cannot.
+        const truncated = declarationScanReadPart && (answeredByDeclarationScan || locations.length === 0);
+
         logger.debug("ImportPathConverter", `Module search complete for '${modulePath}'`);
         logger.debug("ImportPathConverter", `Found ${locations.length} possible locations:`);
         if (locations.length > 0) {
@@ -535,7 +565,7 @@ export class ImportPathConverter {
             logger.debug("ImportPathConverter", `  - No locations found!`);
         }
 
-        return locations;
+        return { locations, truncated };
     }
 
     /** Path segments with the leading slash and any empty segments dropped. */
@@ -655,7 +685,10 @@ export class ImportPathConverter {
      * shadows the target or clashes with it, and no relative spelling reaches
      * past it, so there is no conversion to offer rather than a longer one to
      * find. None means nothing here can place the module, which is exactly the
-     * position this check exists to stop a conversion being written from.
+     * position this check exists to stop a conversion being written from. A
+     * truncated search refuses ahead of the count, because the one location it
+     * returned is a sample's answer and a namesake in the unread remainder would
+     * have made it two.
      *
      * The check is only as good as the search under it, and that search has
      * blind spots this does not close - these among them, rather than these
@@ -678,7 +711,14 @@ export class ImportPathConverter {
         // segment written after it.
         const expectedPath = `/${fullSegments.slice(0, fullSegments.length - (referenceSegments.length - 1)).join("/")}`;
 
-        const locations = await this.findModuleLocations(firstSegment, documentUri);
+        const { locations, truncated } = await this.findModuleLocations(firstSegment, documentUri);
+        if (truncated) {
+            logger.debug(
+                "ImportPathConverter",
+                `Refusing '${reference}' for ${fullPath}: the declaration scan stopped at ${DECLARATION_SCAN_FILE_LIMIT} files, so '${firstSegment}' was resolved against part of the project`,
+            );
+            return false;
+        }
         if (locations.length !== 1) {
             logger.debug("ImportPathConverter", `Refusing '${reference}' for ${fullPath}: '${firstSegment}' resolves to ${locations.length} locations, not one`);
             return false;
@@ -845,6 +885,17 @@ export class ImportPathConverter {
      * picks, then hands the choice to applyConversion.
      */
     async convertToFullPath(importStatement: string, documentUri: vscode.Uri, line?: number): Promise<ImportConversionResult | null> {
+        return this.resolveToFullPath(importStatement, documentUri, { pending: true }, line);
+    }
+
+    /**
+     * convertToFullPath's body, with the truncation notice hoisted so a caller
+     * converting a whole document reports the condition once.
+     *
+     * @param notice consumed by the first import the cap refuses; the condition
+     *   is the project's, so repeating it per import says nothing new
+     */
+    private async resolveToFullPath(importStatement: string, documentUri: vscode.Uri, notice: TruncationNotice, line?: number): Promise<ImportConversionResult | null> {
         if (this.isFullPathImport(importStatement)) {
             if (this.isBuiltinModule(importStatement)) {
                 logger.debug("ImportPathConverter", "Import is a built-in module and should not be converted");
@@ -870,9 +921,23 @@ export class ImportPathConverter {
 
         logger.debug("ImportPathConverter", `Project verse path: ${projectVersePath}`);
 
-        const possibleLocations = await this.findModuleLocations(modulePath, documentUri);
+        const { locations: possibleLocations, truncated } = await this.findModuleLocations(modulePath, documentUri);
         logger.debug("ImportPathConverter", `findModuleLocations returned ${possibleLocations.length} location(s)`);
         possibleLocations.forEach((loc, idx) => logger.debug("ImportPathConverter", `  Location ${idx}: '${loc}'`));
+
+        // Ahead of the count, because a sample cannot answer either question the
+        // count decides: a location it did not reach is missing from the list,
+        // and a namesake it did not reach is missing from the ambiguity.
+        if (truncated) {
+            logger.debug("ImportPathConverter", `Refusing ${modulePath}: the declaration scan read part of the project`);
+            if (notice.pending) {
+                notice.pending = false;
+                vscode.window.showWarningMessage(
+                    `This project holds more than ${DECLARATION_SCAN_FILE_LIMIT} .verse files, which is as many as the search for a declared module reads. Imports that need one are left alone rather than pointed at a module found in part of the project; write those absolute paths by hand.`,
+                );
+            }
+            return null;
+        }
 
         const usesCurlyBraces = ImportPathConverter.usesBracedStyle(importStatement);
 
@@ -920,8 +985,9 @@ export class ImportPathConverter {
         const text = document.getText();
         const lines = text.split(LINE_SPLIT);
 
+        const notice: TruncationNotice = { pending: true };
         for (const { statement, line } of scanConvertibleImports(lines)) {
-            const result = await this.convertToFullPath(statement, document.uri, line);
+            const result = await this.resolveToFullPath(statement, document.uri, notice, line);
             if (result) {
                 results.push(result);
             }

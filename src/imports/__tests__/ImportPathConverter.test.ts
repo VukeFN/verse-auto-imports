@@ -21,99 +21,6 @@ describe("ImportPathConverter.buildFullVersePath", () => {
     });
 });
 
-describe("ImportPathConverter.buildModuleDefinitionRegex", () => {
-    it("matches a module declaration with and without a visibility specifier", () => {
-        const re = ImportPathConverter.buildModuleDefinitionRegex("Inventory");
-        expect(re.test("Inventory := module:")).toBe(true);
-        expect(re.test("Inventory<public> := module:")).toBe(true);
-        expect(re.test("Inventory := module>")).toBe(true);
-    });
-
-    it("matches the brace form, with the brace on the declaration line or the next", () => {
-        const re = ImportPathConverter.buildModuleDefinitionRegex("Inventory");
-        expect(re.test("Inventory := module{}")).toBe(true);
-        expect(re.test("Inventory<public> := module { }")).toBe(true);
-        expect(re.test("Inventory := module\n{\n    Count<public>:int = 0\n}")).toBe(true);
-    });
-
-    it("matches the dotted form, for either name declared on the line", () => {
-        const source = "Inventory := module. Item := module{}";
-
-        expect(ImportPathConverter.buildModuleDefinitionRegex("Inventory").test(source)).toBe(true);
-        expect(ImportPathConverter.buildModuleDefinitionRegex("Item").test(source)).toBe(true);
-    });
-
-    it("matches any specifier the language allows, not a fixed keyword list", () => {
-        const re = ImportPathConverter.buildModuleDefinitionRegex("Inventory");
-
-        // A scope list holds module references, so the specifier does not end
-        // at the keyword.
-        expect(re.test("Inventory<scoped{ModuleA, ModuleB}> := module:")).toBe(true);
-        expect(re.test("Inventory<epic_internal> := module:")).toBe(true);
-
-        // A named scope is an arbitrary identifier, qualified or not, which no
-        // keyword list could cover.
-        expect(re.test("Inventory<scoped_X> := module:")).toBe(true);
-        expect(re.test("Inventory<Systems.scoped_to_A> := module:")).toBe(true);
-    });
-
-    it("matches a stacked specifier block, not one specifier", () => {
-        const re = ImportPathConverter.buildModuleDefinitionRegex("Inventory");
-        expect(re.test("Inventory<internal><final> := module:")).toBe(true);
-        expect(re.test("Inventory<public><scoped{ModuleA}> := module { }")).toBe(true);
-    });
-
-    it("does not let a stray < reach the specifier of a later declaration", () => {
-        // A `<` that opens nothing - a comparison, say - sits between the name
-        // and the next declaration's specifier. A specifier body free to span
-        // that far would report this file as declaring Inventory, and masking
-        // the text first does not take a live comparison away.
-        const re = ImportPathConverter.buildModuleDefinitionRegex("Inventory");
-
-        expect(re.test("if (Inventory < MaxSlots):\n\nHelpers<public> := module:")).toBe(false);
-        expect(re.test("# Inventory <-- rename before ship\nHelpers<internal> := module:")).toBe(false);
-        expect(re.test("Count := Inventory < 3\nOther<final><public> := module {}")).toBe(false);
-    });
-
-    it("does not match a different module or a non-module declaration", () => {
-        const re = ImportPathConverter.buildModuleDefinitionRegex("Inventory");
-        expect(re.test("MyInventory := module:")).toBe(false);
-        expect(re.test("Inventory := class:")).toBe(false);
-        expect(re.test("InventoryItem := module:")).toBe(false);
-
-        // A specifier block is not what makes a declaration a module, so one
-        // must not carry a non-module declaration into a match.
-        expect(re.test("Inventory<public> := class:")).toBe(false);
-
-        // What follows `module` is a character class, so a keyword that merely
-        // starts with it is not a declaration. Written as a bare `.` instead,
-        // the dotted style would accept any character and match this.
-        expect(re.test("Inventory := modulex")).toBe(false);
-    });
-
-    it("is not global, so repeated .test() calls are order-independent", () => {
-        // A global regex would retain lastIndex between calls and could skip a
-        // match in a later string depending on where the previous match ended.
-        const re = ImportPathConverter.buildModuleDefinitionRegex("Foo");
-        expect(re.flags).not.toContain("g");
-
-        const withLateMatch = "some preamble text here\n\n\nFoo := module:";
-        const withEarlyMatch = "Foo := module:";
-
-        // Call against a string whose match is far into the text, then against a
-        // string whose match is at the very start. Both must return true.
-        expect(re.test(withLateMatch)).toBe(true);
-        expect(re.test(withEarlyMatch)).toBe(true);
-        expect(re.test(withLateMatch)).toBe(true);
-    });
-
-    it("escapes regex metacharacters in the module name", () => {
-        const re = ImportPathConverter.buildModuleDefinitionRegex("a.b");
-        expect(re.test("a.b := module:")).toBe(true);
-        expect(re.test("axb := module:")).toBe(false);
-    });
-});
-
 interface RecordedOperation {
     kind: "insert" | "delete" | "replace";
     range?: { start: { line: number; character: number }; end: { line: number; character: number } };
@@ -725,7 +632,7 @@ describe("ImportPathConverter.convertToFullPath", () => {
     /** A converter that resolves every module to one fixed location, so conversion is pure string work. */
     function converterWithLocation(location: string): ImportPathConverter {
         const converter = converterWithProjectPath(projectVersePath);
-        converter.findModuleLocations = async () => [location];
+        converter.findModuleLocations = async () => ({ locations: [location], truncated: false });
         return converter;
     }
 
@@ -768,16 +675,16 @@ describe("ImportPathConverter.findModuleLocations explicit declaration scan", ()
     };
 
     /**
-     * The locations the scan finds for "Inventory" in a project whose one
+     * The locations the scan finds for `modulePath` in a project whose one
      * `.verse` file holds `source`. No current file is passed, so the folder
      * search is skipped and the declaration scan is the only phase that runs.
      */
-    async function locationsFor(source: string): Promise<string[]> {
+    async function locationsFor(source: string, modulePath = "Inventory"): Promise<string[]> {
         (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([vscode.Uri.file(declaringFile)]);
         (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(Buffer.from(source, "utf8"));
 
         const converter = new ImportPathConverter(vscode.window.createOutputChannel("test"));
-        return converter.findModuleLocations("Inventory");
+        return (await converter.findModuleLocations(modulePath)).locations;
     }
 
     beforeEach(() => {
@@ -811,6 +718,208 @@ describe("ImportPathConverter.findModuleLocations explicit declaration scan", ()
 
     it("ignores declaration text quoted in a string literal", async () => {
         expect(await locationsFor('Doc := "Inventory := module:"\n')).toEqual([]);
+    });
+
+    // A `<` that opens nothing - a comparison, say - sits between an ordinary
+    // identifier and a later declaration's specifier. A specifier body free to
+    // reach that far reads the comparison's left operand as the declared name
+    // and swallows the real declaration behind it, so the file answers for a
+    // module it does not declare and stops answering for the one it does.
+    it("does not read a comparison operand as the declared name", async () => {
+        const source = "if (Inventory < MaxSlots):\n    Log()\n\nHelpers<public> := module:\n";
+
+        expect(await locationsFor(source)).toEqual([]);
+        expect(await locationsFor(source, "Helpers")).toEqual(["/Systems"]);
+    });
+
+    it("does not let a stray < in a comment reach a later specifier", async () => {
+        const source = "# Inventory <-- rename before ship\nHelpers<internal> := module:\n";
+
+        expect(await locationsFor(source)).toEqual([]);
+        expect(await locationsFor(source, "Helpers")).toEqual(["/Systems"]);
+    });
+
+    it("reads a stacked specifier block on the declaration it belongs to", async () => {
+        const source = "Count := Inventory < 3\nOther<final><public> := module {}\n";
+
+        expect(await locationsFor(source)).toEqual([]);
+        expect(await locationsFor(source, "Other")).toEqual(["/Systems"]);
+    });
+
+    // A module declared inside another is an ordinary path scope, so the inner
+    // one is named through the outer, and a file's directory alone cannot say
+    // which module a declaration is.
+    it("places a nested declaration under its enclosing module", async () => {
+        const source = "Outer := module:\n    Inner := module:\n        Count<public>:int = 0\n";
+
+        expect(await locationsFor(source, "Outer/Inner")).toEqual(["/Systems"]);
+        expect(await locationsFor(source, "Outer")).toEqual(["/Systems"]);
+    });
+
+    it("refuses a nested module named without its enclosing one", async () => {
+        expect(await locationsFor("Outer := module:\n    Inner := module:\n", "Inner")).toEqual([]);
+    });
+
+    it("matches whole segments, not a directory name that merely ends in one", async () => {
+        expect(await locationsFor("Inventory := module:\n", "XSystems/Inventory")).toEqual([]);
+    });
+
+    // The same rule at the entry point: only the chain a declaration sits in
+    // decides which import it answers.
+    it("converts a nested reference, and offers nothing for the bare inner name", async () => {
+        const projectVersePath = "/mygame@fortnite.com/mygame";
+        (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([vscode.Uri.file(declaringFile)]);
+        (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(Buffer.from("Outer := module:\n    Inner := module:\n", "utf8"));
+
+        const convert = (statement: string) => converterWithProjectPath(projectVersePath).convertToFullPath(statement, vscode.Uri.file(`${workspaceRoot}/Content/Scripts/Main.verse`), 0);
+
+        expect((await convert("using { Outer.Inner }"))?.convertedImport).toBe(`using { ${projectVersePath}/Systems/Outer/Inner }`);
+        expect(await convert("using { Inner }")).toBeNull();
+    });
+});
+
+describe("ImportPathConverter declaration scan file cap", () => {
+    const projectVersePath = "/mygame@fortnite.com/mygame";
+    const workspaceRoot = "C:/Project";
+
+    /** workspaceFolders is readonly in the real typings; the mock is writable. */
+    const setWorkspaceFolders = (folders: unknown): void => {
+        (vscode.workspace as unknown as { workspaceFolders: unknown }).workspaceFolders = folders;
+    };
+
+    /**
+     * A project of `fileCount` `.verse` files, each declaring `Inventory`. The
+     * glob honours its maxResults in production, so the mock caps its own answer
+     * the same way rather than handing back more than was asked for.
+     */
+    const projectOf = (fileCount: number): void => {
+        const files = Array.from({ length: fileCount }, (_, index) => vscode.Uri.file(`${workspaceRoot}/Content/Systems/File${index}.verse`));
+        (vscode.workspace.findFiles as jest.Mock).mockImplementation(async (_pattern: unknown, _exclude: unknown, maxResults?: number) =>
+            maxResults === undefined ? files : files.slice(0, maxResults),
+        );
+        (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(Buffer.from("Inventory := module:\n", "utf8"));
+    };
+
+    beforeEach(() => {
+        setWorkspaceFolders([{ uri: { fsPath: workspaceRoot }, name: "Project", index: 0 }]);
+    });
+
+    afterEach(() => {
+        setWorkspaceFolders(undefined);
+        (vscode.workspace.findFiles as jest.Mock).mockReset();
+        (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([]);
+        (vscode.workspace.fs.readFile as jest.Mock).mockRejectedValue(new Error("ENOENT"));
+        (vscode.workspace.fs.stat as jest.Mock).mockRejectedValue(new Error("ENOENT"));
+    });
+
+    const convert = (statement: string) => converterWithProjectPath(projectVersePath).convertToFullPath(statement, vscode.Uri.file(`${workspaceRoot}/Content/Scripts/Main.verse`), 0);
+
+    it("reports a scan that read only part of the project, so a caller can tell it from a complete one", async () => {
+        projectOf(101);
+
+        expect((await converterWithProjectPath(projectVersePath).findModuleLocations("Inventory")).truncated).toBe(true);
+    });
+
+    // The boundary is the whole point of the signal: a project of exactly the
+    // limit is read end to end, and calling that truncated is the same
+    // conflation of complete and partial that the signal exists to end.
+    it("reports a project of exactly the limit as read in full", async () => {
+        projectOf(100);
+
+        expect((await converterWithProjectPath(projectVersePath).findModuleLocations("Inventory")).truncated).toBe(false);
+    });
+
+    // The one location a partial scan returns is a sample's answer: a namesake
+    // in the part it never read would have made the conversion ambiguous, so
+    // writing this path unambiguously is the silent wrong module the cap hides.
+    it("refuses the conversion rather than writing a sample's answer", async () => {
+        projectOf(101);
+
+        expect(await convert("using { Inventory }")).toBeNull();
+    });
+
+    it("converts when the scan read the whole project", async () => {
+        projectOf(100);
+
+        expect((await convert("using { Inventory }"))?.convertedImport).toBe(`using { ${projectVersePath}/Systems/Inventory }`);
+    });
+
+    // The declaration scan's reach does not govern the folder search's answer.
+    // A folder module has no declaration for that scan or the cache to hold, so
+    // extending the refusal to it would refuse every folder module in a project
+    // past the cap.
+    it("keeps an answer the folder search reached on its own", async () => {
+        const files = Array.from({ length: 101 }, (_, index) => `Content/Systems/File${index}.verse`).concat("Content/Zone/Deep/Target/Thing.verse");
+        (vscode.workspace.findFiles as jest.Mock).mockImplementation(async (_pattern: unknown, _exclude: unknown, maxResults?: number) => {
+            const uris = files.map((file) => vscode.Uri.file(`${workspaceRoot}/${file}`));
+            return maxResults === undefined ? uris : uris.slice(0, maxResults);
+        });
+        // Nothing declares `Target`, so the declaration scan reads all it is
+        // allowed to and still finds nothing; only the folder search places it.
+        (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(Buffer.from("Helper := class:\n", "utf8"));
+
+        expect((await convert("using { Deep.Target }"))?.convertedImport).toBe(`using { ${projectVersePath}/Zone/Deep/Target }`);
+    });
+
+    // An empty result is the other half the scan's reach clouds: the module may
+    // be declared in the part it never read, so "not found" is not a finding.
+    it("refuses rather than reporting a module missing on a partial scan", async () => {
+        projectOf(101);
+        (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(Buffer.from("Helper := class:\n", "utf8"));
+
+        expect(await convert("using { Nowhere }")).toBeNull();
+    });
+
+    // The condition belongs to the project, not to any one import, so a
+    // document-wide run states it once instead of once per line.
+    it("reports the cap once for a whole document", async () => {
+        projectOf(101);
+        const document = fakeDocument(["using { Inventory }", "using { Economy }", "using { Weapons }", "", "code()"]);
+        const warn = vscode.window.showWarningMessage as jest.Mock;
+        warn.mockClear();
+
+        const results = await converterWithProjectPath(projectVersePath).convertAllImportsToFullPath(document);
+
+        expect(results).toEqual([]);
+        expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    // The file past the limit is asked for to be counted, never to be read.
+    // Reading it would make the scan's reach one more than the limit says.
+    it("never reads the file it asks for past the limit", async () => {
+        projectOf(101);
+        (vscode.workspace.fs.readFile as jest.Mock).mockClear();
+
+        await converterWithProjectPath(projectVersePath).findModuleLocations("Inventory");
+
+        const read = (vscode.workspace.fs.readFile as jest.Mock).mock.calls.map((call) => (call[0] as { fsPath: string }).fsPath.replace(/\\/g, "/"));
+        expect(read).toHaveLength(100);
+        expect(read).not.toContain(`${workspaceRoot}/Content/Systems/File100.verse`);
+    });
+
+    // A phase that threw read an unknown amount of the project, which leaves the
+    // caller where stopping at the cap leaves it. Reporting a complete read is
+    // the one direction the signal exists to rule out.
+    it("treats a scan that threw as a partial read", async () => {
+        (vscode.workspace.findFiles as jest.Mock).mockRejectedValue(new Error("scan failed"));
+
+        expect((await converterWithProjectPath(projectVersePath).findModuleLocations("Inventory")).truncated).toBe(true);
+    });
+
+    // The cap belongs to the declaration scan, which runs only when the phases
+    // before it found nothing. An answer from one of those is not a sample's.
+    it("leaves an answer found before the declaration scan untouched by the cap", async () => {
+        projectOf(101);
+        (vscode.workspace.fs.readFile as jest.Mock).mockClear();
+        (vscode.workspace.fs.stat as jest.Mock).mockImplementation(async (uri: { fsPath: string }) => {
+            if (uri.fsPath.replace(/\\/g, "/") === `${workspaceRoot}/Content/Scripts/Inventory`) return { type: vscode.FileType.Directory };
+            throw new Error("ENOENT");
+        });
+
+        const search = await converterWithProjectPath(projectVersePath).findModuleLocations("Inventory", vscode.Uri.file(`${workspaceRoot}/Content/Scripts/Main.verse`));
+
+        expect(search).toEqual({ locations: ["/Scripts"], truncated: false });
+        expect(vscode.workspace.fs.readFile as jest.Mock).not.toHaveBeenCalled();
     });
 });
 

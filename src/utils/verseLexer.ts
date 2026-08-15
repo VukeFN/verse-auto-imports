@@ -31,7 +31,12 @@
  * - `<# ... #>` nests, and beats a string literal: a `<#` inside a string really
  *   does open a comment there. Both digraphs are consumed whole, so the `#` of a
  *   `<#` cannot also be read as closing one.
- * - `#` runs to the end of the line, but inside a literal it is content.
+ * - `#` runs to the end of the line, but inside a literal it is content. What it
+ *   opens does not have to end there: `LineCmt` is `'#' !'>' {Text} Ending`
+ *   (:2014-2024) over the same `Text` as everywhere else, and `Text`'s `case '<'`
+ *   dispatches `BlockCmt()` at every place, so a `<#` written in a line comment
+ *   opens a block that runs to its `#>` however many lines below. Failing to
+ *   carry that reads the lines the compiler comments out as live imports.
  * - A `"` string interpolates, and `Interp := '{' List '}'` (:2163) makes the
  *   interpolation body ordinary code: a `"` inside one opens a fresh string and
  *   a `#` opens a real comment. So literal state is a stack of frames, and an
@@ -199,6 +204,10 @@ export function lexVerseLine(line: string, state: LexState, trackLiterals: boole
     let codeOutsideLiterals = "";
     let masked = "";
     let opensIndentedComment = false;
+    // Whether a `#` opened a line comment earlier on this line. Per-line, since
+    // a line comment ends with its line - but what it opened need not, so this
+    // says only that the text left is trivia, never that it holds no opener.
+    let insideLineComment = false;
     let i = 0;
 
     // What is open at this point, innermost last, and empty at code scope. A
@@ -215,11 +224,12 @@ export function lexVerseLine(line: string, state: LexState, trackLiterals: boole
     };
 
     while (i < line.length) {
-        // Comment text, whether from a block comment opened above or from the
-        // body of a `<#>`. Scanned rather than skipped so a `<#` inside it still
-        // opens a block that outlives the region, which is what the compiler
-        // does at every place (VerseGrammar.h:2115-2137).
-        if (nesting > 0 || insideIndentedComment) {
+        // Comment text, whether from a block comment opened above, from the body
+        // of a `<#>`, or from a `#` earlier on this line. Scanned rather than
+        // skipped so a `<#` inside it still opens a block that outlives the
+        // region, which is what the compiler does at every place
+        // (VerseGrammar.h:2115-2137).
+        if (nesting > 0 || insideIndentedComment || insideLineComment) {
             if (line.startsWith("<#>", i)) {
                 // Already comment text, so this opens nothing. Tested before
                 // `<#` or its first two characters read as a block opener that
@@ -277,11 +287,17 @@ export function lexVerseLine(line: string, state: LexState, trackLiterals: boole
         // the line as one at the head of it would. A `#` inside any literal is
         // content: a `"` string and a char literal both hold it, and
         // `IsIdentifierQuotable` admits a bare `#` in a quoted suffix.
+        //
+        // The tail keeps being lexed rather than consumed here: the comment ends
+        // with the line, but a `<#` written in it opens a block that does not.
+        // The `#` itself is taken first, so the `#>` of a `#>` opening the line
+        // cannot also be read as closing a block - at line-comment place that is
+        // error S05 rather than a closer.
         if (line[i] === "#" && innermost?.kind !== "literal") {
-            for (; i < line.length; i++) {
-                commentChar();
-            }
-            break;
+            insideLineComment = true;
+            commentChar();
+            i += 1;
+            continue;
         }
 
         if (line.startsWith("<#", i)) {

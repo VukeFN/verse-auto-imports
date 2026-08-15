@@ -137,6 +137,31 @@ const probes: Probe[] = [
         live: ["L1"],
     },
     {
+        // Both readers held the opposite, that a line comment made its tail
+        // text: `Text`'s `<` arm dispatches BlockCmt at every place, so the
+        // block outlives the line that opened it exactly as one opened in code
+        // does. The lines it swallows were being read as live imports.
+        name: "a `<#` inside a line comment outlives the line",
+        source: "# D1 <# D2\nD3 := 1 #>\nL1 := 1\n",
+        live: ["L1"],
+    },
+    {
+        // The line comment ends at its own newline where the block it opened
+        // closed on the line, and the text between the two is trivia either way.
+        name: "a line comment that closes its block still ends with its line",
+        source: "# D1 <# D2 #> D3\nL1 := 1\n",
+        live: ["L1"],
+    },
+    {
+        // The `<#>` arm falls to three characters of text at line-comment place,
+        // so this opens neither a block nor a body. It has to be tested before
+        // the `<#` above or the tail reads as an opener that never closes, and
+        // the indented line below is what tells the two mistakes apart.
+        name: "a `<#>` inside a line comment opens nothing over the lines below it",
+        source: "# D1 <#> D2\n    L1 := 1\nL2 := 2\n",
+        live: ["L1", "L2"],
+    },
+    {
         // Two indent models ended the body on different lines: a tab counted as
         // one column in the scanner and four in the masker.
         name: "a marker body indented with a tab ends where a two-space line meets it",

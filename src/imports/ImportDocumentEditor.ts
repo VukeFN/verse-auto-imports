@@ -666,12 +666,9 @@ export class ImportDocumentEditor {
         const classifications = classifyLines(lines);
         const pinned = pinnedImports(scannedImports);
 
-        // The top of the file for anything written here, in place of line 0:
-        // writing above the header puts it into the middle of the file, which
-        // headerLineCount calls the one place a header must never be. Every
-        // line it covers is comment or blank - it ends at the first code line,
-        // and an import line is code - so no `using` is crossed by starting
-        // below it, and no resolution order changes.
+        // The top of the file for everything written below, in place of line 0.
+        // See headerLineCount. Every line it covers is comment or blank, so
+        // starting here crosses no `using` and changes no resolution order.
         const headerEnd = headerLineCount(classifications);
 
         const importBlocks: ImportBlock[] = [];
@@ -967,6 +964,11 @@ export class ImportDocumentEditor {
                             this.createBlockReplacementEdit(edit, document, importBlocks[index], pathsByBlock.get(index)!, preferDotSyntax, true, eol);
                         }
 
+                        // headerEnd never decides anything here, and is passed
+                        // so that no site holds a different top of the file: a
+                        // path with unconstrained bounds finds every block
+                        // eligible, so an unblocked one always has a floor or a
+                        // ceiling, and both sit at or below the header's end.
                         for (const [line, paths] of this.groupByPlacementLine(unblockedPaths, headerEnd, pinned, classifications, diagnosticLinesByPath)) {
                             this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, true, importGrouping), eol, true);
                         }

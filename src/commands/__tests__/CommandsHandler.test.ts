@@ -27,7 +27,7 @@ function makeHandler(importHandlerOverrides: Partial<ImportHandler>): CommandsHa
     const importHandler = {
         addImportsToDocument: jest.fn().mockResolvedValue(true),
         organizeImports: jest.fn().mockResolvedValue(true),
-        extractImportsFromDiagnostics: jest.fn().mockReturnValue([]),
+        extractImportsFromDiagnostics: jest.fn().mockReturnValue({ paths: [], diagnosticLinesByPath: new Map() }),
         ...importHandlerOverrides,
     } as unknown as ImportHandler;
 
@@ -152,6 +152,27 @@ describe("CommandsHandler.optimizeImports", () => {
         expect(document.save).toHaveBeenCalledTimes(1);
         expect(vscode.window.showInformationMessage).toHaveBeenCalledWith("Imports optimized successfully");
         expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
+    });
+
+    // Regression for #385: the command adds what the compiler currently reports
+    // as missing, so the lines it reported on are evidence the organizer needs
+    // to tell a pinned import that failed to resolve from one that already
+    // resolves. Dropped here, the command writes the fix below the statement
+    // that needed it and still reports success.
+    it("hands the organizer the lines the diagnostics were reported on", async () => {
+        activateVerseDocument();
+        const diagnosticLinesByPath = new Map([["Features", [4]]]);
+        const organizeImports = jest.fn().mockResolvedValue(true);
+        const handler = makeHandler({
+            organizeImports,
+            extractImportsFromDiagnostics: jest.fn().mockReturnValue({ paths: ["Features"], diagnosticLinesByPath }),
+        });
+
+        await handler.optimizeImports();
+
+        expect(organizeImports).toHaveBeenCalledTimes(1);
+        expect(organizeImports.mock.calls[0][1]).toEqual(["Features"]);
+        expect(organizeImports.mock.calls[0][2]).toBe(diagnosticLinesByPath);
     });
 });
 

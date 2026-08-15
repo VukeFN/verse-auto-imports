@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { logger } from "../utils";
+import { DiagnosticLinesByPath } from "../types";
 import { ImportFormatter } from "./ImportFormatter";
 import { QueuedEdit, verifyImportEdits, verifyOrganizedRewrite } from "./ImportRewriteGuard";
 import { allUsingPaths, classifyLines, indentedPairPathLine, LINE_SPLIT, LineClassification, pinnedImports, rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
@@ -215,12 +216,6 @@ interface PinnedBounds {
     floor: number;
     ceiling: number;
 }
-
-/**
- * The lines of the diagnostics that asked for each newly added import, keyed on
- * the import's path. Only couldResolveAgainst reads it.
- */
-type DiagnosticLinesByPath = ReadonlyMap<string, readonly number[]>;
 
 /**
  * For a caller that cannot name the diagnostic behind a path. It raises no
@@ -1110,6 +1105,7 @@ export class ImportDocumentEditor {
             /** Line ending to use when the text has no line break to detect one from. */
             fallbackEol?: LineEnding;
         },
+        diagnosticLinesByPath: DiagnosticLinesByPath = NO_DIAGNOSTIC_LINES,
     ): string | null {
         const eol = detectEol(text) ?? options.fallbackEol ?? "\n";
         const lines = text.split(LINE_SPLIT);
@@ -1203,10 +1199,12 @@ export class ImportDocumentEditor {
         const topExtraPaths: string[] = [];
         const groundedExtrasByLine = new Map<number, string[]>();
         for (const path of extraPaths) {
-            // No diagnostic reaches here: organizing is not a fix for one, so
-            // no pinned import can be shown to be the consumer and every one of
-            // them raises its floor.
-            const floor = this.hoistFloor(pinned, classifications, path, NO_DIAGNOSTIC_LINES);
+            // A diagnostic does reach here: Optimize Imports adds what the
+            // compiler currently reports as missing, so a pinned import the
+            // evidence shows to be the consumer raises a ceiling rather than a
+            // floor, and the block above every pinned line satisfies it. Only
+            // the floor is read, for the reason hoistFloor gives.
+            const floor = this.hoistFloor(pinned, classifications, path, diagnosticLinesByPath);
             if (floor === -1) {
                 topExtraPaths.push(path);
                 continue;
@@ -1304,19 +1302,24 @@ export class ImportDocumentEditor {
      * and written in the preferred syntax at the top of the file. Unlike
      * addImportsToDocument this reorganizes even when nothing new is added.
      */
-    async organizeImports(document: vscode.TextDocument, additionalPaths: string[]): Promise<boolean> {
+    async organizeImports(document: vscode.TextDocument, additionalPaths: string[], diagnosticLinesByPath: DiagnosticLinesByPath = NO_DIAGNOSTIC_LINES): Promise<boolean> {
         const config = vscode.workspace.getConfiguration("verseAutoImports");
         const preferDotSyntax = config.get<string>("behavior.importSyntax", "curly") === "dot";
         const sortAlphabetically = config.get<boolean>("behavior.sortImportsAlphabetically", true);
         const importGrouping = config.get<string>("behavior.importGrouping", "none");
 
         const text = document.getText();
-        const organized = this.buildOrganizedContent(text, additionalPaths, {
-            preferDotSyntax,
-            sortAlphabetically,
-            importGrouping,
-            fallbackEol: documentEol(document),
-        });
+        const organized = this.buildOrganizedContent(
+            text,
+            additionalPaths,
+            {
+                preferDotSyntax,
+                sortAlphabetically,
+                importGrouping,
+                fallbackEol: documentEol(document),
+            },
+            diagnosticLinesByPath,
+        );
 
         if (organized === null || organized === text) {
             logger.debug("ImportDocumentEditor", "No import changes needed by organize");

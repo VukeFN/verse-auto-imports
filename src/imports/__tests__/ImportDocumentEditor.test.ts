@@ -503,12 +503,38 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         });
 
         // A pinned dotted import is a possible provider like any other: it can
-        // bring the added path's first segment into scope. Organizing names no
-        // diagnostic, so nothing here can show it is the consumer instead, and
-        // the added path stays below it.
+        // bring the added path's first segment into scope. This call names no
+        // diagnostic, so nothing shows it is the consumer instead, and the
+        // added path stays below it.
         it("writes an added bare consumer below a pinned dotted import", () => {
             const input = ["using { Economy.Shop } <#> note", "    body", "code()"].join("\n");
             expect(editor.buildOrganizedContent(input, ["Features"], curlySorted)).toBe(["using { Economy.Shop } <#> note", "    body", "using { Features }", "code()"].join("\n"));
+        });
+
+        // The same file and the same added path as the test above, differing
+        // only in the compiler having reported the failure on the pinned line -
+        // which is the whole rule. Organizing is fed the paths the compiler
+        // currently reports as missing, so it can be told which pinned import
+        // is the consumer, and the provider a consumer needs goes above it.
+        // Written below, the diagnostic that asked for it survives the edit.
+        it("writes an added bare provider above a pinned dotted import the diagnostic reports on", () => {
+            const input = ["using { Economy.Shop } <#> note", "    body", "code()"].join("\n");
+
+            expect(editor.buildOrganizedContent(input, ["Features"], curlySorted, new Map([["Features", [0]]]))).toBe(
+                ["using { Features }", "", "using { Economy.Shop } <#> note", "    body", "code()"].join("\n"),
+            );
+        });
+
+        // The evidence is read against the pinned import's own span, so a
+        // diagnostic elsewhere in the file leaves the written order alone. A
+        // pinned dotted import that already resolves is the common case - the
+        // file compiled before the edit.
+        it("leaves an added bare consumer below a pinned dotted import when the diagnostic points elsewhere", () => {
+            const input = ["using { Economy.Shop } <#> note", "    body", "code()"].join("\n");
+
+            expect(editor.buildOrganizedContent(input, ["Features"], curlySorted, new Map([["Features", [2]]]))).toBe(
+                ["using { Economy.Shop } <#> note", "    body", "using { Features }", "code()"].join("\n"),
+            );
         });
 
         // Only the paths the pinned import could provide are held back. An
@@ -2406,6 +2432,40 @@ describe("ImportDocumentEditor rewrite verification", () => {
                 });
             }
         }
+    });
+});
+
+/**
+ * Regression for #385: the diagnostic evidence has to survive every hop from
+ * the command to the rebuild. Dropped at any one of them, Optimize Imports
+ * writes the provider below the consumer that needed it, saves the file, and
+ * reports success on a diagnostic that still stands.
+ */
+describe("ImportDocumentEditor.organizeImports carries the diagnostic evidence", () => {
+    let editor: ImportDocumentEditor;
+
+    beforeEach(() => {
+        const outputChannel = vscode.window.createOutputChannel("test");
+        editor = new ImportDocumentEditor(outputChannel, new ImportFormatter());
+        (vscode.workspace.applyEdit as unknown as jest.Mock).mockClear();
+    });
+
+    it("writes the provider above the pinned consumer the diagnostic reports on", async () => {
+        const input = ["using { Economy.Shop } <#> note", "    body", "code()"].join("\n");
+
+        const success = await editor.organizeImports(fakeDocument(input), ["Features"], new Map([["Features", [0]]]));
+
+        expect(success).toBe(true);
+        expect(appliedOperations(0)[0].text).toBe(["using { Features }", "", "using { Economy.Shop } <#> note", "    body", "code()"].join("\n"));
+    });
+
+    it("leaves the written order alone when no diagnostic names the pinned line", async () => {
+        const input = ["using { Economy.Shop } <#> note", "    body", "code()"].join("\n");
+
+        const success = await editor.organizeImports(fakeDocument(input), ["Features"]);
+
+        expect(success).toBe(true);
+        expect(appliedOperations(0)[0].text).toBe(["using { Economy.Shop } <#> note", "    body", "using { Features }", "code()"].join("\n"));
     });
 });
 

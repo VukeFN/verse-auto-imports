@@ -7,7 +7,12 @@ describe("ImportSuggestionExtractor", () => {
     let formatter: ImportFormatter;
     let outputChannel: vscode.OutputChannel;
 
-    const diag = (message: string): vscode.Diagnostic => ({ message }) as vscode.Diagnostic;
+    /**
+     * A diagnostic carries a range in the real API, and extraction reads its
+     * start line, so a fixture without one exercises nothing the extension ever
+     * sees.
+     */
+    const diag = (message: string, line = 0): vscode.Diagnostic => ({ message, range: new vscode.Range(new vscode.Position(line, 0), new vscode.Position(line, 1)) }) as vscode.Diagnostic;
 
     beforeEach(() => {
         outputChannel = vscode.window.createOutputChannel("test");
@@ -255,19 +260,19 @@ describe("ImportSuggestionExtractor", () => {
         it("should ignore 'set' assignment suggestions instead of extracting garbage paths", () => {
             // Regression: the greedy "Did you mean" fallback used to extract
             // "to write 'set Foo" from this message.
-            const paths = extractor.extractImportsFromDiagnostics([diag("This variable can only be modified with 'set'. Did you mean to write 'set Foo.Bar = 1'?")]);
+            const { paths } = extractor.extractImportsFromDiagnostics([diag("This variable can only be modified with 'set'. Did you mean to write 'set Foo.Bar = 1'?")]);
 
             expect(paths).toEqual([]);
         });
 
         it("should extract the path from a single 'Did you forget to specify' message", () => {
-            const paths = extractor.extractImportsFromDiagnostics([diag("This identifier is unknown. Did you forget to specify using { /Verse.org/Simulation }")]);
+            const { paths } = extractor.extractImportsFromDiagnostics([diag("This identifier is unknown. Did you forget to specify using { /Verse.org/Simulation }")]);
 
             expect(paths).toEqual(["/Verse.org/Simulation"]);
         });
 
         it("should extract the path from an unknown identifier with inline suggestion", () => {
-            const paths = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `player`. Did you forget to specify using { /Verse.org/Simulation }")]);
+            const { paths } = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `player`. Did you forget to specify using { /Verse.org/Simulation }")]);
 
             expect(paths).toEqual(["/Verse.org/Simulation"]);
         });
@@ -275,13 +280,13 @@ describe("ImportSuggestionExtractor", () => {
         it("should not bulk-add the candidates of a 'Did you forget to specify one of' message", () => {
             // Ambiguous candidates need a user choice via the quick-fix menu;
             // importing all of them at once would create a name collision.
-            const paths = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `thing`. Did you forget to specify one of:\nusing { /GameA/Combat }\nusing { /GameB/Combat }")]);
+            const { paths } = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `thing`. Did you forget to specify one of:\nusing { /GameA/Combat }\nusing { /GameB/Combat }")]);
 
             expect(paths).toEqual([]);
         });
 
         it("should not bulk-add the candidates of a 'could be one of many types' message", () => {
-            const paths = extractor.extractImportsFromDiagnostics([
+            const { paths } = extractor.extractImportsFromDiagnostics([
                 diag("Identifier vector3 could be one of many types: (/Verse.org/SpatialMath:)vector3 or (/UnrealEngine.com/Temporary/SpatialMath:)vector3"),
             ]);
 
@@ -289,13 +294,13 @@ describe("ImportSuggestionExtractor", () => {
         });
 
         it("should not add candidates from a 'Did you mean any of' list", () => {
-            const paths = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `thing`. Did you mean any of:\nModuleA.thing\nModuleB.thing")]);
+            const { paths } = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `thing`. Did you mean any of:\nModuleA.thing\nModuleB.thing")]);
 
             expect(paths).toEqual([]);
         });
 
         it("should not bulk-add the candidates of a message mixing an option list with a using list", () => {
-            const paths = extractor.extractImportsFromDiagnostics([
+            const { paths } = extractor.extractImportsFromDiagnostics([
                 diag("Unknown identifier `Thing`. Did you mean any of: \nRel1.Thing\nRel2.Thing or did you forget to specify one of:\nusing { /GameA/M }\nusing { /GameB/M }"),
             ]);
 
@@ -303,7 +308,7 @@ describe("ImportSuggestionExtractor", () => {
         });
 
         it("should not bulk-add the candidates of a message mixing a single suggestion with a single using path", () => {
-            const paths = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `Thing`. Did you mean Rel1.Thing or did you forget to specify using { /GameA/M }")]);
+            const { paths } = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `Thing`. Did you mean Rel1.Thing or did you forget to specify using { /GameA/M }")]);
 
             expect(paths).toEqual([]);
         });
@@ -312,7 +317,7 @@ describe("ImportSuggestionExtractor", () => {
             // One importable candidate left is unambiguous, so Optimize adds it -
             // the same treatment a "Did you mean any of" list gets when its only
             // other option is a bare local definition.
-            const paths = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `Thing`. Did you mean Thing or did you forget to specify using { /GameA/M }")]);
+            const { paths } = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `Thing`. Did you mean Thing or did you forget to specify using { /GameA/M }")]);
 
             expect(paths).toEqual(["/GameA/M"]);
         });
@@ -320,27 +325,27 @@ describe("ImportSuggestionExtractor", () => {
         it("should not bulk-add the using path of a mixed message whose joiner capitalizes 'Did'", () => {
             // This spelling reaches UNKNOWN_WITH_SUGGESTION, which reads the
             // joined tail as the whole message and offers the using path alone.
-            const paths = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `Thing`. Did you mean Rel1.Thing or Did you forget to specify using { /GameA/M }")]);
+            const { paths } = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `Thing`. Did you mean Rel1.Thing or Did you forget to specify using { /GameA/M }")]);
 
             expect(paths).toEqual([]);
         });
 
         it("should extract the inferred module path from a 'Did you mean Module.Member' message", () => {
             // The asset-import case: `using { Folder1 }`, never `using { Folder1.image2 }`
-            const paths = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `image2`. Did you mean Folder1.image2")]);
+            const { paths } = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `image2`. Did you mean Folder1.image2")]);
 
             expect(paths).toEqual(["Folder1"]);
         });
 
         it("should not extract a path from a 'Did you mean' suggestion with trailing punctuation", () => {
             // Regression #130: this used to add "Economy.Shop" instead of "Economy"
-            const paths = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `Shop`. Did you mean Economy.Shop.")]);
+            const { paths } = extractor.extractImportsFromDiagnostics([diag("Unknown identifier `Shop`. Did you mean Economy.Shop.")]);
 
             expect(paths).toEqual([]);
         });
 
         it("should deduplicate paths across diagnostics and skip unrelated ones", () => {
-            const paths = extractor.extractImportsFromDiagnostics([
+            const { paths } = extractor.extractImportsFromDiagnostics([
                 diag("Unknown identifier `button_device`. Did you forget to specify using { /Fortnite.com/Devices }"),
                 diag("Unknown identifier `creative_device`. Did you forget to specify using { /Fortnite.com/Devices }"),
                 diag("This variable can only be modified with 'set'. Did you mean to write 'set Foo.Bar = 1'?"),
@@ -348,6 +353,28 @@ describe("ImportSuggestionExtractor", () => {
             ]);
 
             expect(paths).toEqual(["/Fortnite.com/Devices"]);
+        });
+
+        // Placement reads these to tell a pinned import the compiler is
+        // reporting on from one that already resolves, so a path that arrives
+        // without its line is placed by the written order alone.
+        it("reports the line of every diagnostic that asked for a path", () => {
+            const { diagnosticLinesByPath } = extractor.extractImportsFromDiagnostics([
+                diag("Unknown identifier `button_device`. Did you forget to specify using { /Fortnite.com/Devices }", 12),
+                diag("Unknown identifier `creative_device`. Did you forget to specify using { /Fortnite.com/Devices }", 30),
+                diag("Unknown identifier `player`. Did you forget to specify using { /Verse.org/Simulation }", 7),
+            ]);
+
+            expect(diagnosticLinesByPath.get("/Fortnite.com/Devices")).toEqual([12, 30]);
+            expect(diagnosticLinesByPath.get("/Verse.org/Simulation")).toEqual([7]);
+        });
+
+        it("records no line for a message it declines to import from", () => {
+            const { diagnosticLinesByPath } = extractor.extractImportsFromDiagnostics([
+                diag("Unknown identifier `thing`. Did you forget to specify one of:\nusing { /GameA/Combat }\nusing { /GameB/Combat }", 4),
+            ]);
+
+            expect(diagnosticLinesByPath.size).toBe(0);
         });
     });
 });

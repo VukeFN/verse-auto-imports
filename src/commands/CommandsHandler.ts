@@ -155,13 +155,16 @@ export class CommandsHandler {
             // Read straight from the current diagnostics rather than waiting on
             // the auto-import debounce, so the command does not race it.
             const diagnostics = vscode.languages.getDiagnostics(document.uri);
-            const missingImportPaths = this.deps.importHandler.extractImportsFromDiagnostics(diagnostics);
-            logger.debug("CommandsHandler", `Found ${missingImportPaths.length} missing import(s) in current diagnostics`);
+            const { paths, diagnosticLinesByPath } = this.deps.importHandler.extractImportsFromDiagnostics(diagnostics);
+            logger.debug("CommandsHandler", `Found ${paths.length} missing import(s) in current diagnostics`);
 
             // The missing paths are handed to the organizer rather than added
             // first, so the block is rewritten once and the document is never
-            // left between the two states.
-            const applied = await this.deps.importHandler.organizeImports(document, missingImportPaths);
+            // left between the two states. The lines they were reported on go
+            // with them, or the organizer cannot tell a pinned import the
+            // compiler is reporting on from one that already resolves, and
+            // writes the fix below the statement that needed it.
+            const applied = await this.deps.importHandler.organizeImports(document, paths, diagnosticLinesByPath);
 
             // Saving a document whose edit was rejected writes the unorganized
             // content back to disk and makes the failure look like a success.

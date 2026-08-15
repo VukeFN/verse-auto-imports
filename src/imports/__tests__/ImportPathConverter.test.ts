@@ -844,11 +844,10 @@ describe("ImportPathConverter declaration scan file cap", () => {
         expect((await convert("using { Inventory }"))?.convertedImport).toBe(`using { ${projectVersePath}/Systems/Inventory }`);
     });
 
-    // The declaration scan's reach says nothing about the folder search's: that
-    // phase reads the project's directories for itself, under a cap two orders
-    // of magnitude higher. Vetoing its answer turned the feature off for every
-    // folder module in a project past 100 files - and a folder module has no
-    // declaration, so it is exactly the case the cache can never answer either.
+    // The declaration scan's reach does not govern the folder search's answer.
+    // A folder module has no declaration for that scan or the cache to hold, so
+    // extending the refusal to it would refuse every folder module in a project
+    // past the cap.
     it("keeps an answer the folder search reached on its own", async () => {
         const files = Array.from({ length: 101 }, (_, index) => `Content/Systems/File${index}.verse`).concat("Content/Zone/Deep/Target/Thing.verse");
         (vscode.workspace.findFiles as jest.Mock).mockImplementation(async (_pattern: unknown, _exclude: unknown, maxResults?: number) => {
@@ -883,6 +882,44 @@ describe("ImportPathConverter declaration scan file cap", () => {
 
         expect(results).toEqual([]);
         expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    // The file past the limit is asked for to be counted, never to be read.
+    // Reading it would make the scan's reach one more than the limit says.
+    it("never reads the file it asks for past the limit", async () => {
+        projectOf(101);
+        (vscode.workspace.fs.readFile as jest.Mock).mockClear();
+
+        await converterWithProjectPath(projectVersePath).findModuleLocations("Inventory");
+
+        const read = (vscode.workspace.fs.readFile as jest.Mock).mock.calls.map((call) => (call[0] as { fsPath: string }).fsPath.replace(/\\/g, "/"));
+        expect(read).toHaveLength(100);
+        expect(read).not.toContain(`${workspaceRoot}/Content/Systems/File100.verse`);
+    });
+
+    // A phase that threw read an unknown amount of the project, which leaves the
+    // caller where stopping at the cap leaves it. Reporting a complete read is
+    // the one direction the signal exists to rule out.
+    it("treats a scan that threw as a partial read", async () => {
+        (vscode.workspace.findFiles as jest.Mock).mockRejectedValue(new Error("scan failed"));
+
+        expect((await converterWithProjectPath(projectVersePath).findModuleLocations("Inventory")).truncated).toBe(true);
+    });
+
+    // The cap belongs to the declaration scan, which runs only when the phases
+    // before it found nothing. An answer from one of those is not a sample's.
+    it("leaves an answer found before the declaration scan untouched by the cap", async () => {
+        projectOf(101);
+        (vscode.workspace.fs.readFile as jest.Mock).mockClear();
+        (vscode.workspace.fs.stat as jest.Mock).mockImplementation(async (uri: { fsPath: string }) => {
+            if (uri.fsPath.replace(/\\/g, "/") === `${workspaceRoot}/Content/Scripts/Inventory`) return { type: vscode.FileType.Directory };
+            throw new Error("ENOENT");
+        });
+
+        const search = await converterWithProjectPath(projectVersePath).findModuleLocations("Inventory", vscode.Uri.file(`${workspaceRoot}/Content/Scripts/Main.verse`));
+
+        expect(search).toEqual({ locations: ["/Scripts"], truncated: false });
+        expect(vscode.workspace.fs.readFile as jest.Mock).not.toHaveBeenCalled();
     });
 });
 

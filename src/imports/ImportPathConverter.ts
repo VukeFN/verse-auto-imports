@@ -58,15 +58,13 @@ interface TruncationNotice {
 const CONTENT_FOLDER = "Content";
 
 /**
- * How many `.verse` files the explicit-declaration scan reads. Two orders of
- * magnitude below FOLDER_SCAN_FILE_LIMIT because this phase opens and lexes
- * every file it scans, where the folder search reads none.
+ * How many `.verse` files the explicit-declaration scan reads. Far below
+ * FOLDER_SCAN_FILE_LIMIT because this phase opens and lexes every file it
+ * scans, where the folder search reads none.
  *
  * A project holding more than this gets no answer from the phase rather than a
- * sample's answer, so the number is a bound on how large a project the scan
- * serves, not only on how long it takes. The declaration cache covers the same
- * ground without a cap, but only for modules a declaration names: a folder
- * module has none, so it reaches this scan however large the project is.
+ * sample's answer, so the number bounds how large a project the phase serves,
+ * not only how long it takes.
  */
 const DECLARATION_SCAN_FILE_LIMIT = 100;
 
@@ -479,9 +477,8 @@ export class ImportPathConverter {
      * answer here is a result and not a fault.
      *
      * `truncated` covers the declaration scan's own answer and an empty result,
-     * not an answer the folder search gave: that phase reads the project's
-     * directories for itself and is capped an order of magnitude higher, so a
-     * short declaration scan says nothing about it.
+     * not an answer the folder search gave. The reasoning for that boundary,
+     * and what it knowingly leaves exposed, is at the assignment itself.
      */
     async findModuleLocations(modulePath: string, currentFileUri?: vscode.Uri): Promise<ModuleLocationSearch> {
         const locations: string[] = [];
@@ -547,10 +544,17 @@ export class ImportPathConverter {
         }
 
         // A partial declaration scan clouds its own answer, and clouds an empty
-        // result, where the module may be declared in the part left unread. It
-        // does not cloud the folder search's answer: that phase reads the
-        // project's directories for itself, and reaching it at all means the
-        // declaration scan found nothing to weigh against them.
+        // result, where the module may be declared in the part left unread.
+        //
+        // It is deliberately not extended to the folder search's answer, and
+        // that is a trade rather than a proof. A declaration outranks a distant
+        // folder, so a declaration in the unread remainder would have answered
+        // instead of the folder chain, and trusting the folder chain can still
+        // put out the wrong location silently. Distrusting it costs more: a
+        // folder module has no declaration anywhere for this phase or the cache
+        // to hold, so the veto would refuse every folder module in a project
+        // past the cap - the commonest thing that reaches this search at all.
+        // Raising the cap is what shrinks the exposure; the rule cannot.
         const truncated = declarationScanReadPart && (answeredByDeclarationScan || locations.length === 0);
 
         logger.debug("ImportPathConverter", `Module search complete for '${modulePath}'`);
@@ -929,7 +933,7 @@ export class ImportPathConverter {
             if (notice.pending) {
                 notice.pending = false;
                 vscode.window.showWarningMessage(
-                    `The module search reads at most ${DECLARATION_SCAN_FILE_LIMIT} .verse files and this project holds more, so it read part of it. Imports it cannot place with certainty are left alone; write those absolute paths by hand.`,
+                    `This project holds more than ${DECLARATION_SCAN_FILE_LIMIT} .verse files, which is as many as the search for a declared module reads. Imports that need one are left alone rather than pointed at a module found in part of the project; write those absolute paths by hand.`,
                 );
             }
             return null;

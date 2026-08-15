@@ -645,6 +645,28 @@ describe("ImportPathConverter.convertFromFullPath under a nested plugin Content 
 
             expect(await converter.convertFromFullPath(`using. ${projectVersePath}/Systems/Gadgets`, fileAt("Systems"), 0)).toBeNull();
         });
+
+        it("offers no relative form for a Content root nested under something other than Plugins", async () => {
+            // The plugin name alone is not the evidence - `Modules/MyGame` is
+            // not where UEFN binds a project's Verse, so a Content under it
+            // answers to no path this project can write.
+            const strayContent = `${workspaceRoot}/Modules/${rootPluginName}/Content`;
+            (vscode.workspace.fs.stat as jest.Mock).mockImplementation(async (uri: { fsPath: string }) => {
+                const relative = uri.fsPath.replace(/\\/g, "/").replace(`${strayContent}/`, "");
+                if (!["Systems", "Systems/Gadgets"].includes(relative)) throw new Error("ENOENT");
+                return { type: vscode.FileType.Directory };
+            });
+
+            expect(await relativeFormOf(`${projectVersePath}/Systems/Gadgets`, vscode.Uri.file(`${strayContent}/Systems/Feature.verse`))).toBeUndefined();
+        });
+    });
+
+    it("admits the root plugin's Content when the declared name differs from the directory only in case", async () => {
+        // The declared name is matched against a directory rather than
+        // resolved, so it folds - the same rule the project prefix follows.
+        const converter = converterWithProjectPath(projectVersePath, rootPluginName.toLowerCase());
+
+        expect((await converter.convertFromFullPath(`using. ${projectVersePath}/Systems/Gadgets`, fileAt("Systems"), 0))?.convertedImport).toBe("using. Gadgets");
     });
 
     it("reads the plugin's Content root, not an unrelated Content beside Plugins", async () => {

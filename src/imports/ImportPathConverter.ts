@@ -283,7 +283,7 @@ export class ImportPathConverter {
     private static isRootPluginContent(contentRootAbsolute: string, rootPluginName: string | null): boolean {
         if (!rootPluginName) return false;
 
-        const fold = (segment: string): string => segment.replace(/[a-z]/g, (character) => character.toUpperCase());
+        const fold = ImportPathConverter.foldAscii;
         const pluginDirectory = path.dirname(contentRootAbsolute);
 
         return fold(path.basename(pluginDirectory)) === fold(rootPluginName) && fold(path.basename(path.dirname(pluginDirectory))) === fold(PLUGINS_FOLDER);
@@ -314,10 +314,12 @@ export class ImportPathConverter {
     private static placeUnderContentRoot(workspaceFolderPath: string, documentPath: string, rootPluginName: string | null): ContentPlacement | null {
         const relativeFilePath = path.relative(workspaceFolderPath, documentPath).replace(/\\/g, "/");
 
-        // path.relative climbs out with `..` for a file the folder does not
-        // hold, and a Content segment past that point belongs to some other
-        // tree - the placement has to be inside the folder to mean anything.
-        if (relativeFilePath === ".." || relativeFilePath.startsWith("../")) return null;
+        // A Content segment outside the workspace folder belongs to some other
+        // tree, and the placement has to be inside the folder to mean anything.
+        // path.relative says "outside" two ways: it climbs out with `..`, and
+        // on Windows it hands back the target whole when the two are on
+        // different drives, where no `..` could express the step.
+        if (relativeFilePath === ".." || relativeFilePath.startsWith("../") || path.isAbsolute(relativeFilePath)) return null;
 
         const fileDir = path.dirname(relativeFilePath).replace(/\\/g, "/");
         const dirSegments = fileDir === "" || fileDir === "." ? [] : fileDir.split("/");
@@ -653,6 +655,16 @@ export class ImportPathConverter {
         return { locations, truncated };
     }
 
+    /**
+     * A segment upper-cased over ASCII only, for the two comparisons that match
+     * a name against a spelling of it from another source rather than resolving
+     * it: the project prefix, and a plugin directory against the project file.
+     * Anything the compiler resolves is compared byte-exact instead.
+     */
+    private static foldAscii(segment: string): string {
+        return segment.replace(/[a-z]/g, (character) => character.toUpperCase());
+    }
+
     /** Path segments with the leading slash and any empty segments dropped. */
     private static splitPath(versePath: string): string[] {
         return versePath.split("/").filter((segment) => segment);
@@ -681,7 +693,7 @@ export class ImportPathConverter {
      * `/proj/Econ` yields `omy.Shop` there.
      */
     private static sharedSegmentCount(pathSegments: string[], baseSegments: string[], foldSegments: number): number {
-        const foldAscii = (segment: string): string => segment.replace(/[a-z]/g, (character) => character.toUpperCase());
+        const foldAscii = ImportPathConverter.foldAscii;
 
         let common = 0;
         while (common < pathSegments.length && common < baseSegments.length) {

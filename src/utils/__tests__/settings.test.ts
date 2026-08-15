@@ -60,6 +60,22 @@ describe("writeTargetFor", () => {
         expect(writeTargetFor(config, "behavior.importSyntax", false)).toBe(vscode.ConfigurationTarget.Global);
     });
 
+    // A single-root workspace registers one model as both its workspace and its
+    // folder configuration, so inspect() reports a folder value for a
+    // window-scoped setting - and update() rejects a window setting aimed at a
+    // folder. Trusting workspaceFolderValue alone throws at the user's click.
+    it("never picks the workspace folder for a window-scoped setting, which update also rejects", () => {
+        const config = stubConfiguration({ workspaceFolderValue: true, workspaceValue: true });
+
+        expect(writeTargetFor(config, "experimental.useDigestFiles", true)).toBe(vscode.ConfigurationTarget.Workspace);
+    });
+
+    it("falls back to user settings when a window-scoped setting has only a folder value", () => {
+        const config = stubConfiguration({ workspaceFolderValue: true });
+
+        expect(writeTargetFor(config, "pathConversion.codeLensVisibility", true)).toBe(vscode.ConfigurationTarget.Global);
+    });
+
     it("writes to the workspace when it holds the override, not over it", () => {
         const config = stubConfiguration({ workspaceValue: "dot", globalValue: "curly" });
 

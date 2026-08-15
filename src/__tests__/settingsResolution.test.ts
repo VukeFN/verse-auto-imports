@@ -4,10 +4,11 @@ import * as vscode from "vscode";
 import { CommandsHandler, CommandsDependencies } from "../commands";
 import { StatusBarHandler } from "../ui";
 import { DiagnosticsHandler } from "../diagnostics";
-import { ImportHandler, ImportCodeActionProvider, ImportCodeLensProvider } from "../imports";
+import { ImportHandler, ImportCodeActionProvider, ImportCodeLensProvider, ImportDocumentEditor, ImportFormatter } from "../imports";
+import { RESOURCE_SCOPED } from "../utils";
 
 /**
- * Guard for issue #359's defect class, in both halves.
+ * Guard for two defects with one cause: settings access owned by nobody.
  *
  * No setting declared a scope, so a folder's value was ignored without error in
  * the multi-root workspace UEFN generates; and every write hardcoded
@@ -43,9 +44,9 @@ describe("every contributed setting declares a scope", () => {
     const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "..", "package.json"), "utf8"));
     const registered: Record<string, { scope?: string }> = manifest.contributes.configuration.properties;
 
-    // The whole read half of #359 is that an undeclared scope silently defaults
-    // to window, so this is the assertion that stops it recurring: a setting
-    // added without a scope fails here rather than shipping the defect again.
+    // The whole read half of the defect is that an undeclared scope silently
+    // defaults to window, so this is the assertion that stops it recurring: a
+    // setting added without a scope fails here rather than shipping it again.
     it("names a scope on every one, so none defaults to window by accident", () => {
         const undeclared = Object.keys(registered).filter((key) => !registered[key].scope);
 
@@ -58,29 +59,18 @@ describe("every contributed setting declares a scope", () => {
         expect(used).toEqual(["resource", "window"]);
     });
 
-    // resource is a promise that a folder's value is honoured. It is declared
-    // only where a read passes a resource, so this list and the threading in
-    // the reads below have to move together.
-    it("declares resource on exactly the settings a scoped read consumes", () => {
-        const resourceScoped = Object.keys(registered)
+    // The write path decides whether a workspace folder may hold a setting from
+    // RESOURCE_SCOPED, because inspect() cannot tell it: a single-root
+    // workspace reports a folder value for window-scoped settings too, and
+    // update() rejects those. The manifest is the source of truth, so the two
+    // drifting apart is a thrown write at a user's keystroke - fail here first.
+    it("keeps RESOURCE_SCOPED in step with the scopes the manifest declares", () => {
+        const declared = Object.keys(registered)
             .filter((key) => registered[key].scope === "resource")
+            .map((key) => key.replace("verseAutoImports.", ""))
             .sort();
 
-        expect(resourceScoped).toEqual(
-            [
-                "verseAutoImports.behavior.emptyLinesAfterImports",
-                "verseAutoImports.behavior.importGrouping",
-                "verseAutoImports.behavior.importSyntax",
-                "verseAutoImports.behavior.multiOptionStrategy",
-                "verseAutoImports.behavior.preserveImportLocations",
-                "verseAutoImports.behavior.sortImportsAlphabetically",
-                "verseAutoImports.general.autoImport",
-                "verseAutoImports.moduleVisibility.definitionsFileName",
-                "verseAutoImports.pathConversion.enableCodeLens",
-                "verseAutoImports.quickFix.showDescriptions",
-                "verseAutoImports.quickFix.sortAlphabetically",
-            ].sort(),
-        );
+        expect(declared).toEqual([...RESOURCE_SCOPED].sort());
     });
 });
 
@@ -107,6 +97,21 @@ describe("reads are scoped to the document they decide about", () => {
         const provider = new ImportCodeLensProvider(vscode.window.createOutputChannel("test"));
 
         await provider.provideCodeLenses(makeDocument(), {} as vscode.CancellationToken);
+
+        expect(scopesAskedFor()).toContainEqual(vscode.Uri.file(DOCUMENT_PATH));
+    });
+
+    // These four decide the text written into the user's file - the syntax, the
+    // ordering, the grouping and the spacing after the block. They are the
+    // reads a wrong scope corrupts a document with, so they matter most.
+    it.each([
+        ["addImportsToDocument", (editor: ImportDocumentEditor, document: vscode.TextDocument) => editor.addImportsToDocument(document, ["using { /Fortnite.com/Devices }"])],
+        ["organizeImports", (editor: ImportDocumentEditor, document: vscode.TextDocument) => editor.organizeImports(document, [])],
+        ["computeEmptyLinesAfterImportsEdits", async (editor: ImportDocumentEditor, document: vscode.TextDocument) => void editor.computeEmptyLinesAfterImportsEdits(document)],
+    ])("%s asks for the edited document's configuration", async (_name, run) => {
+        const editor = new ImportDocumentEditor(vscode.window.createOutputChannel("test"), new ImportFormatter());
+
+        await run(editor, makeDocument());
 
         expect(scopesAskedFor()).toContainEqual(vscode.Uri.file(DOCUMENT_PATH));
     });
@@ -191,11 +196,22 @@ describe("a toggle writes where the override already lives", () => {
     });
 });
 
-// #359 names this as the second implementation of one toggle: the row wrote
-// configuration itself instead of invoking the command that already existed,
-// and inverted a value snapshotted when the menu opened rather than read at
-// click time.
+// One toggle had two implementations: the row wrote configuration itself
+// instead of invoking the command that already existed, and inverted a value
+// snapshotted when the menu opened rather than read at click time.
 describe("the status menu drives its toggles through the registered commands", () => {
+    /** Every command id CommandsHandler registers, taken from the real registration. */
+    function registeredCommandIds(): string[] {
+        const register = vscode.commands.registerCommand as jest.Mock;
+        register.mockClear();
+
+        new CommandsHandler({
+            statusBarHandler: { updateDisplay: jest.fn() } as unknown as StatusBarHandler,
+        } as unknown as CommandsDependencies).registerAll({ subscriptions: [] } as unknown as vscode.ExtensionContext);
+
+        return register.mock.calls.map((call) => call[0] as string);
+    }
+
     afterEach(() => {
         jest.clearAllMocks();
         getConfiguration.mockReturnValue({
@@ -206,23 +222,40 @@ describe("the status menu drives its toggles through the registered commands", (
     });
 
     /** Opens the menu, picks the row whose label contains `label`, and runs it. */
-    async function pickMenuRow(label: string): Promise<void> {
-        (vscode.window.showQuickPick as jest.Mock).mockImplementation(async (items: Array<{ label: string; action?: () => Promise<void> }>) => items.find((item) => item.label.includes(label)));
-
-        await new StatusBarHandler(vscode.window.createOutputChannel("test")).showMenu();
-    }
-
-    it("the Auto Import row invokes the command and writes nothing itself", async () => {
+    async function pickMenuRow(label: string): Promise<{ update: jest.Mock }> {
         const config = {
             get: jest.fn().mockImplementation((_key: string, defaultValue?: unknown) => defaultValue),
             update: jest.fn().mockResolvedValue(undefined),
             inspect: jest.fn().mockReturnValue(undefined),
         };
         getConfiguration.mockReturnValue(config);
+        (vscode.window.showQuickPick as jest.Mock).mockImplementation(async (items: Array<{ label: string; action?: () => Promise<void> }>) => items.find((item) => item.label.includes(label)));
 
-        await pickMenuRow("Auto Import");
+        await new StatusBarHandler(vscode.window.createOutputChannel("test")).showMenu();
+        return config;
+    }
 
-        expect(vscode.commands.executeCommand).toHaveBeenCalledWith("verseAutoImports.toggleAutoImport");
+    // Each row's label paired with the command it must dispatch instead of
+    // writing. A row that writes its own copy is the defect; a row naming a
+    // command nothing registers is the way the fix silently rots.
+    const DELEGATED_ROWS: Array<[string, string]> = [
+        ["Auto Import", "verseAutoImports.toggleAutoImport"],
+        ["Preserve Import Locations", "verseAutoImports.togglePreserveLocations"],
+        ["Dot Syntax", "verseAutoImports.toggleImportSyntax"],
+        ["Path Conversion Helper", "verseAutoImports.toggleFullPathCodeLens"],
+        ["Use Digest Files", "verseAutoImports.toggleDigestFiles"],
+    ];
+
+    it.each(DELEGATED_ROWS)("the %s row invokes its command and writes nothing itself", async (label, command) => {
+        const config = await pickMenuRow(label);
+
+        expect(vscode.commands.executeCommand).toHaveBeenCalledWith(command);
         expect(config.update).not.toHaveBeenCalled();
+    });
+
+    it("dispatches only commands that are actually registered", () => {
+        const registered = registeredCommandIds();
+
+        expect(registered).toEqual(expect.arrayContaining(DELEGATED_ROWS.map(([, command]) => command)));
     });
 });

@@ -287,7 +287,6 @@ const workspace = {
         get: jest.fn().mockImplementation((_key: string, defaultValue?: unknown) => defaultValue),
         update: jest.fn().mockResolvedValue(undefined),
         inspect: jest.fn().mockReturnValue(undefined),
-        has: jest.fn().mockReturnValue(false),
     }),
     // A fresh disposable per registration, as real VS Code returns. A single
     // shared one would make "every listener this class registered was
@@ -430,7 +429,7 @@ const ConfigurationTarget = {
     WorkspaceFolder: 3,
 };
 
-/** Real VS Code has no Default member; a row without a kind is a normal item. */
+/** Only the member the menus use; a row without a kind is a normal item. */
 const QuickPickItemKind = {
     Separator: -1,
 };

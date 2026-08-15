@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { logger, settingsFor, writeSetting } from "../utils";
+import { logger, activeResource, settingsFor, writeSetting } from "../utils";
 import { ImportHandler, ImportPathConverter, ImportCodeLensProvider } from "../imports";
 import { StatusBarHandler } from "../ui";
 import { ProjectPathCache } from "../services";
@@ -231,8 +231,8 @@ export class CommandsHandler {
     }
 
     /**
-     * Writes the opposite of a setting's current value to global scope, then
-     * refreshes the status bar.
+     * Writes the opposite of a setting's current value to whichever level
+     * already overrides it, then refreshes the status bar.
      *
      * Reports its own failures and swallows what it reports, so none of the
      * five toggle commands built on it rejects. The refresh is inside that
@@ -247,10 +247,11 @@ export class CommandsHandler {
             // Scoped to the file in front of the user, so a resource-scoped
             // setting is read and written for the folder they are working in
             // rather than for whichever folder happens to be first.
-            const resource = vscode.window.activeTextEditor?.document.uri;
+            const resource = activeResource();
             const current = settingsFor(resource).get<T>(configKey);
             const newValue = toggleFn ? toggleFn(current as T) : !current;
             await writeSetting(configKey, newValue, resource);
+            logger.debug("CommandsHandler", `${configKey} toggled to: ${newValue}`);
             this.deps.statusBarHandler.updateDisplay();
         } catch (error) {
             logger.error("CommandsHandler", `Failed to toggle ${configKey}`, error);

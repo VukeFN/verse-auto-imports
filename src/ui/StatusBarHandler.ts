@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { logger, settingsFor, writeSetting } from "../utils";
+import { logger, activeResource, settingsFor, writeSetting } from "../utils";
 
 interface QuickPickItemWithAction extends vscode.QuickPickItem {
     /** What selecting the item does. Separators and labels carry none. */
@@ -101,7 +101,7 @@ export class StatusBarHandler {
     async showMenu(): Promise<void> {
         // The rows describe what will happen to the file in front of the user,
         // so the settings behind them are read for that file.
-        const resource = vscode.window.activeTextEditor?.document.uri;
+        const resource = activeResource();
         const config = settingsFor(resource);
         const autoImportEnabled = config.get<boolean>("general.autoImport", true);
         const preserveLocations = config.get<boolean>("behavior.preserveImportLocations", true);
@@ -323,7 +323,7 @@ export class StatusBarHandler {
 
     /** Shows the import-grouping submenu, and returns to the main menu on Back. */
     async showImportGroupingMenu(): Promise<void> {
-        const resource = vscode.window.activeTextEditor?.document.uri;
+        const resource = activeResource();
         const config = settingsFor(resource);
         const currentGrouping = config.get<string>("behavior.importGrouping", "none");
 

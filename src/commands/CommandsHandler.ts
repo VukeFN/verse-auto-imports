@@ -58,9 +58,9 @@ export class CommandsHandler {
      * them on deactivation.
      *
      * Each id here must also be declared in package.json under
-     * `contributes.commands`, and the five that take caller-supplied arguments
-     * must stay hidden from the Command Palette there - invoking one from the
-     * palette dereferences an undefined document. Both halves are pinned:
+     * `contributes.commands`, and every one that takes a caller-supplied
+     * argument must stay hidden from the Command Palette there - invoking one
+     * from the palette dereferences an undefined document. Both halves are pinned:
      * commandManifest.test.ts checks the manifest, CommandsHandler.test.ts
      * checks this method registers every id once, and the integration suite
      * checks they are registered once the extension has activated.
@@ -86,6 +86,7 @@ export class CommandsHandler {
         return [
             ["verseAutoImports.addSingleImport", this.addSingleImport.bind(this)],
             ["verseAutoImports.optimizeImports", this.optimizeImports.bind(this)],
+            ["verseAutoImports.organizeImportsInDocument", this.organizeImportsInDocument.bind(this)],
         ];
     }
 
@@ -152,6 +153,38 @@ export class CommandsHandler {
         try {
             const document = editor.document;
 
+            // Saving a document whose edit was rejected writes the unorganized
+            // content back to disk and makes the failure look like a success.
+            // organizeImportsInDocument has already told the user why.
+            if (!(await this.organizeImportsInDocument(document))) {
+                return;
+            }
+
+            await document.save();
+
+            logger.info("CommandsHandler", "Successfully optimized imports");
+            vscode.window.showInformationMessage("Imports optimized successfully");
+        } catch (error) {
+            logger.error("CommandsHandler", "Error optimizing imports", error);
+            vscode.window.showErrorMessage(`Failed to optimize imports: ${error}`);
+        }
+    }
+
+    /**
+     * Rebuilds one document's import block, adding anything the compiler
+     * currently reports as a missing import. True when the document holds the
+     * organized content afterwards, which includes it having needed no change.
+     *
+     * Deliberately does not save: the Organize Imports source action runs this,
+     * and `editor.codeActionsOnSave` runs that action during a save.
+     *
+     * Reports its own failures rather than returning a bare false, and swallows
+     * what it reports. The source action's caller is VS Code, which discards
+     * the return value and logs a thrown error where nobody looks, so anything
+     * left for the caller to say is said to nobody.
+     */
+    async organizeImportsInDocument(document: vscode.TextDocument): Promise<boolean> {
+        try {
             // Read straight from the current diagnostics rather than waiting on
             // the auto-import debounce, so the command does not race it.
             const diagnostics = vscode.languages.getDiagnostics(document.uri);
@@ -163,21 +196,16 @@ export class CommandsHandler {
             // left between the two states.
             const applied = await this.deps.importHandler.organizeImports(document, missingImportPaths);
 
-            // Saving a document whose edit was rejected writes the unorganized
-            // content back to disk and makes the failure look like a success.
             if (!applied) {
                 logger.warn("CommandsHandler", "Import organization was not applied to the document");
                 vscode.window.showWarningMessage("Could not optimize imports. The document may have changed or be read-only.");
-                return;
             }
 
-            await document.save();
-
-            logger.info("CommandsHandler", "Successfully optimized imports");
-            vscode.window.showInformationMessage("Imports optimized successfully");
+            return applied;
         } catch (error) {
             logger.error("CommandsHandler", "Error optimizing imports", error);
             vscode.window.showErrorMessage(`Failed to optimize imports: ${error}`);
+            return false;
         }
     }
 

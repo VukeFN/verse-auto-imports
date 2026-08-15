@@ -46,6 +46,7 @@ afterEach(() => {
 const REGISTERED_COMMANDS: Array<[string, string]> = [
     ["verseAutoImports.addSingleImport", "addSingleImport"],
     ["verseAutoImports.optimizeImports", "optimizeImports"],
+    ["verseAutoImports.organizeImportsInDocument", "organizeImportsInDocument"],
     ["verseAutoImports.showStatusMenu", "showStatusMenu"],
     ["verseAutoImports.toggleAutoImport", "toggleAutoImport"],
     ["verseAutoImports.togglePreserveLocations", "togglePreserveLocations"],
@@ -152,6 +153,72 @@ describe("CommandsHandler.optimizeImports", () => {
         expect(document.save).toHaveBeenCalledTimes(1);
         expect(vscode.window.showInformationMessage).toHaveBeenCalledWith("Imports optimized successfully");
         expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
+    });
+});
+
+// Regression for #387: what the Organize Imports source action runs. It shares
+// the organizing with optimizeImports and differs in what it deliberately does
+// not do - editor.codeActionsOnSave runs it during a save, so a save of its own
+// would re-enter that one.
+describe("CommandsHandler.organizeImportsInDocument", () => {
+    it("organizes the document it is given, with the paths the diagnostics report missing", async () => {
+        const document = makeDocument();
+        const organizeImports = jest.fn().mockResolvedValue(true);
+        const handler = makeHandler({
+            organizeImports,
+            extractImportsFromDiagnostics: jest.fn().mockReturnValue(["/Fortnite.com/Devices"]),
+        });
+
+        const applied = await handler.organizeImportsInDocument(document);
+
+        expect(applied).toBe(true);
+        expect(organizeImports).toHaveBeenCalledWith(document, ["/Fortnite.com/Devices"]);
+    });
+
+    it("does not save, and does not fall back to the active editor", async () => {
+        const active = makeDocument("C:\\Project\\Content\\other.verse");
+        setActiveEditor({ document: active } as unknown as vscode.TextEditor);
+        const document = makeDocument();
+        const organizeImports = jest.fn().mockResolvedValue(true);
+        const handler = makeHandler({ organizeImports });
+
+        await handler.organizeImportsInDocument(document);
+
+        expect(organizeImports).toHaveBeenCalledWith(document, []);
+        expect(document.save).not.toHaveBeenCalled();
+        expect(active.save).not.toHaveBeenCalled();
+    });
+
+    // VS Code discards what the command returns, so a bare false reaching it is
+    // the silence #387 was filed about, arriving at the new entry point.
+    it("warns the user when the edit does not apply", async () => {
+        const handler = makeHandler({ organizeImports: jest.fn().mockResolvedValue(false) });
+
+        await expect(handler.organizeImportsInDocument(makeDocument())).resolves.toBe(false);
+
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledTimes(1);
+        expect((vscode.window.showWarningMessage as jest.Mock).mock.calls[0][0]).toMatch(/Could not optimize imports/);
+    });
+
+    // codeActionsOnSave runs this as a save participant, and VS Code logs a
+    // participant's failure where nobody looks rather than surfacing it.
+    it("reports a throw rather than letting it escape into the save", async () => {
+        const handler = makeHandler({ organizeImports: jest.fn().mockRejectedValue(new Error("boom")) });
+
+        await expect(handler.organizeImportsInDocument(makeDocument())).resolves.toBe(false);
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledTimes(1);
+        expect((vscode.window.showErrorMessage as jest.Mock).mock.calls[0][0]).toMatch(/Failed to optimize imports/);
+    });
+
+    it("says nothing when the organize succeeds", async () => {
+        const handler = makeHandler({ organizeImports: jest.fn().mockResolvedValue(true) });
+
+        await handler.organizeImportsInDocument(makeDocument());
+
+        expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
+        expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
+        expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
     });
 });
 

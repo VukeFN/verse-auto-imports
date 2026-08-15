@@ -8,9 +8,9 @@ import { runTests } from "@vscode/test-electron";
  * UEFN fixture workspace, loads this extension from the repository root, and
  * runs the mocha suite inside the extension host.
  *
- * No language-stub extension is loaded: the manifest's own `languages`
- * contribution is what gives `.verse` the `verse` language id here, so the
- * activation suite fails if that contribution is ever dropped.
+ * The manifest's own `languages` contribution is what gives `.verse` the
+ * `verse` language id here, so the activation suite fails if that
+ * contribution is ever dropped.
  */
 async function main(): Promise<void> {
     // When the harness itself is started from a VS Code integrated terminal,

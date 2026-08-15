@@ -563,7 +563,10 @@ function refusalForConflicts(moduleName: string, conflicts: readonly VisibilityC
     const repeat = listed("repeat");
     const clauses = [widen && `widening ${widen}`, nest && `declaring a module inside ${nest}`, repeat && `re-declaring ${repeat}`].filter(Boolean);
 
-    return `making '${moduleName}' reachable would mean ${clauses.join(", and ")}. Make the change by hand if that is intended.`;
+    // Semicolons between clauses, because the lists inside them already spend
+    // ", and": one separator doing both jobs leaves the gerund as the only mark
+    // of where a clause starts.
+    return `making '${moduleName}' reachable would mean ${clauses.join("; ")}. Make the change by hand if that is intended.`;
 }
 
 /** The text with every specifier rewrite applied, taken last-first so earlier offsets stay valid. */

@@ -36,8 +36,8 @@ export interface VisibilityConflict {
     path: string;
 
     /**
-     * The declared visibility keyword alone, absent where the declaration
-     * carries no specifier. `scoped` carries a module list the scanner does not
+     * The declared visibility keyword alone, absent where no part of the module
+     * carries a specifier. `scoped` carries a module list the scanner does not
      * capture, so this is not the specifier as written and must not be reported
      * as if it were.
      *
@@ -95,12 +95,12 @@ const PUBLIC_SPECIFIER = "<public>";
  * carries is reported, and only a module with no declaration at all is safe to
  * write.
  *
- * A conflict leaves the chain intact rather than emptying it, so the caller can
- * name the nesting it refused. One consequence is worth knowing before editing
- * either half: because every declared module the retained chain carries is a
- * `repeat`, a specifier this function copies off an existing declaration only
- * ever describes that nesting, and never reaches a file. Refusing is the
- * caller's job.
+ * Refusing is the caller's job, and a conflict leaves the chain as it is rather
+ * than emptying it. Nothing reads the chain on that path today, so the fact
+ * worth knowing before editing either half is the invariant rather than the
+ * consumer: the trim and the `repeat` test are the same predicate, so a chain
+ * entry whose specifier was copied off an existing declaration always coincides
+ * with a conflict, and that specifier never reaches a file.
  *
  * @param prefix Content-relative segments above the planned ones. They are
  * already reachable, but the chain is written at the Content root, so it has to
@@ -176,19 +176,16 @@ export function resolveVisibility(prefix: readonly string[], segments: readonly 
 
         // What the files say now, not what the edits above would make them say:
         // this is reported to the user, who has to go and find the declaration.
-        // The part carrying a specifier is preferred over whichever the scan
-        // happened to reach first, since parts agree by construction and the
-        // one that names the access level is the one worth pointing at.
-        const declaredElsewhere = declarations.find((entry) => entry.declaration.visibility) ?? declarations[0];
-        declared.push({ chainIndex: chain.length, path: modulePath, keyword: declaredElsewhere.declaration.visibility?.keyword });
+        // Parts that disagree are already `ErrSemantic_MismatchedPartialAttributes`,
+        // so preferring the one carrying a specifier changes the answer only on
+        // a project that does not compile - where it buys a report that does not
+        // vary with scan order.
+        const reportedDeclaration = declarations.find((entry) => entry.declaration.visibility) ?? declarations[0];
+        declared.push({ chainIndex: chain.length, path: modulePath, keyword: reportedDeclaration.declaration.visibility?.keyword });
 
-        // Carried so the chain describes the nesting exactly as a part of it
-        // would have had to be written - the specifier included, since one that
-        // disagreed with the existing parts would be a second defect rather
-        // than a remedy. Only `public` and `internal` reach here; every other
-        // keyword left through the branch above, which is what keeps naming a
-        // keyword here safe.
-        const declaredKeyword = segment.needsPublic ? "public" : declaredElsewhere.declaration.visibility?.keyword;
+        // The specifier a part here would have had to carry, which is never
+        // written: a declared module in the retained chain is always a repeat.
+        const declaredKeyword = segment.needsPublic ? "public" : reportedDeclaration.declaration.visibility?.keyword;
         chain.push({ name: segment.name, specifier: declaredKeyword });
         written.push(false);
     }

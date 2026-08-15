@@ -100,8 +100,10 @@ export class ModuleVisibilityWriter {
         if (!applied) {
             // A cancelled preview, a preview nothing was selected in, and a
             // failed apply all arrive as false, so neither the log line nor
-            // the notification can claim which of them happened.
-            logger.warn("ModuleVisibilityWriter", `Nothing written for ${request.targetPath}: the preview was cancelled or empty, or the edit failed`);
+            // the notification can claim which of them happened. Logged at
+            // info because cancelling is an ordinary user action and the most
+            // likely way to get here.
+            logger.info("ModuleVisibilityWriter", `Nothing written for ${request.targetPath}: the preview was cancelled or empty, or the edit failed`);
             vscode.window.showInformationMessage(`Verse Auto Imports: no changes were written for '${request.moduleName}'.`);
             return;
         }
@@ -172,8 +174,9 @@ export class ModuleVisibilityWriter {
 
         // needsConfirmation on an entry is the only thing an extension can set
         // that opens the refactor preview, and it must go on every entry the
-        // user is meant to see. The editor groups entries by equal label, so
-        // one shared label keeps the whole change under a single node.
+        // user is meant to see - one without it is applied unseen. One shared
+        // label names the whole refactoring, and gathers the entries under a
+        // single node in the preview's group-by-category view.
         const confirm = (description: string): vscode.WorkspaceEditEntryMetadata => ({
             needsConfirmation: true,
             label: `Make module '${request.moduleName}' public`,
@@ -207,7 +210,10 @@ export class ModuleVisibilityWriter {
             const withEdits = applySpecifierEdits(existing, inDefinitions);
             const content = appendDeclarationBlock(withEdits, buildDeclarationBlock(resolved.chain));
 
-            const metadata = confirm(path.basename(definitionsUri.fsPath));
+            // The module path, as the specifier entries carry, rather than the
+            // file name: the preview groups by file by default, so the name is
+            // already on the node above and the description would say nothing.
+            const metadata = confirm(resolved.chain.map((segment) => segment.name).join("/"));
             if (existing.length === 0 && !scannedDefinitions) {
                 edit.createFile(definitionsUri, { ignoreIfExists: true }, metadata);
                 edit.insert(definitionsUri, new vscode.Position(0, 0), content, metadata);
@@ -228,6 +234,14 @@ export class ModuleVisibilityWriter {
      * them. VS Code offers nothing atomic here - WorkspaceEdit carries no
      * version and applyEdit accepts none - so this narrows the window to the
      * gap before the apply rather than closing it.
+     *
+     * That window is now the whole preview session, because applyEdit does not
+     * return until the user dismisses the preview. Text edits still fail closed
+     * past this point: the extension host stamps a version on edits to
+     * documents it knows, and a stale one aborts the apply. The createFile path
+     * does not, having no document to stamp - a definitions file created while
+     * the preview sits open is kept by `ignoreIfExists`, and the block is then
+     * prepended to it.
      */
     private async findDrift(snapshots: readonly Snapshot[]): Promise<vscode.Uri | null> {
         for (const snapshot of snapshots) {

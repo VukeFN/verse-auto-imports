@@ -199,12 +199,17 @@ describe("ModuleVisibilityWriter", () => {
         givenProject({ "Content/Gadgets/tools.verse": "Tools := module {}\n" });
         const info = jest.spyOn(logger, "info").mockImplementation();
 
-        await writer().makeModulePublic(REQUEST);
+        try {
+            await writer().makeModulePublic(REQUEST);
 
-        expect(info).toHaveBeenCalledWith("ModuleVisibilityWriter", expect.any(String), {
-            intended: expect.stringContaining("declaring Gadgets/Tools public in place"),
-        });
-        info.mockRestore();
+            expect(info).toHaveBeenCalledWith("ModuleVisibilityWriter", expect.any(String), {
+                intended: expect.stringContaining("declaring Gadgets/Tools public in place"),
+            });
+        } finally {
+            // The logger is a singleton, so leaving the stub installed would
+            // silently swallow errors in any test added after this one.
+            jest.restoreAllMocks();
+        }
     });
 
     it("refuses to widen a module the project deliberately narrowed", async () => {
@@ -424,7 +429,9 @@ describe("ModuleVisibilityWriter", () => {
             const operations = appliedOperations();
             expect(operations.length).toBeGreaterThan(0);
             for (const operation of operations) {
-                expect(operation.metadata).toMatchObject({ needsConfirmation: true });
+                // The module path, not the file name, so the description still
+                // says something in the preview's default group-by-file view.
+                expect(operation.metadata).toMatchObject({ needsConfirmation: true, description: "Gadgets/Tools" });
             }
         });
 
@@ -435,6 +442,37 @@ describe("ModuleVisibilityWriter", () => {
 
             expect(appliedOperations()[0]).toMatchObject({
                 kind: "insert",
+                text: "<public>",
+                metadata: { needsConfirmation: true },
+            });
+        });
+
+        // The two replace sites, which the insert cases above do not reach.
+        // Rewriting the definitions file end to end is the most destructive
+        // entry the writer emits, so an unpreviewed one is the worst version
+        // of the defect this ticket exists to close.
+        it("marks a whole-file rewrite of an existing definitions file as needing confirmation", async () => {
+            givenProject({ "Content/_definitions.verse": "Gadgets := module:\n    Deep := module {}\n" });
+
+            await writer().makeModulePublic({
+                targetPath: `${PROJECT}/Gadgets/Deep/Tools`,
+                importerPath: `${PROJECT}/Scripts`,
+                moduleName: "Tools",
+            });
+
+            expect(appliedOperations()[0]).toMatchObject({
+                kind: "replace",
+                metadata: { needsConfirmation: true },
+            });
+        });
+
+        it("marks a widened specifier as needing confirmation", async () => {
+            givenProject({ "Content/Gadgets/tools.verse": "Tools<internal> := module {}\n" });
+
+            await writer().makeModulePublic(REQUEST);
+
+            expect(appliedOperations()[0]).toMatchObject({
+                kind: "replace",
                 text: "<public>",
                 metadata: { needsConfirmation: true },
             });

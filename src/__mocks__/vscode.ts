@@ -72,6 +72,12 @@ class EventEmitter<T> {
     }
 }
 
+interface WorkspaceEditEntryMetadata {
+    needsConfirmation: boolean;
+    label: string;
+    description?: string;
+}
+
 interface RecordedEditOperation {
     kind: "insert" | "delete" | "replace" | "createFile";
     uri: unknown;
@@ -79,26 +85,28 @@ interface RecordedEditOperation {
     range?: Range;
     text?: string;
     options?: { overwrite?: boolean; ignoreIfExists?: boolean };
+    /** Carried because `needsConfirmation` is what opens the refactor preview. */
+    metadata?: WorkspaceEditEntryMetadata;
 }
 
 /** Records edit operations so tests can assert on them. */
 class WorkspaceEdit {
     readonly operations: RecordedEditOperation[] = [];
 
-    insert(uri: unknown, position: Position, text: string): void {
-        this.operations.push({ kind: "insert", uri, position, text });
+    insert(uri: unknown, position: Position, text: string, metadata?: WorkspaceEditEntryMetadata): void {
+        this.operations.push({ kind: "insert", uri, position, text, metadata });
     }
 
-    delete(uri: unknown, range: Range): void {
-        this.operations.push({ kind: "delete", uri, range });
+    delete(uri: unknown, range: Range, metadata?: WorkspaceEditEntryMetadata): void {
+        this.operations.push({ kind: "delete", uri, range, metadata });
     }
 
-    replace(uri: unknown, range: Range, text: string): void {
-        this.operations.push({ kind: "replace", uri, range, text });
+    replace(uri: unknown, range: Range, text: string, metadata?: WorkspaceEditEntryMetadata): void {
+        this.operations.push({ kind: "replace", uri, range, text, metadata });
     }
 
-    createFile(uri: unknown, options?: { overwrite?: boolean; ignoreIfExists?: boolean }): void {
-        this.operations.push({ kind: "createFile", uri, options });
+    createFile(uri: unknown, options?: { overwrite?: boolean; ignoreIfExists?: boolean }, metadata?: WorkspaceEditEntryMetadata): void {
+        this.operations.push({ kind: "createFile", uri, options, metadata });
     }
 
     /**

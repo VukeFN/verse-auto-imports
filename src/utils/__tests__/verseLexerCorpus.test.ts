@@ -257,14 +257,25 @@ describe("verse lexer probe corpus, the readers built on it", () => {
         // The two readers face opposite ways on purpose, and this is the shape
         // that shows it. scanModuleImports decides what the file already
         // imports, so a path read out of string text withholds an import the
-        // file needs; it reads codeOutsideLiterals and finds nothing.
-        // allUsingPaths decides whether removing an import is safe, so its empty
-        // answer is what a caller acts on; it reads codeWithoutComments and
-        // over-reports rather than risk that.
-        const source = 'Snippet := "using { /Verse.org/Simulation }"\nOther := "Inner := module {}"\n';
+        // file needs; it reads codeOutsideLiterals. allUsingPaths decides
+        // whether removing an import is safe, so its empty answer is what a
+        // caller acts on; it reads codeWithoutComments and over-reports rather
+        // than risk that.
+        //
+        // What disqualifies the first source is the blanked `using` keyword, not
+        // the path after it: `{ }` in a string interpolates, so the
+        // interpolation's body is code and `/Verse.org/Simulation }` survives
+        // masking. The second source carries no braces and is masked whole. Both
+        // are here because the contract is what each reader reports, not which
+        // characters it blanked to get there.
+        const interpolating = 'Snippet := "using { /Verse.org/Simulation }"\n';
+        // The dotted style, so the second source carries no brace at all.
+        const plain = 'Snippet := "using. /Verse.org/Simulation"\nOther := "Inner := module {}"\n';
 
-        expect(scanModuleImports(source.split(LINE_SPLIT))).toEqual([]);
-        expect(paths(source)).toEqual(["/Verse.org/Simulation"]);
-        expect(findExplicitModuleDeclarations(source)).toEqual([]);
+        for (const source of [interpolating, plain]) {
+            expect(scanModuleImports(source.split(LINE_SPLIT))).toEqual([]);
+            expect(paths(source)).toEqual(["/Verse.org/Simulation"]);
+            expect(findExplicitModuleDeclarations(source)).toEqual([]);
+        }
     });
 });

@@ -79,11 +79,18 @@ export function popClosedBlocks(openBlockIndents: number[], indent: number): voi
  * special case of its own, and may not grow one - a rule about which braces are
  * real belongs to the lexer, where every reader gets it.
  *
- * `maskCommentsAndStrings` output is brace-balanced. `codeOutsideLiterals` is
- * not, quite: it consults only the frame open before each character, so a string
- * interpolation's opening `{` is blanked while its closing `}` survives. Callers
- * reading a single line accept that, since a clause the imbalance closes early
- * was already inside a literal.
+ * Neither masked form is balanced unconditionally, so do not read a stranded
+ * depth as proof that a brace was missed:
+ *
+ * - `maskCommentsAndStrings` balances every literal it closes, and cannot
+ *   balance one it does not. Each line is masked from the point a literal opened
+ *   to the line's end, so an interpolation spanning lines - `"Score: {` over
+ *   `Points}"` - loses its `{` and keeps its `}`, and nothing downstream can
+ *   recover the pair.
+ * - `codeOutsideLiterals` consults only the frame open before each character, so
+ *   an interpolation's opening `{` is blanked while its closing `}` survives
+ *   even on one line. Callers reading a single line accept that, since a clause
+ *   the imbalance closes early was already inside a literal.
  *
  * Both module scans delimit a braced body by this depth, and they must agree:
  * one reads it over the gap between two declarations, the other over a single

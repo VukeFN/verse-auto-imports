@@ -513,18 +513,25 @@ describe("CommandsHandler failure logging", () => {
     };
 
     let errors: jest.SpyInstance;
+    /** Spied only by the exportDebugLogs case, and restored here for all of them. */
+    let exportedLogs: jest.SpyInstance | undefined;
 
     beforeEach(() => {
         errors = jest.spyOn(logger, "error").mockImplementation(() => {});
     });
 
+    // Every restore belongs here rather than at the end of a test body: a
+    // failing assertion skips the tail of the body, and clearAllMocks leaves a
+    // mockReturnValue in place, so a rejecting configuration or a mocked logger
+    // singleton would survive into every later test.
     afterEach(() => {
         errors.mockRestore();
-        // clearAllMocks leaves a mockReturnValue in place, so a rejecting
-        // configuration would otherwise survive into every later test.
+        exportedLogs?.mockRestore();
+        exportedLogs = undefined;
         (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue(WORKING_CONFIGURATION);
         (vscode.commands.executeCommand as jest.Mock).mockResolvedValue(undefined);
         (vscode.languages.getDiagnostics as jest.Mock).mockReturnValue([]);
+        (vscode.window.showInformationMessage as jest.Mock).mockReset();
     });
 
     /** Every palette toggle, each of which writes its setting through toggleConfig. */
@@ -574,7 +581,7 @@ describe("CommandsHandler failure logging", () => {
     // untraced half is what follows it: opening the file it wrote.
     it("exportDebugLogs logs a failure to open the exported file", async () => {
         const uri = vscode.Uri.file("C:\\Temp\\verseAutoImports_debugLogs.log");
-        const exportDebugLogs = jest.spyOn(logger, "exportDebugLogs").mockResolvedValue(uri);
+        exportedLogs = jest.spyOn(logger, "exportDebugLogs").mockResolvedValue(uri);
         (vscode.window.showInformationMessage as jest.Mock).mockResolvedValue("Open File");
         (vscode.commands.executeCommand as jest.Mock).mockRejectedValue(new Error("no editor for this file"));
 
@@ -583,9 +590,6 @@ describe("CommandsHandler failure logging", () => {
         expect(errors).toHaveBeenCalledTimes(1);
         expect(errors.mock.calls[0][0]).toBe("CommandsHandler");
         expect(vscode.window.showErrorMessage).toHaveBeenCalledTimes(1);
-
-        exportDebugLogs.mockRestore();
-        (vscode.window.showInformationMessage as jest.Mock).mockReset();
     });
 
     it("captureDiagnosticsCorpus logs the failure it reports", async () => {

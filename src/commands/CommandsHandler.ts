@@ -234,6 +234,11 @@ export class CommandsHandler {
      * Writes the opposite of a setting's current value to global scope, then
      * refreshes the status bar.
      *
+     * Reports its own failures and swallows what it reports, so none of the
+     * five toggle commands built on it rejects. The refresh is inside that
+     * guard too, which means a failure it reports may be one where the setting
+     * was written and only the status bar did not follow.
+     *
      * @param toggleFn How to invert a value that is not a boolean. Omit it and
      *   the current value is negated.
      */

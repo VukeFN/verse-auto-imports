@@ -4,6 +4,7 @@ import { logger, settingsFor } from "../utils";
 import { ProjectPathHandler } from "../project";
 import { ProjectPathScanner } from "./ProjectPathScanner";
 import { PROJECT_CACHE_VERSION, ProjectPathData, ProjectPathNode, SerializedProjectPathCache } from "../types";
+import { findContentRoot } from "./contentRoot";
 import { buildProjectIndexes, resolveModuleLocations, ModuleLocationCandidate, ProjectIndexes } from "./moduleLocationLookup";
 
 /**
@@ -103,7 +104,8 @@ export class ProjectPathCache {
 
     /**
      * The possible locations of a module import path, empty when nothing is
-     * cached.
+     * cached and empty again when the workspace holds no Content root to place
+     * a cached declaration under.
      *
      * Candidates use the same location contract the converter's
      * filesystem scan produces ("" or "/Dir/Sub", Content-relative), each
@@ -112,13 +114,24 @@ export class ProjectPathCache {
      * Only explicit module declarations are known to the cache; implicit
      * folder modules are the filesystem scan's job.
      */
-    lookupModuleLocations(modulePath: string): ModuleLocationCandidate[] {
+    async lookupModuleLocations(modulePath: string): Promise<ModuleLocationCandidate[]> {
         if (!this.data) {
             return [];
         }
 
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            return [];
+        }
+
+        const contentRoot = await findContentRoot(workspaceFolder, await this.projectPathHandler.getRootPluginName());
+        if (!contentRoot) {
+            return [];
+        }
+
         return resolveModuleLocations(modulePath, this.indexes.moduleNameIndex, {
-            workspaceIsContent: this.workspaceIsContent(),
+            workspaceFolderPath: workspaceFolder.uri.fsPath,
+            contentRootPath: contentRoot.fsPath,
         });
     }
 
@@ -418,18 +431,6 @@ export class ProjectPathCache {
     /** Must follow every mutation of `data.nodes`, or lookups serve the old set. */
     private rebuildIndexes(): void {
         this.indexes = buildProjectIndexes(this.data ? this.data.nodes : []);
-    }
-
-    /**
-     * Whether the workspace folder itself is the Content folder (affects how
-     * source file paths map to Content-relative locations).
-     */
-    private workspaceIsContent(): boolean {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders || workspaceFolders.length === 0) {
-            return false;
-        }
-        return path.basename(workspaceFolders[0].uri.fsPath) === "Content";
     }
 
     /**

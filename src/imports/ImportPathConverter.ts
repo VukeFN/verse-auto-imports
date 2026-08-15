@@ -3,6 +3,7 @@ import * as path from "path";
 import { logger } from "../utils";
 import { ProjectPathHandler } from "../project";
 import { ProjectPathCache } from "../services";
+import { findContentRoot } from "../services/contentRoot";
 import { buildProjectIndexes, resolveFolderModuleLocations, resolveModuleLocations, toContentRelativeDir } from "../services/moduleLocationLookup";
 import { ProjectPathNode } from "../types";
 import { findExplicitModuleDeclarations } from "../visibility/moduleDeclarations";
@@ -418,20 +419,17 @@ export class ImportPathConverter {
     }
 
     /**
-     * Where a workspace-wide `.verse` scan has to look, and whether the
-     * workspace folder is itself the Content folder - which decides both the
-     * glob and how a found path maps back to a Content-relative one.
+     * The Content root a workspace-wide `.verse` scan has to look under, or
+     * null when the project has none there.
      *
-     * Shared by the two scanning phases so they cannot disagree about the
-     * layout: a phase reading one rule and a phase reading the other would
-     * resolve the same project differently.
+     * Neither scanning phase has a document to walk out from, so the root is
+     * resolved from the workspace folder and the project's root plugin instead
+     * of read at a fixed depth. Shared by both phases so they cannot disagree
+     * about the layout: a phase reading one rule and a phase reading the other
+     * would resolve the same project differently.
      */
-    private static workspaceScanTargets(workspaceFolder: { uri: vscode.Uri }): { searchPattern: string; workspaceIsContent: boolean } {
-        const workspaceIsContent = path.basename(workspaceFolder.uri.fsPath) === CONTENT_FOLDER;
-        return {
-            searchPattern: workspaceIsContent ? "**/*.verse" : `${CONTENT_FOLDER}/**/*.verse`,
-            workspaceIsContent,
-        };
+    private async scanContentRoot(workspaceFolder: { uri: vscode.Uri }): Promise<vscode.Uri | null> {
+        return findContentRoot(workspaceFolder, await this.projectPathHandler.getRootPluginName());
     }
 
     /**
@@ -452,17 +450,19 @@ export class ImportPathConverter {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders || workspaceFolders.length === 0) return false;
 
-        const { searchPattern, workspaceIsContent } = ImportPathConverter.workspaceScanTargets(workspaceFolders[0]);
+        const contentRoot = await this.scanContentRoot(workspaceFolders[0]);
+        if (!contentRoot) return false;
 
-        // Scope the scan to the project folder. The UEFN-generated workspace is
-        // multi-root (Content plus Epic's digest folders); a bare string glob
-        // would also read every *.digest.verse on each fallback scan.
+        // Scope the scan to the project's Content root. The UEFN-generated
+        // workspace is multi-root (Content plus Epic's digest folders); a bare
+        // string glob would also read every *.digest.verse on each fallback
+        // scan.
         //
         // One file past the limit is asked for and never read, so that a project
         // holding exactly the limit is told apart from one holding more. Asking
         // for the limit itself makes those two answers identical, which is the
         // conflation the truncation signal exists to end.
-        const verseFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(workspaceFolders[0], searchPattern), "**/*.digest.verse", DECLARATION_SCAN_FILE_LIMIT + 1);
+        const verseFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(contentRoot, "**/*.verse"), "**/*.digest.verse", DECLARATION_SCAN_FILE_LIMIT + 1);
         const readPartOnly = verseFiles.length > DECLARATION_SCAN_FILE_LIMIT;
 
         const nodes: ProjectPathNode[] = [];
@@ -473,11 +473,12 @@ export class ImportPathConverter {
             );
             if (!content) continue;
 
-            // Paths are taken against the folder the glob was rooted at, which
-            // is also the folder workspaceIsContent describes. Asking which
-            // folder each file sits in instead lets the two disagree, and the
-            // Content prefix is then read off one folder and stripped by the
-            // rule of another.
+            // Workspace-relative, which is the sourceFile shape the cache also
+            // produces - resolveModuleLocations places both against the same
+            // pair of anchors, so a candidate reads the same whichever of the
+            // two found it. Taking the path against the folder passed below
+            // rather than asking which folder the file sits in is what keeps
+            // the anchor and the path from being read off different folders.
             const sourceFile = path.relative(workspaceFolders[0].uri.fsPath, file.fsPath).replace(/\\/g, "/");
 
             // Only a live declaration attests to a location; a commented-out one
@@ -495,7 +496,7 @@ export class ImportPathConverter {
         }
 
         const { moduleNameIndex } = buildProjectIndexes(nodes);
-        for (const candidate of resolveModuleLocations(modulePath, moduleNameIndex, { workspaceIsContent })) {
+        for (const candidate of resolveModuleLocations(modulePath, moduleNameIndex, { workspaceFolderPath: workspaceFolders[0].uri.fsPath, contentRootPath: contentRoot.fsPath })) {
             logger.debug("ImportPathConverter", `Found module definition in: ${candidate.sourceFile}`);
             if (!locations.includes(candidate.location)) locations.push(candidate.location);
         }
@@ -521,13 +522,14 @@ export class ImportPathConverter {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders || workspaceFolders.length === 0) return;
 
-        const { searchPattern, workspaceIsContent } = ImportPathConverter.workspaceScanTargets(workspaceFolders[0]);
-        const verseFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(workspaceFolders[0], searchPattern), "**/*.digest.verse", FOLDER_SCAN_FILE_LIMIT);
+        const contentRoot = await this.scanContentRoot(workspaceFolders[0]);
+        if (!contentRoot) return;
+
+        const verseFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(contentRoot, "**/*.verse"), "**/*.digest.verse", FOLDER_SCAN_FILE_LIMIT);
 
         const contentRelativeDirs = new Set<string>();
         for (const file of verseFiles) {
-            const workspaceRelative = path.relative(workspaceFolders[0].uri.fsPath, file.fsPath).replace(/\\/g, "/");
-            const directory = toContentRelativeDir(workspaceRelative, workspaceIsContent);
+            const directory = toContentRelativeDir(file.fsPath, contentRoot.fsPath);
 
             // null is a file outside Content, which contributes no importable
             // module.
@@ -587,7 +589,7 @@ export class ImportPathConverter {
         // the full scan below still runs whenever the cache yields nothing
         // valid - empty, stale, or never set.
         if (locations.length === 0 && this.projectPathCache) {
-            const candidates = this.projectPathCache.lookupModuleLocations(modulePath);
+            const candidates = await this.projectPathCache.lookupModuleLocations(modulePath);
             for (const candidate of candidates) {
                 if (locations.includes(candidate.location)) {
                     continue;

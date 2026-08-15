@@ -2,6 +2,8 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { logger, settingsFor } from "../utils";
 import { ProjectPathHandler } from "../project";
+import { findContentRoot } from "../services/contentRoot";
+import { toContentRelativeDir } from "../services/moduleLocationLookup";
 import { appendDeclarationBlock, buildDeclarationBlock } from "./definitionsContent";
 import { findExplicitModuleDeclarations } from "./moduleDeclarations";
 import { ModuleVisibilityRequest } from "./ModuleVisibilityMessage";
@@ -166,7 +168,7 @@ export class ModuleVisibilityWriter {
         if (!located) {
             return { reason: `no '${CONTENT_FOLDER}' folder was found in the workspace, so there is nowhere to declare the module.` };
         }
-        const { workspaceFolder, contentRoot } = located;
+        const { contentRoot } = located;
 
         const definitionsUri = this.definitionsUri(contentRoot);
         if (!definitionsUri) {
@@ -177,7 +179,7 @@ export class ModuleVisibilityWriter {
         // Every module on the path is looked up, the reachable prefix included:
         // the chain written into the definitions file has to nest through them,
         // and a part it writes must repeat whatever they already declare.
-        const scan = await this.findDeclarations(workspaceFolder, [...prefix, ...segments.map((segment) => segment.name)], definitionsKey);
+        const scan = await this.findDeclarations(contentRoot, [...prefix, ...segments.map((segment) => segment.name)], definitionsKey);
         if ("unreadable" in scan) {
             return { reason: `'${vscode.workspace.asRelativePath(scan.unreadable, false)}' could not be read, so whether it declares part of '${request.moduleName}' is unknown.` };
         }
@@ -324,29 +326,21 @@ export class ModuleVisibilityWriter {
         }
     }
 
-    /** A folder paired with its Content root, or null when there is no folder or it holds none. */
+    /**
+     * A folder paired with its Content root, or null when there is no folder or
+     * it holds none.
+     *
+     * The root is resolved at whatever depth it sits, since UEFN nests it under
+     * `Plugins/<Name>` and a workspace opened at the project root holds no
+     * Content at its own top level.
+     */
     private async locateContentRoot(folder: vscode.WorkspaceFolder | undefined): Promise<{ workspaceFolder: vscode.WorkspaceFolder; contentRoot: vscode.Uri } | null> {
         if (!folder) {
             return null;
         }
 
-        const contentRoot = await this.findContentRoot(folder);
+        const contentRoot = await findContentRoot(folder, await this.projectPathHandler.getRootPluginName());
         return contentRoot ? { workspaceFolder: folder, contentRoot } : null;
-    }
-
-    /** The Content folder the project's modules hang off, or null when the workspace has none. */
-    private async findContentRoot(workspaceFolder: vscode.WorkspaceFolder): Promise<vscode.Uri | null> {
-        if (path.basename(workspaceFolder.uri.fsPath) === CONTENT_FOLDER) {
-            return workspaceFolder.uri;
-        }
-
-        const candidate = vscode.Uri.joinPath(workspaceFolder.uri, CONTENT_FOLDER);
-        try {
-            const stat = await vscode.workspace.fs.stat(candidate);
-            return stat.type === vscode.FileType.Directory ? candidate : null;
-        } catch {
-            return null;
-        }
     }
 
     /**
@@ -408,25 +402,26 @@ export class ModuleVisibilityWriter {
      * ProjectPathScanner's does, so an offset addresses the buffer the edit will
      * be applied to rather than what is currently on disk.
      *
+     * @param contentRoot the root the scan sweeps and every path is taken
+     * against, resolved once by the caller: deriving it a second time here
+     * would let the folder written to and the folder read from disagree.
      * @param definitionsKey the definitions file, whose text is kept even when
      * it declares none of these modules, because the caller appends to it. A
      * file holding no module declaration at all is skipped before that, and
      * reaches the caller through readDefinitions instead.
      */
     private async findDeclarations(
-        workspaceFolder: vscode.WorkspaceFolder,
+        contentRoot: vscode.Uri,
         names: readonly string[],
         definitionsKey: string,
     ): Promise<{ declarations: FoundDeclaration[]; scanned: Map<string, ScannedFile> } | UnreadableFile> {
-        const workspaceIsContent = path.basename(workspaceFolder.uri.fsPath) === CONTENT_FOLDER;
-        const searchPattern = workspaceIsContent ? "**/*.verse" : `${CONTENT_FOLDER}/**/*.verse`;
-        const verseFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(workspaceFolder, searchPattern), "**/*.digest.verse");
+        const verseFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(contentRoot, "**/*.verse"), "**/*.digest.verse");
         const wanted = new Set(names);
         const declarations: FoundDeclaration[] = [];
         const scanned = new Map<string, ScannedFile>();
 
         for (let i = 0; i < verseFiles.length; i += SCAN_CONCURRENCY) {
-            const batch = await Promise.all(verseFiles.slice(i, i + SCAN_CONCURRENCY).map((file) => this.readDeclarations(file, workspaceFolder, workspaceIsContent, wanted)));
+            const batch = await Promise.all(verseFiles.slice(i, i + SCAN_CONCURRENCY).map((file) => this.readDeclarations(file, contentRoot, wanted)));
             for (const result of batch) {
                 if (!result) {
                     continue;
@@ -458,13 +453,8 @@ export class ModuleVisibilityWriter {
      * deliberately - a file there is skipped without ever being opened, so an
      * unreadable one cannot refuse the request.
      */
-    private async readDeclarations(
-        uri: vscode.Uri,
-        workspaceFolder: vscode.WorkspaceFolder,
-        workspaceIsContent: boolean,
-        wanted: ReadonlySet<string>,
-    ): Promise<{ file: ScannedFile; declarations: FoundDeclaration[] } | UnreadableFile | null> {
-        const directory = this.contentRelativeDirectory(uri, workspaceFolder, workspaceIsContent);
+    private async readDeclarations(uri: vscode.Uri, contentRoot: vscode.Uri, wanted: ReadonlySet<string>): Promise<{ file: ScannedFile; declarations: FoundDeclaration[] } | UnreadableFile | null> {
+        const directory = toContentRelativeDir(uri.fsPath, contentRoot.fsPath);
         if (directory === null) {
             return null;
         }
@@ -493,27 +483,6 @@ export class ModuleVisibilityWriter {
             }));
 
         return { file: { uri, text, version: read.version }, declarations };
-    }
-
-    /**
-     * A file's directory relative to the Content root, "" at the root itself,
-     * or null when the file sits outside Content. Mirrors the normalization in
-     * ImportPathConverter's declaration scan.
-     */
-    private contentRelativeDirectory(file: vscode.Uri, workspaceFolder: vscode.WorkspaceFolder, workspaceIsContent: boolean): string | null {
-        const directory = path.dirname(path.relative(workspaceFolder.uri.fsPath, file.fsPath)).replace(/\\/g, "/");
-
-        if (workspaceIsContent) {
-            return directory === "" || directory === "." ? "" : directory;
-        }
-
-        if (directory === CONTENT_FOLDER) {
-            return "";
-        }
-        if (directory.startsWith(`${CONTENT_FOLDER}/`)) {
-            return directory.substring(CONTENT_FOLDER.length + 1);
-        }
-        return null;
     }
 
     /**

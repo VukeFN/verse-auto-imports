@@ -202,9 +202,11 @@ function firstCodeLineBelow(classifications: LineClassification[], from: number)
  * Blank lines alone are passed over, for the half of firstCodeLineBelow's
  * reason that survives when the answer may be a comment: a blank line ends
  * nothing, so what follows a run of them is still inside whatever was open
- * above it. A line inside a block comment is never blank - classifyLines reads
- * one as comment - so this stops on the comment body rather than running past
- * it.
+ * above it. A line inside a `<#` block comment is never blank - classifyLines
+ * reads one as comment - so this stops on the body of one rather than running
+ * past it. A blank line inside a `<#>` marker's body is blank, and is passed
+ * over like any other; the line it stops on is then further into the same
+ * comment, which is the same answer one line down.
  */
 function firstContentLineBelow(classifications: LineClassification[], from: number): number {
     for (let line = from + 1; line < classifications.length; line++) {
@@ -286,9 +288,12 @@ export function indentedPairPathLine(classifications: LineClassification[], open
  *
  * Reached past blank lines for the same reason the code line is: a blank line
  * ends no block, so a comment written below one is as far inside the body as a
- * comment written directly under the last statement. A line at column 0 is what
- * says the body is over, and that line answers `-1` whether it is code or a
- * comment - a column-0 comment is prose about what follows, not the body's own.
+ * comment written directly under the last statement. A comment at column 0
+ * answers `-1` all the same, and that is this rule declining to claim it rather
+ * than anything about where the block ends - a comment ends no block at any
+ * indentation, but one written back at column 0 reads as prose about what
+ * follows rather than as the body's own, and nothing is lost by writing above
+ * it.
  *
  * Answers one line rather than the whole span, so a caller re-anchors and asks
  * again: a body can hold a nested opener, and each answer is the next question.

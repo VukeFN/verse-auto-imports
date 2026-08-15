@@ -1236,6 +1236,33 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         expect(operations[0].position!.line).toBe(0);
     });
 
+    it("adds it below a comment trailing the body a blank line separates from it", async () => {
+        const input = ["using { /A }; M := module:", "    Body<public>():int = 1", "", "    # what the module is for", "code()"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Gadgets.Tools }"]);
+
+        expect(success).toBe(true);
+        const operations = appliedOperations(0);
+        expect(operations).toHaveLength(1);
+        expect(operations[0].kind).toBe("insert");
+        expect(operations[0].position!.line).toBe(4);
+    });
+
+    it("keeps the floor a pinned import above an unclosed opener raises", async () => {
+        const input = ["using { Features }; X := 1", "code()", "using { /B } <# note"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features.Shop }"]);
+
+        expect(success).toBe(true);
+        const operations = appliedOperations(0);
+        expect(operations).toHaveLength(1);
+        expect(operations[0].kind).toBe("insert");
+        // Below the provider that could be bringing `Features` into scope, not
+        // at the top of the file: the unwritable span above the comment is
+        // skipped on its own, and takes no other pinned import's floor with it.
+        expect(operations[0].position!.line).toBe(1);
+    });
+
     function mockConfig(overrides: Record<string, unknown>): void {
         (vscode.workspace.getConfiguration as jest.Mock).mockReturnValueOnce({
             get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => {

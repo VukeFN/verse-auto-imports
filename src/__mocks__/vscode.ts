@@ -313,8 +313,10 @@ const workspace = {
     },
     createFileSystemWatcher: jest.fn().mockImplementation((globPattern: unknown) => new FileSystemWatcher(globPattern)),
     // Empty by default so a test that only needs the scan to complete does not
-    // have to stub it; tests that care about parse timing replace it.
-    openTextDocument: jest.fn().mockResolvedValue({ getText: () => "" }),
+    // have to stub it; tests that care about parse timing replace it. The
+    // version is carried because callers compare it across two reads to detect
+    // an edit made in between, and an undefined would compare equal to itself.
+    openTextDocument: jest.fn().mockResolvedValue({ getText: () => "", version: 1 }),
     /**
      * Renders a path relative to the first workspace folder, forward-slashed, as
      * the scanner and the cache watchers expect; anything outside it comes back
@@ -429,6 +431,10 @@ const FileType = {
  */
 class CodeActionKind {
     static readonly QuickFix = new CodeActionKind("quickfix");
+    static readonly Source = new CodeActionKind("source");
+    // Built by append, as the real API builds it, so a provider that appends
+    // the wrong sub-kind cannot agree with a mock that hardcoded the answer.
+    static readonly SourceOrganizeImports = CodeActionKind.Source.append("organizeImports");
 
     constructor(public readonly value: string) {}
 

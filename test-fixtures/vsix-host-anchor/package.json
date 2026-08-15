@@ -1,0 +1,11 @@
+{
+    "name": "vsix-host-anchor",
+    "displayName": "VSIX Host Anchor (integration tests only)",
+    "description": "Contributes nothing. VS Code only honors --extensionTestsPath in extension development mode, which needs an --extensionDevelopmentPath; the packaged-vsix run has no development extension of its own, so this empty one anchors the mode. It must not contribute the 'verse' language: the point of that run is that the installed vsix registers it.",
+    "version": "0.0.1",
+    "publisher": "vukefn",
+    "engines": {
+        "vscode": "^1.85.0"
+    },
+    "contributes": {}
+}

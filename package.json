@@ -7,13 +7,29 @@
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Other"
+    "Programming Languages",
+    "Formatters"
+  ],
+  "keywords": [
+    "verse",
+    "uefn",
+    "fortnite",
+    "imports",
+    "using"
   ],
   "activationEvents": [
     "onLanguage:verse"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "languages": [
+      {
+        "id": "verse",
+        "extensions": [
+          ".verse"
+        ]
+      }
+    ],
     "icons": {
       "verse-imports-icon": {
         "description": "Verse Auto Imports icon",
@@ -32,6 +48,11 @@
       {
         "command": "verseAutoImports.optimizeImports",
         "title": "Optimize Imports",
+        "category": "Verse Auto Imports"
+      },
+      {
+        "command": "verseAutoImports.organizeImportsInDocument",
+        "title": "Organize Imports in Document",
         "category": "Verse Auto Imports"
       },
       {
@@ -127,6 +148,10 @@
     ],
     "menus": {
       "commandPalette": [
+        {
+          "command": "verseAutoImports.organizeImportsInDocument",
+          "when": "false"
+        },
         {
           "command": "verseAutoImports.addSingleImport",
           "when": "false"

@@ -22,8 +22,9 @@ describe("extension activation", () => {
         const probePath = path.join(contentRoot(), "activation_probe.verse");
         const document = await vscode.workspace.openTextDocument(probePath);
 
-        // The verse-language-stub development extension registers the language
-        // id; if this fails the activation event below can never fire.
+        // Nothing else in the test host registers the language id, so this
+        // asserts the manifest's own `languages` contribution; without it the
+        // activation event below can never fire.
         assert.strictEqual(document.languageId, "verse", "expected .verse files to get the verse language id");
 
         await waitFor(() => extension.isActive, 15000, "extension activation");

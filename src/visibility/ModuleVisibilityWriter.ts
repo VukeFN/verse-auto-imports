@@ -160,9 +160,8 @@ export class ModuleVisibilityWriter {
 
         // A folder holding no Content root cannot host the declaration, and a
         // workspace can carry one legitimately - notes or art opened alongside
-        // the project. Falling back there rather than refusing keeps the fix
-        // working for a document in such a folder, as it did before the
-        // requesting folder was consulted at all.
+        // the project. A document in such a folder falls back rather than
+        // refusing, since the project's own folder can still serve it.
         const located = (await this.locateContentRoot(requestedFolder)) ?? (await this.locateContentRoot(firstFolder));
         if (!located) {
             return { reason: `no '${CONTENT_FOLDER}' folder was found in the workspace, so there is nowhere to declare the module.` };

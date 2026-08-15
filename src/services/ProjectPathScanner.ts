@@ -280,9 +280,14 @@ export class ProjectPathScanner {
         // ended the keyword, and is undefined for the line end alone; the
         // module stack needs that to know a body is still to open.
         const modulePattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*module\s*(?:([:>{.])|$)/;
-        const classPattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*class\s*(?:<[^>]+>)*\s*[\(:]?/;
-        const structPattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*struct\s*(?:<[^>]+>)*\s*[\(:]?/;
-        const interfacePattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*interface\s*(?:<[^>]+>)*\s*[\(:]?/;
+        // `\b` after the keyword, or `Foo := classify_items(X)` declares a class
+        // named Foo: everything after `class` here is optional, so the pattern
+        // matches the prefix of any identifier beginning with one of these
+        // words. modulePattern and enumPattern need no such boundary - each
+        // requires a terminator that a continuing identifier cannot supply.
+        const classPattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*class\b\s*(?:<[^>]+>)*\s*[\(:]?/;
+        const structPattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*struct\b\s*(?:<[^>]+>)*\s*[\(:]?/;
+        const interfacePattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*interface\b\s*(?:<[^>]+>)*\s*[\(:]?/;
         const enumPattern = /^(\w+)((?:<[^>]+>)*)\s*:=\s*enum\s*(?:<[^>]+>)?\s*:/;
         /** `Name<specifiers>(params)<effects>:` */
         const functionPattern = /^(\w+)((?:<[^>]+>)*)\s*\([^)]*\)\s*(?:<[^>]+>)*\s*:/;

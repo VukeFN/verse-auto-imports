@@ -141,10 +141,17 @@ export interface LineClassification {
  */
 export function classifyLines(lines: string[]): LineClassification[] {
     const classifications: LineClassification[] = new Array(lines.length);
-    // Left empty and never carried, unlike the two beside it. An open
-    // interpolation is a state scanLine has just declined to read, since the
-    // line holding it is re-lexed with literal tracking off; carrying it would
-    // resume a literal on the next line that this line was never lexed as.
+    // openFrames is left empty and never carried, unlike the three beside it. An
+    // open interpolation is a state scanLine has just declined to read, since
+    // the line holding it is re-lexed with literal tracking off; carrying it
+    // would resume a literal on the next line that this line was never lexed as.
+    //
+    // lineComment carries despite coming out of that same re-lex, because it is
+    // comment structure rather than literal state: both lexing modes read it the
+    // same way, exactly as they do depth and markerIndent. On a line the
+    // fallback reached, the comment it reports may be one the tracked lex would
+    // not have opened - and that is the fallback's stated direction, to miss a
+    // `using` rather than invent one.
     const state: LexState = { depth: 0, markerIndent: null, openFrames: [], lineComment: null };
 
     for (let i = 0; i < lines.length; i++) {

@@ -102,7 +102,8 @@ export interface LexState {
     /**
      * The line comment still open where the line starts, or null. Non-null only
      * while a block comment opened in that comment's text is unclosed, so a line
-     * carrying one always starts inside that block.
+     * carrying one always starts inside that block, and its text resumes exactly
+     * where the depth returns to 0.
      */
     lineComment: OpenLineComment | null;
 }
@@ -117,8 +118,6 @@ export interface LexState {
  * whatever line closes the block.
  */
 export interface OpenLineComment {
-    /** Block-comment depth the comment's text resumes at - the depth its opener sat at. */
-    depth: number;
     /**
      * Whether ending the comment opens a `<#>` marker body. `IndCmt` reaches
      * `Ind()` only once the marker's tail returns (VerseGrammar.h:2040-2048), so
@@ -361,7 +360,13 @@ export function lexVerseLine(line: string, state: LexState, trackLiterals: boole
     // where it left off after `BlockCmt()` returns (:2116-2126), at line-comment
     // place and marker-body place alike. So each is asked of the depth here, not
     // of the depth the line began at.
-    const inLineComment = (): boolean => lineComment !== null && nesting === lineComment.depth;
+    //
+    // Depth 0 is the whole of it because only code scope opens either: both
+    // openers sit past the branch below, which claims every character at a depth
+    // above 0. A `#` inside a block comment does open a line comment in the
+    // grammar, but its text and the block's are both trivia, so nothing here can
+    // tell the two apart and nothing needs to.
+    const inLineComment = (): boolean => lineComment !== null && nesting === 0;
     const inMarkerBody = (): boolean => markerIndent !== null && nesting === 0;
 
     while (i < line.length) {
@@ -420,7 +425,7 @@ export function lexVerseLine(line: string, state: LexState, trackLiterals: boole
             // so a `<#` there opens a block exactly as one in a line comment
             // does. Lexed on below rather than swallowed here, and the body
             // deferred until the tail ends, or the block's lines read as code.
-            lineComment = { depth: nesting, opensMarker: true };
+            lineComment = { opensMarker: true };
             opensComment();
             commentChar();
             commentChar();
@@ -441,7 +446,7 @@ export function lexVerseLine(line: string, state: LexState, trackLiterals: boole
         // open a comment on one at all, and outside a block comment it is error
         // S05, so there is no depth for it to close.
         if (line[i] === "#" && innermost?.kind !== "literal") {
-            lineComment = { depth: nesting, opensMarker: false };
+            lineComment = { opensMarker: false };
             opensComment();
             commentChar();
             i += 1;
@@ -535,7 +540,7 @@ export function lexVerseLine(line: string, state: LexState, trackLiterals: boole
     // unless a block opened in its text is still open, which is the one thing
     // that carries it below. It then ends at the `Ending` of the line the `#>`
     // sits on, so the tail of that line is still the comment's.
-    const heldOpen = lineComment !== null && nesting > lineComment.depth;
+    const heldOpen = lineComment !== null && nesting > 0;
     // `IndCmt` reaches `Ind()` only once its tail returns (:2044-2048), and
     // `Ind()` takes the body's indentation from the line it runs on
     // (`Context.BlockInd = Cursor.LineStart`, :1637). With no block in the tail

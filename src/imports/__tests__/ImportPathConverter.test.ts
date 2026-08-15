@@ -323,6 +323,28 @@ function applyOperation(text: string, operation: RecordedOperation, eol: "\n" | 
     return text.slice(0, offsetOf(operation.range!.start)) + operation.text + text.slice(offsetOf(operation.range!.end));
 }
 
+/** workspaceFolders is readonly in the real typings; the mock is writable. */
+function setWorkspaceFolders(folders: unknown): void {
+    (vscode.workspace as unknown as { workspaceFolders: unknown }).workspaceFolders = folders;
+}
+
+/**
+ * Answers `fs.stat` from a list of Content-relative directories, so a test can
+ * express the project as the tree the module search walks.
+ *
+ * Case-sensitive, unlike a Windows filesystem, which is what lets a test hold
+ * `Shop` and `shop` as two directories: the conversion has to keep them apart
+ * because the compiler resolves module names byte-exact, and a stat that folded
+ * them would hide the very drift under test.
+ */
+function stubFolderTree(workspaceRoot: string, folders: string[]): void {
+    (vscode.workspace.fs.stat as jest.Mock).mockImplementation(async (uri: { fsPath: string }) => {
+        const contentRelative = uri.fsPath.replace(/\\/g, "/").replace(`${workspaceRoot}/Content/`, "");
+        if (!folders.includes(contentRelative)) throw new Error("ENOENT");
+        return { type: vscode.FileType.Directory };
+    });
+}
+
 /** A converter with project path resolution pinned, so conversion is pure string work. */
 function converterWithProjectPath(projectVersePath: string): ImportPathConverter {
     const converter = new ImportPathConverter(vscode.window.createOutputChannel("test"));
@@ -365,9 +387,24 @@ describe("ImportPathConverter import classification", () => {
 
 describe("ImportPathConverter.convertFromFullPath", () => {
     const projectVersePath = "/mygame@fortnite.com/mygame";
+    const workspaceRoot = "C:/Project";
+
+    /**
+     * The importing file, at the Content root so the project root is the scope
+     * it shortens against - which is what these assertions were written for,
+     * back when the conversion took no document at all.
+     */
+    const documentUri = vscode.Uri.file(`${workspaceRoot}/Content/Feature.verse`);
 
     beforeEach(() => {
         applyEditMock().mockClear();
+        setWorkspaceFolders([{ uri: { fsPath: workspaceRoot }, name: "Project", index: 0 }]);
+        stubFolderTree(workspaceRoot, ["Economy", "Economy/Shop"]);
+    });
+
+    afterEach(() => {
+        setWorkspaceFolders(undefined);
+        (vscode.workspace.fs.stat as jest.Mock).mockRejectedValue(new Error("ENOENT"));
     });
 
     it("leaves the comment trailing a dotted import out of the converted path", async () => {
@@ -376,7 +413,7 @@ describe("ImportPathConverter.convertFromFullPath", () => {
         // restores it, writes it twice.
         const converter = converterWithProjectPath(projectVersePath);
 
-        const result = await converter.convertFromFullPath("using. /mygame@fortnite.com/mygame/Economy/Shop # only the shop, not the vendor", undefined, 0);
+        const result = await converter.convertFromFullPath("using. /mygame@fortnite.com/mygame/Economy/Shop # only the shop, not the vendor", documentUri, 0);
 
         expect(result?.convertedImport).toBe("using. Economy.Shop");
         expect(result?.moduleName).toBe("Shop");
@@ -385,7 +422,7 @@ describe("ImportPathConverter.convertFromFullPath", () => {
     it("leaves the comment trailing a braced import out of the converted path", async () => {
         const converter = converterWithProjectPath(projectVersePath);
 
-        const result = await converter.convertFromFullPath("using { /mygame@fortnite.com/mygame/Economy/Shop } # only the shop", undefined, 0);
+        const result = await converter.convertFromFullPath("using { /mygame@fortnite.com/mygame/Economy/Shop } # only the shop", documentUri, 0);
 
         expect(result?.convertedImport).toBe("using { Economy.Shop }");
     });
@@ -396,7 +433,7 @@ describe("ImportPathConverter.convertFromFullPath", () => {
         // author asking for braced syntax.
         const converter = converterWithProjectPath(projectVersePath);
 
-        const result = await converter.convertFromFullPath("using. /mygame@fortnite.com/mygame/Economy/Shop # use {braces} here", undefined, 0);
+        const result = await converter.convertFromFullPath("using. /mygame@fortnite.com/mygame/Economy/Shop # use {braces} here", documentUri, 0);
 
         expect(result?.convertedImport).toBe("using. Economy.Shop");
     });
@@ -406,7 +443,7 @@ describe("ImportPathConverter.convertFromFullPath", () => {
         // a braced import its braces, whatever the comment happens to hold.
         const converter = converterWithProjectPath(projectVersePath);
 
-        const result = await converter.convertFromFullPath("using { /mygame@fortnite.com/mygame/Economy/Shop } # see {Vendor}", undefined, 0);
+        const result = await converter.convertFromFullPath("using { /mygame@fortnite.com/mygame/Economy/Shop } # see {Vendor}", documentUri, 0);
 
         expect(result?.convertedImport).toBe("using { Economy.Shop }");
     });
@@ -420,7 +457,7 @@ describe("ImportPathConverter.convertFromFullPath", () => {
         const document = fakeDocument([line, "", "code()"]);
         const converter = converterWithProjectPath(projectVersePath);
 
-        const result = await converter.convertFromFullPath(line, undefined, 0);
+        const result = await converter.convertFromFullPath(line, documentUri, 0);
         expect(await converter.applyConversion(document, result!)).toBe(true);
 
         expect(replacedOperation().text).toBe("using. Economy.Shop # see Economy/Vendor");
@@ -431,10 +468,18 @@ describe("ImportPathConverter.convertFromFullPath scope-relative shortening", ()
     const projectVersePath = "/mygame@fortnite.com/mygame";
     const workspaceRoot = "C:/Project";
 
-    /** workspaceFolders is readonly in the real typings; the mock is writable. */
-    const setWorkspaceFolders = (folders: unknown): void => {
-        (vscode.workspace as unknown as { workspaceFolders: unknown }).workspaceFolders = folders;
-    };
+    /**
+     * Every folder the project holds, as Content-relative paths.
+     *
+     * The whole suite runs against a real tree, not only the round trip below
+     * it: the conversion resolves the reference it emits back through the
+     * module search, so a shortening asserted over an empty workspace would be
+     * asserting the refusal rather than the spelling.
+     */
+    // UI/Shop is a namesake of Systems/Economy/Shop parked off the walk out of
+    // Systems/Economy, so the suite also holds the conversion open: only a
+    // namesake the compiler would actually reach may refuse one.
+    const folders = ["Systems", "Systems/Economy", "Systems/Economy/Shop", "Systems/Inventory", "UI", "UI/HUD", "UI/HUD/Textures", "UI/Shop"];
 
     /** A file in a module under the project's Content root, which is what places the importing scope. */
     const fileAt = (contentRelativeDir: string): vscode.Uri => vscode.Uri.file(`${workspaceRoot}/Content/${contentRelativeDir}/Feature.verse`);
@@ -448,10 +493,12 @@ describe("ImportPathConverter.convertFromFullPath scope-relative shortening", ()
 
     beforeEach(() => {
         setWorkspaceFolders([{ uri: { fsPath: workspaceRoot }, name: "Project", index: 0 }]);
+        stubFolderTree(workspaceRoot, folders);
     });
 
     afterEach(() => {
         setWorkspaceFolders(undefined);
+        (vscode.workspace.fs.stat as jest.Mock).mockRejectedValue(new Error("ENOENT"));
     });
 
     it("names a module in the importing file's own module by its bare name", async () => {
@@ -479,6 +526,13 @@ describe("ImportPathConverter.convertFromFullPath scope-relative shortening", ()
         // Epic's own converter walks characters and ends the common part
         // mid-label when one path runs out inside the other's segment, which
         // would make this `omy.Shop`.
+        //
+        // Its own tree: a Content-level Economy beside the suite's
+        // Systems/Economy would be a second module of that name on the walk out
+        // of Systems/Economy, which the conversion refuses - correctly, and for
+        // a reason this test is not about.
+        stubFolderTree(workspaceRoot, ["Econ", "Economy", "Economy/Shop"]);
+
         expect(await relativeFormOf(`${projectVersePath}/Economy/Shop`, fileAt("Econ"))).toBe("using. Economy.Shop");
     });
 
@@ -507,20 +561,26 @@ describe("ImportPathConverter.convertFromFullPath scope-relative shortening", ()
         expect(await relativeFormOf(`${projectVersePath}/Systems/Economy/Shop`, vscode.Uri.file(`${workspaceRoot}/Content/Systems/Economy/Feature.verse`))).toBe("using. Shop");
     });
 
-    // The three fallbacks below are the pre-existing root-relative behaviour,
-    // which is what a file with no module of its own to shorten against gets.
     it("shortens against the project root for a file at the Content root", async () => {
+        // The project root is a scope the file really does sit in, so the
+        // reference it produces resolves - unlike the two fallbacks below.
         expect(await relativeFormOf(`${projectVersePath}/Systems/Economy/Shop`, vscode.Uri.file(`${workspaceRoot}/Content/Feature.verse`))).toBe("using. Systems.Economy.Shop");
     });
 
-    it("shortens against the project root for a file outside Content", async () => {
-        expect(await relativeFormOf(`${projectVersePath}/Systems/Economy/Shop`, vscode.Uri.file(`${workspaceRoot}/Plugins/Feature.verse`))).toBe("using. Systems.Economy.Shop");
+    // The two below used to shorten against the project root as a fallback. A
+    // file the module search cannot place is a file whose scope is unknown, and
+    // a reference written into an unknown scope is a guess: nothing here can
+    // say which module it reaches, or whether it reaches one at all. The
+    // conversion overwrites an import that compiles, so a guess is the one
+    // thing it must not write.
+    it("offers no conversion for a file outside Content", async () => {
+        expect(await relativeFormOf(`${projectVersePath}/Systems/Economy/Shop`, vscode.Uri.file(`${workspaceRoot}/Plugins/Feature.verse`))).toBeUndefined();
     });
 
-    it("shortens against the project root when no workspace folder holds the file", async () => {
+    it("offers no conversion when no workspace folder holds the file", async () => {
         setWorkspaceFolders(undefined);
 
-        expect(await relativeFormOf(`${projectVersePath}/Systems/Economy/Shop`, fileAt("Systems/Economy"))).toBe("using. Systems.Economy.Shop");
+        expect(await relativeFormOf(`${projectVersePath}/Systems/Economy/Shop`, fileAt("Systems/Economy"))).toBeUndefined();
     });
 
     it("names an ancestor of the importing file's module by its own name", async () => {
@@ -542,21 +602,6 @@ describe("ImportPathConverter.convertFromFullPath scope-relative shortening", ()
     // assumes, so it recomposes the path from its own input and cannot see the
     // reverse direction failing to place a spelling this one writes.
     describe("round trip through the real module search", () => {
-        /** Every folder the project holds, as Content-relative paths. */
-        const folders = ["Systems", "Systems/Economy", "Systems/Economy/Shop", "Systems/Inventory", "UI", "UI/HUD", "UI/HUD/Textures"];
-
-        beforeEach(() => {
-            (vscode.workspace.fs.stat as jest.Mock).mockImplementation(async (uri: { fsPath: string }) => {
-                const contentRelative = uri.fsPath.replace(/\\/g, "/").replace(`${workspaceRoot}/Content/`, "");
-                if (!folders.includes(contentRelative)) throw new Error("ENOENT");
-                return { type: vscode.FileType.Directory };
-            });
-        });
-
-        afterEach(() => {
-            (vscode.workspace.fs.stat as jest.Mock).mockRejectedValue(new Error("ENOENT"));
-        });
-
         it.each([
             ["a module inside the file's own module", "Systems/Economy/Shop"],
             ["a module beside the file's own module", "Systems/Inventory"],
@@ -572,6 +617,86 @@ describe("ImportPathConverter.convertFromFullPath scope-relative shortening", ()
 
             expect((await converter.convertToFullPath(relative!.convertedImport, fileUri, 0))?.convertedImport).toBe(absolute);
         });
+    });
+});
+
+// The relative form is a proposal until the module search confirms it names
+// the module the absolute path named. Before that check, going relative was
+// string arithmetic that consulted nothing, so every case below wrote a
+// compiling import that reached a different module, or none.
+describe("ImportPathConverter.convertFromFullPath resolve-back", () => {
+    const projectVersePath = "/mygame@fortnite.com/mygame";
+    const workspaceRoot = "C:/Project";
+
+    const fileAt = (contentRelativeDir: string): vscode.Uri => vscode.Uri.file(`${workspaceRoot}/Content/${contentRelativeDir}/Feature.verse`);
+
+    async function relativeFormOf(fullPath: string, fileUri: vscode.Uri): Promise<string | undefined> {
+        const converter = converterWithProjectPath(projectVersePath);
+        return (await converter.convertFromFullPath(`using. ${fullPath}`, fileUri, 0))?.convertedImport;
+    }
+
+    beforeEach(() => {
+        setWorkspaceFolders([{ uri: { fsPath: workspaceRoot }, name: "Project", index: 0 }]);
+    });
+
+    afterEach(() => {
+        setWorkspaceFolders(undefined);
+        (vscode.workspace.fs.stat as jest.Mock).mockRejectedValue(new Error("ENOENT"));
+    });
+
+    it("offers no conversion when a namesake sits between the file and the target", async () => {
+        // `using. Weapons` in Content/Systems resolves through Systems first,
+        // where a Weapons of its own is waiting. The file still compiles, and
+        // imports the other module.
+        stubFolderTree(workspaceRoot, ["Weapons", "Systems", "Systems/Weapons"]);
+
+        expect(await relativeFormOf(`${projectVersePath}/Weapons`, fileAt("Systems"))).toBeUndefined();
+    });
+
+    it("offers no conversion when a nearer namesake takes the first segment and carries nothing below it", async () => {
+        // Systems/UI holds no HUD, so `using. UI.HUD.Textures` resolves UI to
+        // the near one and then fails - while the chain it was shortened from
+        // exists whole at the Content root. This is why the first segment is
+        // what gets resolved: matching UI/HUD/Textures as one path finds the
+        // root copy, reports a single location, and confirms a reference the
+        // compiler cannot read.
+        stubFolderTree(workspaceRoot, ["UI", "UI/HUD", "UI/HUD/Textures", "Systems", "Systems/UI"]);
+
+        expect(await relativeFormOf(`${projectVersePath}/UI/HUD/Textures`, fileAt("Systems"))).toBeUndefined();
+    });
+
+    it("keeps a conversion whose only namesake is off the path the compiler walks", async () => {
+        // The other half of that rule: a namesake the scope walk never reaches
+        // is not a reason to refuse.
+        stubFolderTree(workspaceRoot, ["UI", "UI/Weapons", "Systems", "Systems/Weapons"]);
+
+        expect(await relativeFormOf(`${projectVersePath}/Systems/Weapons`, fileAt("Systems"))).toBe("using. Weapons");
+    });
+
+    it.each([
+        ["a foreign account", "/other@fortnite.com/mygame/Gadgets"],
+        ["a sibling project under the same account", "/mygame@fortnite.com/otherproject/Gadgets"],
+    ])("offers no conversion for a path outside the project: %s", async (_name, fullPath) => {
+        // Shortened by whatever prefix it shared, the foreign account emitted
+        // `other@fortnite.com.mygame.Gadgets`, whose first segment cannot lex -
+        // `@` is not an identifier character - and the sibling project emitted
+        // a reference that resolves nowhere here. Both replaced an import that
+        // was already broken with one that no longer converts back.
+        stubFolderTree(workspaceRoot, ["Systems", "Gadgets"]);
+
+        expect(await relativeFormOf(fullPath, fileAt("Systems"))).toBeUndefined();
+    });
+
+    it("keeps two folder names that differ only in case apart", async () => {
+        // The case fold used to run the length of the walk, so `shop` and
+        // `Shop` counted as one segment and the reference came out as `Item` -
+        // shop's own Item, or nothing. Only the project prefix is folded now,
+        // because that is where one package legitimately reaches this code
+        // spelled two ways; below it a segment is a module name the compiler
+        // resolves byte-exact.
+        stubFolderTree(workspaceRoot, ["shop", "Shop", "Shop/Item"]);
+
+        expect(await relativeFormOf(`${projectVersePath}/Shop/Item`, fileAt("shop"))).toBe("using. Shop.Item");
     });
 });
 

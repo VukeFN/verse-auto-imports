@@ -529,6 +529,78 @@ describe("ImportPathConverter.convertFromFullPath scope-relative shortening", ()
     });
 });
 
+// UEFN's shipped project layout puts Verse under
+// <project>/Plugins/<Name>/Content, so a workspace opened at the project root
+// reaches Content three levels down. While the boundary was read at one fixed
+// depth, no file in such a project could be placed, and the placeability guard
+// turned that into a refusal of every conversion the layout offered.
+describe("ImportPathConverter.convertFromFullPath under a nested plugin Content root", () => {
+    const projectVersePath = "/mygame@fortnite.com/mygame";
+    const workspaceRoot = "C:/Project";
+    const contentRoot = `${workspaceRoot}/Plugins/MyGame/Content`;
+
+    /** Answers `fs.stat` from directories named relative to the nested Content root. */
+    function stubNestedFolderTree(folders: string[]): void {
+        (vscode.workspace.fs.stat as jest.Mock).mockImplementation(async (uri: { fsPath: string }) => {
+            const contentRelative = uri.fsPath.replace(/\\/g, "/").replace(`${contentRoot}/`, "");
+            if (!folders.includes(contentRelative)) throw new Error("ENOENT");
+            return { type: vscode.FileType.Directory };
+        });
+    }
+
+    const fileAt = (contentRelativeDir: string): vscode.Uri => vscode.Uri.file(`${contentRoot}/${contentRelativeDir}/Feature.verse`);
+
+    async function relativeFormOf(fullPath: string, fileUri: vscode.Uri): Promise<string | undefined> {
+        const converter = converterWithProjectPath(projectVersePath);
+        return (await converter.convertFromFullPath(`using. ${fullPath}`, fileUri, 0))?.convertedImport;
+    }
+
+    beforeEach(() => {
+        setWorkspaceFolders([{ uri: { fsPath: workspaceRoot }, name: "Project", index: 0 }]);
+        stubNestedFolderTree(["Systems", "Systems/Gadgets", "Systems/Economy", "UI", "UI/HUD"]);
+    });
+
+    afterEach(() => {
+        setWorkspaceFolders(undefined);
+        (vscode.workspace.fs.stat as jest.Mock).mockRejectedValue(new Error("ENOENT"));
+    });
+
+    it("names a module in the importing file's own module by its bare name", async () => {
+        expect(await relativeFormOf(`${projectVersePath}/Systems/Gadgets`, fileAt("Systems"))).toBe("using. Gadgets");
+    });
+
+    it("keeps every segment below the root when the two branches part at the Content root", async () => {
+        expect(await relativeFormOf(`${projectVersePath}/UI/HUD`, fileAt("Systems/Economy"))).toBe("using. UI.HUD");
+    });
+
+    it("shortens against the project root for a file at the nested Content root itself", async () => {
+        expect(await relativeFormOf(`${projectVersePath}/Systems/Gadgets`, vscode.Uri.file(`${contentRoot}/Feature.verse`))).toBe("using. Systems.Gadgets");
+    });
+
+    it("restores the absolute path the relative form was shortened from", async () => {
+        const converter = converterWithProjectPath(projectVersePath);
+        const fileUri = fileAt("Systems");
+        const absolute = `using. ${projectVersePath}/Systems/Gadgets`;
+
+        const relative = await converter.convertFromFullPath(absolute, fileUri, 0);
+
+        expect((await converter.convertToFullPath(relative!.convertedImport, fileUri, 0))?.convertedImport).toBe(absolute);
+    });
+
+    it("takes the shallowest Content as the root, not a folder module named Content below it", async () => {
+        // A Content under the root is an ordinary folder module. Reading the
+        // nearest one as the root instead would address this file at the
+        // project root and name the target Content.Widgets from inside it.
+        stubNestedFolderTree(["Content", "Content/Widgets"]);
+
+        expect(await relativeFormOf(`${projectVersePath}/Content/Widgets`, fileAt("Content"))).toBe("using. Widgets");
+    });
+
+    it("offers no conversion for a file no Content root in the project holds", async () => {
+        expect(await relativeFormOf(`${projectVersePath}/Systems/Gadgets`, vscode.Uri.file(`${workspaceRoot}/Plugins/MyGame/Feature.verse`))).toBeUndefined();
+    });
+});
+
 // The relative form is a proposal until the module search confirms it names
 // the module the absolute path named. Before that check, going relative was
 // string arithmetic that consulted nothing, so every case below wrote a

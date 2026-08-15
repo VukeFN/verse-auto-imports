@@ -249,6 +249,46 @@ export class ImportPathConverter {
     }
 
     /**
+     * Where the project's Content root sits inside the workspace folder and
+     * where the file sits under that root, both as forward-slash paths with
+     * `""` for the enclosing directory itself, or null when no directory on
+     * the way down to the file is a Content root.
+     *
+     * The root is looked for along that whole path rather than read at a fixed
+     * depth, because UEFN's shipped layout puts Verse under
+     * `<project>/Plugins/<Name>/Content`: a workspace opened at the project
+     * root reaches Content three levels down, and a boundary that only admits
+     * depth zero places no file in such a project at all.
+     *
+     * The shallowest Content wins rather than the nearest. A Content below the
+     * root is an ordinary folder module, and taking that one as the root would
+     * address every file under it one scope too low.
+     */
+    private static placeUnderContentRoot(workspaceFolderPath: string, documentPath: string): { contentRootRelative: string; fileDirRelative: string } | null {
+        const relativeFilePath = path.relative(workspaceFolderPath, documentPath).replace(/\\/g, "/");
+
+        // path.relative climbs out with `..` for a file the folder does not
+        // hold, and a Content segment past that point belongs to some other
+        // tree - the placement has to be inside the folder to mean anything.
+        if (relativeFilePath.startsWith("../")) return null;
+
+        const fileDir = path.dirname(relativeFilePath).replace(/\\/g, "/");
+        const dirSegments = fileDir === "" || fileDir === "." ? [] : fileDir.split("/");
+
+        if (path.basename(workspaceFolderPath) === CONTENT_FOLDER) {
+            return { contentRootRelative: "", fileDirRelative: dirSegments.join("/") };
+        }
+
+        const rootIndex = dirSegments.indexOf(CONTENT_FOLDER);
+        if (rootIndex < 0) return null;
+
+        return {
+            contentRootRelative: dirSegments.slice(0, rootIndex + 1).join("/"),
+            fileDirRelative: dirSegments.slice(rootIndex + 1).join("/"),
+        };
+    }
+
+    /**
      * Appends the locations where a folder of this name sits, searched outwards
      * from the current file: siblings first, then each ancestor directory, then
      * the Content root. A folder is an implicit module, so its presence is the
@@ -261,31 +301,24 @@ export class ImportPathConverter {
         const workspaceFolder = vscode.workspace.getWorkspaceFolder(currentFileUri);
         if (!workspaceFolder) return;
 
-        const currentFilePath = path.relative(workspaceFolder.uri.fsPath, currentFileUri.fsPath).replace(/\\/g, "/");
-        let currentFileDir = path.dirname(currentFilePath).replace(/\\/g, "/");
+        const placement = ImportPathConverter.placeUnderContentRoot(workspaceFolder.uri.fsPath, currentFileUri.fsPath);
+        if (!placement) return;
 
-        const workspaceFolderName = path.basename(workspaceFolder.uri.fsPath);
-        const workspaceFolderIsContent = workspaceFolderName === CONTENT_FOLDER;
-
-        // Every path below is reasoned about with a leading Content/, so a
-        // workspace opened at Content itself has that segment put back on.
-        if (workspaceFolderIsContent) {
-            currentFileDir = currentFileDir === "" || currentFileDir === "." ? CONTENT_FOLDER : `${CONTENT_FOLDER}/${currentFileDir}`;
-        }
-
-        if (!currentFileDir.startsWith(`${CONTENT_FOLDER}/`) && currentFileDir !== CONTENT_FOLDER) {
-            return;
-        }
+        // Every path below is reasoned about with a leading Content/, whatever
+        // depth the root really sits at, so the logical and on-disk spellings
+        // of one directory differ by that prefix alone.
+        const currentFileDir = placement.fileDirRelative ? `${CONTENT_FOLDER}/${placement.fileDirRelative}` : CONTENT_FOLDER;
 
         const dirSegments = currentFileDir.split("/");
 
         // The inverse of that: a filesystem check is made against the
-        // workspace, which in this layout is already inside Content.
+        // workspace, so the logical prefix is swapped back for wherever the
+        // Content root actually sits under it.
         const getFsCheckPath = (logicalPath: string): string => {
-            if (workspaceFolderIsContent && logicalPath.startsWith(`${CONTENT_FOLDER}/`)) {
-                return logicalPath.substring(CONTENT_FOLDER.length + 1);
-            }
-            return logicalPath;
+            if (logicalPath === CONTENT_FOLDER) return placement.contentRootRelative;
+
+            const belowRoot = logicalPath.substring(CONTENT_FOLDER.length + 1);
+            return placement.contentRootRelative ? `${placement.contentRootRelative}/${belowRoot}` : belowRoot;
         };
 
         // The file's own directory first, and nearest of all: a folder beside
@@ -653,20 +686,10 @@ export class ImportPathConverter {
         const workspaceFolder = vscode.workspace.getWorkspaceFolder(documentUri);
         if (!workspaceFolder) return null;
 
-        const relativeFilePath = path.relative(workspaceFolder.uri.fsPath, documentUri.fsPath).replace(/\\/g, "/");
-        let fileDir = path.dirname(relativeFilePath).replace(/\\/g, "/");
+        const placement = ImportPathConverter.placeUnderContentRoot(workspaceFolder.uri.fsPath, documentUri.fsPath);
+        if (!placement) return null;
 
-        // Every path below is reasoned about with a leading Content/, so a
-        // workspace opened at Content itself has that segment put back on -
-        // the same correction searchImplicitModules makes.
-        if (path.basename(workspaceFolder.uri.fsPath) === CONTENT_FOLDER) {
-            fileDir = fileDir === "" || fileDir === "." ? CONTENT_FOLDER : `${CONTENT_FOLDER}/${fileDir}`;
-        }
-
-        if (fileDir === CONTENT_FOLDER) return projectVersePath;
-        if (!fileDir.startsWith(`${CONTENT_FOLDER}/`)) return null;
-
-        return `${projectVersePath}/${fileDir.substring(CONTENT_FOLDER.length + 1)}`;
+        return placement.fileDirRelative ? `${projectVersePath}/${placement.fileDirRelative}` : projectVersePath;
     }
 
     /**

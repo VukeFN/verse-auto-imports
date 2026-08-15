@@ -868,7 +868,7 @@ export class ImportPathConverter {
             return null;
         }
 
-        const projectVersePath = await this.projectPathHandler.getProjectVersePath();
+        const projectVersePath = await this.projectPathHandler.getProjectVersePath(documentUri);
         if (!projectVersePath) {
             return null;
         }
@@ -1000,7 +1000,7 @@ export class ImportPathConverter {
 
         const { fullPath: modulePath, moduleName } = moduleInfo;
 
-        const projectVersePath = await this.projectPathHandler.getProjectVersePath();
+        const projectVersePath = await this.projectPathHandler.getProjectVersePath(documentUri);
         if (!projectVersePath) {
             vscode.window.showWarningMessage("Could not find .uefnproject file in workspace. Please ensure you have a valid UEFN project.");
             return null;

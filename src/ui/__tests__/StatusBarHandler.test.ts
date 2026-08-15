@@ -167,3 +167,57 @@ describe("StatusBarHandler teardown", () => {
         expect(listener.dispose).toHaveBeenCalledTimes(1);
     });
 });
+
+// The icon id below must stay in step with the contributes.icons entry in
+// package.json; statusBarIcon.test.ts pins that entry against the font itself.
+describe("StatusBarHandler display", () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+        jest.clearAllMocks();
+    });
+
+    function makeItem(): { handler: StatusBarHandler; item: { text: string; tooltip: string } } {
+        const handler = new StatusBarHandler(vscode.window.createOutputChannel("test"));
+        const item = (vscode.window.createStatusBarItem as jest.Mock).mock.results[0].value as {
+            text: string;
+            tooltip: string;
+        };
+        return { handler, item };
+    }
+
+    it("shows the icon glyph alone when idle", () => {
+        expect(makeItem().item.text).toBe("$(verse-imports-icon)");
+    });
+
+    // While snoozed the countdown is the only visible sign that imports are
+    // paused, so it must survive the move to an icon-only label.
+    it("keeps the snooze countdown beside the icon", () => {
+        const { handler, item } = makeItem();
+
+        handler.startSnooze(5);
+        expect(item.text).toBe("$(verse-imports-icon) 5:00");
+
+        jest.advanceTimersByTime(90 * 1000);
+        expect(item.text).toBe("$(verse-imports-icon) 3:30");
+    });
+
+    it("returns to the bare icon when the snooze is cancelled", () => {
+        const { handler, item } = makeItem();
+        handler.startSnooze(5);
+
+        handler.cancelSnooze();
+
+        expect(item.text).toBe("$(verse-imports-icon)");
+    });
+
+    // With no text label left, the tooltip is the only hover identification.
+    it("names the item in the tooltip", () => {
+        expect(makeItem().item.tooltip).toBe("Verse Auto Imports");
+    });
+});

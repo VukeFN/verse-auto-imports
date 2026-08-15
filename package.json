@@ -35,7 +35,7 @@
         "description": "Verse Auto Imports icon",
         "default": {
           "fontPath": "media/icon.woff",
-          "fontCharacter": "\\e800"
+          "fontCharacter": "\\e900"
         }
       }
     },

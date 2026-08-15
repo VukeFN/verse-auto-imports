@@ -290,9 +290,10 @@ export function lexVerseLine(line: string, state: LexState, trackLiterals: boole
         //
         // The tail keeps being lexed rather than consumed here: the comment ends
         // with the line, but a `<#` written in it opens a block that does not.
-        // The `#` itself is taken first, so the `#>` of a `#>` opening the line
-        // cannot also be read as closing a block - at line-comment place that is
-        // error S05 rather than a closer.
+        // The `#` itself is taken first, so a line opening `#>` cannot also be
+        // read as closing a block - `LineCmt := '#' !'>'` (:2016) declines to
+        // open a comment on one at all, and outside a block comment it is error
+        // S05, so there is no depth for it to close.
         if (line[i] === "#" && innermost?.kind !== "literal") {
             insideLineComment = true;
             commentChar();

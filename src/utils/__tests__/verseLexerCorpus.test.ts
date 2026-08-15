@@ -154,9 +154,10 @@ const probes: Probe[] = [
     },
     {
         // The `<#>` arm falls to three characters of text at line-comment place,
-        // so this opens neither a block nor a body. It has to be tested before
-        // the `<#` above or the tail reads as an opener that never closes, and
-        // the indented line below is what tells the two mistakes apart.
+        // so this opens neither a block nor a body. The lexer has to test it
+        // before it tests `<#`, or the tail reads as an opener that never
+        // closes; the indented line below is what tells the two mistakes apart,
+        // since only the marker reading leaves the line after it live.
         name: "a `<#>` inside a line comment opens nothing over the lines below it",
         source: "# D1 <#> D2\n    L1 := 1\nL2 := 2\n",
         live: ["L1", "L2"],

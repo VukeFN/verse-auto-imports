@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { logger } from "../utils";
+import { logger, settingsFor, writeSetting } from "../utils";
 
 interface QuickPickItemWithAction extends vscode.QuickPickItem {
     /** What selecting the item does. Separators and labels carry none. */
@@ -46,7 +46,7 @@ export class StatusBarHandler {
                 // field, not isSnoozeActive(): the question here is whether
                 // there is any snooze to clear, an expired one included.
                 if (event.affectsConfiguration("verseAutoImports.general.autoImport") && this.snoozeEndTime !== null) {
-                    const config = vscode.workspace.getConfiguration("verseAutoImports");
+                    const config = settingsFor();
                     const autoImportEnabled = config.get<boolean>("general.autoImport", true);
 
                     if (autoImportEnabled) {
@@ -99,7 +99,10 @@ export class StatusBarHandler {
      * setting changed elsewhere is reflected the next time it is shown.
      */
     async showMenu(): Promise<void> {
-        const config = vscode.workspace.getConfiguration("verseAutoImports");
+        // The rows describe what will happen to the file in front of the user,
+        // so the settings behind them are read for that file.
+        const resource = vscode.window.activeTextEditor?.document.uri;
+        const config = settingsFor(resource);
         const autoImportEnabled = config.get<boolean>("general.autoImport", true);
         const preserveLocations = config.get<boolean>("behavior.preserveImportLocations", true);
         const useDigestFiles = config.get<boolean>("experimental.useDigestFiles", false);
@@ -144,9 +147,11 @@ export class StatusBarHandler {
         items.push({
             label: toggleIcon(autoImportEnabled, "Auto Import"),
             description: autoImportDescription,
+            // Through the command rather than a second write of the same
+            // setting: the command re-reads at click time, where the row's
+            // captured value is a snapshot from when the menu opened.
             action: async () => {
-                await config.update("general.autoImport", !autoImportEnabled, vscode.ConfigurationTarget.Global);
-                logger.debug("StatusBarHandler", `Auto import toggled: ${!autoImportEnabled}`);
+                await vscode.commands.executeCommand("verseAutoImports.toggleAutoImport");
             },
         });
 
@@ -187,16 +192,17 @@ export class StatusBarHandler {
             label: toggleIcon(preserveLocations, "Preserve Import Locations"),
             description: preserveLocations ? "Keep imports in place" : "Consolidate at top",
             action: async () => {
-                await config.update("behavior.preserveImportLocations", !preserveLocations, vscode.ConfigurationTarget.Global);
-                logger.debug("StatusBarHandler", `Preserve import locations toggled: ${!preserveLocations}`);
+                await vscode.commands.executeCommand("verseAutoImports.togglePreserveLocations");
             },
         });
 
         items.push({
             label: toggleIcon(sortImports, "Sort Imports Alphabetically"),
             description: sortImports ? "Sorted A-Z" : "Original order preserved",
+            // No registered command backs this one, so it writes through the
+            // settings module directly.
             action: async () => {
-                await config.update("behavior.sortImportsAlphabetically", !sortImports, vscode.ConfigurationTarget.Global);
+                await writeSetting("behavior.sortImportsAlphabetically", !sortImports, resource);
                 logger.debug("StatusBarHandler", `Sort imports alphabetically toggled: ${!sortImports}`);
             },
         });
@@ -232,9 +238,7 @@ export class StatusBarHandler {
             label: toggleIcon(isDotSyntax, "Dot Syntax (using.)"),
             description: isDotSyntax ? "using. /Path" : "using { /Path }",
             action: async () => {
-                const newSyntax = isDotSyntax ? "curly" : "dot";
-                await config.update("behavior.importSyntax", newSyntax, vscode.ConfigurationTarget.Global);
-                logger.debug("StatusBarHandler", `Import syntax changed to: ${newSyntax}`);
+                await vscode.commands.executeCommand("verseAutoImports.toggleImportSyntax");
             },
         });
 
@@ -247,8 +251,7 @@ export class StatusBarHandler {
             label: toggleIcon(showCodeLens, "Path Conversion Helper"),
             description: showCodeLens ? "Enabled" : "Disabled",
             action: async () => {
-                await config.update("pathConversion.enableCodeLens", !showCodeLens, vscode.ConfigurationTarget.Global);
-                logger.debug("StatusBarHandler", `Path conversion CodeLens toggled: ${!showCodeLens}`);
+                await vscode.commands.executeCommand("verseAutoImports.toggleFullPathCodeLens");
             },
         });
 
@@ -270,8 +273,7 @@ export class StatusBarHandler {
             label: toggleIcon(useDigestFiles, "Use Digest Files"),
             description: useDigestFiles ? "Enabled" : "Disabled",
             action: async () => {
-                await config.update("experimental.useDigestFiles", !useDigestFiles, vscode.ConfigurationTarget.Global);
-                logger.debug("StatusBarHandler", `Use digest files toggled: ${!useDigestFiles}`);
+                await vscode.commands.executeCommand("verseAutoImports.toggleDigestFiles");
             },
         });
 
@@ -321,7 +323,8 @@ export class StatusBarHandler {
 
     /** Shows the import-grouping submenu, and returns to the main menu on Back. */
     async showImportGroupingMenu(): Promise<void> {
-        const config = vscode.workspace.getConfiguration("verseAutoImports");
+        const resource = vscode.window.activeTextEditor?.document.uri;
+        const config = settingsFor(resource);
         const currentGrouping = config.get<string>("behavior.importGrouping", "none");
 
         const items: QuickPickItemWithAction[] = [];
@@ -343,7 +346,7 @@ export class StatusBarHandler {
             label: toggleIcon(currentGrouping === "none", "No Grouping"),
             description: "All imports mixed together (default)",
             action: async () => {
-                await config.update("behavior.importGrouping", "none", vscode.ConfigurationTarget.Global);
+                await writeSetting("behavior.importGrouping", "none", resource);
                 logger.debug("StatusBarHandler", "Import grouping changed to: none");
                 vscode.window.showInformationMessage("Import grouping disabled");
             },
@@ -353,7 +356,7 @@ export class StatusBarHandler {
             label: toggleIcon(currentGrouping === "digestFirst", "Digest First"),
             description: "Digest imports (/Verse.org, /Fortnite.com, /UnrealEngine.com), then local imports",
             action: async () => {
-                await config.update("behavior.importGrouping", "digestFirst", vscode.ConfigurationTarget.Global);
+                await writeSetting("behavior.importGrouping", "digestFirst", resource);
                 logger.debug("StatusBarHandler", "Import grouping changed to: digestFirst");
                 vscode.window.showInformationMessage("Import grouping: Digest imports first");
             },
@@ -363,7 +366,7 @@ export class StatusBarHandler {
             label: toggleIcon(currentGrouping === "localFirst", "Local First"),
             description: "Local imports, then digest imports",
             action: async () => {
-                await config.update("behavior.importGrouping", "localFirst", vscode.ConfigurationTarget.Global);
+                await writeSetting("behavior.importGrouping", "localFirst", resource);
                 logger.debug("StatusBarHandler", "Import grouping changed to: localFirst");
                 vscode.window.showInformationMessage("Import grouping: Local imports first");
             },
@@ -386,7 +389,7 @@ export class StatusBarHandler {
 
     /** Shows the CodeLens visibility submenu, and returns to the main menu on Back. */
     async showCodeLensVisibilityMenu(): Promise<void> {
-        const config = vscode.workspace.getConfiguration("verseAutoImports");
+        const config = settingsFor();
         const currentVisibility = config.get<string>("pathConversion.codeLensVisibility", "hover");
 
         const items: QuickPickItemWithAction[] = [];
@@ -408,7 +411,7 @@ export class StatusBarHandler {
             label: toggleIcon(currentVisibility === "hover", "Hover Only"),
             description: "Show only when hovering over imports (default)",
             action: async () => {
-                await config.update("pathConversion.codeLensVisibility", "hover", vscode.ConfigurationTarget.Global);
+                await writeSetting("pathConversion.codeLensVisibility", "hover");
                 logger.debug("StatusBarHandler", "CodeLens visibility changed to: hover");
                 vscode.window.showInformationMessage("CodeLens visibility: Hover only");
             },
@@ -418,7 +421,7 @@ export class StatusBarHandler {
             label: toggleIcon(currentVisibility === "always", "Always Visible"),
             description: "Always show above import statements",
             action: async () => {
-                await config.update("pathConversion.codeLensVisibility", "always", vscode.ConfigurationTarget.Global);
+                await writeSetting("pathConversion.codeLensVisibility", "always");
                 logger.debug("StatusBarHandler", "CodeLens visibility changed to: always");
                 vscode.window.showInformationMessage("CodeLens visibility: Always visible");
             },

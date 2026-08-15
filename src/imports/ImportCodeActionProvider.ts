@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { logger } from "../utils";
+import { logger, settingsFor } from "../utils";
 import { ImportSuggestion } from "../types";
 import { ImportHandler } from "./ImportHandler";
 
@@ -24,7 +24,7 @@ export class ImportCodeActionProvider implements vscode.CodeActionProvider {
      */
     async provideCodeActions(document: vscode.TextDocument, range: vscode.Range, context: vscode.CodeActionContext, token: vscode.CancellationToken): Promise<vscode.CodeAction[] | undefined> {
         const codeActions: vscode.CodeAction[] = [];
-        const config = vscode.workspace.getConfiguration("verseAutoImports");
+        const config = settingsFor(document.uri);
         const sortAlphabetically = config.get<boolean>("quickFix.sortAlphabetically", false);
         // Only a caller with no registered setting behind it, such as a test,
         // ever sees this fallback - config.get returns the registered default

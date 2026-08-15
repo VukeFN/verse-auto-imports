@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { logger } from "../utils";
+import { logger, settingsFor } from "../utils";
 import { ImportSuggestion } from "../types";
 import { ImportHandler } from "../imports";
 
@@ -152,7 +152,7 @@ export class DiagnosticsHandler {
 
                 logger.debug("DiagnosticsHandler", `Processing diagnostics for ${displayName} after delay`);
 
-                const config = vscode.workspace.getConfiguration("verseAutoImports");
+                const config = settingsFor(document.uri);
                 const autoImportEnabled = config.get<boolean>("general.autoImport", true) && !this.isAutoImportSuppressed();
                 const multiOptionStrategy = config.get<string>("behavior.multiOptionStrategy", "quickfix");
 

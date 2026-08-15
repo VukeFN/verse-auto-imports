@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { logger, collectEnvironment, formatHostSummary, readSessionState } from "./utils";
+import { logger, collectEnvironment, formatHostSummary, readSessionState, settingsFor, explicitSetting } from "./utils";
 import { DiagnosticsHandler } from "./diagnostics";
 import { ImportHandler, ImportPathConverter, ImportCodeActionProvider, ImportOrganizeCodeActionProvider, ImportCodeLensProvider, ImportFormatter } from "./imports";
 import { CommandsHandler, CommandsDependencies } from "./commands";
@@ -17,18 +17,6 @@ const CACHE_SETTING = "cache.enableProjectCache";
 const CACHE_SETTING_DEFAULT = true;
 
 /**
- * Reads the explicit user-set value of a setting, ignoring its registered
- * default. config.get cannot distinguish the two: for a registered setting it
- * returns the package.json default instead of the passed fallback.
- * Language-scoped values ("[verse]" blocks) are intentionally not consulted;
- * the config is fetched without a scope, so they have never applied here.
- */
-function getExplicitSetting(config: vscode.WorkspaceConfiguration, key: string): number | undefined {
-    const info = config.inspect<number>(key);
-    return info?.workspaceFolderValue ?? info?.workspaceValue ?? info?.globalValue;
-}
-
-/**
  * The debounce delay in milliseconds, honouring the deprecated
  * diagnosticDelay setting. Only explicit overrides are considered, so
  * diagnosticDelay's registered default (1000) cannot shadow
@@ -36,11 +24,11 @@ function getExplicitSetting(config: vscode.WorkspaceConfiguration, key: string):
  * explicit legacy value.
  */
 function getConfiguredDebounceDelay(config: vscode.WorkspaceConfiguration): number {
-    const explicitDelay = getExplicitSetting(config, "general.autoImportDebounceDelay");
+    const explicitDelay = explicitSetting(config, "general.autoImportDebounceDelay");
     if (explicitDelay !== undefined) {
         return explicitDelay;
     }
-    const explicitLegacyDelay = getExplicitSetting(config, "general.diagnosticDelay");
+    const explicitLegacyDelay = explicitSetting(config, "general.diagnosticDelay");
     if (explicitLegacyDelay !== undefined) {
         return explicitLegacyDelay;
     }
@@ -73,7 +61,7 @@ export function activate(context: vscode.ExtensionContext) {
     // StatusBarHandler showing the channel.
     const outputChannel = logger.getUserChannel();
 
-    const config = vscode.workspace.getConfiguration("verseAutoImports");
+    const config = settingsFor();
     const cacheEnabled = config.get<boolean>(CACHE_SETTING, CACHE_SETTING_DEFAULT);
 
     logger.debug("Extension", "Creating handlers");
@@ -169,7 +157,7 @@ export function activate(context: vscode.ExtensionContext) {
             { language: "verse" },
             {
                 provideHover(document, position) {
-                    const config = vscode.workspace.getConfiguration("verseAutoImports");
+                    const config = settingsFor(document.uri);
                     if (!config.get<boolean>("pathConversion.enableCodeLens", true)) {
                         return null;
                     }
@@ -197,7 +185,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration((event) => {
             if (event.affectsConfiguration("verseAutoImports.general.diagnosticDelay") || event.affectsConfiguration("verseAutoImports.general.autoImportDebounceDelay")) {
-                const newConfig = vscode.workspace.getConfiguration("verseAutoImports");
+                const newConfig = settingsFor();
                 const finalDelay = getConfiguredDebounceDelay(newConfig);
                 diagnosticsHandler.setDelay(finalDelay);
                 logger.info("Extension", `Debounce delay updated to ${finalDelay}ms`);
@@ -215,7 +203,7 @@ export function activate(context: vscode.ExtensionContext) {
             }
             // A change back to what activation captured needs no reload; the
             // window already behaves the way the setting now reads.
-            const newValue = vscode.workspace.getConfiguration("verseAutoImports").get<boolean>(CACHE_SETTING, CACHE_SETTING_DEFAULT);
+            const newValue = settingsFor().get<boolean>(CACHE_SETTING, CACHE_SETTING_DEFAULT);
             if (newValue === cacheEnabled) {
                 return;
             }
@@ -264,7 +252,7 @@ export function activate(context: vscode.ExtensionContext) {
             // again when its timer fires, and that read is the authoritative
             // one - hoisting it up here would be a different change, and a wrong
             // one, since it is what makes a mid-loop toggle harmless.
-            const config = vscode.workspace.getConfiguration("verseAutoImports");
+            const config = settingsFor();
             const scope = config.get<string>("general.autoImportScope", "allFiles");
             const autoImportEnabled = config.get<boolean>("general.autoImport", true);
             const visibility = !DiagnosticsHandler.scopeRestrictsDocuments(scope)

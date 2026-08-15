@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { logger } from "../utils";
+import { logger, settingsFor } from "../utils";
 import { ProjectPathHandler } from "../project";
 import { ProjectPathScanner } from "./ProjectPathScanner";
 import { PROJECT_CACHE_VERSION, ProjectPathData, ProjectPathNode, SerializedProjectPathCache } from "../types";
@@ -43,7 +43,7 @@ export class ProjectPathCache {
      * next file change instead of waiting for a window reload.
      */
     private getDebounceMs(): number {
-        return vscode.workspace.getConfiguration("verseAutoImports").get<number>("cache.watcherDebounceMs", ProjectPathCache.DEBOUNCE_MS);
+        return settingsFor().get<number>("cache.watcherDebounceMs", ProjectPathCache.DEBOUNCE_MS);
     }
 
     /**
@@ -66,7 +66,7 @@ export class ProjectPathCache {
         logger.info("ProjectPathCache", "Initializing project path cache...");
 
         try {
-            const autoRebuild = vscode.workspace.getConfiguration("verseAutoImports").get<boolean>("cache.autoRebuildOnStartup", ProjectPathCache.AUTO_REBUILD_ON_STARTUP);
+            const autoRebuild = settingsFor().get<boolean>("cache.autoRebuildOnStartup", ProjectPathCache.AUTO_REBUILD_ON_STARTUP);
 
             if (autoRebuild) {
                 logger.info("ProjectPathCache", "cache.autoRebuildOnStartup is on, rebuilding instead of loading the stored cache...");

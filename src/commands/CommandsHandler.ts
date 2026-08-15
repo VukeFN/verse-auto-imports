@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { logger } from "../utils";
+import { logger, settingsFor, writeSetting } from "../utils";
 import { ImportHandler, ImportPathConverter, ImportCodeLensProvider } from "../imports";
 import { StatusBarHandler } from "../ui";
 import { ProjectPathCache } from "../services";
@@ -244,10 +244,13 @@ export class CommandsHandler {
      */
     private async toggleConfig<T>(configKey: string, toggleFn?: (current: T) => T): Promise<void> {
         try {
-            const config = vscode.workspace.getConfiguration("verseAutoImports");
-            const current = config.get<T>(configKey);
+            // Scoped to the file in front of the user, so a resource-scoped
+            // setting is read and written for the folder they are working in
+            // rather than for whichever folder happens to be first.
+            const resource = vscode.window.activeTextEditor?.document.uri;
+            const current = settingsFor(resource).get<T>(configKey);
             const newValue = toggleFn ? toggleFn(current as T) : !current;
-            await config.update(configKey, newValue, vscode.ConfigurationTarget.Global);
+            await writeSetting(configKey, newValue, resource);
             this.deps.statusBarHandler.updateDisplay();
         } catch (error) {
             logger.error("CommandsHandler", `Failed to toggle ${configKey}`, error);

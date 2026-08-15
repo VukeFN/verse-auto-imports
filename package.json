@@ -182,24 +182,28 @@
       "title": "Verse Auto Imports",
       "properties": {
         "verseAutoImports.general.autoImport": {
+          "scope": "resource",
           "type": "boolean",
           "default": true,
           "description": "Automatically add missing imports when errors are detected",
           "order": 1
         },
         "verseAutoImports.general.diagnosticDelay": {
+          "scope": "window",
           "type": "number",
           "default": 1000,
           "description": "[DEPRECATED - Use autoImportDebounceDelay instead] Delay in milliseconds before processing diagnostics",
           "order": 2
         },
         "verseAutoImports.general.autoImportDebounceDelay": {
+          "scope": "window",
           "type": "number",
           "default": 3000,
           "description": "Debounce delay in milliseconds before auto-importing. Waits for this duration after the last diagnostic change before triggering auto-imports (while you're typing).",
           "order": 3
         },
         "verseAutoImports.general.autoImportScope": {
+          "scope": "window",
           "type": "string",
           "enum": [
             "allFiles",
@@ -211,6 +215,7 @@
           "order": 4
         },
         "verseAutoImports.behavior.importSyntax": {
+          "scope": "resource",
           "type": "string",
           "enum": [
             "curly",
@@ -221,18 +226,21 @@
           "order": 10
         },
         "verseAutoImports.behavior.preserveImportLocations": {
+          "scope": "resource",
           "type": "boolean",
           "default": true,
           "description": "When true, keeps existing imports where they are and only adds new imports at the top. When false, consolidates all imports at the top of the file.",
           "order": 11
         },
         "verseAutoImports.behavior.sortImportsAlphabetically": {
+          "scope": "resource",
           "type": "boolean",
           "default": true,
           "description": "When true, sorts imports: absolute paths and dotted references alphabetically, while bare local imports keep their relative order and precede dotted ones to preserve Verse's top-down using resolution. When false, preserves the original order.",
           "order": 12
         },
         "verseAutoImports.behavior.importGrouping": {
+          "scope": "resource",
           "type": "string",
           "enum": [
             "none",
@@ -244,6 +252,7 @@
           "order": 13
         },
         "verseAutoImports.behavior.emptyLinesAfterImports": {
+          "scope": "resource",
           "type": "integer",
           "default": 1,
           "minimum": -1,
@@ -252,12 +261,14 @@
           "order": 14
         },
         "verseAutoImports.behavior.ambiguousImports": {
+          "scope": "window",
           "type": "object",
           "default": {},
           "description": "Mappings for class names that appear in multiple modules. Format: {\"className\": \"preferredModulePath\"}",
           "order": 15
         },
         "verseAutoImports.behavior.multiOptionStrategy": {
+          "scope": "resource",
           "type": "string",
           "enum": [
             "quickfix",
@@ -270,6 +281,7 @@
           "order": 16
         },
         "verseAutoImports.behavior.digestImportPrefixes": {
+          "scope": "window",
           "type": "array",
           "items": {
             "type": "string"
@@ -283,24 +295,28 @@
           "order": 17
         },
         "verseAutoImports.quickFix.sortAlphabetically": {
+          "scope": "resource",
           "type": "boolean",
           "default": false,
           "description": "When true, sorts quick fix options alphabetically. When false, preserves original order.",
           "order": 20
         },
         "verseAutoImports.quickFix.showDescriptions": {
+          "scope": "resource",
           "type": "boolean",
           "default": false,
           "description": "Show descriptive text in quick fix menu items (e.g., 'class from /Fortnite.com/Devices')",
           "order": 21
         },
         "verseAutoImports.pathConversion.enableCodeLens": {
+          "scope": "resource",
           "type": "boolean",
           "default": true,
           "description": "Show CodeLens actions above import statements to convert between absolute and relative paths",
           "order": 30
         },
         "verseAutoImports.pathConversion.codeLensVisibility": {
+          "scope": "window",
           "type": "string",
           "enum": [
             "hover",
@@ -311,6 +327,7 @@
           "order": 31
         },
         "verseAutoImports.pathConversion.codeLensHideDelay": {
+          "scope": "window",
           "type": "number",
           "default": 1000,
           "minimum": 500,
@@ -319,30 +336,35 @@
           "order": 32
         },
         "verseAutoImports.moduleVisibility.definitionsFileName": {
+          "scope": "resource",
           "type": "string",
           "default": "_definitions.verse",
           "description": "Name of the file at the Content root that the 'Make Module Public' quick fix writes <public> module declarations into. Existing declarations elsewhere in the project are edited in place instead, whatever this is set to.",
           "order": 35
         },
         "verseAutoImports.experimental.useDigestFiles": {
+          "scope": "window",
           "type": "boolean",
           "default": false,
           "description": "⚠️ Enable lookup of unknown identifiers in Verse digest files for intelligent import suggestions",
           "order": 40
         },
         "verseAutoImports.cache.enableProjectCache": {
+          "scope": "window",
           "type": "boolean",
           "default": true,
           "description": "Enable project path tree caching for faster module resolution (requires a window reload to take effect)",
           "order": 50
         },
         "verseAutoImports.cache.autoRebuildOnStartup": {
+          "scope": "window",
           "type": "boolean",
           "default": false,
           "description": "Automatically rebuild the project cache when VS Code starts (slower startup but ensures fresh cache)",
           "order": 51
         },
         "verseAutoImports.cache.watcherDebounceMs": {
+          "scope": "window",
           "type": "number",
           "default": 500,
           "minimum": 100,

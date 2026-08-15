@@ -510,6 +510,9 @@ describe("CommandsHandler failure logging", () => {
     const WORKING_CONFIGURATION = {
         get: jest.fn().mockImplementation((_key: string, defaultValue?: unknown) => defaultValue),
         update: jest.fn().mockResolvedValue(undefined),
+        // The write target is derived from inspect(), so a configuration stub
+        // without it throws before the write is reached.
+        inspect: jest.fn().mockReturnValue(undefined),
     };
 
     let errors: jest.SpyInstance;
@@ -548,6 +551,7 @@ describe("CommandsHandler failure logging", () => {
             (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
                 get: jest.fn().mockReturnValue(false),
                 update: jest.fn().mockRejectedValue(new Error("EACCES: settings.json is read-only")),
+                inspect: jest.fn().mockReturnValue(undefined),
             });
         }
 

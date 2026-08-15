@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { logger } from "../utils";
+import { logger, settingsFor } from "../utils";
 import { DiagnosticLinesByPath, DiagnosticLinesByStatement } from "../types";
 import { ImportFormatter } from "./ImportFormatter";
 import { QueuedEdit, verifyImportEdits, verifyOrganizedRewrite } from "./ImportRewriteGuard";
@@ -639,7 +639,7 @@ export class ImportDocumentEditor {
     async addImportsToDocument(document: vscode.TextDocument, importStatements: string[], diagnosticLinesByStatement?: DiagnosticLinesByStatement): Promise<boolean> {
         logger.info("ImportDocumentEditor", `Adding ${importStatements.length} import statements to document`);
 
-        const config = vscode.workspace.getConfiguration("verseAutoImports");
+        const config = settingsFor(document.uri);
         const preferDotSyntax = config.get<string>("behavior.importSyntax", "curly") === "dot";
         const preserveImportLocations = config.get<boolean>("behavior.preserveImportLocations", true);
         const sortAlphabetically = config.get<boolean>("behavior.sortImportsAlphabetically", true);
@@ -1313,7 +1313,7 @@ export class ImportDocumentEditor {
      * addImportsToDocument this reorganizes even when nothing new is added.
      */
     async organizeImports(document: vscode.TextDocument, additionalPaths: string[], diagnosticLinesByPath: DiagnosticLinesByPath = NO_DIAGNOSTIC_LINES): Promise<boolean> {
-        const config = vscode.workspace.getConfiguration("verseAutoImports");
+        const config = settingsFor(document.uri);
         const preferDotSyntax = config.get<string>("behavior.importSyntax", "curly") === "dot";
         const sortAlphabetically = config.get<boolean>("behavior.sortImportsAlphabetically", true);
         const importGrouping = config.get<string>("behavior.importGrouping", "none");
@@ -1371,7 +1371,7 @@ export class ImportDocumentEditor {
      * leave the tab dirty the moment it was saved.
      */
     computeEmptyLinesAfterImportsEdits(document: vscode.TextDocument): vscode.TextEdit[] {
-        const config = vscode.workspace.getConfiguration("verseAutoImports");
+        const config = settingsFor(document.uri);
         const emptyLinesAfterImports = config.get<number>("behavior.emptyLinesAfterImports", 1);
 
         // A negative value means "leave the file's own spacing alone";

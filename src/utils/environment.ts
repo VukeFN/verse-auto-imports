@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { settingsFor } from "./settings";
 
 /**
  * The facts that identify a build and cannot change while the window is open.
@@ -54,7 +55,7 @@ export function describeWorkspaceShape(folderCount: number, hasWorkspaceFile: bo
  * never cached.
  */
 export function readSessionState(): SessionState {
-    const config = vscode.workspace.getConfiguration("verseAutoImports");
+    const config = settingsFor();
     const settings: Record<string, string> = {};
     for (const key of REPORTED_SETTINGS) {
         // Flattened to one line: VS Code does not enforce a setting's declared

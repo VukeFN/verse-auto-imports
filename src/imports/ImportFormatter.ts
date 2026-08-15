@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { settingsFor } from "../utils";
 
 /** Options controlling `ImportFormatter.isModuleImport`'s classification. */
 export interface IsModuleImportOptions {
@@ -289,7 +290,7 @@ export class ImportFormatter {
             path = this.extractPathFromImport(importPath) || importPath;
         }
 
-        const config = vscode.workspace.getConfiguration("verseAutoImports");
+        const config = settingsFor();
         const digestPrefixes = config.get<string[]>("behavior.digestImportPrefixes", ["/Verse.org/", "/Fortnite.com/", "/UnrealEngine.com/"]);
 
         return digestPrefixes.some((prefix) => path.startsWith(prefix));

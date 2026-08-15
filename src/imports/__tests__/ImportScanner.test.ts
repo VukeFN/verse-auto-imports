@@ -954,10 +954,14 @@ describe("scanModuleImports", () => {
         ]);
     });
 
-    it("does not flag an import whose trailing line comment mentions <#", () => {
-        expect(scanModuleImports(["using { /A } # opens with <#", "using { /B }"])).toEqual([
-            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "# opens with <#" },
-            { path: "/B", startLine: 1, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
+    it("flags an import whose trailing line comment opens a block comment", () => {
+        // The line comment ends with its line and the block it opens does not,
+        // so the lines below really are commented out and moving the statement
+        // moves which ones.
+        const lines = ["using { /A } # opens with <#", "using { /Old/Path }", "#>", "using { /B }"];
+        expect(scanModuleImports(lines)).toEqual([
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, rebuildLosesText: false, trailingComment: "# opens with <#" },
+            { path: "/B", startLine: 3, endLine: 3, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" },
         ]);
     });
 
@@ -1036,9 +1040,12 @@ describe("scanModuleImports", () => {
         expect(scanModuleImports(lines)).toEqual([{ path: "/Verse.org/Simulation", startLine: 2, endLine: 2, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" }]);
     });
 
-    it("does not treat a <# inside a line comment as a block opener", () => {
-        const lines = ["# a block comment opens with <#", "using { /Verse.org/Simulation }"];
-        expect(scanModuleImports(lines)).toEqual([{ path: "/Verse.org/Simulation", startLine: 1, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" }]);
+    it("treats a <# inside a line comment as the block opener it is", () => {
+        // A line comment is lexed like any other text, so the block runs from
+        // the `<#` to the `#>` below and the import between them is commented
+        // out. Reading it as live is how a needed using gets suppressed.
+        const lines = ["# a block comment opens with <#", "using { /Old/Path }", "#>", "using { /Verse.org/Simulation }"];
+        expect(scanModuleImports(lines)).toEqual([{ path: "/Verse.org/Simulation", startLine: 3, endLine: 3, anchorsCommentBelow: false, rebuildLosesText: false, trailingComment: "" }]);
     });
 
     it("returns entries in document order with correct spans across mixed styles", () => {
@@ -1247,8 +1254,12 @@ describe("classifyLines", () => {
         expect(kinds(["<#> the marker is not a block opener", "code()"])).toEqual(["comment", "code"]);
     });
 
-    it("does not mistake a block opener inside a line comment for one", () => {
-        expect(kinds(["# see <# below", "code()"])).toEqual(["comment", "code"]);
+    it("reads a block opener inside a line comment as one", () => {
+        expect(kinds(["# see <# below", "code()", "#>", "code()"])).toEqual(["comment", "comment", "comment", "code"]);
+    });
+
+    it("ends a line comment that opened and closed a block on its own line", () => {
+        expect(kinds(["# see <# aside #> below", "code()"])).toEqual(["comment", "code"]);
     });
 
     it("keeps a # inside a string literal in the line's code", () => {

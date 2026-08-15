@@ -67,12 +67,14 @@ export class ModuleVisibilityWriter {
      * Puts the `<public>` declarations that make the requested module
      * reachable through the refactor preview, and reports what came back.
      *
-     * Refuses rather than half-applying: a module declared anything but
+     * Refuses rather than half-applying, and everything else the same request
+     * would have changed goes with it. A module declared anything but
      * `<public>` or `<internal>` is left alone, whether it is the one to
-     * publicize or one a new declaration would sit inside, and so is everything
-     * else the same request would have changed. That governs what is offered,
-     * not what lands - the preview lets the user apply a subset, so what is
-     * reported afterwards is intent rather than outcome.
+     * publicize or one a new declaration would sit inside; so is one the chain
+     * would have to declare a second time, since the block is appended whole
+     * and cannot join a declaration the project already carries. That governs
+     * what is offered, not what lands - the preview lets the user apply a
+     * subset, so what is reported afterwards is intent rather than outcome.
      *
      * @param sourceUri the document whose diagnostic asked for this, which is
      * what picks the workspace folder in a multi-root workspace. The first
@@ -536,20 +538,23 @@ export class ModuleVisibilityWriter {
 
 /**
  * Why a request was refused, naming what each conflicting module would have
- * needed. The two kinds are phrased apart because they ask different things of
- * the user, and one sentence carries both so a notification does not clip the
- * second remedy before it is read.
+ * needed. The kinds are phrased apart because they ask different things of the
+ * user, and one sentence carries them all so a notification does not clip a
+ * remedy before it is read.
  */
 function refusalForConflicts(moduleName: string, conflicts: readonly VisibilityConflict[]): string {
     const listed = (reason: VisibilityConflict["reason"]) =>
         conflicts
             .filter((conflict) => conflict.reason === reason)
-            .map((conflict) => `${conflict.path}, declared ${conflict.keyword}`)
+            // A repeat of a declaration carrying no specifier has no keyword to
+            // name, and `declared undefined` would read as one it does carry.
+            .map((conflict) => (conflict.keyword ? `${conflict.path}, declared ${conflict.keyword}` : conflict.path))
             .join(" and ");
 
     const widen = listed("widen");
     const nest = listed("nest");
-    const clauses = [widen && `widening ${widen}`, nest && `declaring a module inside ${nest}`].filter(Boolean);
+    const repeat = listed("repeat");
+    const clauses = [widen && `widening ${widen}`, nest && `declaring a module inside ${nest}`, repeat && `re-declaring ${repeat}`].filter(Boolean);
 
     return `making '${moduleName}' reachable would mean ${clauses.join(", and ")}. Make the change by hand if that is intended.`;
 }

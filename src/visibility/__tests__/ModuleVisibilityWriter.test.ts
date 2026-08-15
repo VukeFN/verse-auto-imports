@@ -198,9 +198,10 @@ describe("ModuleVisibilityWriter", () => {
         expect(replace.text).toBe("Other<public> := module {}\n\nGadgets := module:\n    Tools<public> := module {}\n");
     });
 
-    it("folds a specifier edit inside the definitions file into the same replacement", async () => {
-        // Two operations on one file would overlap, which VS Code rejects, and
-        // half-applying would leave two parts of Deep disagreeing.
+    it("refuses to append a second definition of a module the definitions file already declares", async () => {
+        // The file the fix wrote on an earlier run. Appending a block through
+        // Gadgets and Deep would leave that one file defining each of them
+        // twice, which the second run has no way to make compile.
         givenProject({ "Content/_definitions.verse": "Gadgets := module:\n    Deep := module {}\n" });
 
         await writer().makeModulePublic({
@@ -209,10 +210,17 @@ describe("ModuleVisibilityWriter", () => {
             moduleName: "Tools",
         });
 
-        const operations = appliedOperations();
-        expect(operations).toHaveLength(1);
-        expect(operations[0].kind).toBe("replace");
-        expect(operations[0].text).toBe("Gadgets := module:\n    Deep<public> := module {}\n\nGadgets := module:\n    Deep<public> := module:\n        Tools<public> := module {}\n");
+        expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("re-declaring Gadgets and Gadgets/Deep"));
+    });
+
+    it("refuses when an ancestor is declared in a user file, naming the declaration the chain would repeat", async () => {
+        givenProject({ "Content/gadgets.verse": "Gadgets<internal> := module:\n    X:int = 1\n" });
+
+        await writer().makeModulePublic(REQUEST);
+
+        expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("re-declaring Gadgets, declared internal"));
     });
 
     it("edits an existing declaration instead of writing a second part", async () => {
@@ -485,13 +493,13 @@ describe("ModuleVisibilityWriter", () => {
         // entry the writer emits, so an unpreviewed one is the worst version
         // of the defect this ticket exists to close.
         it("marks a whole-file rewrite of an existing definitions file as needing confirmation", async () => {
-            givenProject({ "Content/_definitions.verse": "Gadgets := module:\n    Deep := module {}\n" });
+            // The file has to exist to be replaced rather than created, and to
+            // declare nothing on the target's own path: a declaration there
+            // would be one the appended block re-declares, and the request
+            // would be refused before any operation was built.
+            givenProject({ "Content/_definitions.verse": "Other<public> := module {}\n" });
 
-            await writer().makeModulePublic({
-                targetPath: `${PROJECT}/Gadgets/Deep/Tools`,
-                importerPath: `${PROJECT}/Scripts`,
-                moduleName: "Tools",
-            });
+            await writer().makeModulePublic(REQUEST);
 
             expect(appliedOperations()[0]).toMatchObject({
                 kind: "replace",

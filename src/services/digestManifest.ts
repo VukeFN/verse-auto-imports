@@ -14,8 +14,10 @@
  */
 
 /**
- * The bundled digests, in load precedence order. The first file to declare an
- * identifier wins, so reordering this changes which domain answers a lookup.
+ * The bundled digests, in load precedence order. A lookup keeps every module
+ * that declares an identifier, so this order no longer decides which one
+ * answers - it decides which one leads the list, and the lead is what the
+ * quick-fix menu prefers and what an `auto_first` strategy applies unasked.
  */
 export const BUNDLED_DIGEST_NAMES = ["Fortnite", "UnrealEngine", "Verse"] as const;
 

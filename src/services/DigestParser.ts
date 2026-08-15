@@ -75,6 +75,9 @@ export class DigestParser {
      *
      * The match is exact on purpose. Matching by substring returned every entry
      * whose name merely contained the identifier - 226 of them for `device`.
+     *
+     * The live array, not a copy: pushing into it adds a module the digests
+     * never declared, and the next lookup serves it.
      */
     async lookupIdentifier(identifier: string): Promise<DigestEntry[]> {
         const index = await this.getDigestIndex();

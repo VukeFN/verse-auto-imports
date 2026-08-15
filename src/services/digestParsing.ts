@@ -49,6 +49,26 @@ export interface ParsedDigest {
     moduleIndex: Record<string, string[]>;
 }
 
+/**
+ * Appends a declaration unless the identifier already has one from that module,
+ * and reports whether it was appended.
+ *
+ * Shared by the two places that build an identifier's declaration list - the
+ * parser within one file, the loader across files - because both rest on the
+ * same invariant: one entry per module path, so a name is never offered as the
+ * same import twice. Module-scope overloads make that a live case rather than a
+ * defensive one, `ToString` being declared four times in its own module.
+ *
+ * @param declarations Mutated in place.
+ */
+export function appendDeclaration(declarations: DigestEntry[], declaration: DigestEntry): boolean {
+    if (declarations.some((existing) => existing.modulePath === declaration.modulePath)) {
+        return false;
+    }
+    declarations.push(declaration);
+    return true;
+}
+
 /** An open module on the indentation stack, holding its resolved import path. */
 interface ModuleFrame {
     path: string;
@@ -206,13 +226,7 @@ export function parseDigestContent(content: string, rootDomain: string): ParsedD
         members.add(identifier);
 
         const declarations = entries[identifier] ?? (entries[identifier] = []);
-        // One declaration per module path, not per declaration line: module-scope
-        // overloads repeat a name in its own module (`ToString` four times), and
-        // each repeat would otherwise become a duplicate of the same import.
-        if (declarations.some((declaration) => declaration.modulePath === modulePath)) {
-            return;
-        }
-        declarations.push({ identifier, modulePath, type, isPublic });
+        appendDeclaration(declarations, { identifier, modulePath, type, isPublic });
     };
 
     // Explicit path from the most recent `# Module import path:` comment, applied

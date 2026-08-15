@@ -3,6 +3,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { logger } from "../utils";
 import { DigestEntry } from "./DigestParser";
+import { appendDeclaration } from "./digestParsing";
 import { BUNDLED_DIGEST_NAMES, digestDataFile } from "./digestManifest";
 
 /**
@@ -108,9 +109,7 @@ export class PrecompiledDigestLoader {
                 for (const [identifier, declarations] of Object.entries(digest.entries)) {
                     const merged = this.digestCache.get(identifier) ?? [];
                     for (const declaration of declarations) {
-                        if (!merged.some((existing) => existing.modulePath === declaration.modulePath)) {
-                            merged.push(declaration);
-                        }
+                        appendDeclaration(merged, declaration);
                     }
                     this.digestCache.set(identifier, merged);
                 }
@@ -135,7 +134,12 @@ export class PrecompiledDigestLoader {
         return successCount;
     }
 
-    /** Every module that declares this identifier, empty if none does. */
+    /**
+     * Every module that declares this identifier, empty if none does.
+     *
+     * The live array, not a copy: pushing into it adds a module the digests
+     * never declared, and the next lookup serves it.
+     */
     getEntry(identifier: string): DigestEntry[] {
         return this.digestCache.get(identifier) ?? [];
     }

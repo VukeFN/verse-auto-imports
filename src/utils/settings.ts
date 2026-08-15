@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 
 /** The configuration section every setting this extension contributes lives under. */
-export const SECTION = "verseAutoImports";
+const SECTION = "verseAutoImports";
 
 /**
  * The settings package.json declares `"scope": "resource"`, and so the only

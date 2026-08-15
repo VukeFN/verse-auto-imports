@@ -179,6 +179,36 @@ describe("a toggle writes where the override already lives", () => {
         expect(config.update).toHaveBeenCalledWith("general.autoImport", true, vscode.ConfigurationTarget.Workspace);
     });
 
+    // A window-scoped setting toggled with an editor open is the permutation
+    // that throws rather than misfires: a single-root workspace registers one
+    // model as both its workspace and its folder configuration, so inspect()
+    // offers a folder value here - and update() rejects a window setting aimed
+    // at a folder. Toggling this one used to raise "does not support the folder
+    // resource scope" at the user.
+    it("toggleDigestFiles keeps a window-scoped setting off the workspace folder", async () => {
+        const config = {
+            get: jest.fn().mockReturnValue(true),
+            update: jest.fn().mockResolvedValue(undefined),
+            inspect: jest.fn().mockReturnValue({
+                key: "verseAutoImports.experimental.useDigestFiles",
+                workspaceValue: true,
+                workspaceFolderValue: true,
+            }),
+        };
+        getConfiguration.mockReturnValue(config);
+        (vscode.window as { activeTextEditor?: unknown }).activeTextEditor = { document: { uri: vscode.Uri.file(DOCUMENT_PATH) } };
+
+        try {
+            await new CommandsHandler({
+                statusBarHandler: { updateDisplay: jest.fn() } as unknown as StatusBarHandler,
+            } as unknown as CommandsDependencies).toggleDigestFiles();
+
+            expect(config.update).toHaveBeenCalledWith("experimental.useDigestFiles", false, vscode.ConfigurationTarget.Workspace);
+        } finally {
+            (vscode.window as { activeTextEditor?: unknown }).activeTextEditor = undefined;
+        }
+    });
+
     it("resolves the toggle against the file the user is editing", async () => {
         overriddenAtWorkspace();
         const uri = vscode.Uri.file(DOCUMENT_PATH);

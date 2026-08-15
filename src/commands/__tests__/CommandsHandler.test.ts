@@ -27,7 +27,7 @@ function makeHandler(importHandlerOverrides: Partial<ImportHandler>): CommandsHa
     const importHandler = {
         addImportsToDocument: jest.fn().mockResolvedValue(true),
         organizeImports: jest.fn().mockResolvedValue(true),
-        extractImportsFromDiagnostics: jest.fn().mockReturnValue([]),
+        extractImportsFromDiagnostics: jest.fn().mockReturnValue({ paths: [], diagnosticLinesByPath: new Map() }),
         ...importHandlerOverrides,
     } as unknown as ImportHandler;
 
@@ -154,6 +154,31 @@ describe("CommandsHandler.optimizeImports", () => {
         expect(vscode.window.showInformationMessage).toHaveBeenCalledWith("Imports optimized successfully");
         expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
     });
+
+    // Regression for #385: the command adds what the compiler currently reports
+    // as missing, so the lines it reported on are evidence the organizer needs
+    // to tell a pinned import that failed to resolve from one that already
+    // resolves. Dropped here, the command writes the fix below the statement
+    // that needed it and still reports success.
+    //
+    // Asserted through the delegating entry point as well as at
+    // organizeImportsInDocument, since it is the delegation that carries the
+    // evidence to the source action too.
+    it("hands the organizer the lines the diagnostics were reported on", async () => {
+        activateVerseDocument();
+        const diagnosticLinesByPath = new Map([["Features", [4]]]);
+        const organizeImports = jest.fn().mockResolvedValue(true);
+        const handler = makeHandler({
+            organizeImports,
+            extractImportsFromDiagnostics: jest.fn().mockReturnValue({ paths: ["Features"], diagnosticLinesByPath }),
+        });
+
+        await handler.optimizeImports();
+
+        expect(organizeImports).toHaveBeenCalledTimes(1);
+        expect(organizeImports.mock.calls[0][1]).toEqual(["Features"]);
+        expect(organizeImports.mock.calls[0][2]).toBe(diagnosticLinesByPath);
+    });
 });
 
 // Regression for #387: what the Organize Imports source action runs. It shares
@@ -164,15 +189,16 @@ describe("CommandsHandler.organizeImportsInDocument", () => {
     it("organizes the document it is given, with the paths the diagnostics report missing", async () => {
         const document = makeDocument();
         const organizeImports = jest.fn().mockResolvedValue(true);
+        const diagnosticLinesByPath = new Map([["/Fortnite.com/Devices", [3]]]);
         const handler = makeHandler({
             organizeImports,
-            extractImportsFromDiagnostics: jest.fn().mockReturnValue(["/Fortnite.com/Devices"]),
+            extractImportsFromDiagnostics: jest.fn().mockReturnValue({ paths: ["/Fortnite.com/Devices"], diagnosticLinesByPath }),
         });
 
         const applied = await handler.organizeImportsInDocument(document);
 
         expect(applied).toBe(true);
-        expect(organizeImports).toHaveBeenCalledWith(document, ["/Fortnite.com/Devices"]);
+        expect(organizeImports).toHaveBeenCalledWith(document, ["/Fortnite.com/Devices"], diagnosticLinesByPath);
     });
 
     it("does not save, and does not fall back to the active editor", async () => {
@@ -184,7 +210,7 @@ describe("CommandsHandler.organizeImportsInDocument", () => {
 
         await handler.organizeImportsInDocument(document);
 
-        expect(organizeImports).toHaveBeenCalledWith(document, []);
+        expect(organizeImports).toHaveBeenCalledWith(document, [], new Map());
         expect(document.save).not.toHaveBeenCalled();
         expect(active.save).not.toHaveBeenCalled();
     });

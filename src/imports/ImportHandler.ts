@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { ImportSuggestion } from "../types";
+import { DiagnosticLinesByPath, DiagnosticLinesByStatement, ImportSuggestion, MissingImports } from "../types";
 import { AssetsDigestParser } from "../services";
 import { ImportFormatter } from "./ImportFormatter";
 import { ImportSuggestionExtractor } from "./ImportSuggestionExtractor";
@@ -33,7 +33,7 @@ export class ImportHandler {
         return this.suggestionExtractor.extractImportSuggestions(errorMessage);
     }
 
-    async addImportsToDocument(document: vscode.TextDocument, importStatements: string[], diagnosticLinesByStatement?: ReadonlyMap<string, readonly number[]>): Promise<boolean> {
+    async addImportsToDocument(document: vscode.TextDocument, importStatements: string[], diagnosticLinesByStatement?: DiagnosticLinesByStatement): Promise<boolean> {
         return this.documentEditor.addImportsToDocument(document, importStatements, diagnosticLinesByStatement);
     }
 
@@ -41,12 +41,18 @@ export class ImportHandler {
      * Rebuilds the document's import block in one atomic edit: existing
      * imports plus the given additional paths, deduplicated, grouped,
      * sorted, and formatted per settings.
+     *
+     * @param diagnosticLinesByPath Pass whatever produced `additionalPaths`
+     *   reported, where it came from diagnostics. Without it a pinned import
+     *   the compiler is reporting on cannot be told from one that already
+     *   resolves, and an added path can land below the statement it was added
+     *   for.
      */
-    async organizeImports(document: vscode.TextDocument, additionalPaths: string[]): Promise<boolean> {
-        return this.documentEditor.organizeImports(document, additionalPaths);
+    async organizeImports(document: vscode.TextDocument, additionalPaths: string[], diagnosticLinesByPath?: DiagnosticLinesByPath): Promise<boolean> {
+        return this.documentEditor.organizeImports(document, additionalPaths, diagnosticLinesByPath);
     }
 
-    extractImportsFromDiagnostics(diagnostics: vscode.Diagnostic[]): string[] {
+    extractImportsFromDiagnostics(diagnostics: vscode.Diagnostic[]): MissingImports {
         return this.suggestionExtractor.extractImportsFromDiagnostics(diagnostics);
     }
 

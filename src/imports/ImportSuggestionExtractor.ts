@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { logger } from "../utils";
-import { ImportSuggestion, ImportSuggestionSource, ImportConfidence } from "../types";
+import { ImportSuggestion, ImportSuggestionSource, ImportConfidence, MissingImports } from "../types";
 import { DigestParser, AssetsDigestParser } from "../services";
 import { ImportFormatter } from "./ImportFormatter";
 
@@ -465,29 +465,45 @@ export class ImportSuggestionExtractor {
 
     /**
      * The unambiguous import paths across a set of diagnostics, deduplicated,
-     * for the Optimize Imports command.
+     * with the line each diagnostic was reported on, for the Optimize Imports
+     * command.
+     *
+     * The lines are kept because this loop is the last place they exist: a path
+     * carries no trace of the diagnostic that asked for it, and placement needs
+     * that trace to read a pinned import as the consumer a new import was added
+     * for. Both halves come out of one pass so they cannot disagree about which
+     * diagnostic named which path.
      *
      * Ambiguous messages are left out rather than resolved: they need a user
      * choice, which belongs to the quick-fix menu. A command that adds imports
      * in bulk has nobody to ask.
      */
-    extractImportsFromDiagnostics(diagnostics: vscode.Diagnostic[]): string[] {
+    extractImportsFromDiagnostics(diagnostics: vscode.Diagnostic[]): MissingImports {
         logger.debug("ImportSuggestionExtractor", `Extracting imports from ${diagnostics.length} diagnostics`);
 
-        const suggestedPaths = new Set<string>();
+        // One collection, so the paths and their evidence cannot disagree about
+        // which diagnostic named which path: the keys are the deduplicated
+        // paths, in the order the diagnostics named them. Lines are concatenated
+        // where two diagnostics name one path, because a second diagnostic
+        // asking for the same import is further evidence, not a replacement for
+        // the first.
+        const diagnosticLinesByPath = new Map<string, number[]>();
+        const record = (path: string, diagnostic: vscode.Diagnostic): void => {
+            diagnosticLinesByPath.set(path, [...(diagnosticLinesByPath.get(path) ?? []), diagnostic.range.start.line]);
+        };
 
         for (const diagnostic of diagnostics) {
             const classification = this.classifyMessage(diagnostic.message);
 
             switch (classification.kind) {
                 case "singleImport":
-                    suggestedPaths.add(classification.candidate.path);
+                    record(classification.candidate.path, diagnostic);
                     logger.debug("ImportSuggestionExtractor", `Found path: ${classification.candidate.path}`);
                     break;
 
                 case "identifier":
                     if (classification.inferred) {
-                        suggestedPaths.add(classification.inferred.path);
+                        record(classification.inferred.path, diagnostic);
                         logger.debug("ImportSuggestionExtractor", `Found inferred path: ${classification.inferred.path}`);
                     }
                     break;
@@ -508,8 +524,8 @@ export class ImportSuggestionExtractor {
             }
         }
 
-        const result = Array.from(suggestedPaths);
-        logger.debug("ImportSuggestionExtractor", `Extracted ${result.length} unique import paths from diagnostics`);
-        return result;
+        const paths = Array.from(diagnosticLinesByPath.keys());
+        logger.debug("ImportSuggestionExtractor", `Extracted ${paths.length} unique import paths from diagnostics`);
+        return { paths, diagnosticLinesByPath };
     }
 }

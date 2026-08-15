@@ -66,7 +66,9 @@ describe("diagnostics corpus", () => {
             });
 
             it.each(corpus.entries.map((entry) => [entry.id, entry] as const))("%s: optimize path extraction", (_id, entry) => {
-                const paths = extractor.extractImportsFromDiagnostics([{ message: entry.message } as vscode.Diagnostic]);
+                const { paths } = extractor.extractImportsFromDiagnostics([
+                    { message: entry.message, range: new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 1)) } as vscode.Diagnostic,
+                ]);
                 expect(paths).toEqual(entry.expected.optimizePaths);
             });
         });

@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { logger, collectEnvironment, formatHostSummary, readSessionState } from "./utils";
 import { DiagnosticsHandler } from "./diagnostics";
-import { ImportHandler, ImportPathConverter, ImportCodeActionProvider, ImportCodeLensProvider, ImportFormatter } from "./imports";
+import { ImportHandler, ImportPathConverter, ImportCodeActionProvider, ImportOrganizeCodeActionProvider, ImportCodeLensProvider, ImportFormatter } from "./imports";
 import { CommandsHandler, CommandsDependencies } from "./commands";
 import { StatusBarHandler } from "./ui";
 import { ProjectPathHandler } from "./project";
@@ -140,6 +140,12 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.languages.registerCodeActionsProvider({ language: "verse" }, new ImportCodeActionProvider(outputChannel, importHandler)),
         vscode.languages.registerCodeActionsProvider({ language: "verse" }, new ModuleVisibilityCodeActionProvider()),
+        // The metadata is not optional here as it is for the quick fixes above:
+        // it is what tells VS Code this provider answers source.organizeImports,
+        // and so what puts Shift+Alt+O and editor.codeActionsOnSave through it.
+        vscode.languages.registerCodeActionsProvider({ language: "verse" }, new ImportOrganizeCodeActionProvider(), {
+            providedCodeActionKinds: ImportOrganizeCodeActionProvider.providedCodeActionKinds,
+        }),
         vscode.languages.registerCodeLensProvider({ language: "verse" }, importCodeLensProvider),
         importCodeLensProvider,
     );

@@ -35,6 +35,11 @@
         "category": "Verse Auto Imports"
       },
       {
+        "command": "verseAutoImports.organizeImportsInDocument",
+        "title": "Organize Imports in Document",
+        "category": "Verse Auto Imports"
+      },
+      {
         "command": "verseAutoImports.addSingleImport",
         "title": "Add Import",
         "category": "Verse Auto Imports"
@@ -127,6 +132,10 @@
     ],
     "menus": {
       "commandPalette": [
+        {
+          "command": "verseAutoImports.organizeImportsInDocument",
+          "when": "false"
+        },
         {
           "command": "verseAutoImports.addSingleImport",
           "when": "false"

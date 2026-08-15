@@ -46,6 +46,7 @@ afterEach(() => {
 const REGISTERED_COMMANDS: Array<[string, string]> = [
     ["verseAutoImports.addSingleImport", "addSingleImport"],
     ["verseAutoImports.optimizeImports", "optimizeImports"],
+    ["verseAutoImports.organizeImportsInDocument", "organizeImportsInDocument"],
     ["verseAutoImports.showStatusMenu", "showStatusMenu"],
     ["verseAutoImports.toggleAutoImport", "toggleAutoImport"],
     ["verseAutoImports.togglePreserveLocations", "togglePreserveLocations"],
@@ -152,6 +153,46 @@ describe("CommandsHandler.optimizeImports", () => {
         expect(document.save).toHaveBeenCalledTimes(1);
         expect(vscode.window.showInformationMessage).toHaveBeenCalledWith("Imports optimized successfully");
         expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
+    });
+});
+
+// Regression for #387: what the Organize Imports source action runs. It shares
+// the organizing with optimizeImports and differs in what it deliberately does
+// not do - editor.codeActionsOnSave runs it during a save, so a save of its own
+// would re-enter that one.
+describe("CommandsHandler.organizeImportsInDocument", () => {
+    it("organizes the document it is given, with the paths the diagnostics report missing", async () => {
+        const document = makeDocument();
+        const organizeImports = jest.fn().mockResolvedValue(true);
+        const handler = makeHandler({
+            organizeImports,
+            extractImportsFromDiagnostics: jest.fn().mockReturnValue(["/Fortnite.com/Devices"]),
+        });
+
+        const applied = await handler.organizeImportsInDocument(document);
+
+        expect(applied).toBe(true);
+        expect(organizeImports).toHaveBeenCalledWith(document, ["/Fortnite.com/Devices"]);
+    });
+
+    it("does not save, and does not fall back to the active editor", async () => {
+        const active = makeDocument("C:\\Project\\Content\\other.verse");
+        setActiveEditor({ document: active } as unknown as vscode.TextEditor);
+        const document = makeDocument();
+        const organizeImports = jest.fn().mockResolvedValue(true);
+        const handler = makeHandler({ organizeImports });
+
+        await handler.organizeImportsInDocument(document);
+
+        expect(organizeImports).toHaveBeenCalledWith(document, []);
+        expect(document.save).not.toHaveBeenCalled();
+        expect(active.save).not.toHaveBeenCalled();
+    });
+
+    it("reports the rejection when the edit does not apply", async () => {
+        const handler = makeHandler({ organizeImports: jest.fn().mockResolvedValue(false) });
+
+        await expect(handler.organizeImportsInDocument(makeDocument())).resolves.toBe(false);
     });
 });
 

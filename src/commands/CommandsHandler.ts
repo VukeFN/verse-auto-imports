@@ -58,9 +58,9 @@ export class CommandsHandler {
      * them on deactivation.
      *
      * Each id here must also be declared in package.json under
-     * `contributes.commands`, and the five that take caller-supplied arguments
-     * must stay hidden from the Command Palette there - invoking one from the
-     * palette dereferences an undefined document. Both halves are pinned:
+     * `contributes.commands`, and every one that takes a caller-supplied
+     * argument must stay hidden from the Command Palette there - invoking one
+     * from the palette dereferences an undefined document. Both halves are pinned:
      * commandManifest.test.ts checks the manifest, CommandsHandler.test.ts
      * checks this method registers every id once, and the integration suite
      * checks they are registered once the extension has activated.
@@ -86,6 +86,7 @@ export class CommandsHandler {
         return [
             ["verseAutoImports.addSingleImport", this.addSingleImport.bind(this)],
             ["verseAutoImports.optimizeImports", this.optimizeImports.bind(this)],
+            ["verseAutoImports.organizeImportsInDocument", this.organizeImportsInDocument.bind(this)],
         ];
     }
 
@@ -152,16 +153,7 @@ export class CommandsHandler {
         try {
             const document = editor.document;
 
-            // Read straight from the current diagnostics rather than waiting on
-            // the auto-import debounce, so the command does not race it.
-            const diagnostics = vscode.languages.getDiagnostics(document.uri);
-            const missingImportPaths = this.deps.importHandler.extractImportsFromDiagnostics(diagnostics);
-            logger.debug("CommandsHandler", `Found ${missingImportPaths.length} missing import(s) in current diagnostics`);
-
-            // The missing paths are handed to the organizer rather than added
-            // first, so the block is rewritten once and the document is never
-            // left between the two states.
-            const applied = await this.deps.importHandler.organizeImports(document, missingImportPaths);
+            const applied = await this.organizeImportsInDocument(document);
 
             // Saving a document whose edit was rejected writes the unorganized
             // content back to disk and makes the failure look like a success.
@@ -179,6 +171,30 @@ export class CommandsHandler {
             logger.error("CommandsHandler", "Error optimizing imports", error);
             vscode.window.showErrorMessage(`Failed to optimize imports: ${error}`);
         }
+    }
+
+    /**
+     * Rebuilds one document's import block, adding anything the compiler
+     * currently reports as a missing import. True when the document holds the
+     * organized content afterwards, which includes it having needed no change.
+     *
+     * Deliberately does not save: this is what the Organize Imports source
+     * action runs, and `editor.codeActionsOnSave` runs that during a save.
+     *
+     * The document comes from the code action that was asked for it, which is
+     * why the command is hidden from the Command Palette.
+     */
+    async organizeImportsInDocument(document: vscode.TextDocument): Promise<boolean> {
+        // Read straight from the current diagnostics rather than waiting on
+        // the auto-import debounce, so the command does not race it.
+        const diagnostics = vscode.languages.getDiagnostics(document.uri);
+        const missingImportPaths = this.deps.importHandler.extractImportsFromDiagnostics(diagnostics);
+        logger.debug("CommandsHandler", `Found ${missingImportPaths.length} missing import(s) in current diagnostics`);
+
+        // The missing paths are handed to the organizer rather than added
+        // first, so the block is rewritten once and the document is never
+        // left between the two states.
+        return this.deps.importHandler.organizeImports(document, missingImportPaths);
     }
 
     private menuCommands(): CommandEntry[] {

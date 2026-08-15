@@ -429,6 +429,8 @@ const FileType = {
  */
 class CodeActionKind {
     static readonly QuickFix = new CodeActionKind("quickfix");
+    static readonly Source = new CodeActionKind("source");
+    static readonly SourceOrganizeImports = new CodeActionKind("source.organizeImports");
 
     constructor(public readonly value: string) {}
 

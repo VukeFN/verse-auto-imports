@@ -42,6 +42,51 @@ describe("ImportCodeActionProvider quick fix titles", () => {
         expect(await titlesFor([suggestion({ confidence: "low" })])).toEqual(["Add import: using { /Fortnite.com/Devices }"]);
     });
 
+    // The writer reads behavior.importSyntax scoped to the document's folder,
+    // so a labeller reading it window-scoped offers a title in one syntax and
+    // inserts the other. The extractor must not be stubbed here: a stub would
+    // supply the very statement under test.
+    it("titles the action in the syntax the document's folder sets", async () => {
+        const getConfiguration = vscode.workspace.getConfiguration as unknown as jest.Mock;
+        const original = getConfiguration.getMockImplementation();
+        const folder = "file:///Project/Content/Scripts/";
+        getConfiguration.mockImplementation((_section: string, resource?: { toString(): string }) => ({
+            get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => {
+                if (key === "behavior.importSyntax") {
+                    return resource?.toString().startsWith(folder) ? "dot" : "curly";
+                }
+                return defaultValue;
+            }),
+            update: jest.fn().mockResolvedValue(undefined),
+            inspect: jest.fn().mockReturnValue(undefined),
+        }));
+
+        try {
+            const importHandler = new ImportHandler({ appendLine: jest.fn() } as unknown as vscode.OutputChannel);
+            const provider = new ImportCodeActionProvider({ appendLine: jest.fn() } as unknown as vscode.OutputChannel, importHandler);
+
+            const actions = await provider.provideCodeActions(
+                { uri: { toString: () => `${folder}device.verse` } } as unknown as vscode.TextDocument,
+                {} as unknown as vscode.Range,
+                {
+                    diagnostics: [{ message: "Unknown identifier `player`. Did you forget to specify using { /Verse.org/Simulation }", range: { start: { line: 7 } } }],
+                } as unknown as vscode.CodeActionContext,
+                {} as unknown as vscode.CancellationToken,
+            );
+
+            expect((actions ?? []).map((action) => action.title)).toEqual(["Add import: using. /Verse.org/Simulation"]);
+            // The other half of the criterion: the statement handed to
+            // addSingleImport is what gets written, so the title describes the
+            // insertion only while these two agree.
+            expect((actions ?? []).map((action) => action.command?.arguments?.[1])).toEqual(["using. /Verse.org/Simulation"]);
+        } finally {
+            getConfiguration.mockReset();
+            if (original) {
+                getConfiguration.mockImplementation(original);
+            }
+        }
+    });
+
     it("shows both once the user turns descriptions on", async () => {
         const getConfiguration = vscode.workspace.getConfiguration as unknown as jest.Mock;
         const original = getConfiguration.getMockImplementation();

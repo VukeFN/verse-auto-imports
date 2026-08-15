@@ -29,8 +29,13 @@ export class ImportHandler {
         this.documentEditor = new ImportDocumentEditor(outputChannel, this.formatter);
     }
 
-    async extractImportSuggestions(errorMessage: string): Promise<ImportSuggestion[]> {
-        return this.suggestionExtractor.extractImportSuggestions(errorMessage);
+    /**
+     * @param resource The document the message was reported on. Pass it
+     *   wherever one exists: the suggestion carries a formatted statement, and
+     *   the syntax it is formatted in is resource-scoped.
+     */
+    async extractImportSuggestions(errorMessage: string, resource?: vscode.Uri): Promise<ImportSuggestion[]> {
+        return this.suggestionExtractor.extractImportSuggestions(errorMessage, resource);
     }
 
     async addImportsToDocument(document: vscode.TextDocument, importStatements: string[], diagnosticLinesByStatement?: DiagnosticLinesByStatement): Promise<boolean> {

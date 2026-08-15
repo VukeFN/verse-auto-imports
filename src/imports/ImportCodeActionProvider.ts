@@ -32,7 +32,7 @@ export class ImportCodeActionProvider implements vscode.CodeActionProvider {
         const showDescriptions = config.get<boolean>("quickFix.showDescriptions", false);
 
         for (const diagnostic of context.diagnostics) {
-            const suggestions = await this.importHandler.extractImportSuggestions(diagnostic.message);
+            const suggestions = await this.importHandler.extractImportSuggestions(diagnostic.message, document.uri);
 
             if (suggestions.length === 0) {
                 continue;

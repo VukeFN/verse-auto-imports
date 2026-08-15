@@ -175,7 +175,7 @@ export class DiagnosticsHandler {
                 let hasMultiOptionSuggestions = false;
 
                 for (const diagnostic of currentDiagnostics) {
-                    const suggestions = await this.importHandler.extractImportSuggestions(diagnostic.message);
+                    const suggestions = await this.importHandler.extractImportSuggestions(diagnostic.message, document.uri);
 
                     if (suggestions.length === 0) {
                         continue;

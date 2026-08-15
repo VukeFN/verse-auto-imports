@@ -1,4 +1,6 @@
-import { classifyLines, LINE_SPLIT } from "../../imports/ImportScanner";
+import { allUsingPaths, classifyLines, LINE_SPLIT, scanModuleAliases, scanModuleImports } from "../../imports/ImportScanner";
+import { ProjectPathScanner } from "../../services/ProjectPathScanner";
+import { findExplicitModuleDeclarations } from "../../visibility/moduleDeclarations";
 import { countBraces, maskCommentsAndStrings } from "../verseText";
 
 /**
@@ -96,6 +98,20 @@ const probes: Probe[] = [
         live: ["L1"],
     },
     {
+        // The `<#>` arm is reached at three places, and a literal is not one of
+        // them, so this is text rather than a marker and the lines below it are
+        // ordinary code. A bare `<#` in the same position is the opposite - it
+        // opens a comment anywhere - which is why the two are tested apart.
+        name: "a `<#>` inside a string is text, and opens no body over the lines below",
+        source: 'Label := "a<#>b"\nL1 := 1\n    L2 := 2\n',
+        live: ["L1", "L2"],
+    },
+    {
+        name: "a `<#>` inside a char literal is text too",
+        source: "Angle := '<'; L1 := 1\n    L2 := 2\n",
+        live: ["L1", "L2"],
+    },
+    {
         // Only the masker leaked here: blankCommentRange read the `<#` of a
         // `<#>` as a block opener, so everything below the body stayed comment.
         name: "a `<#>` inside a marker body opens no block comment",
@@ -190,5 +206,60 @@ describe("verse lexer probe corpus, comments splicing a token", () => {
         expect(line.codeWithoutComments).toBe("using { /A }");
         expect(line.codeOutsideLiterals).toBe("using { /A }");
         expect(line.kind).toBe("code");
+    });
+});
+
+/**
+ * The same constructs through the readers built on the two entry points, since
+ * those are where a lexing mistake is finally paid for: a dropped path is read
+ * by its caller as permission to remove an import, and a declaration invented
+ * out of comment text is one its caller edits as if it were real.
+ *
+ * The entry points above are where a divergence can originate; these pin that it
+ * does not survive into an answer.
+ */
+describe("verse lexer probe corpus, the readers built on it", () => {
+    type ScannerParams = ConstructorParameters<typeof ProjectPathScanner>;
+    const scanner = new ProjectPathScanner({ appendLine: jest.fn() } as unknown as ScannerParams[0], {} as unknown as ScannerParams[1]);
+
+    const declared = (source: string): string[] => scanner.extractDeclarations(source, "Content/Probe.verse").map((node) => node.fullPath);
+    const paths = (source: string): string[] => allUsingPaths(source.split(LINE_SPLIT));
+
+    it("keeps what a `<#>` inside a string does not comment out", () => {
+        const source = 'Label := "a<#>b"\nusing { /Verse.org/Simulation }\nInner := module {}\n';
+
+        expect(paths(source)).toEqual(["/Verse.org/Simulation"]);
+        expect(declared(source)).toEqual(["Label", "Inner"]);
+        expect(findExplicitModuleDeclarations(source).map((declaration) => declaration.name)).toEqual(["Inner"]);
+    });
+
+    it("drops what a `<#>` marker body really does comment out", () => {
+        const source = "<#>\n    using { /Verse.org/Simulation }\n    Hidden := module {}\nReal := module {}\n";
+
+        expect(paths(source)).toEqual([]);
+        expect(declared(source)).toEqual(["Real"]);
+        expect(findExplicitModuleDeclarations(source).map((declaration) => declaration.name)).toEqual(["Real"]);
+    });
+
+    it("keeps a statement written after a char literal on the same line", () => {
+        const source = "Hash := '#'; using { /Verse.org/Simulation }\nGfx := import(/A/B)\n";
+
+        expect(paths(source)).toEqual(["/Verse.org/Simulation"]);
+        expect([...scanModuleAliases(source.split(LINE_SPLIT))]).toEqual(["Gfx"]);
+    });
+
+    it("counts no path out of string text where a path counts as imported, and over-counts where it does not", () => {
+        // The two readers face opposite ways on purpose, and this is the shape
+        // that shows it. scanModuleImports decides what the file already
+        // imports, so a path read out of string text withholds an import the
+        // file needs; it reads codeOutsideLiterals and finds nothing.
+        // allUsingPaths decides whether removing an import is safe, so its empty
+        // answer is what a caller acts on; it reads codeWithoutComments and
+        // over-reports rather than risk that.
+        const source = 'Snippet := "using { /Verse.org/Simulation }"\nOther := "Inner := module {}"\n';
+
+        expect(scanModuleImports(source.split(LINE_SPLIT))).toEqual([]);
+        expect(paths(source)).toEqual(["/Verse.org/Simulation"]);
+        expect(findExplicitModuleDeclarations(source)).toEqual([]);
     });
 });

@@ -276,8 +276,8 @@ function bracedUsingSpan(classifications: LineClassification[], opener: number):
     // last one on its line.
     //
     // Counted by scanBraces, the one brace primitive, rather than by a loop of
-    // its own. A second counter is a second opinion about which `{` delimits a
-    // body, and the two here reached different answers on `'{'`.
+    // its own: a second counter is a second opinion about which `{` delimits a
+    // body.
     let depth = 0;
     let endLine = -1;
     let closeAt = -1;

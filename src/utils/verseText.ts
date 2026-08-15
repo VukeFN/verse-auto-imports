@@ -8,7 +8,11 @@
  * scanner reads too. Nothing here re-spells them.
  */
 
-import { LexState, lexVerseLine } from "./verseLexer";
+import { indentOf, LexState, lexVerseLine } from "./verseLexer";
+
+// Re-exported rather than restated: the width model is the lexer's, and a second
+// copy of it here is what ended a `<#>` body on two different lines.
+export { indentOf };
 
 /**
  * The text with every comment, `"` string and char literal replaced by spaces,
@@ -65,29 +69,21 @@ export function popClosedBlocks(openBlockIndents: number[], indent: number): voi
     }
 }
 
-/** Leading whitespace of a line, each tab counted as four spaces so mixed indentation compares. */
-export function indentOf(content: string, lineStart: number): number {
-    let width = 0;
-    for (let i = lineStart; i < content.length; i++) {
-        if (content[i] === " ") {
-            width += 1;
-        } else if (content[i] === "\t") {
-            width += 4;
-        } else {
-            break;
-        }
-    }
-    return width;
-}
-
 /**
  * The brace depth after the half-open range, starting from the depth before it,
  * with the index where that depth first returned to zero or below.
  *
- * Counted on masked text, so a brace in a comment or a literal contributes none.
- * That is the whole of the rule: a `{` surviving masking is a body's, and the
- * `'{'` and `'\{'` that used to need a special case here are already gone by the
- * time this runs. Nothing may call this on raw source.
+ * Give it lexed text, never raw source: a brace this counts is one the lexer
+ * left standing, and a `#`, a `"` or a `'{'` reaching it unlexed strands the
+ * depth for the rest of the file with nothing to recover it. It carries no
+ * special case of its own, and may not grow one - a rule about which braces are
+ * real belongs to the lexer, where every reader gets it.
+ *
+ * `maskCommentsAndStrings` output is brace-balanced. `codeOutsideLiterals` is
+ * not, quite: it consults only the frame open before each character, so a string
+ * interpolation's opening `{` is blanked while its closing `}` survives. Callers
+ * reading a single line accept that, since a clause the imbalance closes early
+ * was already inside a literal.
  *
  * Both module scans delimit a braced body by this depth, and they must agree:
  * one reads it over the gap between two declarations, the other over a single

@@ -65,10 +65,10 @@ describe("scanBraces", () => {
         expect(scanBraces("{ A", 0, 3, 0).closedAt).toBe(-1);
     });
 
-    it("counts a brace masking left standing, whatever quotes surround it", () => {
-        // The paired-quote special case this used to carry is gone: a char
-        // literal is blanked before it gets here, and a quoted segment suffix
-        // cannot hold a brace at all.
+    it("counts a brace the lexer left standing, whatever quotes surround it", () => {
+        // Pins that no quote heuristic lives here: deciding which braces are
+        // real is the lexer's, so text that reached this unlexed is counted
+        // exactly as written.
         expect(countBraces("A'{'B", 0, 5, 0)).toBe(1);
     });
 });

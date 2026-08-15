@@ -3,10 +3,10 @@
  *
  * Every reader in the extension that has to know what a line means - the import
  * scanner, the comment/string masker, the brace counters - goes through this,
- * so a lexical fact about Verse is learned in one place. Two readers spelling
- * the same rule is how the extension came to disagree with itself about which
- * lines are comment: the masker and the scanner read `X := '#'` differently,
- * and only one of them was right.
+ * so a lexical fact about Verse is learned in one place. Nothing outside this
+ * file may re-decide what is comment, what is literal text, or how wide an
+ * indent is; a second opinion about any of them is what the readers this
+ * replaced disagreed over.
  *
  * No VS Code dependencies, so importing this from a pure module is safe.
  *
@@ -16,11 +16,18 @@
  *
  * - `<#>` is the INDENTED comment marker, not a block that closes on the `#>`
  *   inside it. The rest of its line is comment text, and so is every line
- *   indented past it, blank lines included. It must be tested before `<#` in
- *   every scope, code, block comment and marker body alike: at `Text`'s
- *   `case '<'` (:2115-2137) a `<#` dispatches `BlockCmt()` everywhere, while a
- *   `<#>` dispatches `IndCmt()` or is consumed as three characters of text, and
- *   so never advances block-comment depth.
+ *   indented past it, blank lines included. It must be tested before `<#`
+ *   wherever both can appear, or its first two characters read as a block
+ *   opener that never closes. At `Text`'s `case '<'` (:2115-2137) a `<#`
+ *   dispatches `BlockCmt()` at every place, while a `<#>` dispatches `IndCmt()`
+ *   only at trivia, code and marker-body place and is three characters of plain
+ *   text inside a block comment or a literal. It advances block-comment depth
+ *   nowhere.
+ *
+ *   One written inside a marker body is left as text here rather than nested,
+ *   which the grammar allows because the two cannot disagree: the body it would
+ *   open is indented past a marker that already sits inside the outer body, so
+ *   it can never outlast it.
  * - `<# ... #>` nests, and beats a string literal: a `<#` inside a string really
  *   does open a comment there. Both digraphs are consumed whole, so the `#` of a
  *   `<#` cannot also be read as closing one.
@@ -35,8 +42,9 @@
  *   quoted segment suffix only directly after an identifier's alphanumeric run,
  *   while `CharLit` is dispatched from prefix position alone (:3497-3501), where
  *   an expression may start. So a `'` after `[A-Za-z0-9_]` opens a suffix and a
- *   `'` anywhere else opens a char literal - a distinction earlier readers here
- *   declared impossible and then paid for.
+ *   `'` anywhere else opens a char literal. The distinction is what lets a char
+ *   literal be masked while a path keeps its suffix, so nothing here may fall
+ *   back to treating the two alike.
  */
 
 /** Whether the character can appear in an identifier, per `IsAlnum` (VerseGrammar.h:362). */
@@ -148,8 +156,6 @@ export interface LexedLine {
      * there.
      */
     masked: string;
-    /** Leading whitespace width, each tab counted as four spaces so mixed indentation compares. */
-    indent: number;
 }
 
 /**
@@ -170,7 +176,7 @@ export interface LexedLine {
  */
 export function lexVerseLine(line: string, state: LexState, trackLiterals: boolean = true): LexedLine {
     const depthBefore = state.depth;
-    const indent = indentWidthOf(line);
+    const indent = indentOf(line, 0);
     const blank = line.trim().length === 0;
 
     // A marker's body runs while lines stay indented past it; a blank line does
@@ -236,7 +242,27 @@ export function lexVerseLine(line: string, state: LexState, trackLiterals: boole
             continue;
         }
 
+        const innermost = trackLiterals ? open[open.length - 1] : undefined;
+
         if (line.startsWith("<#>", i)) {
+            if (innermost?.kind === "literal") {
+                // Three characters of literal text rather than a marker. At
+                // `EPlace::String` the `<#>` arm falls past `IndCmt()` to
+                // `Next(3)` and plain text, so only the three named scopes open
+                // a body here. Consumed whole, so the `<#` test below does not
+                // read its first two characters as a block opener - which a
+                // bare `<#` in a literal genuinely is, since `BlockCmt()` is
+                // dispatched at every place.
+                const marker = line.slice(i, i + 3);
+                const spaced = isMaskedLiteral(innermost);
+                codeWithoutComments += marker;
+                codeOutsideLiterals += spaced ? "   " : marker;
+                masked += spaced ? "   " : marker;
+                hasCode = true;
+                i += 3;
+                continue;
+            }
+
             // The rest of the marker's own line is comment text, and holds no
             // opener of its own: at `EPlace::IndCmt` a `<#>` nests another
             // indented comment rather than a block.
@@ -246,8 +272,6 @@ export function lexVerseLine(line: string, state: LexState, trackLiterals: boole
             }
             break;
         }
-
-        const innermost = trackLiterals ? open[open.length - 1] : undefined;
 
         // Inside an interpolation this is code scope again, so a `#` there ends
         // the line as one at the head of it would. A `#` inside any literal is
@@ -352,25 +376,26 @@ export function lexVerseLine(line: string, state: LexState, trackLiterals: boole
         codeWithoutComments,
         codeOutsideLiterals,
         masked,
-        indent,
     };
 }
 
 /**
- * Leading whitespace width of a line, each tab counted as four spaces.
+ * Leading whitespace width from an offset into the text, each tab counted as
+ * four spaces so mixed indentation compares.
  *
- * One model, because two of them end a `<#>` marker body on different lines of
- * the same file. The compiler compares the opening line's whitespace prefix
- * byte for byte instead (`Line`, VerseGrammar.h:1666-1690) and errors S89 on a
- * line that indents inconsistently, so this agrees with it on every file that
- * compiles.
+ * The one width model. The compiler extends the opening line's whitespace
+ * prefix byte for byte instead (`Line`, VerseGrammar.h:1666-1690) and errors S89
+ * on a line that indents inconsistently, so comparing widths agrees with it on
+ * every file that compiles - but two width models do not agree with each other,
+ * and a `<#>` body must end on one line rather than two. Nothing may add a
+ * second.
  */
-function indentWidthOf(line: string): number {
+export function indentOf(content: string, lineStart: number): number {
     let width = 0;
-    for (let i = 0; i < line.length; i++) {
-        if (line[i] === " ") {
+    for (let i = lineStart; i < content.length; i++) {
+        if (content[i] === " ") {
             width += 1;
-        } else if (line[i] === "\t") {
+        } else if (content[i] === "\t") {
             width += 4;
         } else {
             break;

@@ -102,6 +102,12 @@ function queuedEditsFor(edit: vscode.WorkspaceEdit, uri: vscode.Uri): QueuedEdit
  * A run of nothing but blank lines is not a header: it describes nothing, and
  * it is dropped here as it always was.
  *
+ * Neither is the run an unterminated `<#` swallowed. A block comment left open
+ * runs to the end of the buffer, so a run reaching that end has no line below
+ * it to write an import on and naming it would put the import inside the
+ * comment - where the scanner cannot see it, and the next compile adds it
+ * again. Only the closed lines above the opener are header.
+ *
  * The opening run wins over the annotation rule below, so a comment on line 0
  * written against the first import stays at the top of the block rather than
  * following that import down through a sort. Line 0 is ambiguous - a file
@@ -114,6 +120,20 @@ function headerLineCount(classifications: LineClassification[]): number {
     while (end < classifications.length && classifications[end].kind !== "code") {
         end++;
     }
+
+    // Step back over the run an unclosed opener holds, to the line that opener
+    // sits on. Back to that line and no further: a header closed above it is
+    // still a header, and starting from 0 instead would write the import above
+    // a licence, which is the placement this function exists to prevent.
+    //
+    // Reached only where the walk found no code line at all, since a line below
+    // one ending inside a block comment cannot be code.
+    if (end === classifications.length) {
+        while (end > 0 && classifications[end - 1].endsInsideBlockComment) {
+            end--;
+        }
+    }
+
     return classifications.slice(0, end).some((classification) => classification.kind === "comment") ? end : 0;
 }
 

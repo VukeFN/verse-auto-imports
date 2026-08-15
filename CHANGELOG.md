@@ -10,6 +10,20 @@ Where an entry resolves a tracked issue, it ends with a `[#N]` reference linked 
 
 Pending changes are kept as one file per change under [changelog.d/](changelog.d/) and assembled here at release.
 
+## [0.11.3] - 2026-08-16
+
+### Fixed
+
+- **Settings**: `general.diagnosticDelay` now uses VS Code's own deprecation support, so the settings editor hides it and flags an existing value instead of listing it above its replacement. An explicitly set value is still honored ([#369])
+- **Import placement**: A newly added relative import no longer lands inside an indented module body or inside an unclosed block comment, where it broke the construct or was silently duplicated on every later compile ([#389])
+- **Import path conversion**: modules declared inside other modules now convert in both directions, and a project too large for the module search to read in full is told so once rather than offered a path the search cannot stand behind ([#395])
+- **Project path scan**: a string interpolation spanning lines no longer strands the brace depth, which reported every declaration below it under the wrong module path ([#414])
+- **Digest lookups**: With `experimental.useDigestFiles` on, an identifier declared in more than one module is now led by the live module, so the SpatialMath and input surfaces no longer suggest the deprecated `/UnrealEngine.com` paths first ([#416])
+- **Verse file scanning**: a `<#` block opened in a `<#>` marker's line, or a `#` comment continuing past the `#>` that closes one, now reads as commented out, so imports written there no longer count as present ([#419])
+- **Path conversion**: imports convert in both directions again for a project that nests its Verse under `Plugins/<Name>/Content`, the UEFN layout where every conversion was refused when the workspace was opened at the project root ([#429])
+- **Quick fixes**: In a multi-root workspace, the quick-fix menu now labels an import in the syntax the file's own folder sets, matching the text it inserts ([#433])
+- **Module visibility**: the make-module-public quick fix now writes the definitions file of the workspace folder holding the edited file, so a multi-root workspace no longer writes the first folder's file or ignores that folder's file name override ([#436])
+
 ## [0.11.2] - 2026-08-15
 
 ### Added
@@ -446,7 +460,8 @@ See [GitHub Releases](https://github.com/VukeFN/verse-auto-imports/releases) for
 
 <!-- Version comparisons. The chain starts at 0.6.0: no v0.4.x or v0.5.x tags exist. -->
 
-[Unreleased]: https://github.com/vukefn/verse-auto-imports/compare/v0.11.2...HEAD
+[Unreleased]: https://github.com/vukefn/verse-auto-imports/compare/v0.11.3...HEAD
+[0.11.3]: https://github.com/vukefn/verse-auto-imports/compare/v0.11.2...v0.11.3
 [0.11.2]: https://github.com/vukefn/verse-auto-imports/compare/v0.11.1...v0.11.2
 [0.11.1]: https://github.com/vukefn/verse-auto-imports/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/vukefn/verse-auto-imports/compare/v0.10.0...v0.11.0
@@ -463,6 +478,15 @@ See [GitHub Releases](https://github.com/VukeFN/verse-auto-imports/releases) for
 
 <!-- Issue references -->
 
+[#369]: https://github.com/vukefn/verse-auto-imports/issues/369
+[#389]: https://github.com/vukefn/verse-auto-imports/issues/389
+[#395]: https://github.com/vukefn/verse-auto-imports/issues/395
+[#414]: https://github.com/vukefn/verse-auto-imports/issues/414
+[#416]: https://github.com/vukefn/verse-auto-imports/issues/416
+[#419]: https://github.com/vukefn/verse-auto-imports/issues/419
+[#429]: https://github.com/vukefn/verse-auto-imports/issues/429
+[#433]: https://github.com/vukefn/verse-auto-imports/issues/433
+[#436]: https://github.com/vukefn/verse-auto-imports/issues/436
 [#359]: https://github.com/vukefn/verse-auto-imports/issues/359
 [#360]: https://github.com/vukefn/verse-auto-imports/issues/360
 [#363]: https://github.com/vukefn/verse-auto-imports/issues/363

@@ -1311,6 +1311,23 @@ describe("classifyLines", () => {
         expect(classifyLines(["<#", "note", "#>", "code()"]).map((classification) => classification.insideBlockComment)).toEqual([false, true, true, false]);
     });
 
+    it("marks the lines a block comment is still open at the end of", () => {
+        expect(classifyLines(["<#", "note", "#>", "code()"]).map((classification) => classification.endsInsideBlockComment)).toEqual([true, true, false, false]);
+    });
+
+    // The two answer the same question a line apart, which is what makes the
+    // last line the one worth asking: nothing below it carries the answer.
+    it("answers endsInsideBlockComment as the next line's insideBlockComment", () => {
+        const classifications = classifyLines(["code()", "using { /A } <# note", "more note", "#> code()"]);
+        expect(classifications.slice(0, -1).map((classification) => classification.endsInsideBlockComment)).toEqual(
+            classifications.slice(1).map((classification) => classification.insideBlockComment),
+        );
+    });
+
+    it("marks an opener written on the last line as leaving the comment open", () => {
+        expect(classifyLines(["code()", "using { /A } <#"]).map((classification) => classification.endsInsideBlockComment)).toEqual([false, true]);
+    });
+
     // "Indented comments begin with a `<#>` on its own line; everything
     // indented by four spaces on subsequent lines becomes part of the comment."
     it("reads the indented body of a marker as part of its comment", () => {

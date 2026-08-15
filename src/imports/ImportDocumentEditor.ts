@@ -3,7 +3,18 @@ import { logger, settingsFor } from "../utils";
 import { DiagnosticLinesByPath, DiagnosticLinesByStatement } from "../types";
 import { ImportFormatter } from "./ImportFormatter";
 import { QueuedEdit, verifyImportEdits, verifyOrganizedRewrite } from "./ImportRewriteGuard";
-import { allUsingPaths, classifyLines, indentedPairPathLine, LINE_SPLIT, LineClassification, pinnedImports, rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
+import {
+    allUsingPaths,
+    classifyLines,
+    indentedBodyLine,
+    indentedPairPathLine,
+    LINE_SPLIT,
+    LineClassification,
+    pinnedImports,
+    rewritableImports,
+    scanModuleImports,
+    ScannedImport,
+} from "./ImportScanner";
 
 /**
  * A run of import statements on consecutive lines. Any gap starts a new block,
@@ -158,14 +169,22 @@ function attachedCommentStart(importStartLine: number, classifications: LineClas
  * path line free, and a new import written there leaves the `using:` with no
  * body.
  *
- * The two rules alternate rather than run in turn, because either can extend a
- * span the other then extends again: a pair's path line may itself open a
- * comment over the lines below it.
+ * An indented body reaches past it for the third time, and is the general case
+ * of the pair: a pinned line sharing itself with any block opener - `M :=
+ * module:`, a clause continued below - owns the lines indented under it, and a
+ * new import written at column 0 there ends the block before its body. See
+ * indentedBodyLine.
+ *
+ * The rules alternate rather than run in turn, because any can extend a span
+ * another then extends again: a pair's path line may itself open a comment over
+ * the lines below it, and a body can hold a nested pair.
  *
  * The pair rule goes first, and that order is load-bearing. Each hop re-anchors
  * on the new end, and only the opener line carries the `using:` - so where the
  * opener also opens a comment, letting the comment rule run first steps the
- * anchor past the opener and the pair is never found at all.
+ * anchor past the opener and the pair is never found at all. The body rule goes
+ * last for no such reason: it reads the first line of code below the anchor,
+ * which the other two hops reach by their own routes and never step past.
  */
 function pinnedSpanEnd(imp: ScannedImport, classifications: LineClassification[]): number {
     let end = imp.endLine;
@@ -177,6 +196,11 @@ function pinnedSpanEnd(imp: ScannedImport, classifications: LineClassification[]
         }
         if (end + 1 < classifications.length && classifications[end + 1].continuesCommentAbove) {
             end++;
+            continue;
+        }
+        const bodyLine = indentedBodyLine(classifications, end);
+        if (bodyLine > end) {
+            end = bodyLine;
             continue;
         }
         return end;
@@ -522,6 +546,23 @@ export class ImportDocumentEditor {
             if (needsScopeAbove) {
                 floor = Math.max(floor, pinnedSpanEnd(imp, classifications));
             }
+        }
+
+        // A floor names the line a new import is written below, so a floor with
+        // no writable line below it bounds nothing. That is the buffer ending
+        // inside an unclosed `<#`: every line the comment covers is already in
+        // the span, and appending past the last one writes into the comment -
+        // where the scan, which skips a line opened inside a block comment,
+        // then reads the path as absent and adds it again on the next compile.
+        //
+        // Dropped rather than refused. The path falls back to the block at the
+        // top, which is where an absolute path in the same file already goes,
+        // and a file holding an unclosed opener does not compile either way.
+        // Declining to write it at all is the worse of the two: see the
+        // grounded extras in buildOrganizedContent for why an added path that
+        // silently lands nowhere is not an option.
+        if (floor !== -1 && floor === classifications.length - 1 && classifications[floor].endsInsideBlockComment) {
+            floor = -1;
         }
 
         return { floor, ceiling };
@@ -1011,9 +1052,11 @@ export class ImportDocumentEditor {
                         // placementLine returns one of two things, and a pinned
                         // import's span holds no block line either way: its own
                         // line breaks the contiguity a block is built from, and
-                        // wherever the span runs past that line the rest of it
-                        // is comment body, so no column-0 import the scanner
-                        // would collect can be in it.
+                        // past that line the span is comment body or the lines
+                        // indented under it, neither of which holds a column-0
+                        // import the scanner would collect - an indented body
+                        // ends at the first column-0 line of code, which is the
+                        // earliest a block could start.
                         //
                         // - A ceiling, which is a pinned import's own line.
                         // - floor + 1, reached only when every block was

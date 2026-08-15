@@ -126,9 +126,13 @@ export function activate(context: vscode.ExtensionContext) {
     // of it: registerCodeLensProvider disposes the registration only, leaving
     // the provider's own listeners and hide timers live after deactivation.
     context.subscriptions.push(
-        vscode.languages.registerCodeActionsProvider({ language: "verse" }, new ImportCodeActionProvider(outputChannel, importHandler)),
-        vscode.languages.registerCodeActionsProvider({ language: "verse" }, new ModuleVisibilityCodeActionProvider()),
-        // The metadata is not optional here as it is for the quick fixes above:
+        vscode.languages.registerCodeActionsProvider({ language: "verse" }, new ImportCodeActionProvider(outputChannel, importHandler), {
+            providedCodeActionKinds: ImportCodeActionProvider.providedCodeActionKinds,
+        }),
+        vscode.languages.registerCodeActionsProvider({ language: "verse" }, new ModuleVisibilityCodeActionProvider(), {
+            providedCodeActionKinds: ModuleVisibilityCodeActionProvider.providedCodeActionKinds,
+        }),
+        // The metadata does more here than spare the quick fixes above a call:
         // it is what tells VS Code this provider answers source.organizeImports,
         // and so what puts Shift+Alt+O and editor.codeActionsOnSave through it.
         vscode.languages.registerCodeActionsProvider({ language: "verse" }, new ImportOrganizeCodeActionProvider(), {

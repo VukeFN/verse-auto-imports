@@ -237,9 +237,13 @@ export interface SettingSnapshot {
 }
 
 /**
- * Every override level of a setting at once. A guard that only reads one level
- * passes for the wrong reason as soon as the write path picks a different one,
- * and writeTargetFor picks by which level already holds an override.
+ * Reads every override level of a setting at once, plus the value that wins. A
+ * guard that only reads one level passes for the wrong reason as soon as the
+ * write path picks a different one, and writeTargetFor picks by which level
+ * already holds an override.
+ *
+ * Language-block levels ("[verse]") are deliberately absent: reaching one needs
+ * update({ overrideInLanguage: true }), and no write path here passes it.
  *
  * @param resource The file the setting is read about. Required for
  * workspaceFolderValue to resolve at all; without one, inspect answers for the
@@ -260,6 +264,13 @@ export function snapshotSetting(key: string, resource?: vscode.Uri): SettingSnap
  * Puts every override level of a setting back to what `baseline` recorded,
  * writing only the levels that actually moved. Clearing a level that was
  * already clear would rewrite the fixture's own .code-workspace file.
+ *
+ * Levels are compared with `!==`, so `key` must hold a primitive; an object
+ * value would look changed on every call and defeat that.
+ *
+ * @param resource Must be supplied, and `key` must be resource-scoped, if a
+ * workspaceFolder-level override may need restoring - `update` rejects that
+ * target otherwise.
  */
 export async function restoreSetting(key: string, baseline: SettingSnapshot, resource?: vscode.Uri): Promise<void> {
     const config = vscode.workspace.getConfiguration("verseAutoImports", resource);

@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { DiagnosticLinesByPath, ImportSuggestion, MissingImports } from "../types";
+import { DiagnosticLinesByPath, DiagnosticLinesByStatement, ImportSuggestion, MissingImports } from "../types";
 import { AssetsDigestParser } from "../services";
 import { ImportFormatter } from "./ImportFormatter";
 import { ImportSuggestionExtractor } from "./ImportSuggestionExtractor";
@@ -33,7 +33,7 @@ export class ImportHandler {
         return this.suggestionExtractor.extractImportSuggestions(errorMessage);
     }
 
-    async addImportsToDocument(document: vscode.TextDocument, importStatements: string[], diagnosticLinesByStatement?: ReadonlyMap<string, readonly number[]>): Promise<boolean> {
+    async addImportsToDocument(document: vscode.TextDocument, importStatements: string[], diagnosticLinesByStatement?: DiagnosticLinesByStatement): Promise<boolean> {
         return this.documentEditor.addImportsToDocument(document, importStatements, diagnosticLinesByStatement);
     }
 

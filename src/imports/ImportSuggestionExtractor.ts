@@ -481,13 +481,14 @@ export class ImportSuggestionExtractor {
     extractImportsFromDiagnostics(diagnostics: vscode.Diagnostic[]): MissingImports {
         logger.debug("ImportSuggestionExtractor", `Extracting imports from ${diagnostics.length} diagnostics`);
 
-        const suggestedPaths = new Set<string>();
-        // Concatenated where two diagnostics name one path: a second diagnostic
+        // One collection, so the paths and their evidence cannot disagree about
+        // which diagnostic named which path: the keys are the deduplicated
+        // paths, in the order the diagnostics named them. Lines are concatenated
+        // where two diagnostics name one path, because a second diagnostic
         // asking for the same import is further evidence, not a replacement for
         // the first.
         const diagnosticLinesByPath = new Map<string, number[]>();
         const record = (path: string, diagnostic: vscode.Diagnostic): void => {
-            suggestedPaths.add(path);
             diagnosticLinesByPath.set(path, [...(diagnosticLinesByPath.get(path) ?? []), diagnostic.range.start.line]);
         };
 
@@ -523,7 +524,7 @@ export class ImportSuggestionExtractor {
             }
         }
 
-        const paths = Array.from(suggestedPaths);
+        const paths = Array.from(diagnosticLinesByPath.keys());
         logger.debug("ImportSuggestionExtractor", `Extracted ${paths.length} unique import paths from diagnostics`);
         return { paths, diagnosticLinesByPath };
     }

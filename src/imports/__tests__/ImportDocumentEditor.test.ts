@@ -2459,7 +2459,16 @@ describe("ImportDocumentEditor.organizeImports carries the diagnostic evidence",
         expect(appliedOperations(0)[0].text).toBe(["using { Features }", "", "using { Economy.Shop } <#> note", "    body", "code()"].join("\n"));
     });
 
-    it("leaves the written order alone when no diagnostic names the pinned line", async () => {
+    it("leaves the written order alone when the evidence names a line elsewhere", async () => {
+        const input = ["using { Economy.Shop } <#> note", "    body", "code()"].join("\n");
+
+        const success = await editor.organizeImports(fakeDocument(input), ["Features"], new Map([["Features", [2]]]));
+
+        expect(success).toBe(true);
+        expect(appliedOperations(0)[0].text).toBe(["using { Economy.Shop } <#> note", "    body", "using { Features }", "code()"].join("\n"));
+    });
+
+    it("leaves the written order alone when the caller has no evidence at all", async () => {
         const input = ["using { Economy.Shop } <#> note", "    body", "code()"].join("\n");
 
         const success = await editor.organizeImports(fakeDocument(input), ["Features"]);

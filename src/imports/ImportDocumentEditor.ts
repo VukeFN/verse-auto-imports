@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { logger } from "../utils";
-import { DiagnosticLinesByPath } from "../types";
+import { DiagnosticLinesByPath, DiagnosticLinesByStatement } from "../types";
 import { ImportFormatter } from "./ImportFormatter";
 import { QueuedEdit, verifyImportEdits, verifyOrganizedRewrite } from "./ImportRewriteGuard";
 import { allUsingPaths, classifyLines, indentedPairPathLine, LINE_SPLIT, LineClassification, pinnedImports, rewritableImports, scanModuleImports, ScannedImport } from "./ImportScanner";
@@ -636,7 +636,7 @@ export class ImportDocumentEditor {
      *   order alone; only couldResolveAgainst reads these, to tell a pinned
      *   import that failed to resolve from one that merely looks like it could.
      */
-    async addImportsToDocument(document: vscode.TextDocument, importStatements: string[], diagnosticLinesByStatement?: ReadonlyMap<string, readonly number[]>): Promise<boolean> {
+    async addImportsToDocument(document: vscode.TextDocument, importStatements: string[], diagnosticLinesByStatement?: DiagnosticLinesByStatement): Promise<boolean> {
         logger.info("ImportDocumentEditor", `Adding ${importStatements.length} import statements to document`);
 
         const config = vscode.workspace.getConfiguration("verseAutoImports");
@@ -1199,11 +1199,12 @@ export class ImportDocumentEditor {
         const topExtraPaths: string[] = [];
         const groundedExtrasByLine = new Map<number, string[]>();
         for (const path of extraPaths) {
-            // A diagnostic does reach here: Optimize Imports adds what the
-            // compiler currently reports as missing, so a pinned import the
-            // evidence shows to be the consumer raises a ceiling rather than a
-            // floor, and the block above every pinned line satisfies it. Only
-            // the floor is read, for the reason hoistFloor gives.
+            // A diagnostic reaches here whenever the caller has one: Optimize
+            // Imports adds what the compiler currently reports as missing. A
+            // pinned import the evidence shows to be the consumer therefore
+            // raises a ceiling rather than a floor, and the block above every
+            // pinned line satisfies it. Only the floor is read, for the reason
+            // hoistFloor gives.
             const floor = this.hoistFloor(pinned, classifications, path, diagnosticLinesByPath);
             if (floor === -1) {
                 topExtraPaths.push(path);

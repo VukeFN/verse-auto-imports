@@ -1,7 +1,7 @@
 import { lexVerseLine } from "../verseLexer";
 
 /** The lexer's entry state for a line nothing above it left open. */
-const atCodeScope = { depth: 0, markerIndent: null };
+const atCodeScope = { depth: 0, markerIndent: null, openFrames: [] };
 
 describe("lexVerseLine commentStart", () => {
     it("reports -1 for a line holding no comment", () => {
@@ -42,14 +42,14 @@ describe("lexVerseLine commentStart", () => {
     it("reports 0 for a line whose opener is above it", () => {
         // 0 even where the line closes that comment and carries live code, which
         // is why only a depthBefore-0 line may be split on the offset.
-        expect(lexVerseLine("still comment text", { depth: 1, markerIndent: null }).commentStart).toBe(0);
+        expect(lexVerseLine("still comment text", { depth: 1, markerIndent: null, openFrames: [] }).commentStart).toBe(0);
 
-        const closes = lexVerseLine("#> using { /A }", { depth: 1, markerIndent: null });
+        const closes = lexVerseLine("#> using { /A }", { depth: 1, markerIndent: null, openFrames: [] });
         expect(closes.commentStart).toBe(0);
         expect(closes.hasCode).toBe(true);
     });
 
     it("reports 0 for a line inside the body of a `<#>` marker", () => {
-        expect(lexVerseLine("    body text", { depth: 0, markerIndent: 0 }).commentStart).toBe(0);
+        expect(lexVerseLine("    body text", { depth: 0, markerIndent: 0, openFrames: [] }).commentStart).toBe(0);
     });
 });

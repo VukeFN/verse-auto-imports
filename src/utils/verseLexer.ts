@@ -42,6 +42,12 @@
  *   a `#` opens a real comment. So literal state is a stack of frames, and an
  *   interpolation frame counts the plain `{ }` blocks written inside it or a
  *   map's `}` closes it early.
+ *
+ *   That body being ordinary code also lets it span lines, which is the one
+ *   literal state a newline does not end: at String place `Text` stops dead at
+ *   the newline (:2083-2105) and `Quote` then requires the closing `"` (:3224),
+ *   so an open `"` at a line end is error S32 while an open interpolation is
+ *   just a list still being read. `openFrames` is that distinction.
  * - A `'` means one of two things, and which one is decided by the character
  *   before it. `Ident := Alpha {Alnum} !Alnum ["'" {…} "'"]` (:1954) opens the
  *   quoted segment suffix only directly after an identifier's alphanumeric run,
@@ -75,10 +81,17 @@ export interface LexState {
      * outside one.
      */
     markerIndent: number | null;
+    /**
+     * The literal and interpolation frames open where the line starts, innermost
+     * last, and empty at code scope. Seed it from the line above's
+     * {@link LexedLine.openFrames}, or leave it empty to read every line from
+     * code scope.
+     */
+    openFrames: LexFrame[];
 }
 
 /** One literal or interpolation open at a point in a line. */
-type LexFrame =
+export type LexFrame =
     /**
      * `suffix` is an identifier's quoted segment, `Economy.Shop'Loc'`, and is
      * kept in every output: masking it truncates the path to `Economy.Shop`, a
@@ -124,6 +137,22 @@ export interface LexedLine {
      * {@link lexVerseLine}.
      */
     endedOpen: boolean;
+    /**
+     * The frames the next line starts inside, innermost last, and empty where
+     * nothing carries.
+     *
+     * Only an interpolation carries, because only an interpolation legally spans
+     * a line: `Interp := '{' List '}'` (:2163) makes its body an ordinary list,
+     * while `Text` at String place stops at a newline (:2083-2105) and `Quote`
+     * then requires the closing `"` (:3224), so a `"` still open where the line
+     * ends is error S32 rather than a string continuing below. Carrying that one
+     * would let a single stray quote blank the rest of the file.
+     *
+     * Read this, not `endedOpen`, to decide what carries. `endedOpen` is true
+     * for a carried interpolation as well, so the two are not interchangeable:
+     * an empty stack under a true `endedOpen` is the unterminated literal.
+     */
+    openFrames: LexFrame[];
     /**
      * Index into the line of the first comment opener on it, or -1 when it
      * holds none. 0 when the line opens already inside a comment, whose opener
@@ -183,13 +212,21 @@ export interface LexedLine {
 /**
  * Reads one line, given what the lines above it left open.
  *
- * A line that ends inside a literal is reported through `endedOpen` rather than
- * resolved here, because the two readers built on this want opposite fallbacks
- * and both are right. A masker must fail towards blanking: text it wrongly
- * offers as code becomes a declaration its caller edits as if it were real. A
- * scanner must fail towards keeping: a `using` it misses is read by its caller
- * as permission to remove an import. Deciding it here would silently impose one
- * of those on the other.
+ * A line that ends inside an *unterminated* literal is reported through
+ * `endedOpen` rather than resolved here, because the two readers built on this
+ * want opposite fallbacks and both are right. A masker must fail towards
+ * blanking: text it wrongly offers as code becomes a declaration its caller
+ * edits as if it were real. A scanner must fail towards keeping: a `using` it
+ * misses is read by its caller as permission to remove an import. Deciding it
+ * here would silently impose one of those on the other.
+ *
+ * Which of those two a line ended inside is settled here, through `openFrames`,
+ * because the language answers it: an interpolation may span lines and a string
+ * may not. `endedOpen` does not carry that answer - it is true of both - so a
+ * reader deciding what to resume must read `openFrames` instead. The two are
+ * still separate signals: the scanner takes its fallback on `endedOpen`,
+ * declining to lex past a point it cannot classify, whether or not the state
+ * there was one it could have carried.
  *
  * @param line one line, with no line terminator. A trailing `\r` from a CRLF
  *   document is harmless and counts as trailing whitespace.
@@ -236,7 +273,18 @@ export function lexVerseLine(line: string, state: LexState, trackLiterals: boole
     //
     // Kept across the `nesting > 0` branch, because a block comment written
     // inside a string does not end it: `"a<#c#>#b"` is the string `"a#b"`.
-    const open: LexFrame[] = [];
+    //
+    // Copied frame by frame rather than aliased, or this line's pushes and its
+    // interpolation brace counts would land in the caller's own state object.
+    // A caller that never reassigns `openFrames` is relying on it staying as it
+    // set it - both scanner states below hold an empty stack they never write
+    // back, and aliasing would leak every line's literals into the next through
+    // the array they thought was inert.
+    //
+    // Empty with tracking off, whatever the caller carried: that mode reads a
+    // `#` as a comment opener wherever it sits, which is a caller saying it does
+    // not believe the literal state here.
+    const open: LexFrame[] = trackLiterals ? state.openFrames.map((frame) => ({ ...frame })) : [];
 
     /** Records one character as comment text: blanked in `masked`, absent from both code strings. */
     const commentChar = (): void => {
@@ -420,6 +468,7 @@ export function lexVerseLine(line: string, state: LexState, trackLiterals: boole
         opensIndentedComment,
         hasCode,
         endedOpen: open.length > 0,
+        openFrames: open[open.length - 1]?.kind === "interpolation" ? open : [],
         commentStart,
         codeWithoutComments,
         codeOutsideLiterals,

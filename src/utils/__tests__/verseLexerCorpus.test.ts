@@ -187,6 +187,15 @@ const probes: Probe[] = [
         source: 'Broken := "oops\nL1 := 1\n',
         live: ["L1"],
     },
+    {
+        // The interpolation opened and closed on the line, so the string alone
+        // is what is left open at its end - and a string cannot span a newline.
+        // Carrying on `endedOpen` rather than on which frame is innermost reads
+        // every line below this one as literal text.
+        name: "an unterminated string that held a closed interpolation does not carry either",
+        source: 'Broken := "a{B}c\nL1 := 1\n',
+        live: ["L1"],
+    },
 ];
 
 describe("verse lexer probe corpus", () => {
@@ -210,6 +219,11 @@ describe("verse lexer probe corpus, brace depth", () => {
     // countBraces reads masked text, so every brace reaching it is a body's.
     // Each source below balances, and a literal brace counted as real leaves the
     // depth stranded for the rest of the file.
+    //
+    // The three spanning cases are the masker's alone, not sentinel probes: the
+    // scanner reads a line that ends open with literal tracking off and so does
+    // not carry the interpolation, which is the second shape - after the
+    // unterminated string above - where the two readers are allowed to differ.
     it.each([
         ["a brace in a char literal", "Body := module:\n    Brace := '{'\n"],
         ["an escaped brace in a char literal", "Body := module:\n    Brace := '\\{'\n"],
@@ -217,6 +231,15 @@ describe("verse lexer probe corpus, brace depth", () => {
         ["a brace in a comment", "Body := module:\n    Note := 1 # {\n"],
         ["a balanced braced body", "Body := module {\n    Field := 1\n}\n"],
         ["an interpolation holding a map", 'Body := module:\n    Text := "a{map{1=>2}}b"\n'],
+        ["an interpolation spanning lines", 'Body := module:\n    Msg := "Score: {\n        Points}"\n'],
+        // The carried frame has to bring its brace count with it, or the first
+        // `}` below reads as the end of the interpolation and the `b"` after it
+        // is lexed as code.
+        ["a block brace inside an interpolation spanning lines", 'Body := module:\n    Msg := "a{map{1=>2\n    }}b"\n'],
+        // `"ab{<#blkcmt#>\n    }cd"` is a versetest the compiler validates, and
+        // it puts the two carried states on one construct: the block comment
+        // ends on the line below the interpolation it was opened inside.
+        ["a block comment inside an interpolation spanning lines", 'Body := module:\n    Msg := "ab{<# note\n    #>}cd"\n'],
     ])("returns to zero across %s", (_name, source) => {
         const masked = maskCommentsAndStrings(source);
 
@@ -262,6 +285,17 @@ describe("verse lexer probe corpus, the readers built on it", () => {
         expect(paths(source)).toEqual(["/Verse.org/Simulation"]);
         expect(declared(source)).toEqual(["Label", "Inner"]);
         expect(findExplicitModuleDeclarations(source).map((declaration) => declaration.name)).toEqual(["Inner"]);
+    });
+
+    it("keeps the enclosing module across an interpolation that spans lines", () => {
+        // The `{` sits inside the literal and is blanked, so leaving its `}` on
+        // the line below at code scope returned the depth to zero a line early
+        // and closed `Outer`. Every declaration after it was then reported at a
+        // path that does not exist, and collided with any real top-level Inner.
+        const source = 'Outer := module {\n    Msg := "Score: {\n        Points}"\n    Inner := module {\n        X := 1\n    }\n}\n';
+
+        expect(declared(source)).toEqual(["Outer", "Outer.Msg", "Outer.Inner", "Outer.Inner.X"]);
+        expect(findExplicitModuleDeclarations(source).map((declaration) => declaration.chain.join("."))).toEqual(["Outer", "Outer.Inner"]);
     });
 
     it("drops what a `<#>` marker body really does comment out", () => {

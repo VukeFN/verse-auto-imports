@@ -1,4 +1,3 @@
-import * as path from "path";
 import * as vscode from "vscode";
 import { logger, settingsFor } from "../utils";
 import { ProjectPathHandler } from "../project";
@@ -164,11 +163,10 @@ export class ModuleVisibilityWriter {
         // workspace can carry one legitimately - notes or art opened alongside
         // the project. A document in such a folder falls back rather than
         // refusing, since the project's own folder can still serve it.
-        const located = (await this.locateContentRoot(requestedFolder)) ?? (await this.locateContentRoot(firstFolder));
-        if (!located) {
+        const contentRoot = (await this.locateContentRoot(requestedFolder)) ?? (await this.locateContentRoot(firstFolder));
+        if (!contentRoot) {
             return { reason: `no '${CONTENT_FOLDER}' folder was found in the workspace, so there is nowhere to declare the module.` };
         }
-        const { contentRoot } = located;
 
         const definitionsUri = this.definitionsUri(contentRoot);
         if (!definitionsUri) {
@@ -327,20 +325,20 @@ export class ModuleVisibilityWriter {
     }
 
     /**
-     * A folder paired with its Content root, or null when there is no folder or
-     * it holds none.
+     * A folder's Content root, or null when there is no folder or it holds
+     * none. Nullable on both counts so the caller can fall back from the
+     * document's own folder to the first with one `??`.
      *
      * The root is resolved at whatever depth it sits, since UEFN nests it under
      * `Plugins/<Name>` and a workspace opened at the project root holds no
      * Content at its own top level.
      */
-    private async locateContentRoot(folder: vscode.WorkspaceFolder | undefined): Promise<{ workspaceFolder: vscode.WorkspaceFolder; contentRoot: vscode.Uri } | null> {
+    private async locateContentRoot(folder: vscode.WorkspaceFolder | undefined): Promise<vscode.Uri | null> {
         if (!folder) {
             return null;
         }
 
-        const contentRoot = await findContentRoot(folder, await this.projectPathHandler.getRootPluginName());
-        return contentRoot ? { workspaceFolder: folder, contentRoot } : null;
+        return findContentRoot(folder, await this.projectPathHandler.getRootPluginName());
     }
 
     /**

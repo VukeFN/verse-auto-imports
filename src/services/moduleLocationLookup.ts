@@ -238,7 +238,9 @@ export function resolveFolderModuleLocations(modulePath: string, contentRelative
  * than by stripping a prefix the caller spelled. The root is found by a stat,
  * and a caller cannot reproduce the on-disk spelling of what that stat matched:
  * a plugin name read from the project file need not match its directory's case.
- * Relating the two absolute paths folds exactly as far as the filesystem does.
+ * `path.relative` folds on Windows, where UEFN runs, so the two agree there; on
+ * a case-sensitive platform a root whose spelling differs from its directory
+ * places no file, which is the fail-closed direction.
  */
 export function toContentRelativeDir(sourceFileAbsolute: string, contentRootAbsolute: string): string | null {
     const belowRoot = path.relative(contentRootAbsolute, sourceFileAbsolute).replace(/\\/g, "/");

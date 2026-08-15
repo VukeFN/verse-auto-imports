@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import * as path from "path";
 import { logger, settingsFor } from "../utils";
 import { ProjectPathHandler } from "../project";
 import { ProjectPathScanner } from "./ProjectPathScanner";

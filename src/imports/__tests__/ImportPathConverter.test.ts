@@ -768,6 +768,20 @@ describe("ImportPathConverter.findModuleLocations project-wide phases under a ne
 
         expect(await locationsFor("Inventory", null)).toEqual([]);
     });
+
+    // FileStat.type is a bitmask, so the disk provider reports a linked
+    // directory as Directory|SymbolicLink. These phases globbed without stating
+    // at all before, and findFiles follows links by default, so reading the
+    // type as a value would drop a root reached through a junction.
+    it("takes a Content root reached through a symlink or a junction", async () => {
+        givenVerseFiles(["Systems/Inventory.verse"], "Inventory := module:\n");
+        (vscode.workspace.fs.stat as jest.Mock).mockImplementation(async (uri: { fsPath: string }) => {
+            if (uri.fsPath.replace(/\\/g, "/") !== contentRoot) throw new Error("ENOENT");
+            return { type: vscode.FileType.Directory | vscode.FileType.SymbolicLink };
+        });
+
+        expect(await locationsFor("Inventory")).toEqual(["/Systems"]);
+    });
 });
 
 // The relative form is a proposal until the module search confirms it names

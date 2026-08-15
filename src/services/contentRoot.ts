@@ -26,6 +26,10 @@ const PLUGINS_FOLDER = "Plugins";
  *
  * @param rootPluginName `plugins[bIsRoot].name` from the project file; without
  * one there is no evidence for a nested root, so only the top two are offered.
+ * A name carrying a path separator or a relative segment is refused rather than
+ * joined: `Uri.joinPath` would resolve it, and a `..` in the project file would
+ * put the root outside the workspace folder, where the visibility writer would
+ * then create its definitions file.
  */
 export function contentRootCandidates(workspaceFolderPath: string, rootPluginName: string | null): string[] {
     if (path.basename(workspaceFolderPath) === CONTENT_FOLDER) {
@@ -33,7 +37,7 @@ export function contentRootCandidates(workspaceFolderPath: string, rootPluginNam
     }
 
     const candidates = [CONTENT_FOLDER];
-    if (rootPluginName) {
+    if (rootPluginName && /^[^\\/:*?"<>|]+$/.test(rootPluginName) && rootPluginName !== "." && rootPluginName !== "..") {
         candidates.push(`${PLUGINS_FOLDER}/${rootPluginName}/${CONTENT_FOLDER}`);
     }
 
@@ -46,10 +50,11 @@ export function contentRootCandidates(workspaceFolderPath: string, rootPluginNam
  *
  * Returned absolute, so a caller maps a file back through
  * `path.relative(contentRoot, file)` rather than by stripping a prefix it
- * spelled itself. That matters because the nested candidate is composed from
- * the plugin name the project file declares, which is matched against a
- * directory rather than resolved and so need not match its case: the relative
- * step then folds exactly as far as the stat that found the root did.
+ * spelled itself. The nested candidate carries the plugin name as the project
+ * file spells it, which is matched against a directory rather than resolved,
+ * so it need not match the directory's case; relating two absolute paths folds
+ * as far as the platform does, which on Windows - where UEFN runs - is as far
+ * as the stat that found the root did.
  */
 export async function findContentRoot(workspaceFolder: { uri: vscode.Uri }, rootPluginName: string | null): Promise<vscode.Uri | null> {
     for (const candidate of contentRootCandidates(workspaceFolder.uri.fsPath, rootPluginName)) {
@@ -62,7 +67,13 @@ export async function findContentRoot(workspaceFolder: { uri: vscode.Uri }, root
         const uri = vscode.Uri.joinPath(workspaceFolder.uri, candidate);
         try {
             const stat = await vscode.workspace.fs.stat(uri);
-            if (stat.type === vscode.FileType.Directory) {
+
+            // A bitmask, not a value: the disk provider ORs SymbolicLink onto
+            // the target's type, so an equality test rejects a Content root
+            // reached through a symlink or a junction. The scans this feeds
+            // used to glob without stating at all, and findFiles follows links
+            // by default, so such a root has to keep working.
+            if ((stat.type & vscode.FileType.Directory) !== 0) {
                 return uri;
             }
         } catch {

@@ -15,7 +15,7 @@ export interface PrecompiledDigest {
     generatedAt: string;
     sourceFile: string;
     sourceBuild: string;
-    entries: Record<string, DigestEntry>;
+    entries: Record<string, DigestEntry[]>;
     moduleIndex: Record<string, string[]>;
 }
 
@@ -29,7 +29,7 @@ export interface PrecompiledDigest {
  * no second source to fall back to, so DigestParser surfaces that to the user.
  */
 export class PrecompiledDigestLoader {
-    private digestCache: Map<string, DigestEntry> = new Map();
+    private digestCache: Map<string, DigestEntry[]> = new Map();
     private moduleIndex: Map<string, string[]> = new Map();
     private loaded: boolean = false;
     private loadError: Error | null = null;
@@ -100,13 +100,19 @@ export class PrecompiledDigestLoader {
                 const content = fs.readFileSync(filePath, "utf8");
                 const digest: PrecompiledDigest = JSON.parse(content);
 
-                // First file to declare an identifier wins, so
-                // BUNDLED_DIGEST_NAMES order is the precedence between the
-                // three domains.
-                for (const [identifier, entry] of Object.entries(digest.entries)) {
-                    if (!this.digestCache.has(identifier)) {
-                        this.digestCache.set(identifier, entry);
+                // Every declaring module is kept, one per module path, so a
+                // lookup can offer the choice. BUNDLED_DIGEST_NAMES order is
+                // still the precedence between the three domains: it decides
+                // which path leads the list, and the lead is what a caller
+                // picking one answer takes.
+                for (const [identifier, declarations] of Object.entries(digest.entries)) {
+                    const merged = this.digestCache.get(identifier) ?? [];
+                    for (const declaration of declarations) {
+                        if (!merged.some((existing) => existing.modulePath === declaration.modulePath)) {
+                            merged.push(declaration);
+                        }
                     }
+                    this.digestCache.set(identifier, merged);
                 }
 
                 // The module index unions instead, so a module re-declared
@@ -129,8 +135,9 @@ export class PrecompiledDigestLoader {
         return successCount;
     }
 
-    getEntry(identifier: string): DigestEntry | undefined {
-        return this.digestCache.get(identifier);
+    /** Every module that declares this identifier, empty if none does. */
+    getEntry(identifier: string): DigestEntry[] {
+        return this.digestCache.get(identifier) ?? [];
     }
 
     getModuleIdentifiers(modulePath: string): string[] {
@@ -138,7 +145,7 @@ export class PrecompiledDigestLoader {
     }
 
     /** The live cache, not a copy: mutating it corrupts the index. */
-    getAllEntries(): Map<string, DigestEntry> {
+    getAllEntries(): Map<string, DigestEntry[]> {
         return this.digestCache;
     }
 

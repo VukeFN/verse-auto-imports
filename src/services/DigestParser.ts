@@ -30,7 +30,7 @@ export class DigestParser {
     }
 
     /** The identifier index, empty when the digest data could not be loaded. */
-    async getDigestIndex(): Promise<Map<string, DigestEntry>> {
+    async getDigestIndex(): Promise<Map<string, DigestEntry[]>> {
         if (!this.precompiledLoader) {
             return new Map();
         }
@@ -66,19 +66,19 @@ export class DigestParser {
     }
 
     /**
-     * The entry declaring this exact identifier, as a list so the caller can
-     * treat "none" and "one" alike.
+     * Every entry declaring this exact identifier, one per module that declares
+     * it, led by the module the digest precedence order prefers.
+     *
+     * More than one is the normal case for a name two modules both export, and
+     * the diagnostics handler reads the extras as a choice to offer, or under an
+     * `auto_*` multi-option strategy to make on the user's behalf.
      *
      * The match is exact on purpose. Matching by substring returned every entry
-     * whose name merely contained the identifier - 226 of them for `device` -
-     * and the diagnostics handler reads more than one suggestion as a choice to
-     * offer, or under an `auto_*` multi-option strategy to make on the user's
-     * behalf.
+     * whose name merely contained the identifier - 226 of them for `device`.
      */
     async lookupIdentifier(identifier: string): Promise<DigestEntry[]> {
         const index = await this.getDigestIndex();
-        const match = index.get(identifier);
-        return match ? [match] : [];
+        return index.get(identifier) ?? [];
     }
 
     /** Drops the loaded index, so the next lookup re-reads it from disk. */

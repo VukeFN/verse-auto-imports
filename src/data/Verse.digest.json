@@ -1,2775 +1,3721 @@
 {
-  "version": "1.0.0",
-  "generatedAt": "2026-08-14T12:40:55.458Z",
+  "version": "2.0.0",
+  "generatedAt": "2026-08-15T10:07:02.853Z",
   "sourceFile": "Verse.digest.verse",
   "sourceBuild": "++Fortnite+Release-41.30-CL-56430492",
   "entries": {
-    "Chat": {
-      "identifier": "Chat",
-      "modulePath": "/Verse.org/Chat",
-      "type": "module",
-      "isPublic": true
-    },
-    "chat_channel": {
-      "identifier": "chat_channel",
-      "modulePath": "/Verse.org/Chat",
-      "type": "class",
-      "isPublic": true
-    },
-    "has_voice_member_info": {
-      "identifier": "has_voice_member_info",
-      "modulePath": "/Verse.org/Chat",
-      "type": "class",
-      "isPublic": true
-    },
-    "voice_channel": {
-      "identifier": "voice_channel",
-      "modulePath": "/Verse.org/Chat",
-      "type": "class",
-      "isPublic": true
-    },
-    "add_channel_error": {
-      "identifier": "add_channel_error",
-      "modulePath": "/Verse.org/Chat",
-      "type": "class",
-      "isPublic": true
-    },
-    "remove_channel_error": {
-      "identifier": "remove_channel_error",
-      "modulePath": "/Verse.org/Chat",
-      "type": "class",
-      "isPublic": true
-    },
-    "SceneGraph": {
-      "identifier": "SceneGraph",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "module",
-      "isPublic": true
-    },
-    "basic_interactable_component": {
-      "identifier": "basic_interactable_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "interactable_component": {
-      "identifier": "interactable_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "interactable_cooldown": {
-      "identifier": "interactable_cooldown",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "interactable_cooldown_per_agent": {
-      "identifier": "interactable_cooldown_per_agent",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "interactable_duration": {
-      "identifier": "interactable_duration",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "interactable_success_limit": {
-      "identifier": "interactable_success_limit",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "camera_body": {
-      "identifier": "camera_body",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "camera_component": {
-      "identifier": "camera_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "GlobalModifierPosition": {
-      "identifier": "GlobalModifierPosition",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "variable",
-      "isPublic": true
-    },
-    "VisualModifierPosition": {
-      "identifier": "VisualModifierPosition",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "variable",
-      "isPublic": true
-    },
-    "camera_director_component": {
-      "identifier": "camera_director_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "camera_lens": {
-      "identifier": "camera_lens",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "camera_modifier_stack": {
-      "identifier": "camera_modifier_stack",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "has_camera_modifier": {
-      "identifier": "has_camera_modifier",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "camera_modifier": {
-      "identifier": "camera_modifier",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "camera_projection_mode": {
-      "identifier": "camera_projection_mode",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "camera_state": {
-      "identifier": "camera_state",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "camera_transition_initial_orientation": {
-      "identifier": "camera_transition_initial_orientation",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "camera_transition": {
-      "identifier": "camera_transition",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "camera_mode_blend": {
-      "identifier": "camera_mode_blend",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "camera_mode_blend_pop": {
-      "identifier": "camera_mode_blend_pop",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "camera_mode_blend_linear": {
-      "identifier": "camera_mode_blend_linear",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "camera_mode_blend_smoothstep": {
-      "identifier": "camera_mode_blend_smoothstep",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "camera_mode_blend_smootherstep": {
-      "identifier": "camera_mode_blend_smootherstep",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "camera_mode_blend_orbit": {
-      "identifier": "camera_mode_blend_orbit",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "orthographic_camera_component": {
-      "identifier": "orthographic_camera_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "perspective_camera_component": {
-      "identifier": "perspective_camera_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "physical_camera_component": {
-      "identifier": "physical_camera_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "skeletal_animation": {
-      "identifier": "skeletal_animation",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "play_skeletal_animation_result": {
-      "identifier": "play_skeletal_animation_result",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "skeleton": {
-      "identifier": "skeleton",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "easing_window": {
-      "identifier": "easing_window",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "easeable": {
-      "identifier": "easeable",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "entity_streaming_policy": {
-      "identifier": "entity_streaming_policy",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "children_streaming_policy": {
-      "identifier": "children_streaming_policy",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "capsule_light_component": {
-      "identifier": "capsule_light_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "directional_light_component": {
-      "identifier": "directional_light_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "KeyframedMovement": {
-      "identifier": "KeyframedMovement",
-      "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
-      "type": "module",
-      "isPublic": true
-    },
-    "easing_function": {
-      "identifier": "easing_function",
-      "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
-      "type": "class",
-      "isPublic": true
-    },
-    "cubic_bezier_easing_function": {
-      "identifier": "cubic_bezier_easing_function",
-      "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
-      "type": "class",
-      "isPublic": true
-    },
-    "linear_easing_function": {
-      "identifier": "linear_easing_function",
-      "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
-      "type": "class",
-      "isPublic": true
-    },
-    "ease_cubic_bezier_easing_function": {
-      "identifier": "ease_cubic_bezier_easing_function",
-      "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
-      "type": "class",
-      "isPublic": true
-    },
-    "ease_in_cubic_bezier_easing_function": {
-      "identifier": "ease_in_cubic_bezier_easing_function",
-      "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
-      "type": "class",
-      "isPublic": true
-    },
-    "ease_out_cubic_bezier_easing_function": {
-      "identifier": "ease_out_cubic_bezier_easing_function",
-      "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
-      "type": "class",
-      "isPublic": true
-    },
-    "ease_in_out_cubic_bezier_easing_function": {
-      "identifier": "ease_in_out_cubic_bezier_easing_function",
-      "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
-      "type": "class",
-      "isPublic": true
-    },
-    "keyframed_movement_playback_mode": {
-      "identifier": "keyframed_movement_playback_mode",
-      "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
-      "type": "class",
-      "isPublic": true
-    },
-    "oneshot_keyframed_movement_playback_mode": {
-      "identifier": "oneshot_keyframed_movement_playback_mode",
-      "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
-      "type": "class",
-      "isPublic": true
-    },
-    "loop_keyframed_movement_playback_mode": {
-      "identifier": "loop_keyframed_movement_playback_mode",
-      "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
-      "type": "class",
-      "isPublic": true
-    },
-    "pingpong_keyframed_movement_playback_mode": {
-      "identifier": "pingpong_keyframed_movement_playback_mode",
-      "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
-      "type": "class",
-      "isPublic": true
-    },
-    "keyframed_movement_delta": {
-      "identifier": "keyframed_movement_delta",
-      "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
-      "type": "class",
-      "isPublic": true
-    },
-    "keyframed_movement_component": {
-      "identifier": "keyframed_movement_component",
-      "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
-      "type": "class",
-      "isPublic": true
-    },
-    "light_component": {
-      "identifier": "light_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "mesh_component": {
-      "identifier": "mesh_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "particle_system_component": {
-      "identifier": "particle_system_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "possessable_component": {
-      "identifier": "possessable_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "rect_light_component": {
-      "identifier": "rect_light_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "sound_component": {
-      "identifier": "sound_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "sphere_light_component": {
-      "identifier": "sphere_light_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "spot_light_component": {
-      "identifier": "spot_light_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "float_range": {
-      "identifier": "float_range",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "collision_interaction": {
-      "identifier": "collision_interaction",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "collision_channel": {
-      "identifier": "collision_channel",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "collision_channel_to_interaction": {
-      "identifier": "collision_channel_to_interaction",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "variable",
-      "isPublic": true
-    },
-    "collision_profile": {
-      "identifier": "collision_profile",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "CollisionChannels": {
-      "identifier": "CollisionChannels",
-      "modulePath": "/Verse.org/SceneGraph/CollisionChannels",
-      "type": "module",
-      "isPublic": true
-    },
-    "stationary": {
-      "identifier": "stationary",
-      "modulePath": "/Verse.org/SceneGraph/CollisionChannels",
-      "type": "class",
-      "isPublic": true
-    },
-    "dynamic": {
-      "identifier": "dynamic",
-      "modulePath": "/Verse.org/SceneGraph/CollisionChannels",
-      "type": "class",
-      "isPublic": true
-    },
-    "avatar": {
-      "identifier": "avatar",
-      "modulePath": "/Verse.org/SceneGraph/CollisionChannels",
-      "type": "class",
-      "isPublic": true
-    },
-    "visibility": {
-      "identifier": "visibility",
-      "modulePath": "/Verse.org/SceneGraph/CollisionChannels",
-      "type": "class",
-      "isPublic": true
-    },
-    "camera": {
-      "identifier": "camera",
-      "modulePath": "/Verse.org/SceneGraph/CollisionChannels",
-      "type": "class",
-      "isPublic": true
-    },
-    "physics": {
-      "identifier": "physics",
-      "modulePath": "/Verse.org/SceneGraph/CollisionChannels",
-      "type": "class",
-      "isPublic": true
-    },
-    "CollisionProfiles": {
-      "identifier": "CollisionProfiles",
-      "modulePath": "/Verse.org/SceneGraph/CollisionProfiles",
-      "type": "module",
-      "isPublic": true
-    },
-    "StationaryIgnoreAll": {
-      "identifier": "StationaryIgnoreAll",
-      "modulePath": "/Verse.org/SceneGraph/CollisionProfiles",
-      "type": "variable",
-      "isPublic": true
-    },
-    "StationaryOverlapAll": {
-      "identifier": "StationaryOverlapAll",
-      "modulePath": "/Verse.org/SceneGraph/CollisionProfiles",
-      "type": "variable",
-      "isPublic": true
-    },
-    "StationaryBlockAll": {
-      "identifier": "StationaryBlockAll",
-      "modulePath": "/Verse.org/SceneGraph/CollisionProfiles",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DynamicIgnoreAll": {
-      "identifier": "DynamicIgnoreAll",
-      "modulePath": "/Verse.org/SceneGraph/CollisionProfiles",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DynamicOverlapAll": {
-      "identifier": "DynamicOverlapAll",
-      "modulePath": "/Verse.org/SceneGraph/CollisionProfiles",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DynamicBlockAll": {
-      "identifier": "DynamicBlockAll",
-      "modulePath": "/Verse.org/SceneGraph/CollisionProfiles",
-      "type": "variable",
-      "isPublic": true
-    },
-    "StationaryBlockVisible": {
-      "identifier": "StationaryBlockVisible",
-      "modulePath": "/Verse.org/SceneGraph/CollisionProfiles",
-      "type": "variable",
-      "isPublic": true
-    },
-    "VisibilityOverlapAll": {
-      "identifier": "VisibilityOverlapAll",
-      "modulePath": "/Verse.org/SceneGraph/CollisionProfiles",
-      "type": "variable",
-      "isPublic": true
-    },
-    "overlap_hit": {
-      "identifier": "overlap_hit",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "sweep_hit": {
-      "identifier": "sweep_hit",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "collision_volume": {
-      "identifier": "collision_volume",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "collision_element": {
-      "identifier": "collision_element",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "collision_capsule": {
-      "identifier": "collision_capsule",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "collision_sphere": {
-      "identifier": "collision_sphere",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "collision_point": {
-      "identifier": "collision_point",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "collision_box": {
-      "identifier": "collision_box",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "component": {
-      "identifier": "component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "scene_event": {
-      "identifier": "scene_event",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "entity": {
-      "identifier": "entity",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "entity_prefab": {
-      "identifier": "entity_prefab",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "icon_component": {
-      "identifier": "icon_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "origin": {
-      "identifier": "origin",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "entity_origin": {
-      "identifier": "entity_origin",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "rarity": {
-      "identifier": "rarity",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "common_rarity": {
-      "identifier": "common_rarity",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "uncommon_rarity": {
-      "identifier": "uncommon_rarity",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "rare_rarity": {
-      "identifier": "rare_rarity",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "epic_rarity": {
-      "identifier": "epic_rarity",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "legendary_rarity": {
-      "identifier": "legendary_rarity",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "rarity_component": {
-      "identifier": "rarity_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "stackable_component": {
-      "identifier": "stackable_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "change_stack_size_result": {
-      "identifier": "change_stack_size_result",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "change_max_stack_size_result": {
-      "identifier": "change_max_stack_size_result",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "has_merge_rules": {
-      "identifier": "has_merge_rules",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "basic_stackable_component": {
-      "identifier": "basic_stackable_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "tick_events": {
-      "identifier": "tick_events",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "transform_component": {
-      "identifier": "transform_component",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "execution_listenable": {
-      "identifier": "execution_listenable",
-      "modulePath": "/Verse.org/SceneGraph",
-      "type": "class",
-      "isPublic": true
-    },
-    "Progression": {
-      "identifier": "Progression",
-      "modulePath": "/Verse.org/Progression",
-      "type": "module",
-      "isPublic": true
-    },
-    "quest_participant_info": {
-      "identifier": "quest_participant_info",
-      "modulePath": "/Verse.org/Progression",
-      "type": "class",
-      "isPublic": true
-    },
-    "quest_membership": {
-      "identifier": "quest_membership",
-      "modulePath": "/Verse.org/Progression",
-      "type": "class",
-      "isPublic": true
-    },
-    "join_quest_error": {
-      "identifier": "join_quest_error",
-      "modulePath": "/Verse.org/Progression",
-      "type": "class",
-      "isPublic": true
-    },
-    "abandon_quest_error": {
-      "identifier": "abandon_quest_error",
-      "modulePath": "/Verse.org/Progression",
-      "type": "class",
-      "isPublic": true
-    },
-    "quest": {
-      "identifier": "quest",
-      "modulePath": "/Verse.org/Progression",
-      "type": "class",
-      "isPublic": true
-    },
-    "quest_collection": {
-      "identifier": "quest_collection",
-      "modulePath": "/Verse.org/Progression",
-      "type": "class",
-      "isPublic": true
-    },
-    "quest_participant": {
-      "identifier": "quest_participant",
-      "modulePath": "/Verse.org/Progression",
-      "type": "class",
-      "isPublic": true
-    },
-    "agent_quest_participant": {
-      "identifier": "agent_quest_participant",
-      "modulePath": "/Verse.org/Progression",
-      "type": "class",
-      "isPublic": true
-    },
-    "Presentation": {
-      "identifier": "Presentation",
-      "modulePath": "/Verse.org/Presentation",
-      "type": "module",
-      "isPublic": true
-    },
-    "description_component": {
-      "identifier": "description_component",
-      "modulePath": "/Verse.org/Presentation",
-      "type": "class",
-      "isPublic": true
-    },
-    "has_description": {
-      "identifier": "has_description",
-      "modulePath": "/Verse.org/Presentation",
-      "type": "class",
-      "isPublic": true
-    },
-    "Input": {
-      "identifier": "Input",
-      "modulePath": "/Verse.org/Input",
-      "type": "module",
-      "isPublic": true
-    },
-    "Gameplay": {
-      "identifier": "Gameplay",
-      "modulePath": "/Verse.org/Input/Gameplay",
-      "type": "module",
-      "isPublic": true
-    },
-    "HotbarMapping": {
-      "identifier": "HotbarMapping",
-      "modulePath": "/Verse.org/Input/Gameplay",
-      "type": "variable",
-      "isPublic": true
-    },
-    "input_method": {
-      "identifier": "input_method",
-      "modulePath": "/Verse.org/Input",
-      "type": "class",
-      "isPublic": true
-    },
-    "available_input_devices": {
-      "identifier": "available_input_devices",
-      "modulePath": "/Verse.org/Input",
-      "type": "class",
-      "isPublic": true
-    },
-    "GetPlayerInput": {
-      "identifier": "GetPlayerInput",
-      "modulePath": "/Verse.org/Input",
-      "type": "function",
-      "isPublic": true
-    },
-    "input_events": {
-      "identifier": "input_events",
-      "modulePath": "/Verse.org/Input",
-      "type": "class",
-      "isPublic": true
-    },
-    "player_input": {
-      "identifier": "player_input",
-      "modulePath": "/Verse.org/Input",
-      "type": "class",
-      "isPublic": true
-    },
-    "deproject_results": {
-      "identifier": "deproject_results",
-      "modulePath": "/Verse.org/Input",
-      "type": "class",
-      "isPublic": true
-    },
-    "UI": {
-      "identifier": "UI",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "module",
-      "isPublic": true
-    },
-    "MenuNavigationMapping": {
-      "identifier": "MenuNavigationMapping",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "NextTab": {
-      "identifier": "NextTab",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "PreviousTab": {
-      "identifier": "PreviousTab",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "NextPage": {
-      "identifier": "NextPage",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "PreviousPage": {
-      "identifier": "PreviousPage",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Back": {
-      "identifier": "Back",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "InventoryMenuMapping": {
-      "identifier": "InventoryMenuMapping",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Use": {
-      "identifier": "Use",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Inspect": {
-      "identifier": "Inspect",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Sort": {
-      "identifier": "Sort",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Drop": {
-      "identifier": "Drop",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "CraftingMenuMapping": {
-      "identifier": "CraftingMenuMapping",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Craft": {
-      "identifier": "Craft",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Favorite": {
-      "identifier": "Favorite",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Scrap": {
-      "identifier": "Scrap",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "MapMenuMapping": {
-      "identifier": "MapMenuMapping",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Track": {
-      "identifier": "Track",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Reset": {
-      "identifier": "Reset",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "PlaceMarker": {
-      "identifier": "PlaceMarker",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "ToggleView": {
-      "identifier": "ToggleView",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "ZoomIn": {
-      "identifier": "ZoomIn",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "ZoomOut": {
-      "identifier": "ZoomOut",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "TouchMapping": {
-      "identifier": "TouchMapping",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "PointerSelect": {
-      "identifier": "PointerSelect",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "PointerZoom": {
-      "identifier": "PointerZoom",
-      "modulePath": "/Verse.org/Input/UI",
-      "type": "variable",
-      "isPublic": true
-    },
-    "AgentGroup": {
-      "identifier": "AgentGroup",
-      "modulePath": "/Verse.org/AgentGroup",
-      "type": "module",
-      "isPublic": true
-    },
-    "member_info_interface": {
-      "identifier": "member_info_interface",
-      "modulePath": "/Verse.org/AgentGroup",
-      "type": "class",
-      "isPublic": true
-    },
-    "agent_group_interface": {
-      "identifier": "agent_group_interface",
-      "modulePath": "/Verse.org/AgentGroup",
-      "type": "class",
-      "isPublic": true
-    },
-    "agent_group": {
-      "identifier": "agent_group",
-      "modulePath": "/Verse.org/AgentGroup",
-      "type": "class",
-      "isPublic": true
-    },
-    "add_member_error": {
-      "identifier": "add_member_error",
-      "modulePath": "/Verse.org/AgentGroup",
-      "type": "class",
-      "isPublic": true
-    },
-    "remove_member_error": {
-      "identifier": "remove_member_error",
-      "modulePath": "/Verse.org/AgentGroup",
-      "type": "class",
-      "isPublic": true
-    },
-    "Verse": {
-      "identifier": "Verse",
-      "modulePath": "/Verse.org/Verse",
-      "type": "module",
-      "isPublic": true
-    },
-    "Print": {
-      "identifier": "Print",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Concatenate": {
-      "identifier": "Concatenate",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "cancelable": {
-      "identifier": "cancelable",
-      "modulePath": "/Verse.org/Verse",
-      "type": "class",
-      "isPublic": true
-    },
-    "classifiable_subset": {
-      "identifier": "classifiable_subset",
-      "modulePath": "/Verse.org/Verse",
-      "type": "class",
-      "isPublic": true
-    },
-    "MakeClassifiableSubset": {
-      "identifier": "MakeClassifiableSubset",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "diagnostic": {
-      "identifier": "diagnostic",
-      "modulePath": "/Verse.org/Verse",
-      "type": "class",
-      "isPublic": true
-    },
-    "ToDiagnostic": {
-      "identifier": "ToDiagnostic",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "disposable": {
-      "identifier": "disposable",
-      "modulePath": "/Verse.org/Verse",
-      "type": "class",
-      "isPublic": true
-    },
-    "Easing": {
-      "identifier": "Easing",
-      "modulePath": "/Verse.org/Verse/Easing",
-      "type": "module",
-      "isPublic": true
-    },
-    "CubicBezier": {
-      "identifier": "CubicBezier",
-      "modulePath": "/Verse.org/Verse/Easing",
-      "type": "function",
-      "isPublic": true
-    },
-    "Linear": {
-      "identifier": "Linear",
-      "modulePath": "/Verse.org/Verse/Easing",
-      "type": "function",
-      "isPublic": true
-    },
-    "Ease": {
-      "identifier": "Ease",
-      "modulePath": "/Verse.org/Verse/Easing",
-      "type": "function",
-      "isPublic": true
-    },
-    "EaseIn": {
-      "identifier": "EaseIn",
-      "modulePath": "/Verse.org/Verse/Easing",
-      "type": "function",
-      "isPublic": true
-    },
-    "EaseOut": {
-      "identifier": "EaseOut",
-      "modulePath": "/Verse.org/Verse/Easing",
-      "type": "function",
-      "isPublic": true
-    },
-    "EaseInOut": {
-      "identifier": "EaseInOut",
-      "modulePath": "/Verse.org/Verse/Easing",
-      "type": "function",
-      "isPublic": true
-    },
-    "enableable": {
-      "identifier": "enableable",
-      "modulePath": "/Verse.org/Verse",
-      "type": "class",
-      "isPublic": true
-    },
-    "Err": {
-      "identifier": "Err",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "event": {
-      "identifier": "event",
-      "modulePath": "/Verse.org/Verse",
-      "type": "class",
-      "isPublic": true
-    },
-    "Ceil": {
-      "identifier": "Ceil",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Floor": {
-      "identifier": "Floor",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Round": {
-      "identifier": "Round",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Int": {
-      "identifier": "Int",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "ToString": {
-      "identifier": "ToString",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "GetSecondsSinceEpoch": {
-      "identifier": "GetSecondsSinceEpoch",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "invalidatable": {
-      "identifier": "invalidatable",
-      "modulePath": "/Verse.org/Verse",
-      "type": "class",
-      "isPublic": true
-    },
-    "listenable": {
-      "identifier": "listenable",
-      "modulePath": "/Verse.org/Verse",
-      "type": "class",
-      "isPublic": true
-    },
-    "locale": {
-      "identifier": "locale",
-      "modulePath": "/Verse.org/Verse",
-      "type": "class",
-      "isPublic": true
-    },
-    "message": {
-      "identifier": "message",
-      "modulePath": "/Verse.org/Verse",
-      "type": "class",
-      "isPublic": true
-    },
-    "Localize": {
-      "identifier": "Localize",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Join": {
-      "identifier": "Join",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "PiFloat": {
-      "identifier": "PiFloat",
-      "modulePath": "/Verse.org/Verse",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Clamp": {
-      "identifier": "Clamp",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Min": {
-      "identifier": "Min",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Max": {
-      "identifier": "Max",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Sqrt": {
-      "identifier": "Sqrt",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Sin": {
-      "identifier": "Sin",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Cos": {
-      "identifier": "Cos",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Tan": {
-      "identifier": "Tan",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "ArcSin": {
-      "identifier": "ArcSin",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "ArcCos": {
-      "identifier": "ArcCos",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "ArcTan": {
-      "identifier": "ArcTan",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Sinh": {
-      "identifier": "Sinh",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Cosh": {
-      "identifier": "Cosh",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Tanh": {
-      "identifier": "Tanh",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "ArSinh": {
-      "identifier": "ArSinh",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "ArCosh": {
-      "identifier": "ArCosh",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "ArTanh": {
-      "identifier": "ArTanh",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Pow": {
-      "identifier": "Pow",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Quotient": {
-      "identifier": "Quotient",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Mod": {
-      "identifier": "Mod",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Exp": {
-      "identifier": "Exp",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Ln": {
-      "identifier": "Ln",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Log": {
-      "identifier": "Log",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Lerp": {
-      "identifier": "Lerp",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "Sgn": {
-      "identifier": "Sgn",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "IsAlmostEqual": {
-      "identifier": "IsAlmostEqual",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "result": {
-      "identifier": "result",
-      "modulePath": "/Verse.org/Verse",
-      "type": "class",
-      "isPublic": true
-    },
-    "MakeSuccess": {
-      "identifier": "MakeSuccess",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "MakeError": {
-      "identifier": "MakeError",
-      "modulePath": "/Verse.org/Verse",
-      "type": "function",
-      "isPublic": true
-    },
-    "showable": {
-      "identifier": "showable",
-      "modulePath": "/Verse.org/Verse",
-      "type": "class",
-      "isPublic": true
-    },
-    "signalable": {
-      "identifier": "signalable",
-      "modulePath": "/Verse.org/Verse",
-      "type": "class",
-      "isPublic": true
-    },
-    "subscribable": {
-      "identifier": "subscribable",
-      "modulePath": "/Verse.org/Verse",
-      "type": "class",
-      "isPublic": true
-    },
-    "modifier": {
-      "identifier": "modifier",
-      "modulePath": "/Verse.org/Verse",
-      "type": "class",
-      "isPublic": true
-    },
-    "modifier_stack": {
-      "identifier": "modifier_stack",
-      "modulePath": "/Verse.org/Verse",
-      "type": "class",
-      "isPublic": true
-    },
-    "Simulation": {
-      "identifier": "Simulation",
-      "modulePath": "/Verse.org/Simulation",
-      "type": "module",
-      "isPublic": true
-    },
-    "agent": {
-      "identifier": "agent",
-      "modulePath": "/Verse.org/Simulation",
-      "type": "class",
-      "isPublic": true
-    },
-    "player": {
-      "identifier": "player",
-      "modulePath": "/Verse.org/Simulation",
-      "type": "class",
-      "isPublic": true
-    },
-    "Tags": {
-      "identifier": "Tags",
-      "modulePath": "/Verse.org/Simulation/Tags",
-      "type": "module",
-      "isPublic": true
-    },
-    "has_tags": {
-      "identifier": "has_tags",
-      "modulePath": "/Verse.org/Simulation/Tags",
-      "type": "class",
-      "isPublic": true
-    },
-    "tag": {
-      "identifier": "tag",
-      "modulePath": "/Verse.org/Simulation/Tags",
-      "type": "class",
-      "isPublic": true
-    },
-    "tag_key": {
-      "identifier": "tag_key",
-      "modulePath": "/Verse.org/Simulation/Tags",
-      "type": "class",
-      "isPublic": true
-    },
-    "tag_search_sort_type": {
-      "identifier": "tag_search_sort_type",
-      "modulePath": "/Verse.org/Simulation/Tags",
-      "type": "class",
-      "isPublic": true
-    },
-    "tag_search_criteria": {
-      "identifier": "tag_search_criteria",
-      "modulePath": "/Verse.org/Simulation/Tags",
-      "type": "class",
-      "isPublic": true
-    },
-    "tag_view": {
-      "identifier": "tag_view",
-      "modulePath": "/Verse.org/Simulation/Tags",
-      "type": "class",
-      "isPublic": true
-    },
-    "editable": {
-      "identifier": "editable",
-      "modulePath": "/Verse.org/Simulation",
-      "type": "class",
-      "isPublic": true
-    },
-    "editable_text_box": {
-      "identifier": "editable_text_box",
-      "modulePath": "/Verse.org/Simulation",
-      "type": "class",
-      "isPublic": true
-    },
-    "editable_slider": {
-      "identifier": "editable_slider",
-      "modulePath": "/Verse.org/Simulation",
-      "type": "class",
-      "isPublic": true
-    },
-    "editable_number": {
-      "identifier": "editable_number",
-      "modulePath": "/Verse.org/Simulation",
-      "type": "class",
-      "isPublic": true
-    },
-    "editable_vector_slider": {
-      "identifier": "editable_vector_slider",
-      "modulePath": "/Verse.org/Simulation",
-      "type": "class",
-      "isPublic": true
-    },
-    "editable_vector_number": {
-      "identifier": "editable_vector_number",
-      "modulePath": "/Verse.org/Simulation",
-      "type": "class",
-      "isPublic": true
-    },
-    "editable_container": {
-      "identifier": "editable_container",
-      "modulePath": "/Verse.org/Simulation",
-      "type": "class",
-      "isPublic": true
-    },
-    "session": {
-      "identifier": "session",
-      "modulePath": "/Verse.org/Simulation",
-      "type": "class",
-      "isPublic": true
-    },
-    "GetSession": {
-      "identifier": "GetSession",
-      "modulePath": "/Verse.org/Simulation",
-      "type": "function",
-      "isPublic": true
-    },
-    "session_environment": {
-      "identifier": "session_environment",
-      "modulePath": "/Verse.org/Simulation",
-      "type": "class",
-      "isPublic": true
-    },
-    "Sleep": {
-      "identifier": "Sleep",
-      "modulePath": "/Verse.org/Simulation",
-      "type": "function",
-      "isPublic": true
-    },
-    "GetSimulationElapsedTime": {
-      "identifier": "GetSimulationElapsedTime",
-      "modulePath": "/Verse.org/Simulation",
-      "type": "function",
-      "isPublic": true
-    },
-    "team": {
-      "identifier": "team",
-      "modulePath": "/Verse.org/Simulation",
-      "type": "class",
-      "isPublic": true
-    },
-    "Assets": {
-      "identifier": "Assets",
-      "modulePath": "/Verse.org/Assets",
-      "type": "module",
-      "isPublic": true
-    },
-    "animation_sequence": {
-      "identifier": "animation_sequence",
-      "modulePath": "/Verse.org/Assets",
-      "type": "class",
-      "isPublic": true
-    },
-    "material": {
-      "identifier": "material",
-      "modulePath": "/Verse.org/Assets",
-      "type": "class",
-      "isPublic": true
-    },
-    "particle_system": {
-      "identifier": "particle_system",
-      "modulePath": "/Verse.org/Assets",
-      "type": "class",
-      "isPublic": true
-    },
-    "mesh": {
-      "identifier": "mesh",
-      "modulePath": "/Verse.org/Assets",
-      "type": "class",
-      "isPublic": true
-    },
-    "sound_wave": {
-      "identifier": "sound_wave",
-      "modulePath": "/Verse.org/Assets",
-      "type": "class",
-      "isPublic": true
-    },
-    "texture": {
-      "identifier": "texture",
-      "modulePath": "/Verse.org/Assets",
-      "type": "class",
-      "isPublic": true
-    },
-    "input_action": {
-      "identifier": "input_action",
-      "modulePath": "/Verse.org/Assets",
-      "type": "class",
-      "isPublic": true
-    },
-    "input_mapping": {
-      "identifier": "input_mapping",
-      "modulePath": "/Verse.org/Assets",
-      "type": "class",
-      "isPublic": true
-    },
-    "has_icon": {
-      "identifier": "has_icon",
-      "modulePath": "/Verse.org/Assets",
-      "type": "class",
-      "isPublic": true
-    },
-    "Colors": {
-      "identifier": "Colors",
-      "modulePath": "/Verse.org/Colors",
-      "type": "module",
-      "isPublic": true
-    },
-    "color": {
-      "identifier": "color",
-      "modulePath": "/Verse.org/Colors",
-      "type": "class",
-      "isPublic": true
-    },
-    "MakeColorFromSRGB": {
-      "identifier": "MakeColorFromSRGB",
-      "modulePath": "/Verse.org/Colors",
-      "type": "function",
-      "isPublic": true
-    },
-    "MakeSRGBFromColor": {
-      "identifier": "MakeSRGBFromColor",
-      "modulePath": "/Verse.org/Colors",
-      "type": "function",
-      "isPublic": true
-    },
-    "MakeColorFromSRGBValues": {
-      "identifier": "MakeColorFromSRGBValues",
-      "modulePath": "/Verse.org/Colors",
-      "type": "function",
-      "isPublic": true
-    },
-    "MakeColorFromHex": {
-      "identifier": "MakeColorFromHex",
-      "modulePath": "/Verse.org/Colors",
-      "type": "function",
-      "isPublic": true
-    },
-    "MakeColorFromHSV": {
-      "identifier": "MakeColorFromHSV",
-      "modulePath": "/Verse.org/Colors",
-      "type": "function",
-      "isPublic": true
-    },
-    "MakeHSVFromColor": {
-      "identifier": "MakeHSVFromColor",
-      "modulePath": "/Verse.org/Colors",
-      "type": "function",
-      "isPublic": true
-    },
-    "MakeColorFromTemperature": {
-      "identifier": "MakeColorFromTemperature",
-      "modulePath": "/Verse.org/Colors",
-      "type": "function",
-      "isPublic": true
-    },
-    "NamedColors": {
-      "identifier": "NamedColors",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "module",
-      "isPublic": true
-    },
-    "AliceBlue": {
-      "identifier": "AliceBlue",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "AntiqueWhite": {
-      "identifier": "AntiqueWhite",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Aqua": {
-      "identifier": "Aqua",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Aquamarine": {
-      "identifier": "Aquamarine",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Azure": {
-      "identifier": "Azure",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Beige": {
-      "identifier": "Beige",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Bisque": {
-      "identifier": "Bisque",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Black": {
-      "identifier": "Black",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "BlanchedAlmond": {
-      "identifier": "BlanchedAlmond",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Blue": {
-      "identifier": "Blue",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "BlueViolet": {
-      "identifier": "BlueViolet",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Brown": {
-      "identifier": "Brown",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Burlywood": {
-      "identifier": "Burlywood",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "CadetBlue": {
-      "identifier": "CadetBlue",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Chartreuse": {
-      "identifier": "Chartreuse",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Chocolate": {
-      "identifier": "Chocolate",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Coral": {
-      "identifier": "Coral",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "CornflowerBlue": {
-      "identifier": "CornflowerBlue",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Cornsilk": {
-      "identifier": "Cornsilk",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Crimson": {
-      "identifier": "Crimson",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Cyan": {
-      "identifier": "Cyan",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DarkBlue": {
-      "identifier": "DarkBlue",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DarkCyan": {
-      "identifier": "DarkCyan",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DarkGoldenrod": {
-      "identifier": "DarkGoldenrod",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DarkGray": {
-      "identifier": "DarkGray",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DarkGreen": {
-      "identifier": "DarkGreen",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DarkGrey": {
-      "identifier": "DarkGrey",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DarkKhaki": {
-      "identifier": "DarkKhaki",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DarkMagenta": {
-      "identifier": "DarkMagenta",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DarkOliveGreen": {
-      "identifier": "DarkOliveGreen",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DarkOrange": {
-      "identifier": "DarkOrange",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DarkOrchid": {
-      "identifier": "DarkOrchid",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DarkRed": {
-      "identifier": "DarkRed",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DarkSalmon": {
-      "identifier": "DarkSalmon",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DarkSeaGreen": {
-      "identifier": "DarkSeaGreen",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DarkSlateBlue": {
-      "identifier": "DarkSlateBlue",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DarkSlateGray": {
-      "identifier": "DarkSlateGray",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DarkSlateGrey": {
-      "identifier": "DarkSlateGrey",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DarkTurquoise": {
-      "identifier": "DarkTurquoise",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DarkViolet": {
-      "identifier": "DarkViolet",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DeepPink": {
-      "identifier": "DeepPink",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DeepSkyBlue": {
-      "identifier": "DeepSkyBlue",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DimGray": {
-      "identifier": "DimGray",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DimGrey": {
-      "identifier": "DimGrey",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "DodgerBlue": {
-      "identifier": "DodgerBlue",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Firebrick": {
-      "identifier": "Firebrick",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "FloralWhite": {
-      "identifier": "FloralWhite",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "ForestGreen": {
-      "identifier": "ForestGreen",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Fuchsia": {
-      "identifier": "Fuchsia",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Gainsboro": {
-      "identifier": "Gainsboro",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "GhostWhite": {
-      "identifier": "GhostWhite",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Gold": {
-      "identifier": "Gold",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Goldenrod": {
-      "identifier": "Goldenrod",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Gray": {
-      "identifier": "Gray",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Green": {
-      "identifier": "Green",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "GreenYellow": {
-      "identifier": "GreenYellow",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Grey": {
-      "identifier": "Grey",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Honeydew": {
-      "identifier": "Honeydew",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Hotpink": {
-      "identifier": "Hotpink",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "IndianRed": {
-      "identifier": "IndianRed",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Indigo": {
-      "identifier": "Indigo",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Ivory": {
-      "identifier": "Ivory",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Khaki": {
-      "identifier": "Khaki",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Lavender": {
-      "identifier": "Lavender",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "LavenderBlush": {
-      "identifier": "LavenderBlush",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "LawnGreen": {
-      "identifier": "LawnGreen",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "LemonChiffon": {
-      "identifier": "LemonChiffon",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "LightBlue": {
-      "identifier": "LightBlue",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "LightCoral": {
-      "identifier": "LightCoral",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "LightCyan": {
-      "identifier": "LightCyan",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "LightGoldenrodYellow": {
-      "identifier": "LightGoldenrodYellow",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "LightGray": {
-      "identifier": "LightGray",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "LightGreen": {
-      "identifier": "LightGreen",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "LightGrey": {
-      "identifier": "LightGrey",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "LightPink": {
-      "identifier": "LightPink",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "LightSalmon": {
-      "identifier": "LightSalmon",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "LightSeaGreen": {
-      "identifier": "LightSeaGreen",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "LightSkyBlue": {
-      "identifier": "LightSkyBlue",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "LightSlateGray": {
-      "identifier": "LightSlateGray",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "LightSlateGrey": {
-      "identifier": "LightSlateGrey",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "LightSteelBlue": {
-      "identifier": "LightSteelBlue",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "LightYellow": {
-      "identifier": "LightYellow",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Lime": {
-      "identifier": "Lime",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "LimeGreen": {
-      "identifier": "LimeGreen",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Linen": {
-      "identifier": "Linen",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Magenta": {
-      "identifier": "Magenta",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Maroon": {
-      "identifier": "Maroon",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "MediumAquamarine": {
-      "identifier": "MediumAquamarine",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "MediumBlue": {
-      "identifier": "MediumBlue",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "MediumOrchid": {
-      "identifier": "MediumOrchid",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "MediumPurple": {
-      "identifier": "MediumPurple",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "MediumSeaGreen": {
-      "identifier": "MediumSeaGreen",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "MediumSlateBlue": {
-      "identifier": "MediumSlateBlue",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "MediumSpringGreen": {
-      "identifier": "MediumSpringGreen",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "MediumTurquoise": {
-      "identifier": "MediumTurquoise",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "MediumVioletRed": {
-      "identifier": "MediumVioletRed",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "MidnightBlue": {
-      "identifier": "MidnightBlue",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "MintCream": {
-      "identifier": "MintCream",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "MistyRose": {
-      "identifier": "MistyRose",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Moccasin": {
-      "identifier": "Moccasin",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "NavajoWhite": {
-      "identifier": "NavajoWhite",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Navy": {
-      "identifier": "Navy",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "OldLace": {
-      "identifier": "OldLace",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Olive": {
-      "identifier": "Olive",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "OliveDrab": {
-      "identifier": "OliveDrab",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Orange": {
-      "identifier": "Orange",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "OrangeRed": {
-      "identifier": "OrangeRed",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Orchid": {
-      "identifier": "Orchid",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "PaleGoldenrod": {
-      "identifier": "PaleGoldenrod",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "PaleGreen": {
-      "identifier": "PaleGreen",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "PaleTurquoise": {
-      "identifier": "PaleTurquoise",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "PaleVioletred": {
-      "identifier": "PaleVioletred",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "PapayaWhip": {
-      "identifier": "PapayaWhip",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "PeachPuff": {
-      "identifier": "PeachPuff",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Peru": {
-      "identifier": "Peru",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Pink": {
-      "identifier": "Pink",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Plum": {
-      "identifier": "Plum",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "PowderBlue": {
-      "identifier": "PowderBlue",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Purple": {
-      "identifier": "Purple",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Red": {
-      "identifier": "Red",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "RosyBrown": {
-      "identifier": "RosyBrown",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "RoyalBlue": {
-      "identifier": "RoyalBlue",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "SaddleBrown": {
-      "identifier": "SaddleBrown",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Salmon": {
-      "identifier": "Salmon",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "SandyBrown": {
-      "identifier": "SandyBrown",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "SeaGreen": {
-      "identifier": "SeaGreen",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "SeaShell": {
-      "identifier": "SeaShell",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Sienna": {
-      "identifier": "Sienna",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Silver": {
-      "identifier": "Silver",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "SkyBlue": {
-      "identifier": "SkyBlue",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "SlateBlue": {
-      "identifier": "SlateBlue",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "SlateGray": {
-      "identifier": "SlateGray",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "SlateGrey": {
-      "identifier": "SlateGrey",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Snow": {
-      "identifier": "Snow",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "SpringGreen": {
-      "identifier": "SpringGreen",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "SteelBlue": {
-      "identifier": "SteelBlue",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Teal": {
-      "identifier": "Teal",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Thistle": {
-      "identifier": "Thistle",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Tomato": {
-      "identifier": "Tomato",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Turquoise": {
-      "identifier": "Turquoise",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Violet": {
-      "identifier": "Violet",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Wheat": {
-      "identifier": "Wheat",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "White": {
-      "identifier": "White",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "WhiteSmoke": {
-      "identifier": "WhiteSmoke",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "Yellow": {
-      "identifier": "Yellow",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "YellowGreen": {
-      "identifier": "YellowGreen",
-      "modulePath": "/Verse.org/Colors/NamedColors",
-      "type": "variable",
-      "isPublic": true
-    },
-    "color_alpha": {
-      "identifier": "color_alpha",
-      "modulePath": "/Verse.org/Colors",
-      "type": "class",
-      "isPublic": true
-    },
-    "MakeColorAlpha": {
-      "identifier": "MakeColorAlpha",
-      "modulePath": "/Verse.org/Colors",
-      "type": "function",
-      "isPublic": true
-    },
-    "Over": {
-      "identifier": "Over",
-      "modulePath": "/Verse.org/Colors",
-      "type": "function",
-      "isPublic": true
-    },
-    "SpatialMath": {
-      "identifier": "SpatialMath",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "module",
-      "isPublic": true
-    },
-    "rotation": {
-      "identifier": "rotation",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "class",
-      "isPublic": true
-    },
-    "MakeRotationRadians": {
-      "identifier": "MakeRotationRadians",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "function",
-      "isPublic": true
-    },
-    "MakeRotationDegrees": {
-      "identifier": "MakeRotationDegrees",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "function",
-      "isPublic": true
-    },
-    "MakeRotationFromYawPitchRollRadians": {
-      "identifier": "MakeRotationFromYawPitchRollRadians",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "function",
-      "isPublic": true
-    },
-    "MakeRotationFromYawPitchRollDegrees": {
-      "identifier": "MakeRotationFromYawPitchRollDegrees",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "function",
-      "isPublic": true
-    },
-    "MakeRotationFromEulerRadians": {
-      "identifier": "MakeRotationFromEulerRadians",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "function",
-      "isPublic": true
-    },
-    "MakeRotationFromEulerDegrees": {
-      "identifier": "MakeRotationFromEulerDegrees",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "function",
-      "isPublic": true
-    },
-    "IdentityRotation": {
-      "identifier": "IdentityRotation",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "function",
-      "isPublic": true
-    },
-    "Distance": {
-      "identifier": "Distance",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "function",
-      "isPublic": true
-    },
-    "AngularDistanceRadians": {
-      "identifier": "AngularDistanceRadians",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "function",
-      "isPublic": true
-    },
-    "AngularDistanceDegrees": {
-      "identifier": "AngularDistanceDegrees",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "function",
-      "isPublic": true
-    },
-    "MakeShortestRotationBetween": {
-      "identifier": "MakeShortestRotationBetween",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "function",
-      "isPublic": true
-    },
-    "Slerp": {
-      "identifier": "Slerp",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "function",
-      "isPublic": true
-    },
-    "DegreesToRadians": {
-      "identifier": "DegreesToRadians",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "function",
-      "isPublic": true
-    },
-    "RadiansToDegrees": {
-      "identifier": "RadiansToDegrees",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "function",
-      "isPublic": true
-    },
-    "transform": {
-      "identifier": "transform",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "class",
-      "isPublic": true
-    },
-    "vector3": {
-      "identifier": "vector3",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "class",
-      "isPublic": true
-    },
-    "ReflectVector": {
-      "identifier": "ReflectVector",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "function",
-      "isPublic": true
-    },
-    "DotProduct": {
-      "identifier": "DotProduct",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "function",
-      "isPublic": true
-    },
-    "CrossProductLeftHanded": {
-      "identifier": "CrossProductLeftHanded",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "function",
-      "isPublic": true
-    },
-    "CrossProduct": {
-      "identifier": "CrossProduct",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "function",
-      "isPublic": true
-    },
-    "DistanceSquared": {
-      "identifier": "DistanceSquared",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "function",
-      "isPublic": true
-    },
-    "DistanceForwardLeft": {
-      "identifier": "DistanceForwardLeft",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "function",
-      "isPublic": true
-    },
-    "DistanceSquaredForwardLeft": {
-      "identifier": "DistanceSquaredForwardLeft",
-      "modulePath": "/Verse.org/SpatialMath",
-      "type": "function",
-      "isPublic": true
-    },
-    "Random": {
-      "identifier": "Random",
-      "modulePath": "/Verse.org/Random",
-      "type": "module",
-      "isPublic": true
-    },
-    "GetRandomFloat": {
-      "identifier": "GetRandomFloat",
-      "modulePath": "/Verse.org/Random",
-      "type": "function",
-      "isPublic": true
-    },
-    "GetRandomInt": {
-      "identifier": "GetRandomInt",
-      "modulePath": "/Verse.org/Random",
-      "type": "function",
-      "isPublic": true
-    },
-    "Shuffle": {
-      "identifier": "Shuffle",
-      "modulePath": "/Verse.org/Random",
-      "type": "function",
-      "isPublic": true
-    },
-    "Predicts": {
-      "identifier": "Predicts",
-      "modulePath": "/Verse.org/Predicts",
-      "type": "module",
-      "isPublic": true
-    },
-    "Native": {
-      "identifier": "Native",
-      "modulePath": "/Verse.org/Native",
-      "type": "module",
-      "isPublic": true
-    },
-    "Concurrency": {
-      "identifier": "Concurrency",
-      "modulePath": "/Verse.org/Concurrency",
-      "type": "module",
-      "isPublic": true
-    },
-    "awaitable": {
-      "identifier": "awaitable",
-      "modulePath": "/Verse.org/Concurrency",
-      "type": "class",
-      "isPublic": true
-    },
-    "task": {
-      "identifier": "task",
-      "modulePath": "/Verse.org/Concurrency",
-      "type": "class",
-      "isPublic": true
-    }
+    "Chat": [
+      {
+        "identifier": "Chat",
+        "modulePath": "/Verse.org/Chat",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "chat_channel": [
+      {
+        "identifier": "chat_channel",
+        "modulePath": "/Verse.org/Chat",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "has_voice_member_info": [
+      {
+        "identifier": "has_voice_member_info",
+        "modulePath": "/Verse.org/Chat",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "voice_channel": [
+      {
+        "identifier": "voice_channel",
+        "modulePath": "/Verse.org/Chat",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "add_channel_error": [
+      {
+        "identifier": "add_channel_error",
+        "modulePath": "/Verse.org/Chat",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "remove_channel_error": [
+      {
+        "identifier": "remove_channel_error",
+        "modulePath": "/Verse.org/Chat",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "SceneGraph": [
+      {
+        "identifier": "SceneGraph",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "basic_interactable_component": [
+      {
+        "identifier": "basic_interactable_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "interactable_component": [
+      {
+        "identifier": "interactable_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "interactable_cooldown": [
+      {
+        "identifier": "interactable_cooldown",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "interactable_cooldown_per_agent": [
+      {
+        "identifier": "interactable_cooldown_per_agent",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "interactable_duration": [
+      {
+        "identifier": "interactable_duration",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "interactable_success_limit": [
+      {
+        "identifier": "interactable_success_limit",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "camera_body": [
+      {
+        "identifier": "camera_body",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "camera_component": [
+      {
+        "identifier": "camera_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "GlobalModifierPosition": [
+      {
+        "identifier": "GlobalModifierPosition",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "VisualModifierPosition": [
+      {
+        "identifier": "VisualModifierPosition",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "camera_director_component": [
+      {
+        "identifier": "camera_director_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "camera_lens": [
+      {
+        "identifier": "camera_lens",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "camera_modifier_stack": [
+      {
+        "identifier": "camera_modifier_stack",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "has_camera_modifier": [
+      {
+        "identifier": "has_camera_modifier",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "camera_modifier": [
+      {
+        "identifier": "camera_modifier",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "camera_projection_mode": [
+      {
+        "identifier": "camera_projection_mode",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "camera_state": [
+      {
+        "identifier": "camera_state",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "camera_transition_initial_orientation": [
+      {
+        "identifier": "camera_transition_initial_orientation",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "camera_transition": [
+      {
+        "identifier": "camera_transition",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "camera_mode_blend": [
+      {
+        "identifier": "camera_mode_blend",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "camera_mode_blend_pop": [
+      {
+        "identifier": "camera_mode_blend_pop",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "camera_mode_blend_linear": [
+      {
+        "identifier": "camera_mode_blend_linear",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "camera_mode_blend_smoothstep": [
+      {
+        "identifier": "camera_mode_blend_smoothstep",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "camera_mode_blend_smootherstep": [
+      {
+        "identifier": "camera_mode_blend_smootherstep",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "camera_mode_blend_orbit": [
+      {
+        "identifier": "camera_mode_blend_orbit",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "orthographic_camera_component": [
+      {
+        "identifier": "orthographic_camera_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "perspective_camera_component": [
+      {
+        "identifier": "perspective_camera_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "physical_camera_component": [
+      {
+        "identifier": "physical_camera_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "skeletal_animation": [
+      {
+        "identifier": "skeletal_animation",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "play_skeletal_animation_result": [
+      {
+        "identifier": "play_skeletal_animation_result",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "skeleton": [
+      {
+        "identifier": "skeleton",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "easing_window": [
+      {
+        "identifier": "easing_window",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "easeable": [
+      {
+        "identifier": "easeable",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "entity_streaming_policy": [
+      {
+        "identifier": "entity_streaming_policy",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "children_streaming_policy": [
+      {
+        "identifier": "children_streaming_policy",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "capsule_light_component": [
+      {
+        "identifier": "capsule_light_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "directional_light_component": [
+      {
+        "identifier": "directional_light_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "KeyframedMovement": [
+      {
+        "identifier": "KeyframedMovement",
+        "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "easing_function": [
+      {
+        "identifier": "easing_function",
+        "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "cubic_bezier_easing_function": [
+      {
+        "identifier": "cubic_bezier_easing_function",
+        "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "linear_easing_function": [
+      {
+        "identifier": "linear_easing_function",
+        "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "ease_cubic_bezier_easing_function": [
+      {
+        "identifier": "ease_cubic_bezier_easing_function",
+        "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "ease_in_cubic_bezier_easing_function": [
+      {
+        "identifier": "ease_in_cubic_bezier_easing_function",
+        "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "ease_out_cubic_bezier_easing_function": [
+      {
+        "identifier": "ease_out_cubic_bezier_easing_function",
+        "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "ease_in_out_cubic_bezier_easing_function": [
+      {
+        "identifier": "ease_in_out_cubic_bezier_easing_function",
+        "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "keyframed_movement_playback_mode": [
+      {
+        "identifier": "keyframed_movement_playback_mode",
+        "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "oneshot_keyframed_movement_playback_mode": [
+      {
+        "identifier": "oneshot_keyframed_movement_playback_mode",
+        "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "loop_keyframed_movement_playback_mode": [
+      {
+        "identifier": "loop_keyframed_movement_playback_mode",
+        "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "pingpong_keyframed_movement_playback_mode": [
+      {
+        "identifier": "pingpong_keyframed_movement_playback_mode",
+        "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "keyframed_movement_delta": [
+      {
+        "identifier": "keyframed_movement_delta",
+        "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "keyframed_movement_component": [
+      {
+        "identifier": "keyframed_movement_component",
+        "modulePath": "/Verse.org/SceneGraph/KeyframedMovement",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "light_component": [
+      {
+        "identifier": "light_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "mesh_component": [
+      {
+        "identifier": "mesh_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "particle_system_component": [
+      {
+        "identifier": "particle_system_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "possessable_component": [
+      {
+        "identifier": "possessable_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "rect_light_component": [
+      {
+        "identifier": "rect_light_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "sound_component": [
+      {
+        "identifier": "sound_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "sphere_light_component": [
+      {
+        "identifier": "sphere_light_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "spot_light_component": [
+      {
+        "identifier": "spot_light_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "float_range": [
+      {
+        "identifier": "float_range",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "collision_interaction": [
+      {
+        "identifier": "collision_interaction",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "collision_channel": [
+      {
+        "identifier": "collision_channel",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "collision_channel_to_interaction": [
+      {
+        "identifier": "collision_channel_to_interaction",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "collision_profile": [
+      {
+        "identifier": "collision_profile",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "CollisionChannels": [
+      {
+        "identifier": "CollisionChannels",
+        "modulePath": "/Verse.org/SceneGraph/CollisionChannels",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "stationary": [
+      {
+        "identifier": "stationary",
+        "modulePath": "/Verse.org/SceneGraph/CollisionChannels",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "dynamic": [
+      {
+        "identifier": "dynamic",
+        "modulePath": "/Verse.org/SceneGraph/CollisionChannels",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "avatar": [
+      {
+        "identifier": "avatar",
+        "modulePath": "/Verse.org/SceneGraph/CollisionChannels",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "visibility": [
+      {
+        "identifier": "visibility",
+        "modulePath": "/Verse.org/SceneGraph/CollisionChannels",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "camera": [
+      {
+        "identifier": "camera",
+        "modulePath": "/Verse.org/SceneGraph/CollisionChannels",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "physics": [
+      {
+        "identifier": "physics",
+        "modulePath": "/Verse.org/SceneGraph/CollisionChannels",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "CollisionProfiles": [
+      {
+        "identifier": "CollisionProfiles",
+        "modulePath": "/Verse.org/SceneGraph/CollisionProfiles",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "StationaryIgnoreAll": [
+      {
+        "identifier": "StationaryIgnoreAll",
+        "modulePath": "/Verse.org/SceneGraph/CollisionProfiles",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "StationaryOverlapAll": [
+      {
+        "identifier": "StationaryOverlapAll",
+        "modulePath": "/Verse.org/SceneGraph/CollisionProfiles",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "StationaryBlockAll": [
+      {
+        "identifier": "StationaryBlockAll",
+        "modulePath": "/Verse.org/SceneGraph/CollisionProfiles",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DynamicIgnoreAll": [
+      {
+        "identifier": "DynamicIgnoreAll",
+        "modulePath": "/Verse.org/SceneGraph/CollisionProfiles",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DynamicOverlapAll": [
+      {
+        "identifier": "DynamicOverlapAll",
+        "modulePath": "/Verse.org/SceneGraph/CollisionProfiles",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DynamicBlockAll": [
+      {
+        "identifier": "DynamicBlockAll",
+        "modulePath": "/Verse.org/SceneGraph/CollisionProfiles",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "StationaryBlockVisible": [
+      {
+        "identifier": "StationaryBlockVisible",
+        "modulePath": "/Verse.org/SceneGraph/CollisionProfiles",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "VisibilityOverlapAll": [
+      {
+        "identifier": "VisibilityOverlapAll",
+        "modulePath": "/Verse.org/SceneGraph/CollisionProfiles",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "overlap_hit": [
+      {
+        "identifier": "overlap_hit",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "sweep_hit": [
+      {
+        "identifier": "sweep_hit",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "collision_volume": [
+      {
+        "identifier": "collision_volume",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "collision_element": [
+      {
+        "identifier": "collision_element",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "collision_capsule": [
+      {
+        "identifier": "collision_capsule",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "collision_sphere": [
+      {
+        "identifier": "collision_sphere",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "collision_point": [
+      {
+        "identifier": "collision_point",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "collision_box": [
+      {
+        "identifier": "collision_box",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "component": [
+      {
+        "identifier": "component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "scene_event": [
+      {
+        "identifier": "scene_event",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "entity": [
+      {
+        "identifier": "entity",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "entity_prefab": [
+      {
+        "identifier": "entity_prefab",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "icon_component": [
+      {
+        "identifier": "icon_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "origin": [
+      {
+        "identifier": "origin",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "entity_origin": [
+      {
+        "identifier": "entity_origin",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "rarity": [
+      {
+        "identifier": "rarity",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "common_rarity": [
+      {
+        "identifier": "common_rarity",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "uncommon_rarity": [
+      {
+        "identifier": "uncommon_rarity",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "rare_rarity": [
+      {
+        "identifier": "rare_rarity",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "epic_rarity": [
+      {
+        "identifier": "epic_rarity",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "legendary_rarity": [
+      {
+        "identifier": "legendary_rarity",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "rarity_component": [
+      {
+        "identifier": "rarity_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "stackable_component": [
+      {
+        "identifier": "stackable_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "change_stack_size_result": [
+      {
+        "identifier": "change_stack_size_result",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "change_max_stack_size_result": [
+      {
+        "identifier": "change_max_stack_size_result",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "has_merge_rules": [
+      {
+        "identifier": "has_merge_rules",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "basic_stackable_component": [
+      {
+        "identifier": "basic_stackable_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "tick_events": [
+      {
+        "identifier": "tick_events",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "transform_component": [
+      {
+        "identifier": "transform_component",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "execution_listenable": [
+      {
+        "identifier": "execution_listenable",
+        "modulePath": "/Verse.org/SceneGraph",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "Progression": [
+      {
+        "identifier": "Progression",
+        "modulePath": "/Verse.org/Progression",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "quest_participant_info": [
+      {
+        "identifier": "quest_participant_info",
+        "modulePath": "/Verse.org/Progression",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "quest_membership": [
+      {
+        "identifier": "quest_membership",
+        "modulePath": "/Verse.org/Progression",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "join_quest_error": [
+      {
+        "identifier": "join_quest_error",
+        "modulePath": "/Verse.org/Progression",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "abandon_quest_error": [
+      {
+        "identifier": "abandon_quest_error",
+        "modulePath": "/Verse.org/Progression",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "quest": [
+      {
+        "identifier": "quest",
+        "modulePath": "/Verse.org/Progression",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "quest_collection": [
+      {
+        "identifier": "quest_collection",
+        "modulePath": "/Verse.org/Progression",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "quest_participant": [
+      {
+        "identifier": "quest_participant",
+        "modulePath": "/Verse.org/Progression",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "agent_quest_participant": [
+      {
+        "identifier": "agent_quest_participant",
+        "modulePath": "/Verse.org/Progression",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "Presentation": [
+      {
+        "identifier": "Presentation",
+        "modulePath": "/Verse.org/Presentation",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "description_component": [
+      {
+        "identifier": "description_component",
+        "modulePath": "/Verse.org/Presentation",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "has_description": [
+      {
+        "identifier": "has_description",
+        "modulePath": "/Verse.org/Presentation",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "Input": [
+      {
+        "identifier": "Input",
+        "modulePath": "/Verse.org/Input",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "Gameplay": [
+      {
+        "identifier": "Gameplay",
+        "modulePath": "/Verse.org/Input/Gameplay",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "HotbarMapping": [
+      {
+        "identifier": "HotbarMapping",
+        "modulePath": "/Verse.org/Input/Gameplay",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "input_method": [
+      {
+        "identifier": "input_method",
+        "modulePath": "/Verse.org/Input",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "available_input_devices": [
+      {
+        "identifier": "available_input_devices",
+        "modulePath": "/Verse.org/Input",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "GetPlayerInput": [
+      {
+        "identifier": "GetPlayerInput",
+        "modulePath": "/Verse.org/Input",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "input_events": [
+      {
+        "identifier": "input_events",
+        "modulePath": "/Verse.org/Input",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "player_input": [
+      {
+        "identifier": "player_input",
+        "modulePath": "/Verse.org/Input",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "deproject_results": [
+      {
+        "identifier": "deproject_results",
+        "modulePath": "/Verse.org/Input",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "UI": [
+      {
+        "identifier": "UI",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "MenuNavigationMapping": [
+      {
+        "identifier": "MenuNavigationMapping",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "NextTab": [
+      {
+        "identifier": "NextTab",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "PreviousTab": [
+      {
+        "identifier": "PreviousTab",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "NextPage": [
+      {
+        "identifier": "NextPage",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "PreviousPage": [
+      {
+        "identifier": "PreviousPage",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Back": [
+      {
+        "identifier": "Back",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "InventoryMenuMapping": [
+      {
+        "identifier": "InventoryMenuMapping",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Use": [
+      {
+        "identifier": "Use",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Inspect": [
+      {
+        "identifier": "Inspect",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Sort": [
+      {
+        "identifier": "Sort",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Drop": [
+      {
+        "identifier": "Drop",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "CraftingMenuMapping": [
+      {
+        "identifier": "CraftingMenuMapping",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Craft": [
+      {
+        "identifier": "Craft",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Favorite": [
+      {
+        "identifier": "Favorite",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Scrap": [
+      {
+        "identifier": "Scrap",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "MapMenuMapping": [
+      {
+        "identifier": "MapMenuMapping",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Track": [
+      {
+        "identifier": "Track",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Reset": [
+      {
+        "identifier": "Reset",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "PlaceMarker": [
+      {
+        "identifier": "PlaceMarker",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "ToggleView": [
+      {
+        "identifier": "ToggleView",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "ZoomIn": [
+      {
+        "identifier": "ZoomIn",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "ZoomOut": [
+      {
+        "identifier": "ZoomOut",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "TouchMapping": [
+      {
+        "identifier": "TouchMapping",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "PointerSelect": [
+      {
+        "identifier": "PointerSelect",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "PointerZoom": [
+      {
+        "identifier": "PointerZoom",
+        "modulePath": "/Verse.org/Input/UI",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "AgentGroup": [
+      {
+        "identifier": "AgentGroup",
+        "modulePath": "/Verse.org/AgentGroup",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "member_info_interface": [
+      {
+        "identifier": "member_info_interface",
+        "modulePath": "/Verse.org/AgentGroup",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "agent_group_interface": [
+      {
+        "identifier": "agent_group_interface",
+        "modulePath": "/Verse.org/AgentGroup",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "agent_group": [
+      {
+        "identifier": "agent_group",
+        "modulePath": "/Verse.org/AgentGroup",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "add_member_error": [
+      {
+        "identifier": "add_member_error",
+        "modulePath": "/Verse.org/AgentGroup",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "remove_member_error": [
+      {
+        "identifier": "remove_member_error",
+        "modulePath": "/Verse.org/AgentGroup",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "Verse": [
+      {
+        "identifier": "Verse",
+        "modulePath": "/Verse.org/Verse",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "Print": [
+      {
+        "identifier": "Print",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Concatenate": [
+      {
+        "identifier": "Concatenate",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "cancelable": [
+      {
+        "identifier": "cancelable",
+        "modulePath": "/Verse.org/Verse",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "classifiable_subset": [
+      {
+        "identifier": "classifiable_subset",
+        "modulePath": "/Verse.org/Verse",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "MakeClassifiableSubset": [
+      {
+        "identifier": "MakeClassifiableSubset",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "diagnostic": [
+      {
+        "identifier": "diagnostic",
+        "modulePath": "/Verse.org/Verse",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "ToDiagnostic": [
+      {
+        "identifier": "ToDiagnostic",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "disposable": [
+      {
+        "identifier": "disposable",
+        "modulePath": "/Verse.org/Verse",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "Easing": [
+      {
+        "identifier": "Easing",
+        "modulePath": "/Verse.org/Verse/Easing",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "CubicBezier": [
+      {
+        "identifier": "CubicBezier",
+        "modulePath": "/Verse.org/Verse/Easing",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Linear": [
+      {
+        "identifier": "Linear",
+        "modulePath": "/Verse.org/Verse/Easing",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Ease": [
+      {
+        "identifier": "Ease",
+        "modulePath": "/Verse.org/Verse/Easing",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "EaseIn": [
+      {
+        "identifier": "EaseIn",
+        "modulePath": "/Verse.org/Verse/Easing",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "EaseOut": [
+      {
+        "identifier": "EaseOut",
+        "modulePath": "/Verse.org/Verse/Easing",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "EaseInOut": [
+      {
+        "identifier": "EaseInOut",
+        "modulePath": "/Verse.org/Verse/Easing",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "enableable": [
+      {
+        "identifier": "enableable",
+        "modulePath": "/Verse.org/Verse",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "Err": [
+      {
+        "identifier": "Err",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "event": [
+      {
+        "identifier": "event",
+        "modulePath": "/Verse.org/Verse",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "Ceil": [
+      {
+        "identifier": "Ceil",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Floor": [
+      {
+        "identifier": "Floor",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Round": [
+      {
+        "identifier": "Round",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Int": [
+      {
+        "identifier": "Int",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "ToString": [
+      {
+        "identifier": "ToString",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      },
+      {
+        "identifier": "ToString",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "GetSecondsSinceEpoch": [
+      {
+        "identifier": "GetSecondsSinceEpoch",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "invalidatable": [
+      {
+        "identifier": "invalidatable",
+        "modulePath": "/Verse.org/Verse",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "listenable": [
+      {
+        "identifier": "listenable",
+        "modulePath": "/Verse.org/Verse",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "locale": [
+      {
+        "identifier": "locale",
+        "modulePath": "/Verse.org/Verse",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "message": [
+      {
+        "identifier": "message",
+        "modulePath": "/Verse.org/Verse",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "Localize": [
+      {
+        "identifier": "Localize",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Join": [
+      {
+        "identifier": "Join",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "PiFloat": [
+      {
+        "identifier": "PiFloat",
+        "modulePath": "/Verse.org/Verse",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Clamp": [
+      {
+        "identifier": "Clamp",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Min": [
+      {
+        "identifier": "Min",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Max": [
+      {
+        "identifier": "Max",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Sqrt": [
+      {
+        "identifier": "Sqrt",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Sin": [
+      {
+        "identifier": "Sin",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Cos": [
+      {
+        "identifier": "Cos",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Tan": [
+      {
+        "identifier": "Tan",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      },
+      {
+        "identifier": "Tan",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "ArcSin": [
+      {
+        "identifier": "ArcSin",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "ArcCos": [
+      {
+        "identifier": "ArcCos",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "ArcTan": [
+      {
+        "identifier": "ArcTan",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Sinh": [
+      {
+        "identifier": "Sinh",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Cosh": [
+      {
+        "identifier": "Cosh",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Tanh": [
+      {
+        "identifier": "Tanh",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "ArSinh": [
+      {
+        "identifier": "ArSinh",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "ArCosh": [
+      {
+        "identifier": "ArCosh",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "ArTanh": [
+      {
+        "identifier": "ArTanh",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Pow": [
+      {
+        "identifier": "Pow",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Quotient": [
+      {
+        "identifier": "Quotient",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Mod": [
+      {
+        "identifier": "Mod",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Exp": [
+      {
+        "identifier": "Exp",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Ln": [
+      {
+        "identifier": "Ln",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Log": [
+      {
+        "identifier": "Log",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Lerp": [
+      {
+        "identifier": "Lerp",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      },
+      {
+        "identifier": "Lerp",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Sgn": [
+      {
+        "identifier": "Sgn",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "IsAlmostEqual": [
+      {
+        "identifier": "IsAlmostEqual",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      },
+      {
+        "identifier": "IsAlmostEqual",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "result": [
+      {
+        "identifier": "result",
+        "modulePath": "/Verse.org/Verse",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "MakeSuccess": [
+      {
+        "identifier": "MakeSuccess",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "MakeError": [
+      {
+        "identifier": "MakeError",
+        "modulePath": "/Verse.org/Verse",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "showable": [
+      {
+        "identifier": "showable",
+        "modulePath": "/Verse.org/Verse",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "signalable": [
+      {
+        "identifier": "signalable",
+        "modulePath": "/Verse.org/Verse",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "subscribable": [
+      {
+        "identifier": "subscribable",
+        "modulePath": "/Verse.org/Verse",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "modifier": [
+      {
+        "identifier": "modifier",
+        "modulePath": "/Verse.org/Verse",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "modifier_stack": [
+      {
+        "identifier": "modifier_stack",
+        "modulePath": "/Verse.org/Verse",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "Simulation": [
+      {
+        "identifier": "Simulation",
+        "modulePath": "/Verse.org/Simulation",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "agent": [
+      {
+        "identifier": "agent",
+        "modulePath": "/Verse.org/Simulation",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "player": [
+      {
+        "identifier": "player",
+        "modulePath": "/Verse.org/Simulation",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "Tags": [
+      {
+        "identifier": "Tags",
+        "modulePath": "/Verse.org/Simulation/Tags",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "has_tags": [
+      {
+        "identifier": "has_tags",
+        "modulePath": "/Verse.org/Simulation/Tags",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "tag": [
+      {
+        "identifier": "tag",
+        "modulePath": "/Verse.org/Simulation/Tags",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "tag_key": [
+      {
+        "identifier": "tag_key",
+        "modulePath": "/Verse.org/Simulation/Tags",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "tag_search_sort_type": [
+      {
+        "identifier": "tag_search_sort_type",
+        "modulePath": "/Verse.org/Simulation/Tags",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "tag_search_criteria": [
+      {
+        "identifier": "tag_search_criteria",
+        "modulePath": "/Verse.org/Simulation/Tags",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "tag_view": [
+      {
+        "identifier": "tag_view",
+        "modulePath": "/Verse.org/Simulation/Tags",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "editable": [
+      {
+        "identifier": "editable",
+        "modulePath": "/Verse.org/Simulation",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "editable_text_box": [
+      {
+        "identifier": "editable_text_box",
+        "modulePath": "/Verse.org/Simulation",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "editable_slider": [
+      {
+        "identifier": "editable_slider",
+        "modulePath": "/Verse.org/Simulation",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "editable_number": [
+      {
+        "identifier": "editable_number",
+        "modulePath": "/Verse.org/Simulation",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "editable_vector_slider": [
+      {
+        "identifier": "editable_vector_slider",
+        "modulePath": "/Verse.org/Simulation",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "editable_vector_number": [
+      {
+        "identifier": "editable_vector_number",
+        "modulePath": "/Verse.org/Simulation",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "editable_container": [
+      {
+        "identifier": "editable_container",
+        "modulePath": "/Verse.org/Simulation",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "session": [
+      {
+        "identifier": "session",
+        "modulePath": "/Verse.org/Simulation",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "GetSession": [
+      {
+        "identifier": "GetSession",
+        "modulePath": "/Verse.org/Simulation",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "session_environment": [
+      {
+        "identifier": "session_environment",
+        "modulePath": "/Verse.org/Simulation",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "Sleep": [
+      {
+        "identifier": "Sleep",
+        "modulePath": "/Verse.org/Simulation",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "GetSimulationElapsedTime": [
+      {
+        "identifier": "GetSimulationElapsedTime",
+        "modulePath": "/Verse.org/Simulation",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "team": [
+      {
+        "identifier": "team",
+        "modulePath": "/Verse.org/Simulation",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "Assets": [
+      {
+        "identifier": "Assets",
+        "modulePath": "/Verse.org/Assets",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "animation_sequence": [
+      {
+        "identifier": "animation_sequence",
+        "modulePath": "/Verse.org/Assets",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "material": [
+      {
+        "identifier": "material",
+        "modulePath": "/Verse.org/Assets",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "particle_system": [
+      {
+        "identifier": "particle_system",
+        "modulePath": "/Verse.org/Assets",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "mesh": [
+      {
+        "identifier": "mesh",
+        "modulePath": "/Verse.org/Assets",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "sound_wave": [
+      {
+        "identifier": "sound_wave",
+        "modulePath": "/Verse.org/Assets",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "texture": [
+      {
+        "identifier": "texture",
+        "modulePath": "/Verse.org/Assets",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "input_action": [
+      {
+        "identifier": "input_action",
+        "modulePath": "/Verse.org/Assets",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "input_mapping": [
+      {
+        "identifier": "input_mapping",
+        "modulePath": "/Verse.org/Assets",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "has_icon": [
+      {
+        "identifier": "has_icon",
+        "modulePath": "/Verse.org/Assets",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "Colors": [
+      {
+        "identifier": "Colors",
+        "modulePath": "/Verse.org/Colors",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "color": [
+      {
+        "identifier": "color",
+        "modulePath": "/Verse.org/Colors",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "MakeColorFromSRGB": [
+      {
+        "identifier": "MakeColorFromSRGB",
+        "modulePath": "/Verse.org/Colors",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "MakeSRGBFromColor": [
+      {
+        "identifier": "MakeSRGBFromColor",
+        "modulePath": "/Verse.org/Colors",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "MakeColorFromSRGBValues": [
+      {
+        "identifier": "MakeColorFromSRGBValues",
+        "modulePath": "/Verse.org/Colors",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "MakeColorFromHex": [
+      {
+        "identifier": "MakeColorFromHex",
+        "modulePath": "/Verse.org/Colors",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "MakeColorFromHSV": [
+      {
+        "identifier": "MakeColorFromHSV",
+        "modulePath": "/Verse.org/Colors",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "MakeHSVFromColor": [
+      {
+        "identifier": "MakeHSVFromColor",
+        "modulePath": "/Verse.org/Colors",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "MakeColorFromTemperature": [
+      {
+        "identifier": "MakeColorFromTemperature",
+        "modulePath": "/Verse.org/Colors",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "NamedColors": [
+      {
+        "identifier": "NamedColors",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "AliceBlue": [
+      {
+        "identifier": "AliceBlue",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "AntiqueWhite": [
+      {
+        "identifier": "AntiqueWhite",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Aqua": [
+      {
+        "identifier": "Aqua",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Aquamarine": [
+      {
+        "identifier": "Aquamarine",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Azure": [
+      {
+        "identifier": "Azure",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Beige": [
+      {
+        "identifier": "Beige",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Bisque": [
+      {
+        "identifier": "Bisque",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Black": [
+      {
+        "identifier": "Black",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "BlanchedAlmond": [
+      {
+        "identifier": "BlanchedAlmond",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Blue": [
+      {
+        "identifier": "Blue",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "BlueViolet": [
+      {
+        "identifier": "BlueViolet",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Brown": [
+      {
+        "identifier": "Brown",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Burlywood": [
+      {
+        "identifier": "Burlywood",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "CadetBlue": [
+      {
+        "identifier": "CadetBlue",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Chartreuse": [
+      {
+        "identifier": "Chartreuse",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Chocolate": [
+      {
+        "identifier": "Chocolate",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Coral": [
+      {
+        "identifier": "Coral",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "CornflowerBlue": [
+      {
+        "identifier": "CornflowerBlue",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Cornsilk": [
+      {
+        "identifier": "Cornsilk",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Crimson": [
+      {
+        "identifier": "Crimson",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Cyan": [
+      {
+        "identifier": "Cyan",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DarkBlue": [
+      {
+        "identifier": "DarkBlue",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DarkCyan": [
+      {
+        "identifier": "DarkCyan",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DarkGoldenrod": [
+      {
+        "identifier": "DarkGoldenrod",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DarkGray": [
+      {
+        "identifier": "DarkGray",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DarkGreen": [
+      {
+        "identifier": "DarkGreen",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DarkGrey": [
+      {
+        "identifier": "DarkGrey",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DarkKhaki": [
+      {
+        "identifier": "DarkKhaki",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DarkMagenta": [
+      {
+        "identifier": "DarkMagenta",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DarkOliveGreen": [
+      {
+        "identifier": "DarkOliveGreen",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DarkOrange": [
+      {
+        "identifier": "DarkOrange",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DarkOrchid": [
+      {
+        "identifier": "DarkOrchid",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DarkRed": [
+      {
+        "identifier": "DarkRed",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DarkSalmon": [
+      {
+        "identifier": "DarkSalmon",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DarkSeaGreen": [
+      {
+        "identifier": "DarkSeaGreen",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DarkSlateBlue": [
+      {
+        "identifier": "DarkSlateBlue",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DarkSlateGray": [
+      {
+        "identifier": "DarkSlateGray",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DarkSlateGrey": [
+      {
+        "identifier": "DarkSlateGrey",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DarkTurquoise": [
+      {
+        "identifier": "DarkTurquoise",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DarkViolet": [
+      {
+        "identifier": "DarkViolet",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DeepPink": [
+      {
+        "identifier": "DeepPink",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DeepSkyBlue": [
+      {
+        "identifier": "DeepSkyBlue",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DimGray": [
+      {
+        "identifier": "DimGray",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DimGrey": [
+      {
+        "identifier": "DimGrey",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "DodgerBlue": [
+      {
+        "identifier": "DodgerBlue",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Firebrick": [
+      {
+        "identifier": "Firebrick",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "FloralWhite": [
+      {
+        "identifier": "FloralWhite",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "ForestGreen": [
+      {
+        "identifier": "ForestGreen",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Fuchsia": [
+      {
+        "identifier": "Fuchsia",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Gainsboro": [
+      {
+        "identifier": "Gainsboro",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "GhostWhite": [
+      {
+        "identifier": "GhostWhite",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Gold": [
+      {
+        "identifier": "Gold",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Goldenrod": [
+      {
+        "identifier": "Goldenrod",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Gray": [
+      {
+        "identifier": "Gray",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Green": [
+      {
+        "identifier": "Green",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "GreenYellow": [
+      {
+        "identifier": "GreenYellow",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Grey": [
+      {
+        "identifier": "Grey",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Honeydew": [
+      {
+        "identifier": "Honeydew",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Hotpink": [
+      {
+        "identifier": "Hotpink",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "IndianRed": [
+      {
+        "identifier": "IndianRed",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Indigo": [
+      {
+        "identifier": "Indigo",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Ivory": [
+      {
+        "identifier": "Ivory",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Khaki": [
+      {
+        "identifier": "Khaki",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Lavender": [
+      {
+        "identifier": "Lavender",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "LavenderBlush": [
+      {
+        "identifier": "LavenderBlush",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "LawnGreen": [
+      {
+        "identifier": "LawnGreen",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "LemonChiffon": [
+      {
+        "identifier": "LemonChiffon",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "LightBlue": [
+      {
+        "identifier": "LightBlue",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "LightCoral": [
+      {
+        "identifier": "LightCoral",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "LightCyan": [
+      {
+        "identifier": "LightCyan",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "LightGoldenrodYellow": [
+      {
+        "identifier": "LightGoldenrodYellow",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "LightGray": [
+      {
+        "identifier": "LightGray",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "LightGreen": [
+      {
+        "identifier": "LightGreen",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "LightGrey": [
+      {
+        "identifier": "LightGrey",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "LightPink": [
+      {
+        "identifier": "LightPink",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "LightSalmon": [
+      {
+        "identifier": "LightSalmon",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "LightSeaGreen": [
+      {
+        "identifier": "LightSeaGreen",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "LightSkyBlue": [
+      {
+        "identifier": "LightSkyBlue",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "LightSlateGray": [
+      {
+        "identifier": "LightSlateGray",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "LightSlateGrey": [
+      {
+        "identifier": "LightSlateGrey",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "LightSteelBlue": [
+      {
+        "identifier": "LightSteelBlue",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "LightYellow": [
+      {
+        "identifier": "LightYellow",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Lime": [
+      {
+        "identifier": "Lime",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "LimeGreen": [
+      {
+        "identifier": "LimeGreen",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Linen": [
+      {
+        "identifier": "Linen",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Magenta": [
+      {
+        "identifier": "Magenta",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Maroon": [
+      {
+        "identifier": "Maroon",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "MediumAquamarine": [
+      {
+        "identifier": "MediumAquamarine",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "MediumBlue": [
+      {
+        "identifier": "MediumBlue",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "MediumOrchid": [
+      {
+        "identifier": "MediumOrchid",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "MediumPurple": [
+      {
+        "identifier": "MediumPurple",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "MediumSeaGreen": [
+      {
+        "identifier": "MediumSeaGreen",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "MediumSlateBlue": [
+      {
+        "identifier": "MediumSlateBlue",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "MediumSpringGreen": [
+      {
+        "identifier": "MediumSpringGreen",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "MediumTurquoise": [
+      {
+        "identifier": "MediumTurquoise",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "MediumVioletRed": [
+      {
+        "identifier": "MediumVioletRed",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "MidnightBlue": [
+      {
+        "identifier": "MidnightBlue",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "MintCream": [
+      {
+        "identifier": "MintCream",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "MistyRose": [
+      {
+        "identifier": "MistyRose",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Moccasin": [
+      {
+        "identifier": "Moccasin",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "NavajoWhite": [
+      {
+        "identifier": "NavajoWhite",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Navy": [
+      {
+        "identifier": "Navy",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "OldLace": [
+      {
+        "identifier": "OldLace",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Olive": [
+      {
+        "identifier": "Olive",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "OliveDrab": [
+      {
+        "identifier": "OliveDrab",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Orange": [
+      {
+        "identifier": "Orange",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "OrangeRed": [
+      {
+        "identifier": "OrangeRed",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Orchid": [
+      {
+        "identifier": "Orchid",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "PaleGoldenrod": [
+      {
+        "identifier": "PaleGoldenrod",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "PaleGreen": [
+      {
+        "identifier": "PaleGreen",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "PaleTurquoise": [
+      {
+        "identifier": "PaleTurquoise",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "PaleVioletred": [
+      {
+        "identifier": "PaleVioletred",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "PapayaWhip": [
+      {
+        "identifier": "PapayaWhip",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "PeachPuff": [
+      {
+        "identifier": "PeachPuff",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Peru": [
+      {
+        "identifier": "Peru",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Pink": [
+      {
+        "identifier": "Pink",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Plum": [
+      {
+        "identifier": "Plum",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "PowderBlue": [
+      {
+        "identifier": "PowderBlue",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Purple": [
+      {
+        "identifier": "Purple",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Red": [
+      {
+        "identifier": "Red",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "RosyBrown": [
+      {
+        "identifier": "RosyBrown",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "RoyalBlue": [
+      {
+        "identifier": "RoyalBlue",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "SaddleBrown": [
+      {
+        "identifier": "SaddleBrown",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Salmon": [
+      {
+        "identifier": "Salmon",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "SandyBrown": [
+      {
+        "identifier": "SandyBrown",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "SeaGreen": [
+      {
+        "identifier": "SeaGreen",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "SeaShell": [
+      {
+        "identifier": "SeaShell",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Sienna": [
+      {
+        "identifier": "Sienna",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Silver": [
+      {
+        "identifier": "Silver",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "SkyBlue": [
+      {
+        "identifier": "SkyBlue",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "SlateBlue": [
+      {
+        "identifier": "SlateBlue",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "SlateGray": [
+      {
+        "identifier": "SlateGray",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "SlateGrey": [
+      {
+        "identifier": "SlateGrey",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Snow": [
+      {
+        "identifier": "Snow",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "SpringGreen": [
+      {
+        "identifier": "SpringGreen",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "SteelBlue": [
+      {
+        "identifier": "SteelBlue",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Teal": [
+      {
+        "identifier": "Teal",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Thistle": [
+      {
+        "identifier": "Thistle",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Tomato": [
+      {
+        "identifier": "Tomato",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Turquoise": [
+      {
+        "identifier": "Turquoise",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Violet": [
+      {
+        "identifier": "Violet",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Wheat": [
+      {
+        "identifier": "Wheat",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "White": [
+      {
+        "identifier": "White",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "WhiteSmoke": [
+      {
+        "identifier": "WhiteSmoke",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "Yellow": [
+      {
+        "identifier": "Yellow",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "YellowGreen": [
+      {
+        "identifier": "YellowGreen",
+        "modulePath": "/Verse.org/Colors/NamedColors",
+        "type": "variable",
+        "isPublic": true
+      }
+    ],
+    "color_alpha": [
+      {
+        "identifier": "color_alpha",
+        "modulePath": "/Verse.org/Colors",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "MakeColorAlpha": [
+      {
+        "identifier": "MakeColorAlpha",
+        "modulePath": "/Verse.org/Colors",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Over": [
+      {
+        "identifier": "Over",
+        "modulePath": "/Verse.org/Colors",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "SpatialMath": [
+      {
+        "identifier": "SpatialMath",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "rotation": [
+      {
+        "identifier": "rotation",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "MakeRotationRadians": [
+      {
+        "identifier": "MakeRotationRadians",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "MakeRotationDegrees": [
+      {
+        "identifier": "MakeRotationDegrees",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "MakeRotationFromYawPitchRollRadians": [
+      {
+        "identifier": "MakeRotationFromYawPitchRollRadians",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "MakeRotationFromYawPitchRollDegrees": [
+      {
+        "identifier": "MakeRotationFromYawPitchRollDegrees",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "MakeRotationFromEulerRadians": [
+      {
+        "identifier": "MakeRotationFromEulerRadians",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "MakeRotationFromEulerDegrees": [
+      {
+        "identifier": "MakeRotationFromEulerDegrees",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "IdentityRotation": [
+      {
+        "identifier": "IdentityRotation",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Distance": [
+      {
+        "identifier": "Distance",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "AngularDistanceRadians": [
+      {
+        "identifier": "AngularDistanceRadians",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "AngularDistanceDegrees": [
+      {
+        "identifier": "AngularDistanceDegrees",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "MakeShortestRotationBetween": [
+      {
+        "identifier": "MakeShortestRotationBetween",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Slerp": [
+      {
+        "identifier": "Slerp",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "DegreesToRadians": [
+      {
+        "identifier": "DegreesToRadians",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "RadiansToDegrees": [
+      {
+        "identifier": "RadiansToDegrees",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "transform": [
+      {
+        "identifier": "transform",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "vector3": [
+      {
+        "identifier": "vector3",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "ReflectVector": [
+      {
+        "identifier": "ReflectVector",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "DotProduct": [
+      {
+        "identifier": "DotProduct",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "CrossProductLeftHanded": [
+      {
+        "identifier": "CrossProductLeftHanded",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "CrossProduct": [
+      {
+        "identifier": "CrossProduct",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "DistanceSquared": [
+      {
+        "identifier": "DistanceSquared",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "DistanceForwardLeft": [
+      {
+        "identifier": "DistanceForwardLeft",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "DistanceSquaredForwardLeft": [
+      {
+        "identifier": "DistanceSquaredForwardLeft",
+        "modulePath": "/Verse.org/SpatialMath",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Random": [
+      {
+        "identifier": "Random",
+        "modulePath": "/Verse.org/Random",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "GetRandomFloat": [
+      {
+        "identifier": "GetRandomFloat",
+        "modulePath": "/Verse.org/Random",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "GetRandomInt": [
+      {
+        "identifier": "GetRandomInt",
+        "modulePath": "/Verse.org/Random",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Shuffle": [
+      {
+        "identifier": "Shuffle",
+        "modulePath": "/Verse.org/Random",
+        "type": "function",
+        "isPublic": true
+      }
+    ],
+    "Predicts": [
+      {
+        "identifier": "Predicts",
+        "modulePath": "/Verse.org/Predicts",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "Native": [
+      {
+        "identifier": "Native",
+        "modulePath": "/Verse.org/Native",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "Concurrency": [
+      {
+        "identifier": "Concurrency",
+        "modulePath": "/Verse.org/Concurrency",
+        "type": "module",
+        "isPublic": true
+      }
+    ],
+    "awaitable": [
+      {
+        "identifier": "awaitable",
+        "modulePath": "/Verse.org/Concurrency",
+        "type": "class",
+        "isPublic": true
+      }
+    ],
+    "task": [
+      {
+        "identifier": "task",
+        "modulePath": "/Verse.org/Concurrency",
+        "type": "class",
+        "isPublic": true
+      }
+    ]
   },
   "moduleIndex": {
     "/Verse.org/Chat": [

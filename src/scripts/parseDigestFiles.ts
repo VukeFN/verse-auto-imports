@@ -24,7 +24,9 @@ interface PrecompiledDigest {
     moduleIndex: ReturnType<typeof parseDigestContent>["moduleIndex"];
 }
 
-const VERSION = "1.0.0";
+// 2.0.0 keys each identifier to a list of declarations rather than one, so a
+// name declared by several modules keeps every module it can be imported from.
+const VERSION = "2.0.0";
 
 /**
  * The UEFN build a digest came from, as stamped in its header

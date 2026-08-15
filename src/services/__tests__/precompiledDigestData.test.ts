@@ -12,7 +12,7 @@ import * as path from "path";
  */
 interface PrecompiledDigest {
     sourceBuild: string;
-    entries: Record<string, { identifier: string; modulePath: string; type: string; isPublic: boolean }>;
+    entries: Record<string, { identifier: string; modulePath: string; type: string; isPublic: boolean }[]>;
     moduleIndex: Record<string, string[]>;
 }
 
@@ -37,17 +37,34 @@ describe("precompiled digest data (41.30)", () => {
     it("resolves Fortnite device classes to /Fortnite.com/Devices", () => {
         for (const id of ["creative_device", "button_device", "trigger_device"]) {
             expect(fortnite.entries[id]).toBeDefined();
-            expect(fortnite.entries[id].modulePath).toBe("/Fortnite.com/Devices");
+            expect(fortnite.entries[id][0].modulePath).toBe("/Fortnite.com/Devices");
         }
     });
 
     it("resolves agent and player to /Verse.org/Simulation", () => {
-        expect(verse.entries["agent"].modulePath).toBe("/Verse.org/Simulation");
-        expect(verse.entries["player"].modulePath).toBe("/Verse.org/Simulation");
+        expect(verse.entries["agent"][0].modulePath).toBe("/Verse.org/Simulation");
+        expect(verse.entries["player"][0].modulePath).toBe("/Verse.org/Simulation");
     });
 
     it("resolves vector3 to /Verse.org/SpatialMath", () => {
-        expect(verse.entries["vector3"].modulePath).toBe("/Verse.org/SpatialMath");
+        expect(verse.entries["vector3"][0].modulePath).toBe("/Verse.org/SpatialMath");
+    });
+
+    it("keeps both SpatialMath homes of the identifiers they share (issue #375)", () => {
+        // The two SpatialMath modules are a live migration in the 41.30 data:
+        // both are importable and their vector3 types are distinct, so serving
+        // only one silently picks for the user. Each file records its own home;
+        // the loader is what puts the two together.
+        for (const id of ["Distance", "vector3", "rotation", "transform"]) {
+            expect(unrealEngine.entries[id].map((declaration) => declaration.modulePath)).toEqual(["/UnrealEngine.com/Temporary/SpatialMath"]);
+            expect(verse.entries[id].map((declaration) => declaration.modulePath)).toEqual(["/Verse.org/SpatialMath"]);
+        }
+    });
+
+    it("records a module-scope overload once per module, not once per declaration", () => {
+        // ToString is declared four times across two Verse modules. One entry
+        // per declaration would offer the same import several times over.
+        expect(verse.entries["ToString"].map((declaration) => declaration.modulePath)).toEqual(["/Verse.org/Verse", "/Verse.org/SpatialMath"]);
     });
 
     it("indexes button_device under the /Fortnite.com/Devices module", () => {
@@ -62,13 +79,13 @@ describe("precompiled digest data (41.30)", () => {
         // Regenerating from an older digest would silently restore the old names.
         for (const id of ["ai_session", "ai_error", "ai_description"]) {
             expect(unrealEngine.entries[id]).toBeDefined();
-            expect(unrealEngine.entries[id].modulePath).toBe("/UnrealEngine.com/Conversations");
+            expect(unrealEngine.entries[id][0].modulePath).toBe("/UnrealEngine.com/Conversations");
         }
         for (const gone of ["llm_session", "llm_prompt_error", "llm_description", "lily_voice"]) {
             expect(unrealEngine.entries[gone]).toBeUndefined();
         }
         expect(unrealEngine.entries["peely_voice"]).toBeDefined();
-        expect(unrealEngine.entries["peely_voice"].modulePath).toBe("/UnrealEngine.com/Conversations");
+        expect(unrealEngine.entries["peely_voice"][0].modulePath).toBe("/UnrealEngine.com/Conversations");
     });
 
     it("records parametric types but not their members (no leak)", () => {
@@ -76,7 +93,7 @@ describe("precompiled digest data (41.30)", () => {
         // out of the importable entries (issue #97 follow-up).
         for (const id of ["subscribable", "listenable", "event", "result"]) {
             expect(verse.entries[id]).toBeDefined();
-            expect(verse.entries[id].type).toBe("class");
+            expect(verse.entries[id][0].type).toBe("class");
         }
         for (const leaked of ["Subscribe", "Signal", "GetSuccess"]) {
             expect(verse.entries[leaked]).toBeUndefined();
@@ -92,7 +109,7 @@ describe("precompiled digest data (41.30)", () => {
         // and reads the head as a function.
         for (const id of ["chat_channel", "voice_channel", "agent_group_interface", "agent_group"]) {
             expect(verse.entries[id]).toBeDefined();
-            expect(verse.entries[id].type).toBe("class");
+            expect(verse.entries[id][0].type).toBe("class");
         }
     });
 

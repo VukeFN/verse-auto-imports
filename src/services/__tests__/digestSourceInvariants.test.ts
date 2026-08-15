@@ -156,10 +156,18 @@ describe.each(BUNDLED_DIGEST_NAMES)("bundled digest invariants (%s)", (digestNam
         // plain declaration branch and is recorded as a function.
         expect(parametricHeads.length).toBeGreaterThan(0);
 
+        // A name can carry a declaration per module, so the head is classified
+        // correctly as long as one of them bears the expected type.
         const misclassified = parametricHeads
             .filter((head) => entries[head.name] !== undefined)
-            .filter((head) => entries[head.name].type !== (head.keyword === "module" ? "module" : "class"))
-            .map((head) => `${fileName}:${head.line} ${head.name} recorded as ${entries[head.name].type}, expected ${head.keyword === "module" ? "module" : "class"}`);
+            .filter((head) => {
+                const expected = head.keyword === "module" ? "module" : "class";
+                return !entries[head.name].some((declaration) => declaration.type === expected);
+            })
+            .map(
+                (head) =>
+                    `${fileName}:${head.line} ${head.name} recorded as ${entries[head.name].map((declaration) => declaration.type).join("/")}, expected ${head.keyword === "module" ? "module" : "class"}`,
+            );
 
         expect(misclassified).toEqual([]);
     });

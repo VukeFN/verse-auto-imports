@@ -3,27 +3,17 @@ import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
 import { logger } from "../utils";
+import { matchDeclarationHead } from "../utils/verseDeclarationHead";
 import { lineIndentWidth, popClosedBlocks } from "../utils/verseText";
 import { ProjectPathHandler } from "../project";
 
 /**
- * Matches a class or struct declaration in Assets.digest.verse, e.g.
- * `TestMaterial<scoped {...}> := class<final><scoped {...}>(mesh_component):`.
- * Specifiers may be absent, single, or stacked, and may carry `{...}` arguments,
- * on both the declared name and the `class`/`struct` keyword. Captures the type
- * name. Any specifier keyword is accepted (`public`, `protected`, `private`,
- * `internal`, `scoped`, `final`, ...), matching how ProjectPathScanner reads the
- * same grammar rather than the pre-41.10 `public|internal|private` allowlist.
+ * The right-hand side of an asset instance declaration, read after the head's
+ * `:` - a type name, then `= external`. Textures, meshes, and niagara systems
+ * are emitted as instances rather than classes in 41.10. The `external` anchor
+ * keeps ordinary constant assignments out.
  */
-const CLASS_OR_STRUCT_DECL = /^(\w+)(?:<[^>]*>)*\s*:=\s*(?:class|struct)\b/;
-
-/**
- * Matches an asset instance declaration at module scope, e.g.
- * `image1<scoped {...}>:texture = external {}`. Textures, meshes, and niagara
- * systems are emitted as instances rather than classes in 41.10. Captures the
- * instance name. The `external` anchor keeps ordinary constant assignments out.
- */
-const INSTANCE_DECL = /^(\w+)(?:<[^>]*>)*\s*:\s*\w+\s*=\s*external\b/;
+const EXTERNAL_INSTANCE_TAIL = /^\s*\w+\s*=\s*external\b/;
 
 /**
  * The set of asset type names UEFN generated for this project, read from its
@@ -135,9 +125,10 @@ export class AssetsDigestParser {
     /**
      * Extracts asset type names from Assets.digest.verse content.
      *
-     * Recognizes both 41.10 and pre-41.10 declaration shapes:
-     * - Class/struct declarations with single, stacked, or argument-bearing
-     *   specifiers on either side of `:=`, e.g.
+     * Heads are read by `matchDeclarationHead`, shared with the API digest
+     * parser and the project scan; the policy over its answer is what lives
+     * here, and recognizes both 41.10 and pre-41.10 shapes:
+     * - Class/struct declarations, e.g.
      *   `TestSphere<scoped {...}> := class<final><scoped {...}>(mesh_component):`.
      * - Module-scope asset instances, e.g. `image1<scoped {...}>:texture = external {}`.
      *
@@ -169,19 +160,20 @@ export class AssetsDigestParser {
 
             popClosedBlocks(classBodyIndents, indent);
 
-            const classMatch = line.match(CLASS_OR_STRUCT_DECL);
-            if (classMatch) {
-                names.add(classMatch[1]);
+            const head = matchDeclarationHead(line);
+            if (!head || head.receiver !== null) {
+                continue;
+            }
+
+            if (head.keyword === "class" || head.keyword === "struct") {
+                names.add(head.name);
                 classBodyIndents.push(indent);
                 continue;
             }
 
             // Instances only count at module scope, never as class/struct members.
-            if (classBodyIndents.length === 0) {
-                const instanceMatch = line.match(INSTANCE_DECL);
-                if (instanceMatch) {
-                    names.add(instanceMatch[1]);
-                }
+            if (classBodyIndents.length === 0 && head.operator === ":" && EXTERNAL_INSTANCE_TAIL.test(line.slice(head.end))) {
+                names.add(head.name);
             }
         }
 

@@ -14,6 +14,10 @@
  * explicit `# Module import path:` comment, a scope qualifier `(/path:)`, the
  * enclosing module on the stack, or the file's root domain.
  *
+ * Declaration heads are recognized by `matchDeclarationHead`, shared with the
+ * assets parser and the project scan; only the policy over its answer lives
+ * here.
+ *
  * Comments are skipped only where `#` is the line's first non-whitespace
  * character. Verse also has `<# #>` and `<#>` comments, and a `#` after code or
  * inside a string is not a comment at all, so this is a narrower rule than the
@@ -22,6 +26,7 @@
  * ProjectPathScanner does.
  */
 
+import { DeclarationKeyword, matchDeclarationHead } from "../utils/verseDeclarationHead";
 import { lineIndentWidth, popClosedBlocks } from "../utils/verseText";
 
 /** A single importable declaration extracted from a digest file. */
@@ -83,70 +88,8 @@ interface ModuleFrame {
  */
 const QUALIFIER_RE = /^\((\/[^()]*):\)/;
 
-/**
- * A module-scope declaration head: an identifier, its own specifier groups, and
- * the operator that follows (`:=`, `:`, or `(`). Captures name, specifiers, and
- * operator. Specifier groups on the declaration's right-hand side (for example
- * `class<concrete>`) are intentionally excluded from the captured specifiers.
- */
-const DECL_RE = /^(\w+)((?:<[^>]+>)*)\s*(:=|:|\()/;
-
-/** The start of a parametric type head: an identifier, its specifier groups, and the `(` opening its type-parameter list. */
-const PARAM_TYPE_HEAD_RE = /^(\w+)((?:<[^>]+>)*)\(/;
-
-/** The `:=` and declaration keyword that must follow a parametric type's parameter list. */
-const PARAM_TYPE_TAIL_RE = /^\s*:=\s*(module|class|struct|interface|enum)\b/;
-
-/** Recognizes the declaration keyword after `:=` (module, class, struct, ...). */
-const DECL_KEYWORD_RE = /^\s*(module|class|struct|interface|enum)\b/;
-
 /** Extracts the explicit module import path from a `# Module import path:` comment. */
 const MODULE_PATH_COMMENT_RE = /#\s*Module import path:\s*(\S+)/;
-
-/**
- * A parametric type declared with a type-parameter list, such as
- * `subscribable<public>(t:type) := interface:` or
- * `agent_group<native><public>(member_info:subtype(member_info_interface)) := class(...):`,
- * or null where the line is not one.
- *
- * Must be tried before {@link DECL_RE}, whose `(` alternative would otherwise read
- * the type-parameter list as a function signature and leak the type's members to
- * module scope.
- *
- * The parameter list is walked for its matching `)` rather than matched by a
- * regex, because a Verse parenthesized parameter list holds general expressions
- * (`Paren := '(' List ')' Space`, VerseGrammar.h) and a parameter may itself be
- * an invocation carrying another paren group, to any depth. Any fixed depth here
- * would hold only until a digest refresh exceeded it.
- *
- * @param work The trimmed line with any scope qualifier prefix already removed.
- */
-function matchParametricTypeHead(work: string): { name: string; specifiers: string; keyword: string } | null {
-    const head = work.match(PARAM_TYPE_HEAD_RE);
-    if (!head) {
-        return null;
-    }
-
-    let depth = 0;
-    let index = head[0].length - 1;
-    for (; index < work.length; index++) {
-        if (work[index] === "(") {
-            depth++;
-        } else if (work[index] === ")") {
-            depth--;
-            if (depth === 0) {
-                index++;
-                break;
-            }
-        }
-    }
-    if (depth !== 0) {
-        return null;
-    }
-
-    const tail = work.slice(index).match(PARAM_TYPE_TAIL_RE);
-    return tail ? { name: head[1], specifiers: head[2], keyword: tail[1] } : null;
-}
 
 /**
  * Maps a digest file name to the root module domain its top-level declarations
@@ -242,7 +185,7 @@ export function parseDigestContent(content: string, rootDomain: string): ParsedD
     // a module opens a new frame; a class/struct/interface/enum records itself and
     // opens a body whose members are skipped. Shared by the plain and parametric
     // (type-parameter-bearing) declaration paths.
-    const recordModuleOrType = (name: string, isPublic: boolean, keyword: string, qualifierPath: string | null, indent: number): void => {
+    const recordModuleOrType = (name: string, isPublic: boolean, keyword: DeclarationKeyword, qualifierPath: string | null, indent: number): void => {
         if (keyword === "module") {
             const modulePath = resolveModulePath(name, pendingModulePath, qualifierPath, moduleStack, rootDomain);
             pendingModulePath = null;
@@ -291,43 +234,32 @@ export function parseDigestContent(content: string, rootDomain: string): ParsedD
         if (qualifierMatch) {
             qualifierPath = qualifierMatch[1];
             work = line.slice(qualifierMatch[0].length);
-        } else if (line.startsWith("(")) {
-            // Receiver-style extension method or other parenthesized form: skip.
+        }
+
+        const head = matchDeclarationHead(work);
+        if (!head) {
             continue;
         }
 
-        // Before DECL_RE: the order is load-bearing, and matchParametricTypeHead says why.
-        const paramType = matchParametricTypeHead(work);
-        if (paramType) {
-            recordModuleOrType(paramType.name, paramType.specifiers.includes("<public>"), paramType.keyword, qualifierPath, indent);
+        // A receiver-style extension method declares a name in this module, and
+        // this index deliberately does not offer it: the project scan reads the
+        // same head and does index one. Policy, not a difference of grammar -
+        // see matchDeclarationHead's `receiver`.
+        if (head.receiver !== null) {
             continue;
         }
 
-        const decl = work.match(DECL_RE);
-        if (!decl) {
-            continue;
-        }
-        const name = decl[1];
-        const identifierSpecifiers = decl[2];
-        const operator = decl[3];
-        const isPublic = identifierSpecifiers.includes("<public>");
+        const isPublic = head.specifiers.includes("<public>");
 
-        if (operator === ":=") {
-            const keywordMatch = work.slice(decl[0].length).match(DECL_KEYWORD_RE);
-            const keyword = keywordMatch ? keywordMatch[1] : null;
-
-            if (keyword) {
-                // module or class / struct / interface / enum.
-                recordModuleOrType(name, isPublic, keyword, qualifierPath, indent);
-                continue;
-            }
-
-            addEntry(name, containingModulePath(qualifierPath, moduleStack, rootDomain), "variable", isPublic);
+        if (head.keyword) {
+            recordModuleOrType(head.name, isPublic, head.keyword, qualifierPath, indent);
             continue;
         }
 
-        const type: DigestEntry["type"] = operator === "(" ? "function" : "variable";
-        addEntry(name, containingModulePath(qualifierPath, moduleStack, rootDomain), type, isPublic);
+        // A parameter list makes it a function whichever operator follows, and
+        // an unclosed one - a signature continuing below - reports as `(`.
+        const type: DigestEntry["type"] = head.params !== null || head.operator === "(" ? "function" : "variable";
+        addEntry(head.name, containingModulePath(qualifierPath, moduleStack, rootDomain), type, isPublic);
     }
 
     const moduleIndexRecord: Record<string, string[]> = {};

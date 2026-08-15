@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { ProjectPathHandler } from "../../project";
+import { logger } from "../../utils";
 import { ModuleVisibilityWriter } from "../ModuleVisibilityWriter";
 
 const PROJECT = "/mygame@fortnite.com/mygame";
@@ -96,6 +97,12 @@ const appliedOperations = (): any[] => {
     return calls.length === 0 ? [] : calls[calls.length - 1][0].operations;
 };
 
+/** The metadata argument of the last applyEdit call, or undefined when there was none. */
+const appliedMetadata = (): any => {
+    const calls = (vscode.workspace.applyEdit as jest.Mock).mock.calls;
+    return calls.length === 0 ? undefined : calls[calls.length - 1][1];
+};
+
 const forwardSlashed = (uri: { fsPath: string }): string => String(uri.fsPath).replace(/\\/g, "/");
 
 describe("ModuleVisibilityWriter", () => {
@@ -186,12 +193,18 @@ describe("ModuleVisibilityWriter", () => {
         expect(operations[0].position).toEqual(new vscode.Position(0, 5));
     });
 
-    it("names the declaration it rewrote", async () => {
+    it("names the declaration it offered to rewrite", async () => {
+        // In the log rather than the notification: the preview can apply a
+        // subset, so this names what was offered, not what was written.
         givenProject({ "Content/Gadgets/tools.verse": "Tools := module {}\n" });
+        const info = jest.spyOn(logger, "info").mockImplementation();
 
         await writer().makeModulePublic(REQUEST);
 
-        expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(expect.stringContaining("declaring Gadgets/Tools public in place"));
+        expect(info).toHaveBeenCalledWith("ModuleVisibilityWriter", expect.any(String), {
+            intended: expect.stringContaining("declaring Gadgets/Tools public in place"),
+        });
+        info.mockRestore();
     });
 
     it("refuses to widen a module the project deliberately narrowed", async () => {
@@ -342,13 +355,16 @@ describe("ModuleVisibilityWriter", () => {
         expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("no 'Content' folder"));
     });
 
-    it("warns when the edit is rejected", async () => {
+    it("reports nothing written when the preview comes back empty", async () => {
+        // A cancelled preview, one nothing was ticked in, and a failed apply
+        // are one boolean, so this must not be phrased as a failure.
         givenProject({ "Content/Scripts/main.verse": "" });
         (vscode.workspace.applyEdit as jest.Mock).mockResolvedValue(false);
 
         await writer().makeModulePublic(REQUEST);
 
-        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("could not write"));
+        expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(expect.stringContaining("no changes were written"));
+        expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
     });
 
     it("refuses when a project file the scan listed cannot be read", async () => {
@@ -394,5 +410,61 @@ describe("ModuleVisibilityWriter", () => {
         await writer().makeModulePublic(REQUEST);
 
         expect(appliedOperations()[0]).toMatchObject({ kind: "insert", text: "<public>" });
+    });
+
+    describe("refactor preview", () => {
+        // needsConfirmation on an entry is the only lever an extension has on
+        // the preview: applyEdit's isRefactoring flag maps to the auto-save
+        // setting and opens nothing. An entry without it applies unseen.
+        it("marks every entry of a definitions-file write as needing confirmation", async () => {
+            givenProject({ "Content/Scripts/main.verse": "using { Gadgets.Tools }\n" });
+
+            await writer().makeModulePublic(REQUEST);
+
+            const operations = appliedOperations();
+            expect(operations.length).toBeGreaterThan(0);
+            for (const operation of operations) {
+                expect(operation.metadata).toMatchObject({ needsConfirmation: true });
+            }
+        });
+
+        it("marks a specifier rewrite as needing confirmation too", async () => {
+            givenProject({ "Gadgets/tools.verse": "Tools := module {}\n" }, "/repo/Content");
+
+            await writer().makeModulePublic(REQUEST);
+
+            expect(appliedOperations()[0]).toMatchObject({
+                kind: "insert",
+                text: "<public>",
+                metadata: { needsConfirmation: true },
+            });
+        });
+
+        it("gives every entry one label, which is what groups them under a single node", async () => {
+            givenProject({ "Content/Scripts/main.verse": "using { Gadgets.Tools }\n" });
+
+            await writer().makeModulePublic(REQUEST);
+
+            const labels = new Set(appliedOperations().map((operation) => operation.metadata?.label));
+            expect([...labels]).toEqual(["Make module 'Tools' public"]);
+        });
+
+        it("tells the editor the edit is a refactoring, so files.refactoring.autoSave applies", async () => {
+            givenProject({ "Content/Scripts/main.verse": "using { Gadgets.Tools }\n" });
+
+            await writer().makeModulePublic(REQUEST);
+
+            expect(appliedMetadata()).toEqual({ isRefactoring: true });
+        });
+
+        it("does not claim which declarations landed, since the preview can apply a subset", async () => {
+            givenProject({ "Content/Gadgets/tools.verse": "Tools := module {}\n" });
+
+            await writer().makeModulePublic(REQUEST);
+
+            const [message] = (vscode.window.showInformationMessage as jest.Mock).mock.calls[0];
+            expect(message).toContain("previewed");
+            expect(message).not.toContain("declaring");
+        });
     });
 });

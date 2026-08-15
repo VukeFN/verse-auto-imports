@@ -64,13 +64,15 @@ export class ModuleVisibilityWriter {
     ) {}
 
     /**
-     * Makes the requested module reachable from the importing scope, and
-     * reports what it did.
+     * Puts the `<public>` declarations that make the requested module
+     * reachable through the refactor preview, and reports what came back.
      *
      * Refuses rather than half-applying: a module declared anything but
      * `<public>` or `<internal>` is left alone, whether it is the one to
      * publicize or one a new declaration would sit inside, and so is everything
-     * else the same request would have changed.
+     * else the same request would have changed. That governs what is offered,
+     * not what lands - the preview lets the user apply a subset, so what is
+     * reported afterwards is intent rather than outcome.
      */
     async makeModulePublic(request: ModuleVisibilityRequest): Promise<void> {
         const outcome = await this.buildEdit(request);
@@ -91,15 +93,23 @@ export class ModuleVisibilityWriter {
             return;
         }
 
-        const applied = await vscode.workspace.applyEdit(outcome.edit);
+        // isRefactoring does not open the preview - it only makes
+        // files.refactoring.autoSave apply. The preview comes from the
+        // needsConfirmation metadata buildEdit puts on every entry.
+        const applied = await vscode.workspace.applyEdit(outcome.edit, { isRefactoring: true });
         if (!applied) {
-            logger.warn("ModuleVisibilityWriter", `Edit rejected for ${request.targetPath}`);
-            vscode.window.showWarningMessage(`Verse Auto Imports: could not write the module visibility change for '${request.moduleName}'.`);
+            // A cancelled preview, a preview nothing was selected in, and a
+            // failed apply all arrive as false, so neither the log line nor
+            // the notification can claim which of them happened.
+            logger.warn("ModuleVisibilityWriter", `Nothing written for ${request.targetPath}: the preview was cancelled or empty, or the edit failed`);
+            vscode.window.showInformationMessage(`Verse Auto Imports: no changes were written for '${request.moduleName}'.`);
             return;
         }
 
-        logger.info("ModuleVisibilityWriter", `Made ${request.targetPath} public`, { summary: outcome.summary });
-        vscode.window.showInformationMessage(`Verse Auto Imports: ${outcome.summary}`);
+        // Only what was offered is known, never what was ticked, so the
+        // summary is logged as intent and kept out of the notification.
+        logger.info("ModuleVisibilityWriter", `Applied the previewed changes for ${request.targetPath}`, { intended: outcome.summary });
+        vscode.window.showInformationMessage(`Verse Auto Imports: applied the previewed changes for '${request.moduleName}'.`);
     }
 
     /**
@@ -160,6 +170,16 @@ export class ModuleVisibilityWriter {
 
         const edit = new vscode.WorkspaceEdit();
 
+        // needsConfirmation on an entry is the only thing an extension can set
+        // that opens the refactor preview, and it must go on every entry the
+        // user is meant to see. The editor groups entries by equal label, so
+        // one shared label keeps the whole change under a single node.
+        const confirm = (description: string): vscode.WorkspaceEditEntryMetadata => ({
+            needsConfirmation: true,
+            label: `Make module '${request.moduleName}' public`,
+            description,
+        });
+
         // Every scanned file, not only the ones an edit addresses: the text of
         // each fed resolveVisibility's ruling, so a change to any of them
         // invalidates the whole result rather than one offset.
@@ -171,7 +191,7 @@ export class ModuleVisibilityWriter {
         const inDefinitions = resolved.chain.length > 0 ? resolved.edits.filter((specifierEdit) => specifierEdit.file === definitionsKey) : [];
         const elsewhere = resolved.edits.filter((specifierEdit) => !inDefinitions.includes(specifierEdit));
 
-        this.addSpecifierEdits(edit, elsewhere, scanned);
+        this.addSpecifierEdits(edit, elsewhere, scanned, confirm);
 
         if (resolved.chain.length > 0) {
             const scannedDefinitions = scanned.get(definitionsKey);
@@ -187,11 +207,12 @@ export class ModuleVisibilityWriter {
             const withEdits = applySpecifierEdits(existing, inDefinitions);
             const content = appendDeclarationBlock(withEdits, buildDeclarationBlock(resolved.chain));
 
+            const metadata = confirm(path.basename(definitionsUri.fsPath));
             if (existing.length === 0 && !scannedDefinitions) {
-                edit.createFile(definitionsUri, { ignoreIfExists: true });
-                edit.insert(definitionsUri, new vscode.Position(0, 0), content);
+                edit.createFile(definitionsUri, { ignoreIfExists: true }, metadata);
+                edit.insert(definitionsUri, new vscode.Position(0, 0), content, metadata);
             } else {
-                edit.replace(definitionsUri, new vscode.Range(new vscode.Position(0, 0), positionAt(existing, existing.length)), content);
+                edit.replace(definitionsUri, new vscode.Range(new vscode.Position(0, 0), positionAt(existing, existing.length)), content, metadata);
             }
         }
 
@@ -233,8 +254,19 @@ export class ModuleVisibilityWriter {
         return null;
     }
 
-    /** Adds one specifier rewrite per existing declaration, resolving offsets against the text they came from. */
-    private addSpecifierEdits(edit: vscode.WorkspaceEdit, specifierEdits: readonly SpecifierEdit[], scanned: ReadonlyMap<string, ScannedFile>): void {
+    /**
+     * Adds one specifier rewrite per existing declaration, resolving offsets
+     * against the text they came from.
+     *
+     * @param confirm builds the metadata each entry carries into the preview,
+     * from the description that entry should show.
+     */
+    private addSpecifierEdits(
+        edit: vscode.WorkspaceEdit,
+        specifierEdits: readonly SpecifierEdit[],
+        scanned: ReadonlyMap<string, ScannedFile>,
+        confirm: (description: string) => vscode.WorkspaceEditEntryMetadata,
+    ): void {
         for (const specifierEdit of specifierEdits) {
             const file = scanned.get(specifierEdit.file);
             if (!file) {
@@ -245,11 +277,12 @@ export class ModuleVisibilityWriter {
                 throw new Error(`ModuleVisibilityWriter: no scanned text for ${specifierEdit.file}`);
             }
 
+            const metadata = confirm(specifierEdit.path);
             const { start, end } = specifierEdit.span;
             if (start === end) {
-                edit.insert(file.uri, positionAt(file.text, start), specifierEdit.text);
+                edit.insert(file.uri, positionAt(file.text, start), specifierEdit.text, metadata);
             } else {
-                edit.replace(file.uri, new vscode.Range(positionAt(file.text, start), positionAt(file.text, end)), specifierEdit.text);
+                edit.replace(file.uri, new vscode.Range(positionAt(file.text, start), positionAt(file.text, end)), specifierEdit.text, metadata);
             }
         }
     }
@@ -436,7 +469,11 @@ export class ModuleVisibilityWriter {
         return null;
     }
 
-    /** What the user is told happened, naming the declarations that were rewritten. */
+    /**
+     * What the edit would do, naming the declarations it rewrites. This is the
+     * offer, not the result: the user can apply part of it in the preview, so
+     * it is logged rather than shown as a report of what was written.
+     */
     private summarize(moduleName: string, edits: readonly SpecifierEdit[], wroteDefinitions: boolean): string {
         const rewritten = [...new Set(edits.map((edit) => edit.path))];
 

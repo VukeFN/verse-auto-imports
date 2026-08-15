@@ -656,4 +656,27 @@ describe("CommandsHandler failure logging", () => {
             expect(vscode.window.showInformationMessage).toHaveBeenCalledWith("Project path cache rebuilt: 12 identifiers from 3 files");
         });
     });
+
+    describe("makeModulePublic", () => {
+        const REQUEST = {
+            targetPath: "/mygame@fortnite.com/mygame/Gadgets/Tools",
+            importerPath: "/mygame@fortnite.com/mygame/Scripts",
+            moduleName: "Tools",
+        };
+
+        /**
+         * The document is the middle hop of provider - command - writer, and
+         * dropping it here reverts to the first workspace folder silently:
+         * every other test in the chain still passes.
+         */
+        it("forwards the document the quick fix named to the writer", async () => {
+            const makeModulePublic = jest.fn().mockResolvedValue(undefined);
+            const handler = new CommandsHandler({ moduleVisibilityWriter: { makeModulePublic } } as unknown as CommandsDependencies);
+            const source = vscode.Uri.file("/second/Content/Scripts/main.verse");
+
+            await handler.makeModulePublic(REQUEST, source);
+
+            expect(makeModulePublic).toHaveBeenCalledWith(REQUEST, source);
+        });
+    });
 });

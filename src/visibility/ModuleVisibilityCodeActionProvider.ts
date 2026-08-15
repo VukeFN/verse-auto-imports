@@ -30,10 +30,13 @@ export class ModuleVisibilityCodeActionProvider implements vscode.CodeActionProv
             const action = new vscode.CodeAction(`Make module '${request.moduleName}' public`, vscode.CodeActionKind.QuickFix);
             action.kind = vscode.CodeActionKind.QuickFix.append("verse.moduleVisibility");
             action.diagnostics = [diagnostic];
+            // The document rides along because the request carries Verse paths
+            // only, and the writer needs a URI to pick the workspace folder in
+            // a multi-root workspace.
             action.command = {
                 title: "Make Module Public",
                 command: "verseAutoImports.makeModulePublic",
-                arguments: [request],
+                arguments: [request, document.uri],
             };
 
             actions.push(action);

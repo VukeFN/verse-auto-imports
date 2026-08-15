@@ -98,12 +98,17 @@ export class CommandsHandler {
      * Declares the module an import could not reach `<public>`, so the import
      * compiles.
      *
-     * The argument comes from the quick fix that parsed it out of the compiler
-     * diagnostic, which is why the command is hidden from the Command Palette.
+     * The arguments come from the quick fix that parsed the request out of the
+     * compiler diagnostic, which is why the command is hidden from the Command
+     * Palette.
+     *
+     * @param sourceUri the document the diagnostic was reported on, which picks
+     * the workspace folder. Optional so an invocation that cannot name one
+     * still reaches the writer's fallback.
      */
-    async makeModulePublic(request: ModuleVisibilityRequest): Promise<void> {
+    async makeModulePublic(request: ModuleVisibilityRequest, sourceUri?: vscode.Uri): Promise<void> {
         logger.info("CommandsHandler", `Make module public command triggered for ${request.targetPath}`);
-        await this.deps.moduleVisibilityWriter.makeModulePublic(request);
+        await this.deps.moduleVisibilityWriter.makeModulePublic(request, sourceUri);
     }
 
     /**

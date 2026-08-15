@@ -1,10 +1,8 @@
 import * as assert from "assert";
 import * as vscode from "vscode";
-import { openFixture, sleep } from "./helpers";
+import { openFixture, restoreSetting, sleep, snapshotSetting } from "./helpers";
 
-function globalAutoImport(): boolean | undefined {
-    return vscode.workspace.getConfiguration("verseAutoImports").inspect<boolean>("general.autoImport")?.globalValue;
-}
+const AUTO_IMPORT = "general.autoImport";
 
 describe("commands and snooze (playbook T7/T8)", () => {
     before(async () => {
@@ -50,26 +48,33 @@ describe("commands and snooze (playbook T7/T8)", () => {
     // into global user settings, so a reload during the snooze left auto-import
     // off permanently. Snooze state is now in-memory and settings stay clean.
     it("T8: snooze leaves user settings untouched; re-snoozing stays coherent; cancel is clean", async () => {
-        const before = globalAutoImport();
+        // Read about the open file: general.autoImport is resource-scoped, and
+        // the write path picks its level from whichever already holds an
+        // override, so no single level is the one to watch.
+        const resource = vscode.window.activeTextEditor?.document.uri;
+        const before = snapshotSetting(AUTO_IMPORT, resource);
+        const assertUnchanged = (message: string): void => {
+            assert.deepStrictEqual(snapshotSetting(AUTO_IMPORT, resource), before, message);
+        };
         try {
             await vscode.commands.executeCommand("verseAutoImports.snoozeAutoImport");
             await sleep(300);
-            assert.strictEqual(globalAutoImport(), before, "snooze must not write general.autoImport to user settings");
+            assertUnchanged("snooze must not write general.autoImport at any level");
 
             // Re-invoking while already snoozed must not corrupt the state
             // (single timer per the 0.6.x snooze fix).
             await vscode.commands.executeCommand("verseAutoImports.snoozeAutoImport");
             await sleep(300);
-            assert.strictEqual(globalAutoImport(), before, "re-snoozing must not write general.autoImport either");
+            assertUnchanged("re-snoozing must not write general.autoImport either");
 
             await vscode.commands.executeCommand("verseAutoImports.cancelSnooze");
             await sleep(300);
-            assert.strictEqual(globalAutoImport(), before, "cancelling must not write general.autoImport either");
+            assertUnchanged("cancelling must not write general.autoImport either");
         } finally {
-            // Never leak a snoozed state into later suites: cancel again and
-            // clear the global override so the default (true) applies.
+            // Never leak a snoozed state, or a stray override at any level,
+            // into later suites: the fixture workspace is reused across the run.
             await vscode.commands.executeCommand("verseAutoImports.cancelSnooze");
-            await vscode.workspace.getConfiguration("verseAutoImports").update("general.autoImport", undefined, vscode.ConfigurationTarget.Global);
+            await restoreSetting(AUTO_IMPORT, before, resource);
         }
     });
 });

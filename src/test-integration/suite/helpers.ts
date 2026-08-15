@@ -228,6 +228,54 @@ export class WorkspaceSettings {
     }
 }
 
+/** Every level a setting can be overridden at, plus the value that currently wins. */
+export interface SettingSnapshot {
+    effective: unknown;
+    global: unknown;
+    workspace: unknown;
+    workspaceFolder: unknown;
+}
+
+/**
+ * Every override level of a setting at once. A guard that only reads one level
+ * passes for the wrong reason as soon as the write path picks a different one,
+ * and writeTargetFor picks by which level already holds an override.
+ *
+ * @param resource The file the setting is read about. Required for
+ * workspaceFolderValue to resolve at all; without one, inspect answers for the
+ * window and a folder override is invisible.
+ */
+export function snapshotSetting(key: string, resource?: vscode.Uri): SettingSnapshot {
+    const config = vscode.workspace.getConfiguration("verseAutoImports", resource);
+    const info = config.inspect(key);
+    return {
+        effective: config.get(key),
+        global: info?.globalValue,
+        workspace: info?.workspaceValue,
+        workspaceFolder: info?.workspaceFolderValue,
+    };
+}
+
+/**
+ * Puts every override level of a setting back to what `baseline` recorded,
+ * writing only the levels that actually moved. Clearing a level that was
+ * already clear would rewrite the fixture's own .code-workspace file.
+ */
+export async function restoreSetting(key: string, baseline: SettingSnapshot, resource?: vscode.Uri): Promise<void> {
+    const config = vscode.workspace.getConfiguration("verseAutoImports", resource);
+    const current = snapshotSetting(key, resource);
+    const levels: Array<[keyof SettingSnapshot, vscode.ConfigurationTarget]> = [
+        ["global", vscode.ConfigurationTarget.Global],
+        ["workspace", vscode.ConfigurationTarget.Workspace],
+        ["workspaceFolder", vscode.ConfigurationTarget.WorkspaceFolder],
+    ];
+    for (const [level, target] of levels) {
+        if (current[level] !== baseline[level]) {
+            await config.update(key, baseline[level], target);
+        }
+    }
+}
+
 /**
  * Runs Optimize Imports on the document (which must become the active editor)
  * and waits out the async on-save spacing pass before returning the text.

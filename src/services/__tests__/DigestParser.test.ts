@@ -127,7 +127,7 @@ describe("DigestParser", () => {
         it("returns every declaring module, led by the one the manifest prefers", async () => {
             const results = await parser.lookupIdentifier("Distance");
 
-            expect(results.map((result) => result.modulePath)).toEqual(["/UnrealEngine.com/Temporary/SpatialMath", "/Verse.org/SpatialMath"]);
+            expect(results.map((result) => result.modulePath)).toEqual(["/Verse.org/SpatialMath", "/UnrealEngine.com/Temporary/SpatialMath"]);
         });
 
         it("keeps one entry per module path when a file repeats a declaration", async () => {
@@ -137,7 +137,7 @@ describe("DigestParser", () => {
 
             const results = await parser.lookupIdentifier("Distance");
 
-            expect(results.map((result) => result.modulePath)).toEqual(["/UnrealEngine.com/Temporary/SpatialMath", "/Verse.org/SpatialMath"]);
+            expect(results.map((result) => result.modulePath)).toEqual(["/Verse.org/SpatialMath", "/UnrealEngine.com/Temporary/SpatialMath"]);
         });
     });
 

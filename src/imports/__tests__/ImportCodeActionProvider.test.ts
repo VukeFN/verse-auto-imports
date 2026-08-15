@@ -105,3 +105,39 @@ describe("ImportCodeActionProvider quick fix titles", () => {
         }
     });
 });
+
+/**
+ * `isPreferred` is what the editor applies on Ctrl+. Enter, so the mapping from
+ * list position to preference is what carries the digest manifest's choice of
+ * lead through to the user. Reordering the menu without carrying that choice
+ * with it silently restores whichever module used to be first.
+ */
+describe("ImportCodeActionProvider preferred action", () => {
+    const suggestion = (importStatement: string): ImportSuggestion => ({
+        importStatement,
+        source: "digest_lookup",
+        confidence: "high",
+        description: `class from ${importStatement}`,
+    });
+
+    const actionsFor = async (suggestions: ImportSuggestion[]): Promise<vscode.CodeAction[]> => {
+        const importHandler = { extractImportSuggestions: jest.fn().mockResolvedValue(suggestions) } as unknown as ImportHandler;
+        const provider = new ImportCodeActionProvider({ appendLine: jest.fn() } as unknown as vscode.OutputChannel, importHandler);
+
+        const actions = await provider.provideCodeActions(
+            { uri: { toString: () => "file:///Project/Content/Scripts/device.verse" } } as unknown as vscode.TextDocument,
+            {} as unknown as vscode.Range,
+            { diagnostics: [{ message: "Unknown identifier `vector3`", range: { start: { line: 7 } } }] } as unknown as vscode.CodeActionContext,
+            {} as unknown as vscode.CancellationToken,
+        );
+
+        return actions ?? [];
+    };
+
+    it("prefers the leading suggestion and no other", async () => {
+        const actions = await actionsFor([suggestion("using { /Verse.org/SpatialMath }"), suggestion("using { /UnrealEngine.com/Temporary/SpatialMath }")]);
+
+        expect(actions.map((action) => action.isPreferred)).toEqual([true, false]);
+        expect(actions[0].title).toBe("Add import: using { /Verse.org/SpatialMath }");
+    });
+});

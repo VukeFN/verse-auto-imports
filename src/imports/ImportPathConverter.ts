@@ -352,7 +352,7 @@ export class ImportPathConverter {
         const workspaceFolder = vscode.workspace.getWorkspaceFolder(currentFileUri);
         if (!workspaceFolder) return;
 
-        const placement = ImportPathConverter.placeUnderContentRoot(workspaceFolder.uri.fsPath, currentFileUri.fsPath, await this.projectPathHandler.getRootPluginName());
+        const placement = ImportPathConverter.placeUnderContentRoot(workspaceFolder.uri.fsPath, currentFileUri.fsPath, await this.projectPathHandler.getRootPluginName(currentFileUri));
         if (!placement) return;
 
         // Every path below is reasoned about with a leading Content/, whatever
@@ -750,7 +750,7 @@ export class ImportPathConverter {
         const workspaceFolder = vscode.workspace.getWorkspaceFolder(documentUri);
         if (!workspaceFolder) return null;
 
-        const placement = ImportPathConverter.placeUnderContentRoot(workspaceFolder.uri.fsPath, documentUri.fsPath, await this.projectPathHandler.getRootPluginName());
+        const placement = ImportPathConverter.placeUnderContentRoot(workspaceFolder.uri.fsPath, documentUri.fsPath, await this.projectPathHandler.getRootPluginName(documentUri));
         if (!placement) return null;
 
         return placement.fileDirRelative ? `${projectVersePath}/${placement.fileDirRelative}` : projectVersePath;
@@ -868,7 +868,7 @@ export class ImportPathConverter {
             return null;
         }
 
-        const projectVersePath = await this.projectPathHandler.getProjectVersePath();
+        const projectVersePath = await this.projectPathHandler.getProjectVersePath(documentUri);
         if (!projectVersePath) {
             return null;
         }
@@ -1000,7 +1000,7 @@ export class ImportPathConverter {
 
         const { fullPath: modulePath, moduleName } = moduleInfo;
 
-        const projectVersePath = await this.projectPathHandler.getProjectVersePath();
+        const projectVersePath = await this.projectPathHandler.getProjectVersePath(documentUri);
         if (!projectVersePath) {
             vscode.window.showWarningMessage("Could not find .uefnproject file in workspace. Please ensure you have a valid UEFN project.");
             return null;

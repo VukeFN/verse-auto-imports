@@ -10,6 +10,14 @@ import { ImportHandler } from "./ImportHandler";
  * naming no import produces no action.
  */
 export class ImportCodeActionProvider implements vscode.CodeActionProvider {
+    /**
+     * Declared to the registration so VS Code skips this provider whenever a
+     * kind outside quick fixes is requested. Without it a refactor or source
+     * action menu runs the async extraction below for a request this provider
+     * can never serve.
+     */
+    static readonly providedCodeActionKinds: readonly vscode.CodeActionKind[] = [vscode.CodeActionKind.QuickFix];
+
     constructor(
         private outputChannel: vscode.OutputChannel,
         private importHandler: ImportHandler,
@@ -32,6 +40,14 @@ export class ImportCodeActionProvider implements vscode.CodeActionProvider {
         const showDescriptions = config.get<boolean>("quickFix.showDescriptions", false);
 
         for (const diagnostic of context.diagnostics) {
+            // Every cursor move near a diagnostic re-requests code actions, so
+            // the extraction below - which can reach the digest lookup - runs
+            // once per diagnostic for requests already superseded. Stop before
+            // paying it for a result the editor will discard.
+            if (token.isCancellationRequested) {
+                return undefined;
+            }
+
             const suggestions = await this.importHandler.extractImportSuggestions(diagnostic.message, document.uri);
 
             if (suggestions.length === 0) {

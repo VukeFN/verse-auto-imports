@@ -792,6 +792,50 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, ["/Added"], curlySorted)).toBe("# Copyright 2026 MyGame\n\nusing { /Added }\nusing { /Existing }\n\ncode()");
     });
 
+    // A file opening with an opener that never closes is comment to its last
+    // line, so the header ran to the end of the buffer and the added import was
+    // written past it - inside the comment, where the scan cannot see it and
+    // the next compile adds it again. The floor never gets a say here: nothing
+    // is pinned, which is what separates this from the shape #454 covered.
+    it("writes an added path above an unclosed opener that opens the file", () => {
+        const input = ["<# note", "still note"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["/B"], curlySorted)).toBe(["using { /B }", "", "<# note", "still note"].join("\n"));
+    });
+
+    it("writes an added relative path above an unclosed opener that opens the file", () => {
+        const input = ["<# note", "still note"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlySorted)).toBe(["using { Gadgets.Tools }", "", "<# note", "still note"].join("\n"));
+    });
+
+    // Only the run the opener swallowed stops being header. A licence closed
+    // above it is still one, and starting from line 0 instead would write the
+    // import above it.
+    it("keeps a closed header above the import when an unclosed opener follows it", () => {
+        const input = ["# Copyright 2026 MyGame", "<# unclosed", "more"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["/B"], curlySorted)).toBe(["# Copyright 2026 MyGame", "using { /B }", "", "<# unclosed", "more"].join("\n"));
+    });
+
+    it("steps back only to the opener that never closes, not to one that did", () => {
+        const input = ["<# a", "b #>", "<# unclosed"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["/B"], curlySorted)).toBe(["<# a", "b #>", "using { /B }", "", "<# unclosed"].join("\n"));
+    });
+
+    // Reaching the end of the buffer is not itself the fault - a closed comment
+    // leaves a writable line below it. The guard keys on the comment still
+    // being open, so neither of these moves.
+    it("still writes below a header of entirely closed comment", () => {
+        const input = ["<# note #>", "# more"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["/B"], curlySorted)).toBe(["<# note #>", "# more", "using { /B }", ""].join("\n"));
+    });
+
+    // A `<#>` marker raises no block-comment depth, and a column-0 line ends
+    // the indented block its body sits in, so the line below the body is real
+    // code and the import belongs there.
+    it("still writes below an indented comment whose body ends the buffer", () => {
+        const input = ["<#> note", "    body"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["/B"], curlySorted)).toBe(["<#> note", "    body", "using { /B }", ""].join("\n"));
+    });
+
     it("writes the preferred dot syntax", () => {
         const input = "using { /A }\ncode()";
         expect(
@@ -1691,6 +1735,34 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             expect(insert).toBeDefined();
             expect(insert!.position!.line).toBe(2);
             expect(insert!.text).toBe("using { /Fortnite.com/Devices }\nusing { /Verse.org/Simulation }\n");
+        });
+
+        // Every case above has code below the header. Where the header is an
+        // opener that never closes it runs to the last line instead, and the
+        // insert took insertImportLines' end-of-document branch - appending the
+        // import after that line, inside the comment.
+        it("writes above an opener that never closes, not past the last line", async () => {
+            mockConfig({ "behavior.preserveImportLocations": true });
+            const input = ["<# note", "still note"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /B }"]);
+
+            expect(success).toBe(true);
+            const insert = appliedOperations(0).find((op) => op.kind === "insert");
+            expect(insert).toBeDefined();
+            expect(insert!.position!.line).toBe(0);
+        });
+
+        it("writes between a closed header and the unclosed opener below it", async () => {
+            mockConfig({ "behavior.preserveImportLocations": true });
+            const input = ["# Copyright 2026 MyGame", "<# unclosed", "more"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /B }"]);
+
+            expect(success).toBe(true);
+            const insert = appliedOperations(0).find((op) => op.kind === "insert");
+            expect(insert).toBeDefined();
+            expect(insert!.position!.line).toBe(1);
         });
     });
 

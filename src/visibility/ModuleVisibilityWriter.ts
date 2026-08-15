@@ -67,12 +67,14 @@ export class ModuleVisibilityWriter {
      * Puts the `<public>` declarations that make the requested module
      * reachable through the refactor preview, and reports what came back.
      *
-     * Refuses rather than half-applying: a module declared anything but
+     * Refuses rather than half-applying, and everything else the same request
+     * would have changed goes with it. A module declared anything but
      * `<public>` or `<internal>` is left alone, whether it is the one to
-     * publicize or one a new declaration would sit inside, and so is everything
-     * else the same request would have changed. That governs what is offered,
-     * not what lands - the preview lets the user apply a subset, so what is
-     * reported afterwards is intent rather than outcome.
+     * publicize or one a new declaration would sit inside; so is one the chain
+     * would have to declare a second time, since the block is appended whole
+     * and cannot join a declaration the project already carries. That governs
+     * what is offered, not what lands - the preview lets the user apply a
+     * subset, so what is reported afterwards is intent rather than outcome.
      *
      * @param sourceUri the document whose diagnostic asked for this, which is
      * what picks the workspace folder in a multi-root workspace. The first
@@ -125,10 +127,11 @@ export class ModuleVisibilityWriter {
      * The single edit that satisfies a request, with what every file it was
      * computed from looked like at read time, or why there is none.
      *
-     * The folder this resolves decides all three of the Content root written
-     * to, the scope `moduleVisibility.definitionsFileName` is read at, and the
-     * subtree the declaration scan sweeps, so a wrong one rules on
-     * declarations it never read rather than merely writing the wrong file.
+     * The folder this resolves decides all four of the Content root written
+     * to, the project Verse path every module path is measured against, the
+     * scope `moduleVisibility.definitionsFileName` is read at, and the subtree
+     * the declaration scan sweeps, so a wrong one rules on declarations it
+     * never read rather than merely writing the wrong file.
      */
     private async buildEdit(request: ModuleVisibilityRequest, sourceUri?: vscode.Uri): Promise<{ edit: vscode.WorkspaceEdit; summary: string; snapshots: Snapshot[] } | Refusal> {
         // The target module cannot be resolved to a folder directly: its path
@@ -142,7 +145,22 @@ export class ModuleVisibilityWriter {
             return { reason: "no workspace folder is open." };
         }
 
-        const projectVersePath = await this.projectPathHandler.getProjectVersePath();
+        // A folder holding no Content root cannot host the declaration, and a
+        // workspace can carry one legitimately - notes or art opened alongside
+        // the project. A document in such a folder falls back rather than
+        // refusing, since the project's own folder can still serve it.
+        const located = (await this.locateContentRoot(requestedFolder)) ?? (await this.locateContentRoot(firstFolder));
+        if (!located) {
+            return { reason: `no '${CONTENT_FOLDER}' folder was found in the workspace, so there is nowhere to declare the module.` };
+        }
+        const { workspaceFolder, contentRoot } = located;
+
+        // Read for the folder that won above rather than for the requesting
+        // document, because the fallback can settle on a different one. A path
+        // taken from the document's folder would then name a project this edit
+        // is not being written into, and every segment below is measured
+        // against it.
+        const projectVersePath = await this.projectPathHandler.getProjectVersePath(workspaceFolder.uri);
         if (!projectVersePath) {
             return { reason: "no .uefnproject file was found, so module paths cannot be resolved." };
         }
@@ -157,16 +175,6 @@ export class ModuleVisibilityWriter {
         if (segments.length === 0) {
             return { reason: `'${request.moduleName}' is already reachable from the importing module.` };
         }
-
-        // A folder holding no Content root cannot host the declaration, and a
-        // workspace can carry one legitimately - notes or art opened alongside
-        // the project. A document in such a folder falls back rather than
-        // refusing, since the project's own folder can still serve it.
-        const located = (await this.locateContentRoot(requestedFolder)) ?? (await this.locateContentRoot(firstFolder));
-        if (!located) {
-            return { reason: `no '${CONTENT_FOLDER}' folder was found in the workspace, so there is nowhere to declare the module.` };
-        }
-        const { workspaceFolder, contentRoot } = located;
 
         const definitionsUri = this.definitionsUri(contentRoot);
         if (!definitionsUri) {
@@ -536,22 +544,35 @@ export class ModuleVisibilityWriter {
 
 /**
  * Why a request was refused, naming what each conflicting module would have
- * needed. The two kinds are phrased apart because they ask different things of
- * the user, and one sentence carries both so a notification does not clip the
- * second remedy before it is read.
+ * needed. The kinds are phrased apart because they ask different things of the
+ * user, and one sentence carries them all so a notification does not clip a
+ * remedy before it is read.
  */
 function refusalForConflicts(moduleName: string, conflicts: readonly VisibilityConflict[]): string {
+    // Bracketed rather than trailing a comma, and the list punctuated: one
+    // conflict per declared ancestor is ordinary, and a reader given
+    // `A and B, declared internal and C` cannot tell where a path ends.
+    const joined = (items: readonly string[]) => (items.length <= 2 ? items.join(" and ") : `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`);
+
     const listed = (reason: VisibilityConflict["reason"]) =>
-        conflicts
-            .filter((conflict) => conflict.reason === reason)
-            .map((conflict) => `${conflict.path}, declared ${conflict.keyword}`)
-            .join(" and ");
+        joined(
+            conflicts
+                .filter((conflict) => conflict.reason === reason)
+                // A repeat of a declaration carrying no specifier has no
+                // keyword to name, and `declared undefined` would read as one
+                // it does carry.
+                .map((conflict) => (conflict.keyword ? `${conflict.path} (declared ${conflict.keyword})` : conflict.path)),
+        );
 
     const widen = listed("widen");
     const nest = listed("nest");
-    const clauses = [widen && `widening ${widen}`, nest && `declaring a module inside ${nest}`].filter(Boolean);
+    const repeat = listed("repeat");
+    const clauses = [widen && `widening ${widen}`, nest && `declaring a module inside ${nest}`, repeat && `re-declaring ${repeat}`].filter(Boolean);
 
-    return `making '${moduleName}' reachable would mean ${clauses.join(", and ")}. Make the change by hand if that is intended.`;
+    // Semicolons between clauses, because the lists inside them already spend
+    // ", and": one separator doing both jobs leaves the gerund as the only mark
+    // of where a clause starts.
+    return `making '${moduleName}' reachable would mean ${clauses.join("; ")}. Make the change by hand if that is intended.`;
 }
 
 /** The text with every specifier rewrite applied, taken last-first so earlier offsets stay valid. */

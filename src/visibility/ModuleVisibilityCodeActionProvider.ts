@@ -13,6 +13,12 @@ import { parseModuleVisibilityMessage } from "./ModuleVisibilityMessage";
  */
 export class ModuleVisibilityCodeActionProvider implements vscode.CodeActionProvider {
     /**
+     * Declared to the registration so VS Code skips this provider whenever a
+     * kind outside quick fixes is requested.
+     */
+    static readonly providedCodeActionKinds: readonly vscode.CodeActionKind[] = [vscode.CodeActionKind.QuickFix];
+
+    /**
      * One action per diagnostic that names an inaccessible internal module, or
      * undefined when none does.
      */

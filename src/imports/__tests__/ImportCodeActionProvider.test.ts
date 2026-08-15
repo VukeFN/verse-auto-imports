@@ -136,3 +136,41 @@ describe("ImportCodeActionProvider preferred action", () => {
         expect(actions[0].title).toBe("Add import: using { /Verse.org/SpatialMath }");
     });
 });
+
+/**
+ * Regression for #365: the provider took a CancellationToken and never read
+ * it, so a request superseded by the next cursor move still ran the async
+ * extraction once per diagnostic - work whose result VS Code discards.
+ */
+describe("ImportCodeActionProvider cancellation", () => {
+    const driveWith = async (isCancellationRequested: boolean, diagnosticCount: number) => {
+        const extractImportSuggestions = jest.fn().mockResolvedValue([]);
+        const provider = new ImportCodeActionProvider({ appendLine: jest.fn() } as unknown as vscode.OutputChannel, { extractImportSuggestions } as unknown as ImportHandler);
+        const diagnostics = Array.from({ length: diagnosticCount }, () => ({
+            message: "Unknown identifier `button_device`",
+            range: { start: { line: 7 } },
+        }));
+
+        const actions = await provider.provideCodeActions(
+            { uri: { toString: () => "file:///Project/Content/Scripts/device.verse" } } as unknown as vscode.TextDocument,
+            {} as unknown as vscode.Range,
+            { diagnostics } as unknown as vscode.CodeActionContext,
+            { isCancellationRequested } as unknown as vscode.CancellationToken,
+        );
+
+        return { actions, extractImportSuggestions };
+    };
+
+    it("extracts nothing once the request is cancelled", async () => {
+        const { actions, extractImportSuggestions } = await driveWith(true, 3);
+
+        expect(extractImportSuggestions).not.toHaveBeenCalled();
+        expect(actions).toBeUndefined();
+    });
+
+    it("extracts for every diagnostic while the request is live", async () => {
+        const { extractImportSuggestions } = await driveWith(false, 3);
+
+        expect(extractImportSuggestions).toHaveBeenCalledTimes(3);
+    });
+});

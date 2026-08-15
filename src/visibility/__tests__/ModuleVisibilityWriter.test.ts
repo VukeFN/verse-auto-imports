@@ -12,30 +12,67 @@ const REQUEST = {
 };
 
 /**
+ * What happens to a file between the scan that reads it and the check that runs
+ * before the write, keyed by URI. Empty means every file holds still.
+ */
+const afterScan = new Map<string, "changed" | "gone" | "created">();
+
+/**
  * Stands the workspace up from one map of workspace-relative path to file text.
  *
  * Text is served through openTextDocument, which is where production reads it,
  * so an offset a test asserts on addresses the same string the writer parsed.
+ * Each read is counted, because the writer reads a file once to scan it and
+ * again to check it still stands: an entry in `afterScan` changes what the
+ * second read answers.
  */
 const givenProject = (files: Record<string, string>, root = ROOT): vscode.Uri[] => {
     (vscode.workspace as any).workspaceFolders = [{ uri: vscode.Uri.file(root), name: root.split("/").pop(), index: 0 }];
 
     const uris = Object.keys(files).map((relative) => vscode.Uri.file(`${root}/${relative}`));
     const byUri = new Map(uris.map((uri, index) => [uri.toString(), files[Object.keys(files)[index]]]));
+    const opens = new Map<string, number>();
+    const stats = new Map<string, number>();
 
     (vscode.workspace.findFiles as jest.Mock).mockResolvedValue(uris);
     (vscode.workspace.fs.stat as jest.Mock).mockImplementation((uri: vscode.Uri) => {
         if (uri.fsPath.replace(/\\/g, "/").endsWith("/Content")) {
             return Promise.resolve({ type: vscode.FileType.Directory });
         }
-        return byUri.has(uri.toString()) ? Promise.resolve({ type: vscode.FileType.File }) : Promise.reject(new Error("ENOENT"));
+        const key = uri.toString();
+        if (afterScan.get(key) === "created") {
+            const seen = (stats.get(key) ?? 0) + 1;
+            stats.set(key, seen);
+            return seen === 1 ? Promise.reject(new Error("ENOENT")) : Promise.resolve({ type: vscode.FileType.File });
+        }
+        return byUri.has(key) ? Promise.resolve({ type: vscode.FileType.File }) : Promise.reject(new Error("ENOENT"));
     });
     (vscode.workspace.openTextDocument as jest.Mock).mockImplementation((uri: vscode.Uri) => {
-        const content = byUri.get(uri.toString());
-        return content === undefined ? Promise.reject(new Error("ENOENT")) : Promise.resolve({ getText: () => content });
+        const key = uri.toString();
+        const content = byUri.get(key);
+        if (content === undefined) {
+            return Promise.reject(new Error("ENOENT"));
+        }
+
+        const seen = (opens.get(key) ?? 0) + 1;
+        opens.set(key, seen);
+        const fate = seen === 1 ? undefined : afterScan.get(key);
+        if (fate === "gone") {
+            return Promise.reject(new Error("ENOENT"));
+        }
+        return Promise.resolve({ getText: () => content, version: fate === "changed" ? 2 : 1 });
     });
 
     return uris;
+};
+
+/**
+ * Says what happens to a file after the scan has read it: an edit that moves
+ * its version on, a delete, or a creation of a file that was not there. Call
+ * after givenProject.
+ */
+const duringScan = (relative: string, fate: "changed" | "gone" | "created", root = ROOT): void => {
+    afterScan.set(vscode.Uri.file(`${root}/${relative}`).toString(), fate);
 };
 
 /**
@@ -64,6 +101,7 @@ const forwardSlashed = (uri: { fsPath: string }): string => String(uri.fsPath).r
 describe("ModuleVisibilityWriter", () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        afterScan.clear();
         (vscode.workspace.applyEdit as jest.Mock).mockResolvedValue(true);
         (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
             get: jest.fn().mockImplementation((_key: string, fallback?: unknown) => fallback),
@@ -178,6 +216,40 @@ describe("ModuleVisibilityWriter", () => {
         // The declaration reads `<scoped{Scripts}>`; printing `<scoped>` would
         // quote the file as saying something that does not compile.
         expect(warning).not.toContain("<scoped>");
+    });
+
+    it("refuses when a scanned file was edited during the scan, naming it", async () => {
+        // The offsets came from text that is no longer what the file holds, so
+        // applying the edit would put the specifier in the wrong place.
+        givenProject({ "Content/Gadgets/tools.verse": "Tools := module {}\n" });
+        duringScan("Content/Gadgets/tools.verse", "changed");
+
+        await writer().makeModulePublic(REQUEST);
+
+        expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("'Content/Gadgets/tools.verse' changed while the project was scanned"));
+    });
+
+    it("refuses when a scanned file can no longer be read before the write", async () => {
+        givenProject({ "Content/Gadgets/tools.verse": "Tools := module {}\n" });
+        duringScan("Content/Gadgets/tools.verse", "gone");
+
+        await writer().makeModulePublic(REQUEST);
+
+        expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("'Content/Gadgets/tools.verse' changed while the project was scanned"));
+    });
+
+    it("refuses when the definitions file appeared during the scan", async () => {
+        // The create carries ignoreIfExists, so without this the insert would
+        // prepend the block to whatever the user just wrote in that file.
+        givenProject({ "Content/Scripts/main.verse": "using { Gadgets.Tools }\n" });
+        duringScan("Content/_definitions.verse", "created");
+
+        await writer().makeModulePublic(REQUEST);
+
+        expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("'Content/_definitions.verse' changed while the project was scanned"));
     });
 
     it("does nothing when the module is already public", async () => {

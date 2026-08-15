@@ -17,10 +17,27 @@ const SCAN_CONCURRENCY = 8;
 /** Why an attempt to publicize a module produced no edit. */
 type Refusal = { reason: string };
 
+/** The version recorded for a file that did not exist when it was read. */
+const ABSENT = -1;
+
 /** A scanned file, and the exact text every offset taken from it addresses. */
 interface ScannedFile {
     uri: vscode.Uri;
     text: string;
+    version: number;
+}
+
+/**
+ * A file as it stood when its text was read, so a change made while the rest of
+ * the project was still being scanned can be caught before anything is written.
+ *
+ * `version` is ABSENT for a file that did not exist. The definitions file is
+ * created with `ignoreIfExists`, so one that appears during the scan would
+ * otherwise be prepended to rather than created.
+ */
+interface Snapshot {
+    uri: vscode.Uri;
+    version: number;
 }
 
 /**
@@ -64,6 +81,16 @@ export class ModuleVisibilityWriter {
             return;
         }
 
+        // As late as possible, and never earlier: every moment between this
+        // check and applyEdit is window the check cannot cover.
+        const drifted = await this.findDrift(outcome.snapshots);
+        if (drifted) {
+            const name = vscode.workspace.asRelativePath(drifted, false);
+            logger.warn("ModuleVisibilityWriter", `Stale scan for ${request.targetPath}: ${drifted.toString()} changed`);
+            vscode.window.showWarningMessage(`Verse Auto Imports: '${name}' changed while the project was scanned, so nothing was written. Run the fix again.`);
+            return;
+        }
+
         const applied = await vscode.workspace.applyEdit(outcome.edit);
         if (!applied) {
             logger.warn("ModuleVisibilityWriter", `Edit rejected for ${request.targetPath}`);
@@ -75,8 +102,11 @@ export class ModuleVisibilityWriter {
         vscode.window.showInformationMessage(`Verse Auto Imports: ${outcome.summary}`);
     }
 
-    /** The single edit that satisfies a request, or why there is none. */
-    private async buildEdit(request: ModuleVisibilityRequest): Promise<{ edit: vscode.WorkspaceEdit; summary: string } | Refusal> {
+    /**
+     * The single edit that satisfies a request, with what every file it was
+     * computed from looked like at read time, or why there is none.
+     */
+    private async buildEdit(request: ModuleVisibilityRequest): Promise<{ edit: vscode.WorkspaceEdit; summary: string; snapshots: Snapshot[] } | Refusal> {
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
         if (!workspaceFolder) {
             return { reason: "no workspace folder is open." };
@@ -130,6 +160,11 @@ export class ModuleVisibilityWriter {
 
         const edit = new vscode.WorkspaceEdit();
 
+        // Every scanned file, not only the ones an edit addresses: the text of
+        // each fed resolveVisibility's ruling, so a change to any of them
+        // invalidates the whole result rather than one offset.
+        const snapshots: Snapshot[] = [...scanned.values()].map((file) => ({ uri: file.uri, version: file.version }));
+
         // A specifier edit inside the definitions file would overlap the
         // whole-file replace below, which VS Code rejects, so it is folded into
         // that replacement's text instead of being applied separately.
@@ -139,15 +174,20 @@ export class ModuleVisibilityWriter {
         this.addSpecifierEdits(edit, elsewhere, scanned);
 
         if (resolved.chain.length > 0) {
-            const existing = scanned.get(definitionsKey)?.text ?? (await this.readDefinitions(definitionsUri));
-            if (existing === undefined) {
+            const scannedDefinitions = scanned.get(definitionsKey);
+            const definitions = scannedDefinitions ?? (await this.readDefinitions(definitionsUri));
+            if (definitions === undefined) {
                 return { reason: "the definitions file could not be read." };
             }
+            if (!scannedDefinitions) {
+                snapshots.push({ uri: definitionsUri, version: definitions.version });
+            }
 
+            const existing = definitions.text;
             const withEdits = applySpecifierEdits(existing, inDefinitions);
             const content = appendDeclarationBlock(withEdits, buildDeclarationBlock(resolved.chain));
 
-            if (existing.length === 0 && !scanned.has(definitionsKey)) {
+            if (existing.length === 0 && !scannedDefinitions) {
                 edit.createFile(definitionsUri, { ignoreIfExists: true });
                 edit.insert(definitionsUri, new vscode.Position(0, 0), content);
             } else {
@@ -155,7 +195,42 @@ export class ModuleVisibilityWriter {
             }
         }
 
-        return { edit, summary: this.summarize(request.moduleName, resolved.edits, resolved.chain.length > 0) };
+        return { edit, summary: this.summarize(request.moduleName, resolved.edits, resolved.chain.length > 0), snapshots };
+    }
+
+    /**
+     * The first file that changed since its text was read, or null when every
+     * one still stands as it was.
+     *
+     * A file that no longer opens counts as changed: it was readable when the
+     * offsets were taken from it, so whatever happened to it since invalidates
+     * them. VS Code offers nothing atomic here - WorkspaceEdit carries no
+     * version and applyEdit accepts none - so this narrows the window to the
+     * gap before the apply rather than closing it.
+     */
+    private async findDrift(snapshots: readonly Snapshot[]): Promise<vscode.Uri | null> {
+        for (const snapshot of snapshots) {
+            if (snapshot.version === ABSENT) {
+                const created = await vscode.workspace.fs.stat(snapshot.uri).then(
+                    () => true,
+                    () => false,
+                );
+                if (created) {
+                    return snapshot.uri;
+                }
+                continue;
+            }
+
+            const version = await vscode.workspace.openTextDocument(snapshot.uri).then(
+                (document) => document.version,
+                () => null,
+            );
+            if (version !== snapshot.version) {
+                return snapshot.uri;
+            }
+        }
+
+        return null;
     }
 
     /** Adds one specifier rewrite per existing declaration, resolving offsets against the text they came from. */
@@ -216,22 +291,24 @@ export class ModuleVisibilityWriter {
     }
 
     /**
-     * The definitions file's text, "" when it does not exist, or undefined when
-     * it exists but could not be read - which must not be treated as empty,
-     * since that would discard whatever it holds.
+     * The definitions file's text and the version it was read at, "" at ABSENT
+     * when it does not exist, or undefined when it exists but could not be read
+     * - which must not be treated as empty, since that would discard whatever
+     * it holds.
      *
      * The undefined is now rare rather than gone: where findFiles listed the
      * file, findDeclarations opens it first and refuses there instead.
      */
-    private async readDefinitions(uri: vscode.Uri): Promise<string | undefined> {
+    private async readDefinitions(uri: vscode.Uri): Promise<{ text: string; version: number } | undefined> {
         try {
             await vscode.workspace.fs.stat(uri);
         } catch {
-            return "";
+            return { text: "", version: ABSENT };
         }
 
         try {
-            return (await vscode.workspace.openTextDocument(uri)).getText();
+            const document = await vscode.workspace.openTextDocument(uri);
+            return { text: document.getText(), version: document.version };
         } catch {
             return undefined;
         }
@@ -312,13 +389,16 @@ export class ModuleVisibilityWriter {
             return null;
         }
 
-        const text = await vscode.workspace.openTextDocument(uri).then(
-            (document) => document.getText(),
+        // Text and version come off the same document object, so the version
+        // recorded is the one this exact text was read at.
+        const read = await vscode.workspace.openTextDocument(uri).then(
+            (document) => ({ text: document.getText(), version: document.version }),
             () => null,
         );
-        if (text === null) {
+        if (read === null) {
             return { unreadable: uri };
         }
+        const { text } = read;
         if (!text.includes("module")) {
             return null;
         }
@@ -332,7 +412,7 @@ export class ModuleVisibilityWriter {
                 declaration,
             }));
 
-        return { file: { uri, text }, declarations };
+        return { file: { uri, text, version: read.version }, declarations };
     }
 
     /**

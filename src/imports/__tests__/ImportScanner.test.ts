@@ -1,4 +1,4 @@
-import { allUsingPaths, classifyLines, indentedPairPathLine, rewritableImports, scanConvertibleImports, scanModuleAliases, scanModuleImports } from "../ImportScanner";
+import { allUsingPaths, classifyLines, indentedBodyLine, indentedPairPathLine, rewritableImports, scanConvertibleImports, scanModuleAliases, scanModuleImports } from "../ImportScanner";
 
 describe("allUsingPaths", () => {
     it("collects a file-scope import the same way scanModuleImports does", () => {
@@ -1345,6 +1345,23 @@ describe("classifyLines", () => {
         expect(classifyLines(["<#", "note", "#>", "code()"]).map((classification) => classification.insideBlockComment)).toEqual([false, true, true, false]);
     });
 
+    it("marks the lines a block comment is still open at the end of", () => {
+        expect(classifyLines(["<#", "note", "#>", "code()"]).map((classification) => classification.endsInsideBlockComment)).toEqual([true, true, false, false]);
+    });
+
+    // The two answer the same question a line apart, which is what makes the
+    // last line the one worth asking: nothing below it carries the answer.
+    it("answers endsInsideBlockComment as the next line's insideBlockComment", () => {
+        const classifications = classifyLines(["code()", "using { /A } <# note", "more note", "#> code()"]);
+        expect(classifications.slice(0, -1).map((classification) => classification.endsInsideBlockComment)).toEqual(
+            classifications.slice(1).map((classification) => classification.insideBlockComment),
+        );
+    });
+
+    it("marks an opener written on the last line as leaving the comment open", () => {
+        expect(classifyLines(["code()", "using { /A } <#"]).map((classification) => classification.endsInsideBlockComment)).toEqual([false, true]);
+    });
+
     // "Indented comments begin with a `<#>` on its own line; everything
     // indented by four spaces on subsequent lines becomes part of the comment."
     it("reads the indented body of a marker as part of its comment", () => {
@@ -1439,5 +1456,49 @@ describe("indentedPairPathLine", () => {
 
     it("declines an opener followed only by blank lines", () => {
         expect(pathLine(["using:", "", ""])).toBe(-1);
+    });
+});
+
+describe("indentedBodyLine", () => {
+    const bodyLine = (lines: string[], opener = 0) => indentedBodyLine(classifyLines(lines), opener);
+
+    it("owns the indented line of code a statement opens over", () => {
+        expect(bodyLine(["using { /A }; M := module:", "    Body<public>():int = 1", "code()"])).toBe(1);
+    });
+
+    it("looks past blank lines and comments to find that body", () => {
+        expect(bodyLine(["using { /A }; M := module:", "", "    # note", "    Body<public>():int = 1"])).toBe(3);
+    });
+
+    it("owns a comment indented past the body once no code is", () => {
+        expect(bodyLine(["using { /A }; M := module:", "    Body<public>():int = 1"], 1)).toBe(-1);
+        expect(bodyLine(["using { /A }; M := module:", "    Body<public>():int = 1", "    # note", "code()"], 1)).toBe(2);
+    });
+
+    it("reaches that comment past a blank line, which ends no block", () => {
+        expect(bodyLine(["using { /A }; M := module:", "    Body<public>():int = 1", "", "    # note", "code()"], 1)).toBe(3);
+    });
+
+    it("declines a comment written back at column 0, which is prose about what follows", () => {
+        expect(bodyLine(["using { /A }; M := module:", "    Body<public>():int = 1", "# note", "code()"], 1)).toBe(-1);
+    });
+
+    it("declines where the first line of code sits at column 0", () => {
+        expect(bodyLine(["using { /A }", "code()"])).toBe(-1);
+    });
+
+    it("declines an opener on the last line of the file, and one past its end", () => {
+        expect(bodyLine(["using { /A }"])).toBe(-1);
+        expect(bodyLine(["using { /A }"], 5)).toBe(-1);
+        expect(bodyLine(["using { /A }"], -1)).toBe(-1);
+    });
+
+    // The indentation is read from the code, so a line closing a block comment
+    // ahead of its statement reads as indented and is owned. Harmless in both
+    // directions - the statement is real code either way, and a line the mask
+    // leaves indented was never one a rebuilt block could hold - but pinned so
+    // that reading the raw line instead reads as the change it would be.
+    it("reads a line closing a block comment ahead of its statement as indented", () => {
+        expect(bodyLine(["using { /A }; X := 1", "<# note", "#> Foo():int = 1", "code()"])).toBe(2);
     });
 });

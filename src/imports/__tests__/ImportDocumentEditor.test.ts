@@ -267,6 +267,74 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         );
     });
 
+    // The floor is the line a new import is written below, and a pinned line
+    // that also opens a block owns the lines indented under it. Writing at
+    // column 0 on the first of them ended the block before its body and left
+    // that body indented under nothing.
+    it("writes a new relative import below the body a pinned line opens, not into it", () => {
+        const input = ["using { /A }; M := module:", "    Body<public>():int = 1", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(["using { /A }; M := module:", "    Body<public>():int = 1", "using { Gadgets.Tools }", "code()"].join("\n"));
+    });
+
+    // The body's own trailing comment is part of it. A column-0 statement above
+    // an indented comment leaves that comment opening an indented block at file
+    // scope, which is not a shape the compiler is asked to accept anywhere.
+    it("writes it below a comment trailing that body rather than between the two", () => {
+        const input = ["using { /A }; M := module:", "    Body<public>():int = 1", "    # what the module is for", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(
+            ["using { /A }; M := module:", "    Body<public>():int = 1", "    # what the module is for", "using { Gadgets.Tools }", "code()"].join("\n"),
+        );
+    });
+
+    // Each hop re-anchors, so a pair inside the body is found from the body
+    // line the first hop reached rather than from the pinned line itself.
+    it("writes it below a body holding a pair of its own", () => {
+        const input = ["using { /A }; M := module:", "    using:", "        Features", "    Body<public>():int = 1", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(
+            ["using { /A }; M := module:", "    using:", "        Features", "    Body<public>():int = 1", "using { Gadgets.Tools }", "code()"].join("\n"),
+        );
+    });
+
+    // A relative path was floored to the last line and written after it, inside
+    // the comment - where the scan skips it, so the next compile added it
+    // again. The absolute case above it never reached this: it raises no floor.
+    it("does not write a newly added relative import into an unclosed opener that ends the buffer", () => {
+        const input = ["code()", "using { /A } <#"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlySorted)).toBe(["using { Gadgets.Tools }", "", "code()", "using { /A } <#"].join("\n"));
+    });
+
+    // A blank line ends no block, so a comment written below one is as far
+    // inside the body as one written directly under the last statement.
+    it("writes it below a body's trailing comment even where a blank line separates the two", () => {
+        const input = ["using { /A }; M := module:", "    Body<public>():int = 1", "", "    # what the module is for", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(
+            ["using { /A }; M := module:", "    Body<public>():int = 1", "", "    # what the module is for", "using { Gadgets.Tools }", "code()"].join("\n"),
+        );
+    });
+
+    // A comment at column 0 is prose about what follows rather than the body's
+    // own, so the span stops above it and the import is written there.
+    it("stops the span at a column-0 comment below the body", () => {
+        const input = ["using { /A }; M := module:", "    Body<public>():int = 1", "# what the code below does", "code()"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlyNoSort)).toBe(
+            ["using { /A }; M := module:", "    Body<public>():int = 1", "using { Gadgets.Tools }", "# what the code below does", "code()"].join("\n"),
+        );
+    });
+
+    it("does not write it into the comment body an unclosed opener runs over", () => {
+        const input = ["code()", "using { /A } <# note", "more note"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Gadgets.Tools"], curlySorted)).toBe(["using { Gadgets.Tools }", "", "code()", "using { /A } <# note", "more note"].join("\n"));
+    });
+
+    // The floor is the last line owned by the *lowest* pinned import, so an
+    // unwritable one has to be passed over rather than take the whole floor
+    // with it: dropping the maximum would carry the path above the provider
+    // pinned higher up, which is the order the floor exists to keep.
+    it("keeps the floor a pinned import above an unclosed opener raises", () => {
+        const input = ["using { Features }; X := 1", "code()", "using { /B } <# note"].join("\n");
+        expect(editor.buildOrganizedContent(input, ["Features.Shop"], curlySorted)).toBe(["using { Features }; X := 1", "using { Features.Shop }", "code()", "using { /B } <# note"].join("\n"));
+    });
+
     // A line writing two complete statements read as its first path alone, so
     // organizing rebuilt it as `using { /X }` and Economy.Shop was simply gone.
     // The output was a well-formed import block, which is what made the loss
@@ -1137,6 +1205,62 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         expect(operations[0].kind).toBe("insert");
         expect(operations[0].text).toBe("using { /B }\n\n");
         expect(operations[0].position!.line).toBe(0);
+    });
+
+    // The same two shapes through the auto-import path, which reaches the floor
+    // by a different route: placementLine rather than the grounded-extras
+    // splice buildOrganizedContent uses.
+    it("does not add a relative import into the body a pinned line opens", async () => {
+        const input = ["using { /A }; M := module:", "    Body<public>():int = 1", "code()"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Gadgets.Tools }"]);
+
+        expect(success).toBe(true);
+        const operations = appliedOperations(0);
+        expect(operations).toHaveLength(1);
+        expect(operations[0].kind).toBe("insert");
+        expect(operations[0].text).toBe("using { Gadgets.Tools }\n\n");
+        expect(operations[0].position!.line).toBe(2);
+    });
+
+    it("does not add a relative import under an unclosed opener that ends the buffer", async () => {
+        const input = ["hello := 1", "using { /A } <#"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Gadgets.Tools }"]);
+
+        expect(success).toBe(true);
+        const operations = appliedOperations(0);
+        expect(operations).toHaveLength(1);
+        expect(operations[0].kind).toBe("insert");
+        expect(operations[0].text).toBe("using { Gadgets.Tools }\n\n");
+        expect(operations[0].position!.line).toBe(0);
+    });
+
+    it("adds it below a comment trailing the body a blank line separates from it", async () => {
+        const input = ["using { /A }; M := module:", "    Body<public>():int = 1", "", "    # what the module is for", "code()"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Gadgets.Tools }"]);
+
+        expect(success).toBe(true);
+        const operations = appliedOperations(0);
+        expect(operations).toHaveLength(1);
+        expect(operations[0].kind).toBe("insert");
+        expect(operations[0].position!.line).toBe(4);
+    });
+
+    it("keeps the floor a pinned import above an unclosed opener raises", async () => {
+        const input = ["using { Features }; X := 1", "code()", "using { /B } <# note"].join("\n");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features.Shop }"]);
+
+        expect(success).toBe(true);
+        const operations = appliedOperations(0);
+        expect(operations).toHaveLength(1);
+        expect(operations[0].kind).toBe("insert");
+        // Below the provider that could be bringing `Features` into scope, not
+        // at the top of the file: the unwritable span above the comment is
+        // skipped on its own, and takes no other pinned import's floor with it.
+        expect(operations[0].position!.line).toBe(1);
     });
 
     function mockConfig(overrides: Record<string, unknown>): void {

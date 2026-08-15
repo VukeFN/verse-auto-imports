@@ -105,6 +105,16 @@ export interface LineClassification {
      */
     insideBlockComment: boolean;
     /**
+     * Whether a `<# ... #>` block comment is still open once this line ends.
+     *
+     * The dual of `insideBlockComment`, and equal to the next line's copy of it
+     * wherever there is a next line. The last line is the one that reaches for:
+     * a caller asking whether it may write below a line has no classification to
+     * read past the end of the buffer, and an opener written on the final line
+     * leaves everything appended after it inside the comment.
+     */
+    endsInsideBlockComment: boolean;
+    /**
      * Whether the comment this line belongs to was opened on an earlier line,
      * as a block-comment body or the indented body of a `<#>` marker. A caller
      * moving a run of comment lines has to know this: a run whose opener stays
@@ -163,6 +173,7 @@ export function classifyLines(lines: string[]): LineClassification[] {
         classifications[i] = {
             kind,
             insideBlockComment,
+            endsInsideBlockComment: scan.depth > 0,
             continuesCommentAbove: insideBlockComment || scan.insideIndentedComment,
             codeWithoutComments: scan.codeWithoutComments,
             codeOutsideLiterals: scan.codeOutsideLiterals,
@@ -186,6 +197,28 @@ export function classifyLines(lines: string[]): LineClassification[] {
 function firstCodeLineBelow(classifications: LineClassification[], from: number): number {
     for (let line = from + 1; line < classifications.length; line++) {
         if (classifications[line].kind === "code") {
+            return line;
+        }
+    }
+    return -1;
+}
+
+/**
+ * The first line below `from` holding anything at all, or `-1` where there is
+ * none.
+ *
+ * Blank lines alone are passed over, for the half of firstCodeLineBelow's
+ * reason that survives when the answer may be a comment: a blank line ends
+ * nothing, so what follows a run of them is still inside whatever was open
+ * above it. A line inside a `<#` block comment is never blank - classifyLines
+ * reads one as comment - so this stops on the body of one rather than running
+ * past it. A blank line inside a `<#>` marker's body is blank, and is passed
+ * over like any other; the line it stops on is then further into the same
+ * comment, which is the same answer one line down.
+ */
+function firstContentLineBelow(classifications: LineClassification[], from: number): number {
+    for (let line = from + 1; line < classifications.length; line++) {
+        if (classifications[line].kind !== "blank") {
             return line;
         }
     }
@@ -232,6 +265,65 @@ export function indentedPairPathLine(classifications: LineClassification[], open
         // directions: were that statement really at column 0, the opener
         // opened nothing and the file did not compile to begin with.
         return /^\s/.test(classifications[pathLine].codeWithoutComments) ? pathLine : -1;
+    }
+
+    return -1;
+}
+
+/**
+ * The next line below `opener` that a construct opened on it owns, or `-1`
+ * where it owns nothing further.
+ *
+ * A column-0 statement whose next line of code is indented opened whatever that
+ * indentation belongs to - a `module:` body, a braced clause continued below,
+ * an `if:` block - and a caller writing at column 0 between the two ends the
+ * block before its body, stranding the body as an expression at an indentation
+ * nothing opened. So the line belongs to the statement above it, and a caller
+ * placing a new statement has to clear it.
+ *
+ * The first line of code below the opener rather than the line directly below
+ * it, for the reason indentedPairPathLine gives: neither a blank line nor a
+ * comment ends an indented block, so the body can begin several lines down.
+ * Only code ends it, and code at column 0 ends it without ever having been the
+ * body - so there the opener owns nothing and this answers `-1`.
+ *
+ * A comment indented past column 0 is owned as well, once no further code is.
+ * The compiler consumes a line indented past the enclosing block into that
+ * block whether it holds code or only a comment, so a column-0 statement
+ * written directly above one leaves that comment opening an indented block at
+ * file scope. Writing below it instead keeps the comment inside the body it was
+ * written in, which is where it reads correctly anyway.
+ *
+ * Reached past blank lines for the same reason the code line is: a blank line
+ * ends no block, so a comment written below one is as far inside the body as a
+ * comment written directly under the last statement. A comment at column 0
+ * answers `-1` all the same, and that is this rule declining to claim it rather
+ * than anything about where the block ends - a comment ends no block at any
+ * indentation, but one written back at column 0 reads as prose about what
+ * follows rather than as the body's own, and nothing is lost by writing above
+ * it.
+ *
+ * Answers one line rather than the whole span, so a caller re-anchors and asks
+ * again: a body can hold a nested opener, and each answer is the next question.
+ */
+export function indentedBodyLine(classifications: LineClassification[], opener: number): number {
+    if (classifications[opener] === undefined) {
+        return -1;
+    }
+
+    // Indentation read from the code for the reason indentedPairPathLine reads
+    // it there, and with the same caveat about a line closing a block comment
+    // ahead of its statement. A comment-only line keeps its leading whitespace
+    // and nothing else, so the same test tells an indented comment from one at
+    // column 0.
+    const codeLine = firstCodeLineBelow(classifications, opener);
+    if (codeLine !== -1 && /^\s/.test(classifications[codeLine].codeWithoutComments)) {
+        return codeLine;
+    }
+
+    const contentLine = firstContentLineBelow(classifications, opener);
+    if (contentLine !== -1 && classifications[contentLine].kind === "comment" && /^\s/.test(classifications[contentLine].codeWithoutComments)) {
+        return contentLine;
     }
 
     return -1;

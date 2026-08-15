@@ -54,12 +54,11 @@ export type DeclarationKeyword = (typeof DECLARATION_KEYWORDS)[number];
 /**
  * What may end a declaration keyword. `:`, `{` and `.` are the three body
  * styles; `>` is not Verse and matches only the literal `M := module>`, kept
- * because two further spellings of the module grammar outside this file -
- * `ImportPathConverter.buildModuleDefinitionRegex` and `moduleDeclarations`'
- * `MODULE_DECLARATION` - accept it, and dropping it here alone would put this
- * matcher out of step with them. Parity with those two is partial either way:
- * both end at `module\s*[:>{.]`, so neither admits the keyword specifiers this
- * does.
+ * because the other spelling of the module grammar outside this file -
+ * `moduleDeclarations`' `MODULE_DECLARATION` - accepts it, and dropping it here
+ * alone would put this matcher out of step with it. Parity is partial either
+ * way: that one ends at `module\s*[:>{.]`, so it does not admit the keyword
+ * specifiers this does.
  */
 const BODY_TERMINATORS = new Set([":", "{", ".", ">"]);
 

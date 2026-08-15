@@ -3,9 +3,9 @@
  * in-file module chain and located precisely enough to edit their access
  * specifier in place. No VS Code dependencies.
  *
- * This overlaps ImportPathConverter's declaration regexes, which answer only
- * "does this file declare a module of this name", and ProjectPathScanner's,
- * which records a position but matches one line at a time and reads no
+ * ImportPathConverter's module search reads declarations through this, so the
+ * two cannot disagree about what one is. It still overlaps ProjectPathScanner's
+ * own scan, which records a position but matches one line at a time and reads no
  * quoted suffix.
  */
 
@@ -15,12 +15,20 @@ import { countBraces, indentOf, maskCommentsAndStrings } from "../utils/verseTex
  * A declaration in any of the three styles a macro body is written in:
  * `module:`, `module { }` with the brace on that line or the next, and the
  * dotted `module. Inner := ...`. `>` is accepted after the keyword alongside
- * them, matching ImportPathConverter.
+ * them, matching verseDeclarationHead.
  *
  * Group 1 is the declared name with any quoted suffix; group 2 is the whole
  * stacked specifier block, of which at most one entry is a visibility.
+ *
+ * A specifier body excludes `<` as well as `>`. No specifier nests, so nothing
+ * legitimate is lost, and a body free to reach past one runs a `<` that opens
+ * nothing - a comparison operator, say - all the way to the `>` of a LATER
+ * declaration's specifier. That misreports the comparison's left operand as the
+ * declared name and swallows the real declaration on the way, so the caller both
+ * edits a name that declares nothing and misses the module it was looking for.
+ * The body still spans lines, because a `scoped{...}` list may be wrapped.
  */
-const MODULE_DECLARATION = /\b([A-Za-z_][A-Za-z0-9_]*(?:'[^']*')?)((?:\s*<[^>]+>)*)\s*:=\s*module\s*[:>{.]/g;
+const MODULE_DECLARATION = /\b([A-Za-z_][A-Za-z0-9_]*(?:'[^']*')?)((?:\s*<[^<>]+>)*)\s*:=\s*module\s*[:>{.]/g;
 
 /** One entry of a stacked specifier block, spelled as MODULE_DECLARATION's group 2 spells it. */
 const SPECIFIER_ENTRY = /<[^>]+>/g;

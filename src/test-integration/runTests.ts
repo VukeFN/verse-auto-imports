@@ -8,10 +8,9 @@ import { runTests } from "@vscode/test-electron";
  * UEFN fixture workspace, loads this extension from the repository root, and
  * runs the mocha suite inside the extension host.
  *
- * The repository does not ship a `verse` language contribution (in production
- * Epic's Verse extension provides it), so a stub extension that only registers
- * the language id is loaded as a second development path. Without it the
- * `onLanguage:verse` activation event would never fire in the test host.
+ * No language-stub extension is loaded: the manifest's own `languages`
+ * contribution is what gives `.verse` the `verse` language id here, so the
+ * activation suite fails if that contribution is ever dropped.
  */
 async function main(): Promise<void> {
     // When the harness itself is started from a VS Code integrated terminal,
@@ -21,7 +20,6 @@ async function main(): Promise<void> {
     delete process.env.ELECTRON_RUN_AS_NODE;
 
     const repoRoot = path.resolve(__dirname, "..", "..");
-    const languageStubPath = path.join(repoRoot, "test-fixtures", "verse-language-stub");
     const extensionTestsPath = path.join(__dirname, "suite");
 
     // Run against a scratch copy of the fixture workspace: some flows under
@@ -34,7 +32,7 @@ async function main(): Promise<void> {
 
     try {
         await runTests({
-            extensionDevelopmentPath: [repoRoot, languageStubPath],
+            extensionDevelopmentPath: repoRoot,
             extensionTestsPath,
             launchArgs: [workspaceFile, "--disable-extensions", "--disable-workspace-trust", "--disable-gpu"],
         });

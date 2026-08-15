@@ -24,7 +24,6 @@ async function main(): Promise<void> {
     }
 
     const repoRoot = path.resolve(__dirname, "..", "..");
-    const languageStubPath = path.join(repoRoot, "test-fixtures", "verse-language-stub");
     const extensionTestsPath = path.join(__dirname, "vsix-suite");
 
     const workspaceSource = path.join(repoRoot, "test-fixtures", "integration-workspace");
@@ -47,10 +46,12 @@ async function main(): Promise<void> {
 
         await runTests({
             vscodeExecutablePath,
-            // Only the language stub is a development extension; the extension
-            // under test must come from the installed vsix. Deliberately no
-            // --disable-extensions for the same reason.
-            extensionDevelopmentPath: [languageStubPath],
+            // No development extensions: the extension under test must come
+            // from the installed vsix, which carries the `verse` language
+            // contribution itself. The empty array is how test-electron is told
+            // to pass no --extensionDevelopmentPath at all, since the option is
+            // required. Deliberately no --disable-extensions for the same reason.
+            extensionDevelopmentPath: [],
             extensionTestsPath,
             launchArgs: [workspaceFile, "--disable-workspace-trust", "--disable-gpu"],
         });

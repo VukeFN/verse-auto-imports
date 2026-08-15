@@ -2730,3 +2730,123 @@ describe("ImportDocumentEditor.computeEmptyLinesAfterImportsEdits", () => {
         expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
     });
 });
+
+/**
+ * Two writes on one document, overlapping - a quick fix arriving while a
+ * debounced auto-import is in flight. Each writer reads, computes and applies
+ * as three separate steps, so what these pin is that the second writer does
+ * not read while the first is still applying.
+ */
+describe("ImportDocumentEditor write serialization", () => {
+    let editor: ImportDocumentEditor;
+    const applyEditMock = () => vscode.workspace.applyEdit as unknown as jest.Mock;
+
+    /**
+     * Every read and every apply, in the order they happened. A read is
+     * getText, which is the snapshot a writer computes its coordinates from.
+     */
+    let trace: string[];
+
+    /** The applyEdit calls not yet let through, in the order they were made. */
+    let pendingApplies: Array<() => void>;
+
+    const input = ["using { /Verse.org/Simulation }", "", "hello := 1"].join("\n");
+
+    /** A document that records its reads. */
+    const tracedDocument = (uri: string): vscode.TextDocument =>
+        ({
+            ...fakeDocument(input),
+            uri: { toString: () => uri },
+            getText: () => {
+                trace.push("read");
+                return input;
+            },
+        }) as unknown as vscode.TextDocument;
+
+    /** Lets the queued microtasks run without releasing any applyEdit. */
+    const settle = async (): Promise<void> => {
+        for (let i = 0; i < 20; i++) {
+            await Promise.resolve();
+        }
+    };
+
+    const releaseApplies = async (): Promise<void> => {
+        while (pendingApplies.length > 0) {
+            pendingApplies.shift()!();
+            await settle();
+        }
+    };
+
+    beforeEach(() => {
+        const outputChannel = vscode.window.createOutputChannel("test");
+        editor = new ImportDocumentEditor(outputChannel, new ImportFormatter());
+        trace = [];
+        pendingApplies = [];
+        applyEditMock().mockReset();
+        applyEditMock().mockImplementation(() => {
+            trace.push("apply");
+            return new Promise<boolean>((resolve) => pendingApplies.push(() => resolve(true)));
+        });
+    });
+
+    // The mock is shared across this file, and every other test here expects
+    // an apply that resolves true on its own.
+    afterEach(() => {
+        applyEditMock().mockReset();
+        applyEditMock().mockResolvedValue(true);
+    });
+
+    it("does not let a second write read the document while the first is applying", async () => {
+        const document = tracedDocument("file:///test.verse");
+
+        const first = editor.addImportsToDocument(document, ["using { /Fortnite.com/Devices }"]);
+        const second = editor.organizeImports(document, ["/UnrealEngine.com/Temporary/SpatialMath"]);
+
+        await settle();
+
+        // Unserialized, the second writer runs on to its own applyEdit here,
+        // off text the first one has not finished writing over.
+        expect(trace).toEqual(["read", "apply"]);
+
+        await releaseApplies();
+        expect(await first).toBe(true);
+        expect(await second).toBe(true);
+
+        expect(trace.lastIndexOf("read")).toBeGreaterThan(trace.indexOf("apply"));
+    });
+
+    it("runs a write queued behind one whose apply rejected", async () => {
+        const document = tracedDocument("file:///test.verse");
+
+        applyEditMock().mockImplementationOnce(() => {
+            trace.push("apply");
+            return Promise.reject(new Error("apply rejected"));
+        });
+
+        const first = editor.addImportsToDocument(document, ["using { /Fortnite.com/Devices }"]);
+        const second = editor.organizeImports(document, ["/UnrealEngine.com/Temporary/SpatialMath"]);
+
+        await settle();
+        await releaseApplies();
+
+        expect(await first).toBe(false);
+        expect(await second).toBe(true);
+        expect(trace.filter((entry) => entry === "apply").length).toBeGreaterThan(1);
+    });
+
+    it("does not queue a write on one document behind a write on another", async () => {
+        const one = tracedDocument("file:///one.verse");
+        const other = tracedDocument("file:///other.verse");
+
+        const first = editor.addImportsToDocument(one, ["using { /Fortnite.com/Devices }"]);
+        const second = editor.addImportsToDocument(other, ["using { /Fortnite.com/Devices }"]);
+
+        await settle();
+
+        expect(trace).toEqual(["read", "apply", "read", "apply"]);
+
+        await releaseApplies();
+        expect(await first).toBe(true);
+        expect(await second).toBe(true);
+    });
+});

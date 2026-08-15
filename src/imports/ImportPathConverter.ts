@@ -538,29 +538,72 @@ export class ImportPathConverter {
         return locations;
     }
 
+    /** Path segments with the leading slash and any empty segments dropped. */
+    private static splitPath(versePath: string): string[] {
+        return versePath.split("/").filter((segment) => segment);
+    }
+
+    /**
+     * How many leading segments two paths share, comparing the first
+     * `foldSegments` of them folded ASCII-only and every segment after that
+     * byte-exact.
+     *
+     * The fold is bounded because the two halves of a Verse path answer to
+     * different rules. The project prefix is not resolved by anything: it names
+     * the package, and the same package reaches this code spelled two ways -
+     * one from the `.uefnproject`, one from a compiler diagnostic - so folding
+     * it absorbs a drift that is not a difference. Every segment below the
+     * prefix is a module name the compiler resolves byte-exact, so `Shop` and
+     * `shop` there are two modules, and folding them names the wrong one.
+     *
+     * Epic folds the whole path (ConvertFullVersePathToRelativeDotSyntax), but
+     * only ever for a definition it has already resolved in the same package,
+     * so the fold never has to be right about which module a segment names.
+     *
+     * Segments are compared whole, a deliberate divergence: Epic walks
+     * characters and, when one path runs out inside the other's segment, ends
+     * the common part mid-label, so `/proj/Economy/Shop` against a scope at
+     * `/proj/Econ` yields `omy.Shop` there.
+     */
+    private static sharedSegmentCount(pathSegments: string[], baseSegments: string[], foldSegments: number): number {
+        const foldAscii = (segment: string): string => segment.replace(/[a-z]/g, (character) => character.toUpperCase());
+
+        let common = 0;
+        while (common < pathSegments.length && common < baseSegments.length) {
+            const matches = common < foldSegments ? foldAscii(pathSegments[common]) === foldAscii(baseSegments[common]) : pathSegments[common] === baseSegments[common];
+            if (!matches) break;
+            common++;
+        }
+
+        return common;
+    }
+
+    /**
+     * Whether two absolute Verse paths name the same module, under the same
+     * prefix rule sharedSegmentCount applies.
+     *
+     * Needed because the two paths reaching the round-trip check are spelled by
+     * different sources: the rebuilt one carries the `.uefnproject` prefix and
+     * the one from the document carries whatever the author wrote.
+     */
+    private static namesSameModule(pathA: string, pathB: string, foldSegments: number): boolean {
+        const segmentsA = ImportPathConverter.splitPath(pathA);
+        const segmentsB = ImportPathConverter.splitPath(pathB);
+
+        return segmentsA.length === segmentsB.length && ImportPathConverter.sharedSegmentCount(segmentsA, segmentsB, foldSegments) === segmentsA.length;
+    }
+
     /**
      * The dotted reference naming `fullPath` from a scope at `basePath`: the
      * segments left after the longest prefix the two paths share, joined with
      * ".". Empty when nothing is left, which is a path naming the base itself.
      *
-     * Segments are compared whole and folded ASCII-only, which is Epic's rule
-     * for this one conversion rather than a claim that Verse resolves paths
-     * case-insensitively - it does not.
-     *
-     * Comparing whole segments is a deliberate divergence. Epic walks
-     * characters and, when one path runs out inside the other's segment, ends
-     * the common part mid-label: `/proj/Economy/Shop` against a scope at
-     * `/proj/Econ` yields `omy.Shop` there.
+     * @param foldSegments how many leading segments are the project prefix, the
+     *   only part compared case-insensitively
      */
-    private static relativizeAgainst(fullPath: string, basePath: string): string {
-        const foldAscii = (segment: string): string => segment.replace(/[a-z]/g, (character) => character.toUpperCase());
-        const fullSegments = fullPath.split("/").filter((segment) => segment);
-        const baseSegments = basePath.split("/").filter((segment) => segment);
-
-        let common = 0;
-        while (common < fullSegments.length && common < baseSegments.length && foldAscii(fullSegments[common]) === foldAscii(baseSegments[common])) {
-            common++;
-        }
+    private static relativizeAgainst(fullPath: string, basePath: string, foldSegments: number): string {
+        const fullSegments = ImportPathConverter.splitPath(fullPath);
+        const common = ImportPathConverter.sharedSegmentCount(fullSegments, ImportPathConverter.splitPath(basePath), foldSegments);
 
         return fullSegments.slice(common).join(".");
     }
@@ -597,10 +640,67 @@ export class ImportPathConverter {
     }
 
     /**
+     * Whether `reference`, written in the file at `documentUri`, names the
+     * module `fullPath` names.
+     *
+     * Only the reference's first segment is looked up, because only that
+     * segment is resolved through the scope chain: the compiler walks the
+     * importing scope's parents collecting a match at every level, then
+     * descends the segments after it byte-exact from whichever match it takes.
+     * So a nearer module of that name decides the whole reference, and one that
+     * does not carry the rest of the chain breaks a reference whose full chain
+     * exists elsewhere.
+     *
+     * Anything but one location refuses. Two or more mean a nearer namesake
+     * shadows the target or clashes with it, and no relative spelling reaches
+     * past it, so there is no conversion to offer rather than a longer one to
+     * find. None means nothing here can place the module, which is exactly the
+     * position this check exists to stop a conversion being written from.
+     *
+     * The check is only as good as the search under it, and that search has
+     * blind spots this does not close - these among them, rather than these
+     * alone. A namesake that exists only as an explicit `X := module`
+     * declaration is invisible while a folder answers first, because the
+     * declaration scan runs only when the folder phases found nothing. A folder
+     * whose name differs from the reference only in case satisfies the search
+     * on a case-insensitive filesystem, so this confirms the casing it asked
+     * about rather than the casing on disk. And the scanning phases read
+     * `workspaceFolders[0]` rather than the folder holding the document, so in
+     * a multi-root workspace they can answer from a tree the importing file is
+     * nowhere in.
+     */
+    private async referenceResolvesTo(reference: string, fullPath: string, documentUri: vscode.Uri, projectVersePath: string): Promise<boolean> {
+        const referenceSegments = reference.split(".");
+        const firstSegment = referenceSegments[0];
+        const fullSegments = ImportPathConverter.splitPath(fullPath);
+
+        // The first segment names the path with one segment dropped for each
+        // segment written after it.
+        const expectedPath = `/${fullSegments.slice(0, fullSegments.length - (referenceSegments.length - 1)).join("/")}`;
+
+        const locations = await this.findModuleLocations(firstSegment, documentUri);
+        if (locations.length !== 1) {
+            logger.debug("ImportPathConverter", `Refusing '${reference}' for ${fullPath}: '${firstSegment}' resolves to ${locations.length} locations, not one`);
+            return false;
+        }
+
+        const resolved = ImportPathConverter.buildFullVersePath(projectVersePath, locations[0], firstSegment);
+        if (!ImportPathConverter.namesSameModule(resolved, expectedPath, ImportPathConverter.splitPath(projectVersePath).length)) {
+            logger.debug("ImportPathConverter", `Refusing '${reference}' for ${fullPath}: '${firstSegment}' resolves to ${resolved}, not ${expectedPath}`);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * The relative form of an absolute import, in the style the author wrote,
      * or null when there is none to give: a built-in module, an import that
      * was never absolute, a workspace with no `.uefnproject` to take the
-     * project path from, or a path that shortens to nothing.
+     * project path from, a path outside the project, a path that shortens to
+     * nothing, an importing file the Content root does not hold, or a
+     * shortened form that does not resolve back to the module the absolute
+     * path named.
      *
      * Shortened against the module the importing file sits in, which is the
      * dialect the compiler speaks: its own suggestions arrive spelled that way
@@ -611,16 +711,16 @@ export class ImportPathConverter {
      * The other direction has a whole workspace of candidate locations to
      * choose between.
      *
-     * A path outside this project is not refused, only shortened by whatever
-     * prefix it does share: another project under the same account keeps its
-     * own project segment, a different account keeps every segment. Neither
-     * resolves here.
+     * Shortening is proposed, not trusted: the reference is resolved back
+     * through the same workspace search the other direction uses. Refusing is
+     * the only safe answer available, because the conversion writes over an
+     * import that compiles today.
      *
-     * @param documentUri The file the import is written in. Without it the
-     *   project root stands in as the scope, which is what shortens an import
-     *   when the file cannot be placed under Content.
+     * @param documentUri The file the import is written in. It must sit under
+     *   the project's Content root, since that placement is both the scope to
+     *   shorten against and the vantage point the result is verified from.
      */
-    async convertFromFullPath(importStatement: string, documentUri?: vscode.Uri, line?: number): Promise<ImportConversionResult | null> {
+    async convertFromFullPath(importStatement: string, documentUri: vscode.Uri, line?: number): Promise<ImportConversionResult | null> {
         if (this.isBuiltinModule(importStatement)) {
             logger.debug("ImportPathConverter", "Cannot convert built-in module to relative path");
             return null;
@@ -646,8 +746,33 @@ export class ImportPathConverter {
             return null;
         }
 
-        const scopePath = (documentUri && this.enclosingModulePath(documentUri, projectVersePath)) || projectVersePath;
-        const shortened = ImportPathConverter.relativizeAgainst(fullPath, scopePath);
+        const projectSegments = ImportPathConverter.splitPath(projectVersePath);
+
+        // A path the project does not contain has no relative form from inside
+        // it, whatever prefix the two happen to share. Shortening one anyway
+        // emits a first segment that either cannot lex - `@` is not an Ident
+        // character, so a foreign account's segment is a parse error - or names
+        // whatever local module happens to answer to it. Both replace a broken
+        // import with a differently broken one that can no longer be converted
+        // back.
+        if (ImportPathConverter.sharedSegmentCount(ImportPathConverter.splitPath(fullPath), projectSegments, projectSegments.length) < projectSegments.length) {
+            logger.debug("ImportPathConverter", `Cannot shorten a path outside the project: ${fullPath}`);
+            return null;
+        }
+
+        // A file the Content root does not hold has no module scope, and
+        // standing the project root in for one was a guess the verification
+        // cannot catch: only the first phase of the module search walks outward
+        // from the document, and the phases behind it scan the workspace, so
+        // they answer the same for any file that asks. They would confirm a
+        // reference written into a scope nothing here can name.
+        const scopePath = this.enclosingModulePath(documentUri, projectVersePath);
+        if (!scopePath) {
+            logger.debug("ImportPathConverter", `Cannot place the importing file under the project's Content root: ${documentUri.fsPath}`);
+            return null;
+        }
+
+        const shortened = ImportPathConverter.relativizeAgainst(fullPath, scopePath, projectSegments.length);
 
         // Nothing left over means the target is the importing file's own module
         // or an ancestor of it. The module still has a name, and whatever
@@ -657,11 +782,15 @@ export class ImportPathConverter {
         // this does not hold for: what encloses it is the registry rather than
         // a scope the file sits in. That test shortens against the root rather
         // than comparing prefixes, so both halves fold case the same way.
-        const belowProjectRoot = ImportPathConverter.relativizeAgainst(fullPath, projectVersePath);
+        const belowProjectRoot = ImportPathConverter.relativizeAgainst(fullPath, projectVersePath, projectSegments.length);
         const relativeImportPath = shortened || (belowProjectRoot ? fullPath.substring(fullPath.lastIndexOf("/") + 1) : "");
 
         if (!relativeImportPath) {
             logger.debug("ImportPathConverter", "Could not extract relative path from full path");
+            return null;
+        }
+
+        if (!(await this.referenceResolvesTo(relativeImportPath, fullPath, documentUri, projectVersePath))) {
             return null;
         }
 

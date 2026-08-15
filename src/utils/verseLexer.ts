@@ -125,6 +125,23 @@ export interface LexedLine {
      */
     endedOpen: boolean;
     /**
+     * Index into the line of the first comment opener on it, or -1 when it
+     * holds none. 0 when the line opens already inside a comment, whose opener
+     * is above it.
+     *
+     * An offset into the original text, which neither code string can supply:
+     * `codeWithoutComments` removes comments without replacement, so on a line
+     * with an interior comment it is shorter than the offset it would be read
+     * as, and `masked` blanks literals as well and so cannot tell trivia from
+     * literal text.
+     *
+     * Only a split at `depthBefore` 0 may be taken from this. A line that
+     * begins inside a comment reports 0 and can still close it and carry live
+     * code - `#> using { /A }` at depth 1 - so a caller slicing on the offset
+     * there reads a whole statement as annotation.
+     */
+    commentStart: number;
+    /**
      * The line's text with every comment removed and nothing put in its place,
      * so text on either side of one joins. That is what it is for: a comment
      * splicing a token apart, `us<##>ing { /A }`, rejoins into a `using` a
@@ -208,6 +225,9 @@ export function lexVerseLine(line: string, state: LexState, trackLiterals: boole
     // a line comment ends with its line - but what it opened need not, so this
     // says only that the text left is trivia, never that it holds no opener.
     let insideLineComment = false;
+    // Already inside one when the line begins, so the opener is above it and
+    // every character from the first is trivia.
+    let commentStart = depthBefore > 0 || insideIndentedComment ? 0 : -1;
     let i = 0;
 
     // What is open at this point, innermost last, and empty at code scope. A
@@ -221,6 +241,13 @@ export function lexVerseLine(line: string, state: LexState, trackLiterals: boole
     /** Records one character as comment text: blanked in `masked`, absent from both code strings. */
     const commentChar = (): void => {
         masked += " ";
+    };
+
+    /** Records that trivia opens here, keeping the first opener when the line holds several. */
+    const opensComment = (): void => {
+        if (commentStart === -1) {
+            commentStart = i;
+        }
     };
 
     while (i < line.length) {
@@ -277,6 +304,7 @@ export function lexVerseLine(line: string, state: LexState, trackLiterals: boole
             // opener of its own: at `EPlace::IndCmt` a `<#>` nests another
             // indented comment rather than a block.
             opensIndentedComment = true;
+            opensComment();
             for (; i < line.length; i++) {
                 commentChar();
             }
@@ -296,6 +324,7 @@ export function lexVerseLine(line: string, state: LexState, trackLiterals: boole
         // S05, so there is no depth for it to close.
         if (line[i] === "#" && innermost?.kind !== "literal") {
             insideLineComment = true;
+            opensComment();
             commentChar();
             i += 1;
             continue;
@@ -303,6 +332,7 @@ export function lexVerseLine(line: string, state: LexState, trackLiterals: boole
 
         if (line.startsWith("<#", i)) {
             nesting += 1;
+            opensComment();
             commentChar();
             commentChar();
             i += 2;
@@ -390,6 +420,7 @@ export function lexVerseLine(line: string, state: LexState, trackLiterals: boole
         opensIndentedComment,
         hasCode,
         endedOpen: open.length > 0,
+        commentStart,
         codeWithoutComments,
         codeOutsideLiterals,
         masked,

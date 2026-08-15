@@ -189,10 +189,36 @@ describe("CommandsHandler.organizeImportsInDocument", () => {
         expect(active.save).not.toHaveBeenCalled();
     });
 
-    it("reports the rejection when the edit does not apply", async () => {
+    // VS Code discards what the command returns, so a bare false reaching it is
+    // the silence #387 was filed about, arriving at the new entry point.
+    it("warns the user when the edit does not apply", async () => {
         const handler = makeHandler({ organizeImports: jest.fn().mockResolvedValue(false) });
 
         await expect(handler.organizeImportsInDocument(makeDocument())).resolves.toBe(false);
+
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledTimes(1);
+        expect((vscode.window.showWarningMessage as jest.Mock).mock.calls[0][0]).toMatch(/Could not optimize imports/);
+    });
+
+    // codeActionsOnSave runs this as a save participant, and VS Code logs a
+    // participant's failure where nobody looks rather than surfacing it.
+    it("reports a throw rather than letting it escape into the save", async () => {
+        const handler = makeHandler({ organizeImports: jest.fn().mockRejectedValue(new Error("boom")) });
+
+        await expect(handler.organizeImportsInDocument(makeDocument())).resolves.toBe(false);
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledTimes(1);
+        expect((vscode.window.showErrorMessage as jest.Mock).mock.calls[0][0]).toMatch(/Failed to optimize imports/);
+    });
+
+    it("says nothing when the organize succeeds", async () => {
+        const handler = makeHandler({ organizeImports: jest.fn().mockResolvedValue(true) });
+
+        await handler.organizeImportsInDocument(makeDocument());
+
+        expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
+        expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
+        expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
     });
 });
 

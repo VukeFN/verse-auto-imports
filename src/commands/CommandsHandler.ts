@@ -153,13 +153,10 @@ export class CommandsHandler {
         try {
             const document = editor.document;
 
-            const applied = await this.organizeImportsInDocument(document);
-
             // Saving a document whose edit was rejected writes the unorganized
             // content back to disk and makes the failure look like a success.
-            if (!applied) {
-                logger.warn("CommandsHandler", "Import organization was not applied to the document");
-                vscode.window.showWarningMessage("Could not optimize imports. The document may have changed or be read-only.");
+            // organizeImportsInDocument has already told the user why.
+            if (!(await this.organizeImportsInDocument(document))) {
                 return;
             }
 
@@ -178,23 +175,38 @@ export class CommandsHandler {
      * currently reports as a missing import. True when the document holds the
      * organized content afterwards, which includes it having needed no change.
      *
-     * Deliberately does not save: this is what the Organize Imports source
-     * action runs, and `editor.codeActionsOnSave` runs that during a save.
+     * Deliberately does not save: the Organize Imports source action runs this,
+     * and `editor.codeActionsOnSave` runs that action during a save.
      *
-     * The document comes from the code action that was asked for it, which is
-     * why the command is hidden from the Command Palette.
+     * Reports its own failures rather than returning a bare false, and swallows
+     * what it reports. The source action's caller is VS Code, which discards
+     * the return value and logs a thrown error where nobody looks, so anything
+     * left for the caller to say is said to nobody.
      */
     async organizeImportsInDocument(document: vscode.TextDocument): Promise<boolean> {
-        // Read straight from the current diagnostics rather than waiting on
-        // the auto-import debounce, so the command does not race it.
-        const diagnostics = vscode.languages.getDiagnostics(document.uri);
-        const missingImportPaths = this.deps.importHandler.extractImportsFromDiagnostics(diagnostics);
-        logger.debug("CommandsHandler", `Found ${missingImportPaths.length} missing import(s) in current diagnostics`);
+        try {
+            // Read straight from the current diagnostics rather than waiting on
+            // the auto-import debounce, so the command does not race it.
+            const diagnostics = vscode.languages.getDiagnostics(document.uri);
+            const missingImportPaths = this.deps.importHandler.extractImportsFromDiagnostics(diagnostics);
+            logger.debug("CommandsHandler", `Found ${missingImportPaths.length} missing import(s) in current diagnostics`);
 
-        // The missing paths are handed to the organizer rather than added
-        // first, so the block is rewritten once and the document is never
-        // left between the two states.
-        return this.deps.importHandler.organizeImports(document, missingImportPaths);
+            // The missing paths are handed to the organizer rather than added
+            // first, so the block is rewritten once and the document is never
+            // left between the two states.
+            const applied = await this.deps.importHandler.organizeImports(document, missingImportPaths);
+
+            if (!applied) {
+                logger.warn("CommandsHandler", "Import organization was not applied to the document");
+                vscode.window.showWarningMessage("Could not optimize imports. The document may have changed or be read-only.");
+            }
+
+            return applied;
+        } catch (error) {
+            logger.error("CommandsHandler", "Error optimizing imports", error);
+            vscode.window.showErrorMessage(`Failed to optimize imports: ${error}`);
+            return false;
+        }
     }
 
     private menuCommands(): CommandEntry[] {

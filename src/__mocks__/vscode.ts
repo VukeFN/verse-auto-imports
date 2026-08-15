@@ -430,7 +430,9 @@ const FileType = {
 class CodeActionKind {
     static readonly QuickFix = new CodeActionKind("quickfix");
     static readonly Source = new CodeActionKind("source");
-    static readonly SourceOrganizeImports = new CodeActionKind("source.organizeImports");
+    // Built by append, as the real API builds it, so a provider that appends
+    // the wrong sub-kind cannot agree with a mock that hardcoded the answer.
+    static readonly SourceOrganizeImports = CodeActionKind.Source.append("organizeImports");
 
     constructor(public readonly value: string) {}
 

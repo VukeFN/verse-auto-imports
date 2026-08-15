@@ -44,9 +44,8 @@ describe("ImportCodeActionProvider quick fix titles", () => {
 
     // The writer reads behavior.importSyntax scoped to the document's folder,
     // so a labeller reading it window-scoped offers a title in one syntax and
-    // inserts the other. Driven through a real ImportHandler: a stubbed
-    // extractor hands the provider a statement someone else formatted, which
-    // is the one thing this cannot assert.
+    // inserts the other. The extractor must not be stubbed here: a stub would
+    // supply the very statement under test.
     it("titles the action in the syntax the document's folder sets", async () => {
         const getConfiguration = vscode.workspace.getConfiguration as unknown as jest.Mock;
         const original = getConfiguration.getMockImplementation();
@@ -76,6 +75,10 @@ describe("ImportCodeActionProvider quick fix titles", () => {
             );
 
             expect((actions ?? []).map((action) => action.title)).toEqual(["Add import: using. /Verse.org/Simulation"]);
+            // The other half of the criterion: the statement handed to
+            // addSingleImport is what gets written, so the title describes the
+            // insertion only while these two agree.
+            expect((actions ?? []).map((action) => action.command?.arguments?.[1])).toEqual(["using. /Verse.org/Simulation"]);
         } finally {
             getConfiguration.mockReset();
             if (original) {

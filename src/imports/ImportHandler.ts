@@ -31,10 +31,8 @@ export class ImportHandler {
 
     /**
      * @param resource The document the message was reported on. Pass it
-     *   wherever one exists: the suggestion carries the formatted statement,
-     *   and `behavior.importSyntax` is resource-scoped, so without it a
-     *   suggestion can be written in the window's syntax while
-     *   addImportsToDocument inserts the folder's.
+     *   wherever one exists: the suggestion carries a formatted statement, and
+     *   the syntax it is formatted in is resource-scoped.
      */
     async extractImportSuggestions(errorMessage: string, resource?: vscode.Uri): Promise<ImportSuggestion[]> {
         return this.suggestionExtractor.extractImportSuggestions(errorMessage, resource);

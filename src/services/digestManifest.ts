@@ -19,10 +19,15 @@
  * answers - it decides which one leads the list, and the lead is what the
  * quick-fix menu prefers and what an `auto_first` strategy applies unasked.
  *
- * UnrealEngine sits last because its colliding modules are the superseded
- * homes: `/UnrealEngine.com/Temporary/SpatialMath` re-exports
- * `/Verse.org/SpatialMath`, and `/UnrealEngine.com/ControlInput` predates
- * `/Verse.org/Input`. Moving it back up recommends the deprecated path again.
+ * UnrealEngine sits last because the modules it shares identifiers with are its
+ * superseded homes: `/UnrealEngine.com/Temporary/SpatialMath` binds its own
+ * `rotation` and `vector3` to `..._Deprecated` natives where
+ * `/Verse.org/SpatialMath` binds the live ones, and
+ * `/UnrealEngine.com/ControlInput` predates `/Verse.org/Input`. These are
+ * distinct types rather than aliases, so the lead decides which type the user
+ * gets, not merely which path spells it. `Progression` is the one shared name
+ * this does not describe - both homes are `@experimental` and unrelated, so
+ * either lead is arbitrary there.
  */
 export const BUNDLED_DIGEST_NAMES = ["Fortnite", "Verse", "UnrealEngine"] as const;
 

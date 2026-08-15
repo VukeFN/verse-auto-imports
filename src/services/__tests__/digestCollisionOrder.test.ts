@@ -35,8 +35,10 @@ describe("collision lead in the bundled digest data", () => {
     });
 
     it("leaves a /Fortnite.com lead alone", async () => {
-        // Demoting UnrealEngine must not promote /Verse.org over /Fortnite.com:
-        // a creator writing UI or Assets in UEFN means the Fortnite module.
+        // Green under any manifest order, so this pins the alternative that was
+        // rejected rather than the change that was made: ranking /Verse.org
+        // above every domain would move these, and a creator writing UI or
+        // Assets in UEFN means the Fortnite module.
         expect(await leadFor("UI")).toBe("/Fortnite.com/UI");
         expect(await leadFor("Assets")).toBe("/Fortnite.com/Assets");
         expect(await leadFor("Itemization")).toBe("/Fortnite.com/Itemization");

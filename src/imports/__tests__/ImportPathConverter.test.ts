@@ -732,10 +732,23 @@ describe("ImportPathConverter.findModuleLocations explicit declaration scan", ()
         expect(await locationsFor(source, "Helpers")).toEqual(["/Systems"]);
     });
 
+    it("does not let a stray < in a comment reach a later specifier", async () => {
+        const source = "# Inventory <-- rename before ship\nHelpers<internal> := module:\n";
+
+        expect(await locationsFor(source)).toEqual([]);
+        expect(await locationsFor(source, "Helpers")).toEqual(["/Systems"]);
+    });
+
+    it("reads a stacked specifier block on the declaration it belongs to", async () => {
+        const source = "Count := Inventory < 3\nOther<final><public> := module {}\n";
+
+        expect(await locationsFor(source)).toEqual([]);
+        expect(await locationsFor(source, "Other")).toEqual(["/Systems"]);
+    });
+
     // A module declared inside another is an ordinary path scope, so the inner
-    // one is named through the outer. Deciding the location from the directory
-    // string alone reported this as missing, and answered the bare inner name
-    // with a location that builds a path nothing declares.
+    // one is named through the outer, and a file's directory alone cannot say
+    // which module a declaration is.
     it("places a nested declaration under its enclosing module", async () => {
         const source = "Outer := module:\n    Inner := module:\n        Count<public>:int = 0\n";
 
@@ -751,9 +764,8 @@ describe("ImportPathConverter.findModuleLocations explicit declaration scan", ()
         expect(await locationsFor("Inventory := module:\n", "XSystems/Inventory")).toEqual([]);
     });
 
-    // What the two above cost the user: the import the project compiles with is
-    // reported missing, and the one it does not compile with is written out as
-    // a path no module answers to.
+    // The same rule at the entry point: only the chain a declaration sits in
+    // decides which import it answers.
     it("converts a nested reference, and offers nothing for the bare inner name", async () => {
         const projectVersePath = "/mygame@fortnite.com/mygame";
         (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([vscode.Uri.file(declaringFile)]);
@@ -776,13 +788,15 @@ describe("ImportPathConverter declaration scan file cap", () => {
     };
 
     /**
-     * A project of `fileCount` files, each declaring `Inventory`, none of which
-     * the folder phases can place. The scan's own cap is what the glob would
-     * apply in production, so the count standing in for it here is the count
-     * that reaches the phase.
+     * A project of `fileCount` `.verse` files, each declaring `Inventory`. The
+     * glob honours its maxResults in production, so the mock caps its own answer
+     * the same way rather than handing back more than was asked for.
      */
-    const scanReturning = (fileCount: number): void => {
-        (vscode.workspace.findFiles as jest.Mock).mockResolvedValue(Array.from({ length: fileCount }, (_, index) => vscode.Uri.file(`${workspaceRoot}/Content/Systems/File${index}.verse`)));
+    const projectOf = (fileCount: number): void => {
+        const files = Array.from({ length: fileCount }, (_, index) => vscode.Uri.file(`${workspaceRoot}/Content/Systems/File${index}.verse`));
+        (vscode.workspace.findFiles as jest.Mock).mockImplementation(async (_pattern: unknown, _exclude: unknown, maxResults?: number) =>
+            maxResults === undefined ? files : files.slice(0, maxResults),
+        );
         (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(Buffer.from("Inventory := module:\n", "utf8"));
     };
 
@@ -792,6 +806,7 @@ describe("ImportPathConverter declaration scan file cap", () => {
 
     afterEach(() => {
         setWorkspaceFolders(undefined);
+        (vscode.workspace.findFiles as jest.Mock).mockReset();
         (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([]);
         (vscode.workspace.fs.readFile as jest.Mock).mockRejectedValue(new Error("ENOENT"));
         (vscode.workspace.fs.stat as jest.Mock).mockRejectedValue(new Error("ENOENT"));
@@ -799,31 +814,75 @@ describe("ImportPathConverter declaration scan file cap", () => {
 
     const convert = (statement: string) => converterWithProjectPath(projectVersePath).convertToFullPath(statement, vscode.Uri.file(`${workspaceRoot}/Content/Scripts/Main.verse`), 0);
 
-    it("reports a scan that stopped short, so a caller can tell it from a completed one", async () => {
-        scanReturning(100);
+    it("reports a scan that read only part of the project, so a caller can tell it from a complete one", async () => {
+        projectOf(101);
 
         expect((await converterWithProjectPath(projectVersePath).findModuleLocations("Inventory")).truncated).toBe(true);
     });
 
-    it("reports a scan that read the whole project as complete", async () => {
-        scanReturning(99);
+    // The boundary is the whole point of the signal: a project of exactly the
+    // limit is read end to end, and calling that truncated is the same
+    // conflation of complete and partial that the signal exists to end.
+    it("reports a project of exactly the limit as read in full", async () => {
+        projectOf(100);
 
         expect((await converterWithProjectPath(projectVersePath).findModuleLocations("Inventory")).truncated).toBe(false);
     });
 
-    // The one location a truncated scan returns is a sample's answer: a namesake
+    // The one location a partial scan returns is a sample's answer: a namesake
     // in the part it never read would have made the conversion ambiguous, so
     // writing this path unambiguously is the silent wrong module the cap hides.
     it("refuses the conversion rather than writing a sample's answer", async () => {
-        scanReturning(100);
+        projectOf(101);
 
         expect(await convert("using { Inventory }")).toBeNull();
     });
 
-    it("converts as before when the scan read the whole project", async () => {
-        scanReturning(99);
+    it("converts when the scan read the whole project", async () => {
+        projectOf(100);
 
         expect((await convert("using { Inventory }"))?.convertedImport).toBe(`using { ${projectVersePath}/Systems/Inventory }`);
+    });
+
+    // The declaration scan's reach says nothing about the folder search's: that
+    // phase reads the project's directories for itself, under a cap two orders
+    // of magnitude higher. Vetoing its answer turned the feature off for every
+    // folder module in a project past 100 files - and a folder module has no
+    // declaration, so it is exactly the case the cache can never answer either.
+    it("keeps an answer the folder search reached on its own", async () => {
+        const files = Array.from({ length: 101 }, (_, index) => `Content/Systems/File${index}.verse`).concat("Content/Zone/Deep/Target/Thing.verse");
+        (vscode.workspace.findFiles as jest.Mock).mockImplementation(async (_pattern: unknown, _exclude: unknown, maxResults?: number) => {
+            const uris = files.map((file) => vscode.Uri.file(`${workspaceRoot}/${file}`));
+            return maxResults === undefined ? uris : uris.slice(0, maxResults);
+        });
+        // Nothing declares `Target`, so the declaration scan reads all it is
+        // allowed to and still finds nothing; only the folder search places it.
+        (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(Buffer.from("Helper := class:\n", "utf8"));
+
+        expect((await convert("using { Deep.Target }"))?.convertedImport).toBe(`using { ${projectVersePath}/Zone/Deep/Target }`);
+    });
+
+    // An empty result is the other half the scan's reach clouds: the module may
+    // be declared in the part it never read, so "not found" is not a finding.
+    it("refuses rather than reporting a module missing on a partial scan", async () => {
+        projectOf(101);
+        (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(Buffer.from("Helper := class:\n", "utf8"));
+
+        expect(await convert("using { Nowhere }")).toBeNull();
+    });
+
+    // The condition belongs to the project, not to any one import, so a
+    // document-wide run states it once instead of once per line.
+    it("reports the cap once for a whole document", async () => {
+        projectOf(101);
+        const document = fakeDocument(["using { Inventory }", "using { Economy }", "using { Weapons }", "", "code()"]);
+        const warn = vscode.window.showWarningMessage as jest.Mock;
+        warn.mockClear();
+
+        const results = await converterWithProjectPath(projectVersePath).convertAllImportsToFullPath(document);
+
+        expect(results).toEqual([]);
+        expect(warn).toHaveBeenCalledTimes(1);
     });
 });
 

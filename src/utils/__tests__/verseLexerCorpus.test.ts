@@ -98,18 +98,21 @@ const probes: Probe[] = [
         live: ["L1"],
     },
     {
-        // The `<#>` arm is reached at three places, and a literal is not one of
-        // them, so this is text rather than a marker and the lines below it are
-        // ordinary code. A bare `<#` in the same position is the opposite - it
-        // opens a comment anywhere - which is why the two are tested apart.
-        name: "a `<#>` inside a string is text, and opens no body over the lines below",
-        source: 'Label := "a<#>b"\nL1 := 1\n    L2 := 2\n',
+        // The `<#>` arm is reached at three places and a literal is not one of
+        // them, so this is text rather than a marker. The line below must be
+        // indented past it for the probe to bite: a marker wrongly opened at
+        // column 0 is closed again by the very next line at column 0, which
+        // hides the defect.
+        name: "a `<#>` inside a string opens no body over the indented lines below it",
+        source: 'Label := "a<#>b"\n    L1 := 1\n        L2 := 2\n',
         live: ["L1", "L2"],
     },
     {
-        name: "a `<#>` inside a char literal is text too",
-        source: "Angle := '<'; L1 := 1\n    L2 := 2\n",
-        live: ["L1", "L2"],
+        // The same marker one scope out, where it is a marker. Kept beside the
+        // case above so the pair says which half of the rule each pins.
+        name: "a `<#>` written outside a literal on the same shape does open one",
+        source: 'Label := "ab" <#>\n    D1 := 1\n        D2 := 2\nL1 := 3\n',
+        live: ["L1"],
     },
     {
         // Only the masker leaked here: blankCommentRange read the `<#` of a
@@ -226,7 +229,9 @@ describe("verse lexer probe corpus, the readers built on it", () => {
     const paths = (source: string): string[] => allUsingPaths(source.split(LINE_SPLIT));
 
     it("keeps what a `<#>` inside a string does not comment out", () => {
-        const source = 'Label := "a<#>b"\nusing { /Verse.org/Simulation }\nInner := module {}\n';
+        // Indented below the string, or a marker wrongly opened at column 0 is
+        // closed again by the next line at column 0 and nothing is lost.
+        const source = 'Label := "a<#>b"\n    Inner := module:\n        using { /Verse.org/Simulation }\n';
 
         expect(paths(source)).toEqual(["/Verse.org/Simulation"]);
         expect(declared(source)).toEqual(["Label", "Inner"]);

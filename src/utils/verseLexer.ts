@@ -133,8 +133,12 @@ export interface LexedLine {
      * `codeWithoutComments` removes comments without replacement, so on a line
      * with an interior comment it is shorter than the offset it would be read
      * as, and `masked` blanks literals as well and so cannot tell trivia from
-     * literal text. A caller splitting a line into its code and its trailing
-     * annotation reads this.
+     * literal text.
+     *
+     * Only a split at `depthBefore` 0 may be taken from this. A line that
+     * begins inside a comment reports 0 and can still close it and carry live
+     * code - `#> using { /A }` at depth 1 - so a caller slicing on the offset
+     * there reads a whole statement as annotation.
      */
     commentStart: number;
     /**

@@ -106,10 +106,9 @@ describe("ImportFormatter.stripTrailingComment", () => {
     });
 
     it("splits at the first opener, at an offset into the original text", () => {
-        // Split at the `<#`, as it always has been. Pinned because the offset
-        // is the one thing the lexer's code strings cannot supply: the comment
-        // is removed with nothing in its place, so the code half here is eleven
-        // characters longer than the split point rather than equal to it.
+        // Split at the `<#`, as it always has been. Pinned because the split
+        // needs an offset into the original text, which no length taken from
+        // the comment-free code can stand in for.
         expect(ImportFormatter.stripTrailingComment("us<##>ing { /A } # note")).toBe("us");
     });
 });

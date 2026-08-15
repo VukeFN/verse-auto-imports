@@ -183,13 +183,13 @@ export class ImportFormatter {
      * already imports it. An unbalanced `'` matches neither branch, so the
      * capture ends before it and the remainder pins the line.
      *
-     * A `#` reaching the capture makes the path and the leftover disagree about
-     * where the statement ends, because matchImport strips the comment from the
-     * capture but measures `end` on the unstripped text. The class keeps one
-     * out; the quoted alternative does not, so `using. Foo'a#b'` is only kept
-     * away by isModuleImport, which refuses `Foo'a` before the line is scanned.
-     * Relaxing that gate, or widening this class, brings the disagreement into
-     * reach.
+     * matchImport strips the trailing comment from the capture but measures
+     * `end` on the unstripped text, so anything this class admits that the
+     * strip then removes leaves the path and the leftover disagreeing about
+     * where the statement ended. The class keeps `#` out for that reason. The
+     * quoted alternative admits it and must: a bare `#` inside a suffix is
+     * identifier text, and the strip leaves it alone, so the two still measure
+     * the same characters.
      */
     private static readonly DOTTED_STATEMENT = /^using\.\s*((?:[A-Za-z0-9_./@:()-]|'[^']*')*)/;
 

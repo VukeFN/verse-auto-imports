@@ -10,6 +10,36 @@ Where an entry resolves a tracked issue, it ends with a `[#N]` reference linked 
 
 Pending changes are kept as one file per change under [changelog.d/](changelog.d/) and assembled here at release.
 
+## [0.11.2] - 2026-08-15
+
+### Added
+
+- **Verse file support**: The extension now contributes the `verse` language id, so its CodeLens and save-time import spacing work on `.verse` files without Epic's Verse extension installed, and it lists under Programming Languages and Formatters ([#360])
+- **Import writing**: Optimize Imports and automatic import insertion now check their own output before writing it, and refuse the edit instead of applying one that would drop a line of your code ([#386])
+- **Imports**: VS Code's own Organize Imports now reaches the extension, so Shift+Alt+O and `editor.codeActionsOnSave` rebuild the import block in `.verse` files ([#387])
+
+### Changed
+
+- **Module visibility**: The make-public quick fix now opens VS Code's refactor preview, so every file it would change is shown for you to confirm before anything is written ([#394])
+
+### Fixed
+
+- **Settings**: toggles in the status menu and the command palette now take effect when a workspace or folder already sets the value, and per-folder settings apply in multi-root workspaces ([#359])
+- **Commands**: The palette toggles, the two debug-capture commands and Rebuild Path Cache now record their failures in the extension log, so an exported log holds the failure being reported ([#363])
+- **Digest lookup**: identifiers that exist only as members of a parametric type, such as `Name` or `AddMember`, no longer resolve to a bundled module, so the experimental digest files stop inserting imports that do not fix the error ([#372])
+- **Verse file scanning**: a `using` or declaration written beside a char literal, an interpolated string or a nested comment marker is no longer missed, and a call named after a type keyword is no longer recorded as a type ([#373])
+- **Verse file scanning**: a block comment opened with `<#` inside a `#` line comment now reads as commented out to its `#>`, so imports written in that region no longer count as present or get rewritten ([#374])
+- **Digest lookup**: an identifier declared by more than one bundled module now offers every module as a quick fix, instead of silently importing whichever one the digests happened to reach first ([#375])
+- **Import placement**: a new import is written below the file's opening comment header instead of above it, on every configuration ([#383])
+- **Optimize Imports**: an import the compiler asked for is now written above the pinned statement that needs it, rather than below it, where the command reported success on an error it had not fixed ([#385])
+- **Imports**: a quick fix invoked while an auto-import is still being written now waits for it, so the second edit is computed from the first one's result instead of landing at coordinates it invalidated ([#390])
+- **Module visibility**: the quick fix that declares a module public now refuses when a project file cannot be read, instead of writing a change that could stop the project compiling ([#391])
+- **Relative path conversion**: converting an import to its relative form now declines when the shorter spelling would reach a different module or none, instead of writing an import that silently points elsewhere ([#392])
+- **Module visibility**: The make-public quick fix now refuses, naming the file, when a project file changes while it scans, instead of writing at stale offsets or reverting the definitions file ([#398])
+- **Import grouping**: `localFirst` no longer writes a digest import below a relative import that resolves through it, which produced a file that would not compile ([#400])
+- **Project path scan**: Declarations it silently dropped now reach project path completion - an enum with stacked specifiers or a braced body, a signature holding nested parentheses, and a parametric type head ([#410])
+- **Verse file scanning**: a path whose quoted segment suffix holds a `#`, such as `Mod'a#b'`, now reads whole, so Organize Imports no longer rewrites it into a different module or adds a duplicate import of it ([#420])
+
 ## [0.11.1] - 2026-08-13
 
 ### Fixed
@@ -416,7 +446,8 @@ See [GitHub Releases](https://github.com/VukeFN/verse-auto-imports/releases) for
 
 <!-- Version comparisons. The chain starts at 0.6.0: no v0.4.x or v0.5.x tags exist. -->
 
-[Unreleased]: https://github.com/vukefn/verse-auto-imports/compare/v0.11.1...HEAD
+[Unreleased]: https://github.com/vukefn/verse-auto-imports/compare/v0.11.2...HEAD
+[0.11.2]: https://github.com/vukefn/verse-auto-imports/compare/v0.11.1...v0.11.2
 [0.11.1]: https://github.com/vukefn/verse-auto-imports/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/vukefn/verse-auto-imports/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/vukefn/verse-auto-imports/compare/v0.9.0...v0.10.0
@@ -432,6 +463,25 @@ See [GitHub Releases](https://github.com/VukeFN/verse-auto-imports/releases) for
 
 <!-- Issue references -->
 
+[#359]: https://github.com/vukefn/verse-auto-imports/issues/359
+[#360]: https://github.com/vukefn/verse-auto-imports/issues/360
+[#363]: https://github.com/vukefn/verse-auto-imports/issues/363
+[#372]: https://github.com/vukefn/verse-auto-imports/issues/372
+[#373]: https://github.com/vukefn/verse-auto-imports/issues/373
+[#374]: https://github.com/vukefn/verse-auto-imports/issues/374
+[#375]: https://github.com/vukefn/verse-auto-imports/issues/375
+[#383]: https://github.com/vukefn/verse-auto-imports/issues/383
+[#385]: https://github.com/vukefn/verse-auto-imports/issues/385
+[#386]: https://github.com/vukefn/verse-auto-imports/issues/386
+[#387]: https://github.com/vukefn/verse-auto-imports/issues/387
+[#390]: https://github.com/vukefn/verse-auto-imports/issues/390
+[#391]: https://github.com/vukefn/verse-auto-imports/issues/391
+[#392]: https://github.com/vukefn/verse-auto-imports/issues/392
+[#394]: https://github.com/vukefn/verse-auto-imports/issues/394
+[#398]: https://github.com/vukefn/verse-auto-imports/issues/398
+[#400]: https://github.com/vukefn/verse-auto-imports/issues/400
+[#410]: https://github.com/vukefn/verse-auto-imports/issues/410
+[#420]: https://github.com/vukefn/verse-auto-imports/issues/420
 [#344]: https://github.com/vukefn/verse-auto-imports/issues/344
 [#350]: https://github.com/vukefn/verse-auto-imports/issues/350
 [#353]: https://github.com/vukefn/verse-auto-imports/issues/353

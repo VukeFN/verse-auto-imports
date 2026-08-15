@@ -313,8 +313,10 @@ const workspace = {
     },
     createFileSystemWatcher: jest.fn().mockImplementation((globPattern: unknown) => new FileSystemWatcher(globPattern)),
     // Empty by default so a test that only needs the scan to complete does not
-    // have to stub it; tests that care about parse timing replace it.
-    openTextDocument: jest.fn().mockResolvedValue({ getText: () => "" }),
+    // have to stub it; tests that care about parse timing replace it. The
+    // version is carried because callers compare it across two reads to detect
+    // an edit made in between, and an undefined would compare equal to itself.
+    openTextDocument: jest.fn().mockResolvedValue({ getText: () => "", version: 1 }),
     /**
      * Renders a path relative to the first workspace folder, forward-slashed, as
      * the scanner and the cache watchers expect; anything outside it comes back

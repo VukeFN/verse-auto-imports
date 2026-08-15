@@ -9,6 +9,9 @@ const ROOT = "/repo";
 /** The second root of a multi-root workspace, which the quick fix is invoked under. */
 const OTHER_ROOT = "/second";
 
+/** A root holding no Content folder, as an art or notes folder opened alongside a project. */
+const NOTES_ROOT = "/notes";
+
 const REQUEST = {
     targetPath: `${PROJECT}/Gadgets/Tools`,
     importerPath: `${PROJECT}/Scripts`,
@@ -92,8 +95,8 @@ const alsoListsUnreadable = (listed: readonly vscode.Uri[], relative: string): v
 /**
  * Stands the same project up under the second of two workspace folders, and
  * returns the document URI the quick fix would pass. The first folder is
- * registered and empty, which is the shape that hid the folder-0 pin: every
- * single-root test passes either way.
+ * registered and holds nothing, so a writer resolving to it fails here rather
+ * than passing by coincidence.
  */
 const givenSecondFolderProject = (files: Record<string, string>): vscode.Uri => {
     givenProject(files, OTHER_ROOT);
@@ -567,6 +570,29 @@ describe("ModuleVisibilityWriter", () => {
             givenSecondFolderProject({ "Content/Scripts/main.verse": "using { Gadgets.Tools }\n" });
 
             await writer().makeModulePublic(REQUEST);
+
+            expect(forwardSlashed(appliedOperations()[0].uri)).toBe(`${ROOT}/Content/_definitions.verse`);
+        });
+
+        it("falls back to the first folder for a document under no folder at all", async () => {
+            givenSecondFolderProject({ "Content/Scripts/main.verse": "using { Gadgets.Tools }\n" });
+
+            await writer().makeModulePublic(REQUEST, vscode.Uri.file("/elsewhere/scratch.verse"));
+
+            expect(forwardSlashed(appliedOperations()[0].uri)).toBe(`${ROOT}/Content/_definitions.verse`);
+        });
+
+        it("falls back to the first folder when the document's own folder holds no Content root", async () => {
+            givenProject({ "Content/Scripts/main.verse": "using { Gadgets.Tools }\n" });
+            (vscode.workspace as any).workspaceFolders = [
+                { uri: vscode.Uri.file(ROOT), name: "repo", index: 0 },
+                { uri: vscode.Uri.file(NOTES_ROOT), name: "notes", index: 1 },
+            ];
+            const stat = vscode.workspace.fs.stat as jest.Mock;
+            const base = stat.getMockImplementation()!;
+            stat.mockImplementation((uri: vscode.Uri) => (forwardSlashed(uri) === `${NOTES_ROOT}/Content` ? Promise.reject(new Error("ENOENT")) : base(uri)));
+
+            await writer().makeModulePublic(REQUEST, vscode.Uri.file(`${NOTES_ROOT}/scratch.verse`));
 
             expect(forwardSlashed(appliedOperations()[0].uri)).toBe(`${ROOT}/Content/_definitions.verse`);
         });

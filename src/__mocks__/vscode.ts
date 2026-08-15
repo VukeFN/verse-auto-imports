@@ -309,16 +309,22 @@ const workspace = {
      *
      * The innermost containing folder wins and a URI equal to a folder root
      * answers that folder, both as the real API documents. Nesting is compared
-     * by path length, which orders folders correctly precisely because a
-     * containing path is a prefix of what it contains.
+     * by the length of the NORMALIZED root, which orders folders correctly
+     * precisely because a containing path is a prefix of what it contains -
+     * comparing raw fsPath lengths instead would let a root's own separators
+     * outweigh the nesting.
+     *
+     * Still case-sensitive, where real VS Code compares case-insensitively on
+     * win32, so a test differing only in drive-letter case gets no folder.
      */
     getWorkspaceFolder: jest.fn().mockImplementation((target: { fsPath: string }) => {
-        const normalized = target.fsPath.replace(/\\/g, "/").replace(/\/+$/, "");
-        const containing = workspace.workspaceFolders?.filter((folder) => {
-            const root = folder.uri.fsPath.replace(/\\/g, "/").replace(/\/+$/, "");
-            return normalized === root || normalized.startsWith(`${root}/`);
-        });
-        return containing?.sort((a, b) => b.uri.fsPath.length - a.uri.fsPath.length)[0];
+        const normalize = (fsPath: string) => fsPath.replace(/\\/g, "/").replace(/\/+$/, "");
+        const normalized = normalize(target.fsPath);
+
+        return workspace.workspaceFolders
+            ?.map((folder) => ({ folder, root: normalize(folder.uri.fsPath) }))
+            .filter(({ root }) => normalized === root || normalized.startsWith(`${root}/`))
+            .sort((a, b) => b.root.length - a.root.length)[0]?.folder;
     }),
     // Rejecting is the "no such file" answer, which is what production code
     // reads a missing file as. A resolving default would make an absent

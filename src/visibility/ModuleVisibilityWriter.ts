@@ -75,9 +75,11 @@ export class ModuleVisibilityWriter {
      * reported afterwards is intent rather than outcome.
      *
      * @param sourceUri the document whose diagnostic asked for this, which is
-     * what picks the workspace folder in a multi-root workspace. Optional, and
-     * falling back to the first folder, because a caller outside the quick fix
-     * has no document to name.
+     * what picks the workspace folder in a multi-root workspace. The first
+     * folder is used instead whenever this names nothing usable - it is
+     * absent, it sits outside every folder, or its folder holds no Content
+     * root - so a caller that cannot name a document still gets the
+     * single-root behaviour rather than a refusal.
      */
     async makeModulePublic(request: ModuleVisibilityRequest, sourceUri?: vscode.Uri): Promise<void> {
         const outcome = await this.buildEdit(request, sourceUri);
@@ -134,8 +136,9 @@ export class ModuleVisibilityWriter {
         // this is on the way to finding. The requesting document is in the
         // right folder already, and the target shares it - the compiler
         // resolved both under one projectVersePath.
-        const workspaceFolder = (sourceUri ? vscode.workspace.getWorkspaceFolder(sourceUri) : undefined) ?? vscode.workspace.workspaceFolders?.[0];
-        if (!workspaceFolder) {
+        const requestedFolder = sourceUri ? vscode.workspace.getWorkspaceFolder(sourceUri) : undefined;
+        const firstFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!requestedFolder && !firstFolder) {
             return { reason: "no workspace folder is open." };
         }
 
@@ -155,10 +158,16 @@ export class ModuleVisibilityWriter {
             return { reason: `'${request.moduleName}' is already reachable from the importing module.` };
         }
 
-        const contentRoot = await this.findContentRoot(workspaceFolder);
-        if (!contentRoot) {
+        // A folder holding no Content root cannot host the declaration, and a
+        // workspace can carry one legitimately - notes or art opened alongside
+        // the project. Falling back there rather than refusing keeps the fix
+        // working for a document in such a folder, as it did before the
+        // requesting folder was consulted at all.
+        const located = (await this.locateContentRoot(requestedFolder)) ?? (await this.locateContentRoot(firstFolder));
+        if (!located) {
             return { reason: `no '${CONTENT_FOLDER}' folder was found in the workspace, so there is nowhere to declare the module.` };
         }
+        const { workspaceFolder, contentRoot } = located;
 
         const definitionsUri = this.definitionsUri(contentRoot);
         if (!definitionsUri) {
@@ -314,6 +323,16 @@ export class ModuleVisibilityWriter {
                 edit.replace(file.uri, new vscode.Range(positionAt(file.text, start), positionAt(file.text, end)), specifierEdit.text, metadata);
             }
         }
+    }
+
+    /** A folder paired with its Content root, or null when there is no folder or it holds none. */
+    private async locateContentRoot(folder: vscode.WorkspaceFolder | undefined): Promise<{ workspaceFolder: vscode.WorkspaceFolder; contentRoot: vscode.Uri } | null> {
+        if (!folder) {
+            return null;
+        }
+
+        const contentRoot = await this.findContentRoot(folder);
+        return contentRoot ? { workspaceFolder: folder, contentRoot } : null;
     }
 
     /** The Content folder the project's modules hang off, or null when the workspace has none. */

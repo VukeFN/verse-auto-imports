@@ -234,15 +234,25 @@ export class CommandsHandler {
      * Writes the opposite of a setting's current value to global scope, then
      * refreshes the status bar.
      *
+     * Reports its own failures and swallows what it reports, so none of the
+     * five toggle commands built on it rejects. The refresh is inside that
+     * guard too, which means a failure it reports may be one where the setting
+     * was written and only the status bar did not follow.
+     *
      * @param toggleFn How to invert a value that is not a boolean. Omit it and
      *   the current value is negated.
      */
     private async toggleConfig<T>(configKey: string, toggleFn?: (current: T) => T): Promise<void> {
-        const config = vscode.workspace.getConfiguration("verseAutoImports");
-        const current = config.get<T>(configKey);
-        const newValue = toggleFn ? toggleFn(current as T) : !current;
-        await config.update(configKey, newValue, vscode.ConfigurationTarget.Global);
-        this.deps.statusBarHandler.updateDisplay();
+        try {
+            const config = vscode.workspace.getConfiguration("verseAutoImports");
+            const current = config.get<T>(configKey);
+            const newValue = toggleFn ? toggleFn(current as T) : !current;
+            await config.update(configKey, newValue, vscode.ConfigurationTarget.Global);
+            this.deps.statusBarHandler.updateDisplay();
+        } catch (error) {
+            logger.error("CommandsHandler", `Failed to toggle ${configKey}`, error);
+            vscode.window.showErrorMessage(`Action failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 
     async toggleAutoImport(): Promise<void> {
@@ -299,6 +309,7 @@ export class CommandsHandler {
                 }
             }
         } catch (error) {
+            logger.error("CommandsHandler", "Failed to export debug logs", error);
             vscode.window.showErrorMessage(`Failed to export debug logs: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
@@ -351,6 +362,7 @@ export class CommandsHandler {
                 await vscode.commands.executeCommand("vscode.open", target);
             }
         } catch (error) {
+            logger.error("CommandsHandler", "Failed to capture diagnostics corpus", error);
             vscode.window.showErrorMessage(`Failed to capture diagnostics: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
@@ -369,21 +381,26 @@ export class CommandsHandler {
             return;
         }
 
-        logger.info("CommandsHandler", "Rebuilding project path cache");
+        try {
+            logger.info("CommandsHandler", "Rebuilding project path cache");
 
-        await vscode.window.withProgress(
-            {
-                location: vscode.ProgressLocation.Notification,
-                title: "Rebuilding project path cache...",
-                cancellable: false,
-            },
-            async () => {
-                await this.deps.projectPathCache!.rebuildCache();
-            },
-        );
+            await vscode.window.withProgress(
+                {
+                    location: vscode.ProgressLocation.Notification,
+                    title: "Rebuilding project path cache...",
+                    cancellable: false,
+                },
+                async () => {
+                    await this.deps.projectPathCache!.rebuildCache();
+                },
+            );
 
-        const stats = this.deps.projectPathCache.getStats();
-        vscode.window.showInformationMessage(`Project path cache rebuilt: ${stats.identifiers} identifiers from ${stats.files} files`);
+            const stats = this.deps.projectPathCache.getStats();
+            vscode.window.showInformationMessage(`Project path cache rebuilt: ${stats.identifiers} identifiers from ${stats.files} files`);
+        } catch (error) {
+            logger.error("CommandsHandler", "Failed to rebuild project path cache", error);
+            vscode.window.showErrorMessage(`Failed to rebuild project path cache: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 
     /**

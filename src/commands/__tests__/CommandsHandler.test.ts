@@ -1,6 +1,9 @@
 import * as vscode from "vscode";
 import { CommandsHandler, CommandsDependencies } from "../CommandsHandler";
+import { logger } from "../../utils";
 import { ImportHandler, ImportPathConverter, ImportCodeLensProvider } from "../../imports";
+import { ProjectPathCache } from "../../services";
+import { StatusBarHandler } from "../../ui";
 
 // Regression for #133: addImportsToDocument and organizeImports return false
 // when applyEdit is rejected - a stale document version, or a read-only file -
@@ -493,5 +496,160 @@ describe("CommandsHandler per-document conversion keying", () => {
             // This is the half that fails when it does.
             expect(new Set(forwarded).size).toBe(2);
         }
+    });
+});
+
+// Regression for #363: a command that reports a failure only through
+// showErrorMessage leaves the extension's own log empty, so the log export the
+// maintainer asks for afterwards omits the failure being reported. Asserted at
+// the command entry points rather than at the catch blocks, since a toggle
+// reaches its write through toggleConfig and only the entry point proves the
+// path a user takes is covered.
+describe("CommandsHandler failure logging", () => {
+    /** The default the suite-wide getConfiguration mock returns, restored after each override. */
+    const WORKING_CONFIGURATION = {
+        get: jest.fn().mockImplementation((_key: string, defaultValue?: unknown) => defaultValue),
+        update: jest.fn().mockResolvedValue(undefined),
+    };
+
+    let errors: jest.SpyInstance;
+    /** Spied only by the exportDebugLogs case, and restored here for all of them. */
+    let exportedLogs: jest.SpyInstance | undefined;
+
+    beforeEach(() => {
+        errors = jest.spyOn(logger, "error").mockImplementation(() => {});
+    });
+
+    // Every restore belongs here rather than at the end of a test body: a
+    // failing assertion skips the tail of the body, and clearAllMocks leaves a
+    // mockReturnValue in place, so a rejecting configuration or a mocked logger
+    // singleton would survive into every later test.
+    afterEach(() => {
+        errors.mockRestore();
+        exportedLogs?.mockRestore();
+        exportedLogs = undefined;
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue(WORKING_CONFIGURATION);
+        (vscode.commands.executeCommand as jest.Mock).mockResolvedValue(undefined);
+        (vscode.languages.getDiagnostics as jest.Mock).mockReturnValue([]);
+        (vscode.window.showInformationMessage as jest.Mock).mockReset();
+    });
+
+    /** Every palette toggle, each of which writes its setting through toggleConfig. */
+    const TOGGLE_COMMANDS: Array<[string, (handler: CommandsHandler) => Promise<void>]> = [
+        ["toggleAutoImport", (handler) => handler.toggleAutoImport()],
+        ["togglePreserveLocations", (handler) => handler.togglePreserveLocations()],
+        ["toggleImportSyntax", (handler) => handler.toggleImportSyntax()],
+        ["toggleDigestFiles", (handler) => handler.toggleDigestFiles()],
+        ["toggleFullPathCodeLens", (handler) => handler.toggleFullPathCodeLens()],
+    ];
+
+    describe("a rejected global settings write", () => {
+        function rejectConfigurationWrites(): void {
+            (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+                get: jest.fn().mockReturnValue(false),
+                update: jest.fn().mockRejectedValue(new Error("EACCES: settings.json is read-only")),
+            });
+        }
+
+        function makeToggleHandler(): CommandsHandler {
+            return new CommandsHandler({
+                statusBarHandler: { updateDisplay: jest.fn() } as unknown as StatusBarHandler,
+            } as unknown as CommandsDependencies);
+        }
+
+        it.each(TOGGLE_COMMANDS)("%s logs the failure and tells the user, rather than throwing", async (_name, run) => {
+            rejectConfigurationWrites();
+
+            await expect(run(makeToggleHandler())).resolves.toBeUndefined();
+
+            expect(errors).toHaveBeenCalledTimes(1);
+            expect(errors.mock.calls[0][0]).toBe("CommandsHandler");
+            expect(vscode.window.showErrorMessage).toHaveBeenCalledTimes(1);
+            expect((vscode.window.showErrorMessage as jest.Mock).mock.calls[0][0]).toMatch(/Action failed: EACCES/);
+        });
+
+        it("names the setting it could not write", async () => {
+            rejectConfigurationWrites();
+
+            await makeToggleHandler().toggleAutoImport();
+
+            expect(errors.mock.calls[0][1]).toMatch(/general\.autoImport/);
+        });
+    });
+
+    // logger.exportDebugLogs logs the write itself before rethrowing, so the
+    // untraced half is what follows it: opening the file it wrote.
+    it("exportDebugLogs logs a failure to open the exported file", async () => {
+        const uri = vscode.Uri.file("C:\\Temp\\verseAutoImports_debugLogs.log");
+        exportedLogs = jest.spyOn(logger, "exportDebugLogs").mockResolvedValue(uri);
+        (vscode.window.showInformationMessage as jest.Mock).mockResolvedValue("Open File");
+        (vscode.commands.executeCommand as jest.Mock).mockRejectedValue(new Error("no editor for this file"));
+
+        await new CommandsHandler({} as unknown as CommandsDependencies).exportDebugLogs();
+
+        expect(errors).toHaveBeenCalledTimes(1);
+        expect(errors.mock.calls[0][0]).toBe("CommandsHandler");
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledTimes(1);
+    });
+
+    it("captureDiagnosticsCorpus logs the failure it reports", async () => {
+        (vscode.languages.getDiagnostics as jest.Mock).mockImplementation(() => {
+            throw new Error("diagnostics unavailable");
+        });
+
+        await new CommandsHandler({} as unknown as CommandsDependencies).captureDiagnosticsCorpus();
+
+        expect(errors).toHaveBeenCalledTimes(1);
+        expect(errors.mock.calls[0][0]).toBe("CommandsHandler");
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledTimes(1);
+        expect((vscode.window.showErrorMessage as jest.Mock).mock.calls[0][0]).toMatch(/Failed to capture diagnostics/);
+    });
+
+    describe("rebuildPathCache", () => {
+        function makeCacheHandler(cache: Partial<ProjectPathCache>): CommandsHandler {
+            return new CommandsHandler({ projectPathCache: cache as ProjectPathCache } as unknown as CommandsDependencies);
+        }
+
+        it("logs a rejected rebuild and tells the user, rather than throwing", async () => {
+            const handler = makeCacheHandler({
+                rebuildCache: jest.fn().mockRejectedValue(new Error("workspace scan failed")),
+                getStats: jest.fn(),
+            });
+
+            await expect(handler.rebuildPathCache()).resolves.toBeUndefined();
+
+            expect(errors).toHaveBeenCalledTimes(1);
+            expect(errors.mock.calls[0][0]).toBe("CommandsHandler");
+            expect(vscode.window.showErrorMessage).toHaveBeenCalledTimes(1);
+            expect((vscode.window.showErrorMessage as jest.Mock).mock.calls[0][0]).toMatch(/Failed to rebuild project path cache: workspace scan failed/);
+        });
+
+        it("logs a throwing getStats, which runs after the progress notification closes", async () => {
+            const handler = makeCacheHandler({
+                rebuildCache: jest.fn().mockResolvedValue(undefined),
+                getStats: jest.fn().mockImplementation(() => {
+                    throw new Error("cache state unreadable");
+                }),
+            });
+
+            await expect(handler.rebuildPathCache()).resolves.toBeUndefined();
+
+            expect(errors).toHaveBeenCalledTimes(1);
+            expect(vscode.window.showErrorMessage).toHaveBeenCalledTimes(1);
+            expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
+        });
+
+        it("still reports the rebuilt counts when nothing fails", async () => {
+            const handler = makeCacheHandler({
+                rebuildCache: jest.fn().mockResolvedValue(undefined),
+                getStats: jest.fn().mockReturnValue({ identifiers: 12, files: 3 }),
+            });
+
+            await handler.rebuildPathCache();
+
+            expect(errors).not.toHaveBeenCalled();
+            expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
+            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith("Project path cache rebuilt: 12 identifiers from 3 files");
+        });
     });
 });

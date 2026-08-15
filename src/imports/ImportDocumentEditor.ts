@@ -237,11 +237,68 @@ const NO_DIAGNOSTIC_LINES: DiagnosticLinesByPath = new Map();
 export class ImportDocumentEditor {
     private readonly formatter: ImportFormatter;
 
+    /**
+     * The write queued last for each document, keyed on its URI, or no entry
+     * once nothing is queued. See serialize.
+     */
+    private readonly writes = new Map<string, Promise<void>>();
+
     constructor(
         private outputChannel: vscode.OutputChannel,
         formatter: ImportFormatter,
     ) {
         this.formatter = formatter;
+    }
+
+    /**
+     * Runs `write` once every write already queued for `document` has settled,
+     * and queues it as the one the next caller waits behind.
+     *
+     * Each writer reads the document, computes an edit from that text and
+     * applies it as three separate steps, so two overlapping writes both
+     * compute against the text as it was before either applied, and the second
+     * lands at coordinates the first has already invalidated. A WorkspaceEdit
+     * carries no document version and applyEdit accepts none, so there is
+     * nothing for the apply itself to fail on. Waiting here is what makes the
+     * second write read the first one's result.
+     *
+     * The whole body of a writer has to sit inside `write`, the read included -
+     * a read taken before the wait is exactly the stale snapshot this exists to
+     * prevent. The spacing pass a writer runs on its own result calls the
+     * unserialized applyEmptyLinesAfterImports for the same reason it must:
+     * queued here it would wait on the write running it.
+     *
+     * A document's queue only ever moves on when its applyEdit settles. Nothing
+     * times one out, so a write that never settles holds every write behind it.
+     */
+    private serialize<T>(document: vscode.TextDocument, write: () => Promise<T>): Promise<T> {
+        const key = document.uri.toString();
+        const previous = this.writes.get(key) ?? Promise.resolve();
+
+        // The queued promise below never rejects, so only the first arm can run
+        // today. The second is what keeps that from being load-bearing: a
+        // predecessor that failed is a write that is over, not a reason to
+        // abandon the queue behind it.
+        const run = previous.then(write, write);
+
+        // Settling rather than rejecting, so a failed write does not reject
+        // every write queued behind it as well.
+        const queued = run.then(
+            () => undefined,
+            () => undefined,
+        );
+        this.writes.set(key, queued);
+
+        void queued.then(() => {
+            // Only when nothing queued behind this one, which would otherwise
+            // lose its predecessor and run against a document still being
+            // written.
+            if (this.writes.get(key) === queued) {
+                this.writes.delete(key);
+            }
+        });
+
+        return run;
     }
 
     /**
@@ -637,6 +694,11 @@ export class ImportDocumentEditor {
      *   import that failed to resolve from one that merely looks like it could.
      */
     async addImportsToDocument(document: vscode.TextDocument, importStatements: string[], diagnosticLinesByStatement?: DiagnosticLinesByStatement): Promise<boolean> {
+        return this.serialize(document, () => this.applyImports(document, importStatements, diagnosticLinesByStatement));
+    }
+
+    /** addImportsToDocument, without the wait for the writes ahead of it. */
+    private async applyImports(document: vscode.TextDocument, importStatements: string[], diagnosticLinesByStatement?: DiagnosticLinesByStatement): Promise<boolean> {
         logger.info("ImportDocumentEditor", `Adding ${importStatements.length} import statements to document`);
 
         const config = vscode.workspace.getConfiguration("verseAutoImports");
@@ -1059,7 +1121,7 @@ export class ImportDocumentEditor {
             logger.info("ImportDocumentEditor", success ? "Successfully updated imports in document" : "Failed to update imports in document");
 
             if (success) {
-                await this.ensureEmptyLinesAfterImports(document);
+                await this.applyEmptyLinesAfterImports(document);
             }
 
             return success;
@@ -1313,6 +1375,11 @@ export class ImportDocumentEditor {
      * addImportsToDocument this reorganizes even when nothing new is added.
      */
     async organizeImports(document: vscode.TextDocument, additionalPaths: string[], diagnosticLinesByPath: DiagnosticLinesByPath = NO_DIAGNOSTIC_LINES): Promise<boolean> {
+        return this.serialize(document, () => this.applyOrganizedImports(document, additionalPaths, diagnosticLinesByPath));
+    }
+
+    /** organizeImports, without the wait for the writes ahead of it. */
+    private async applyOrganizedImports(document: vscode.TextDocument, additionalPaths: string[], diagnosticLinesByPath: DiagnosticLinesByPath): Promise<boolean> {
         const config = vscode.workspace.getConfiguration("verseAutoImports");
         const preferDotSyntax = config.get<string>("behavior.importSyntax", "curly") === "dot";
         const sortAlphabetically = config.get<boolean>("behavior.sortImportsAlphabetically", true);
@@ -1351,7 +1418,7 @@ export class ImportDocumentEditor {
             logger.info("ImportDocumentEditor", success ? "Organized imports in document" : "Failed to organize imports");
 
             if (success) {
-                await this.ensureEmptyLinesAfterImports(document);
+                await this.applyEmptyLinesAfterImports(document);
             }
 
             return success;
@@ -1464,6 +1531,15 @@ export class ImportDocumentEditor {
      * The save path uses computeEmptyLinesAfterImportsEdits instead.
      */
     async ensureEmptyLinesAfterImports(document: vscode.TextDocument): Promise<boolean> {
+        return this.serialize(document, () => this.applyEmptyLinesAfterImports(document));
+    }
+
+    /**
+     * ensureEmptyLinesAfterImports, without the wait for the writes ahead of
+     * it. This is the one the writers call on their own result: they are
+     * already the write at the head of the queue, so waiting would deadlock.
+     */
+    private async applyEmptyLinesAfterImports(document: vscode.TextDocument): Promise<boolean> {
         const edits = this.computeEmptyLinesAfterImportsEdits(document);
 
         if (edits.length === 0) {

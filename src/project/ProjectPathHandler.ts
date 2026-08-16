@@ -69,6 +69,13 @@ export class ProjectPathHandler {
      */
     private readonly projectFilesByScope = new Map<string, LocatedProjectFile>();
 
+    /**
+     * The running search per scope key, shared with every caller that overlaps
+     * it. Keyed like {@link projectFilesByScope}: only a search for the same
+     * scope repeats the same folder scan, so only that one is worth joining.
+     */
+    private readonly searchesInFlight = new Map<string, Promise<LocatedProjectFile | null>>();
+
     constructor(private outputChannel: vscode.OutputChannel) {}
 
     /**
@@ -76,7 +83,8 @@ export class ProjectPathHandler {
      * workspace when nothing names a folder.
      *
      * Only a success is cached, so in a workspace with no `.uefnproject` every
-     * call redoes the folder scan and the parent walk from scratch.
+     * call redoes the folder scan and the parent walk from scratch; calls that
+     * overlap one running search share its result instead of each searching.
      *
      * @param resource a file in the project being asked about. A resource
      * outside every workspace folder falls back to the whole-workspace search
@@ -109,12 +117,29 @@ export class ProjectPathHandler {
             return cached;
         }
 
-        const projectFile = await this.searchForProjectFile(scope);
-        if (projectFile) {
-            this.projectFilesByScope.set(key, projectFile);
+        const running = this.searchesInFlight.get(key);
+        if (running) {
+            return running;
         }
 
-        return projectFile;
+        const flight: Promise<LocatedProjectFile | null> = this.searchForProjectFile(scope)
+            .then((projectFile) => {
+                // The cache was cleared while searching - a .uefnproject
+                // change dropped this flight - so the parse predates the file
+                // on disk and must not be cached over the fresh search's.
+                if (projectFile && this.searchesInFlight.get(key) === flight) {
+                    this.projectFilesByScope.set(key, projectFile);
+                }
+                return projectFile;
+            })
+            .finally(() => {
+                if (this.searchesInFlight.get(key) === flight) {
+                    this.searchesInFlight.delete(key);
+                }
+            });
+        this.searchesInFlight.set(key, flight);
+
+        return flight;
     }
 
     /**
@@ -303,6 +328,10 @@ export class ProjectPathHandler {
      */
     clearCache(): void {
         this.projectFilesByScope.clear();
+        // Dropping the in-flight searches is what abandons their commits: a
+        // search still running parsed the file from before this clear, and its
+        // result must not be cached over the next, fresher search's.
+        this.searchesInFlight.clear();
         logger.debug("ProjectPathHandler", "Cleared project path cache");
     }
 

@@ -3,6 +3,7 @@ import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
 import { logger } from "../utils";
+import { singleFlight } from "../utils/singleFlight";
 import { DeclarationHead, matchDeclarationHead } from "../utils/verseDeclarationHead";
 import { lineIndentWidth, popClosedBlocks } from "../utils/verseText";
 import { ProjectPathHandler } from "../project";
@@ -73,8 +74,13 @@ export class AssetsDigestParser {
      * `{LOCALAPPDATA}\UnrealEditorFortnite\Saved\VerseProject\{ProjectName}\`,
      * in a `{ProjectName}-Assets` subfolder on current UEFN and directly in the
      * project folder on older versions.
+     *
+     * The memo this writes is resolved against a project name read after an
+     * await, so it can belong to a project a clearCache has since dropped. A
+     * caller must revalidate with its own generation check and undo the memo
+     * on discard, as {@link doParse} does - which is why this stays private.
      */
-    async getAssetsDigestPath(): Promise<string | null> {
+    private async getAssetsDigestPath(): Promise<string | null> {
         if (this.cachedDigestPath && fs.existsSync(this.cachedDigestPath)) {
             return this.cachedDigestPath;
         }
@@ -109,9 +115,24 @@ export class AssetsDigestParser {
     }
 
     /**
+     * Overlapping refresh calls must share one run: the TTL check reads state
+     * from before {@link getAssetsDigestPath}'s awaits, so every call that
+     * arrives while a parse is in flight passes it and would re-read the file.
+     */
+    private readonly parseOnce = singleFlight(() => this.doParse());
+    /**
+     * Bumped by {@link clearCache} and captured at each parse's start, and
+     * re-checked before the parse commits, so a parse that a clear overtook -
+     * the digest watcher refreshing while one is in flight - abandons its
+     * pre-change names instead of committing them and stamping the TTL.
+     */
+    private parseGeneration: number = 0;
+
+    /**
      * Refreshes the cached names, doing nothing if they were parsed within
      * CACHE_DURATION or if the digest cannot be located. A file that cannot be
-     * read leaves the previously cached names in place.
+     * read leaves the previously cached names in place. A call that overlaps a
+     * running refresh joins it rather than parsing again.
      */
     async parseAssetsDigest(): Promise<void> {
         const now = Date.now();
@@ -120,8 +141,24 @@ export class AssetsDigestParser {
             return;
         }
 
+        return this.parseOnce();
+    }
+
+    private async doParse(): Promise<void> {
+        const now = Date.now();
+        const generation = this.parseGeneration;
         const digestPath = await this.getAssetsDigestPath();
         if (!digestPath) {
+            return;
+        }
+
+        // The cache was cleared while locating the file; the path was
+        // resolved against the pre-clear project, so committing its names
+        // would stamp the TTL over the refresh that cleared it, and the path
+        // itself was just memoized over the one the clear dropped.
+        if (generation !== this.parseGeneration) {
+            this.cachedDigestPath = null;
+            logger.debug("AssetsDigestParser", "Cache cleared during parse, discarding the parsed names");
             return;
         }
 
@@ -233,6 +270,12 @@ export class AssetsDigestParser {
         this.classNames.clear();
         this.lastParsed = 0;
         this.cachedDigestPath = null;
+        // Invalidate any parse still in flight - its names predate this clear
+        // - and drop its memo so the next parse runs fresh instead of joining
+        // the overtaken one. refreshCache depends on this: it clears and then
+        // parses immediately, expecting a post-change read.
+        this.parseGeneration++;
+        this.parseOnce.reset();
         logger.debug("AssetsDigestParser", "Cache cleared");
     }
 

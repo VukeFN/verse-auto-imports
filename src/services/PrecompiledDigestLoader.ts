@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
 import { logger } from "../utils";
+import { singleFlight } from "../utils/singleFlight";
 import { DigestEntry } from "./DigestParser";
 import { appendDeclaration } from "./digestParsing";
 import { BUNDLED_DIGEST_NAMES, digestDataFile } from "./digestManifest";
@@ -34,6 +35,19 @@ export class PrecompiledDigestLoader {
     private moduleIndex: Map<string, string[]> = new Map();
     private loaded: boolean = false;
     private loadError: Error | null = null;
+    /**
+     * Overlapping load calls must share one run: each run merges into
+     * digestCache, and `loaded` only latches after the merge, so a second
+     * concurrent run would append every declaration twice.
+     */
+    private readonly loadOnce = singleFlight(() => this.doLoad());
+    /**
+     * Bumped by {@link clear} and captured at each load's start, and re-checked
+     * before the load latches, so a load that a clear overtook cannot set
+     * `loaded` over the emptied index - which would make every later call
+     * return early onto nothing.
+     */
+    private loadGeneration: number = 0;
 
     constructor(private extensionContext: vscode.ExtensionContext) {}
 
@@ -43,14 +57,22 @@ export class PrecompiledDigestLoader {
      *
      * One file is enough to count as loaded, so a caller that sees
      * {@link isLoaded} true may still be holding a partial index. Only a total
-     * failure leaves it false. Calling again after success is a no-op.
+     * failure leaves it false. Calling again after success is a no-op, and a
+     * call that overlaps a running load joins it; only a settled failure runs
+     * the load again. A load that {@link clear} overtakes resolves without
+     * loading: resolution alone is not success - {@link isLoaded} is.
      */
     async loadPrecompiledDigests(): Promise<void> {
         if (this.loaded) {
             return;
         }
 
+        return this.loadOnce();
+    }
+
+    private async doLoad(): Promise<void> {
         const startTime = Date.now();
+        const generation = this.loadGeneration;
         logger.debug("PrecompiledDigestLoader", "Loading pre-compiled digest files...");
 
         try {
@@ -65,6 +87,14 @@ export class PrecompiledDigestLoader {
             }
 
             const successCount = await this.loadFromDirectory(dataDir);
+
+            // The index was cleared while loading; what this run merged is
+            // gone, so latching `loaded` here would leave it true over an
+            // empty cache.
+            if (generation !== this.loadGeneration) {
+                logger.debug("PrecompiledDigestLoader", "Cache cleared during load, leaving it unloaded");
+                return;
+            }
 
             if (successCount > 0) {
                 this.loaded = true;
@@ -175,6 +205,11 @@ export class PrecompiledDigestLoader {
         this.moduleIndex.clear();
         this.loaded = false;
         this.loadError = null;
+        // Invalidate any load still in flight - what it merged was just
+        // emptied - and drop its memo so the next call starts a fresh load
+        // instead of joining the overtaken one.
+        this.loadGeneration++;
+        this.loadOnce.reset();
         logger.debug("PrecompiledDigestLoader", "Cache cleared");
     }
 }

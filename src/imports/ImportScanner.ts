@@ -84,13 +84,14 @@ export interface ScannedImport {
     columns?: ColumnSpan;
     /**
      * The endpoints of an indented pair's span: where its `using` opener
-     * starts on `startLine`, and where its path text ends on `endLine`.
-     * Everything between the two positions is the clause, so evidence there
-     * is about the pair, where evidence before the opener is about a
-     * statement written beside it (ImportDocumentEditor.couldResolveAgainst).
-     * Present only with `startLine !== endLine`, and only for the pair shape -
-     * a multi-line braced clause records nothing, its paths having no one
-     * line to measure an endpoint on.
+     * starts on `startLine`, and where its recorded path ends on `endLine`.
+     * Evidence between the two positions is read as being about the pair,
+     * where evidence before the opener is about a statement written beside
+     * it (ImportDocumentEditor.couldResolveAgainst). The reach is the
+     * recorded path's, no narrower: a branch that deliberately over-records
+     * the path (pairPathBelow's classifyContent) carries that reach into
+     * `end`. Present only with `startLine !== endLine`, and only for the
+     * pair shape - a multi-line braced clause records nothing.
      *
      * Absent means no column knowledge, exactly as for `columns`: a span the
      * masked lines cannot corroborate leaves it unset, and evidence anywhere

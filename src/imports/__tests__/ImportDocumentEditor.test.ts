@@ -651,6 +651,26 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
             );
         });
 
+        // The path ends at column 16 and the span is half-open, so evidence
+        // starting exactly there is past the pair, not inside it.
+        it("takes no override from a diagnostic starting exactly at the end of a pair's path", () => {
+            const input = ["X := 1; using:", "    Economy.Shop", "code()"].join("\n");
+
+            expect(editor.buildOrganizedContent(input, ["Features"], curlySorted, new Map([["Features", [{ line: 1, character: 16 }]]]))).toBe(
+                ["X := 1; using:", "    Economy.Shop", "using { Features }", "code()"].join("\n"),
+            );
+        });
+
+        // A comment line inside the pair counts whole: it belongs to the
+        // clause and holds no other statement for the evidence to be about.
+        it("still writes the provider above a pair the diagnostic reports on a comment line inside it", () => {
+            const input = ["X := 1; using:", "    # note", "    Economy.Shop", "code()"].join("\n");
+
+            expect(editor.buildOrganizedContent(input, ["Features"], curlySorted, new Map([["Features", [{ line: 1, character: 4 }]]]))).toBe(
+                ["using { Features }", "", "X := 1; using:", "    # note", "    Economy.Shop", "code()"].join("\n"),
+            );
+        });
+
         // Only the paths the pinned import could provide are held back. An
         // absolute path needs nothing in scope, so the file is still organized
         // around what stays.

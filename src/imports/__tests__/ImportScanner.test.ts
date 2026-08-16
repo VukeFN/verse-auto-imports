@@ -599,6 +599,25 @@ describe("scanModuleImports", () => {
         ]);
     });
 
+    // The path read from the raw line stops at the mid-line comment, so the
+    // masked slice and the recorded path disagree, and measuring anyway would
+    // hand the span an end inside text the path does not cover.
+    it("leaves the pair span unmeasured when a comment splices its path line", () => {
+        expect(scanModuleImports(["using { /A }; using:", "    Eco.nomy<#c#>Shop", "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 0, end: 12 } },
+            { path: "Eco.nomy", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "<#c#>Shop" },
+        ]);
+    });
+
+    // Raw UTF-16 columns, not display width: the tab is one character, so the
+    // path ends at 13. Measured in display columns this passes every other
+    // test here and misplaces only tab-indented files.
+    it("measures a tab-indented path line in raw columns", () => {
+        expect(scanModuleImports(["X := 1; using:", "\tEconomy.Shop", "code()"])).toEqual([
+            { path: "Economy.Shop", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", spanColumns: { start: 8, end: 13 } },
+        ]);
+    });
+
     // Two lines the scanner cannot reproduce from one path, so the acceptance
     // criterion is that both stay exactly as written.
     it("offers no rewritable import for a pair opened after a definition", () => {

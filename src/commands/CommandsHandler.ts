@@ -389,10 +389,15 @@ export class CommandsHandler {
         ];
     }
 
-    async rebuildPathCache(): Promise<void> {
+    /**
+     * Returns the post-rebuild stats so `executeCommand` relays them, which is
+     * what lets an extension-host test assert the rebuilt cache's content.
+     * Undefined when the cache is disabled or the rebuild failed.
+     */
+    async rebuildPathCache(): Promise<ReturnType<ProjectPathCache["getStats"]> | undefined> {
         if (!this.deps.projectPathCache) {
             vscode.window.showWarningMessage("Project path cache is not enabled");
-            return;
+            return undefined;
         }
 
         try {
@@ -411,9 +416,11 @@ export class CommandsHandler {
 
             const stats = this.deps.projectPathCache.getStats();
             vscode.window.showInformationMessage(`Project path cache rebuilt: ${stats.identifiers} identifiers from ${stats.files} files`);
+            return stats;
         } catch (error) {
             logger.error("CommandsHandler", "Failed to rebuild project path cache", error);
             vscode.window.showErrorMessage(`Failed to rebuild project path cache: ${error instanceof Error ? error.message : String(error)}`);
+            return undefined;
         }
     }
 

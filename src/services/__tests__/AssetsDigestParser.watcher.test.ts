@@ -34,6 +34,8 @@ describe("AssetsDigestParser file watchers", () => {
     let parser: AssetsDigestParser;
     let watchers: FakeWatcher[];
     let watcherDisposable: vscode.Disposable;
+    /** Models ProjectPathHandler firing its project-changed event. */
+    let fireProjectChanged: () => void;
 
     const createFileSystemWatcher = vscode.workspace.createFileSystemWatcher as unknown as jest.Mock;
 
@@ -54,8 +56,14 @@ describe("AssetsDigestParser file watchers", () => {
             return digestContent ?? "";
         }) as unknown as typeof fs.readFileSync);
 
+        const projectChangedListeners: Array<() => void> = [];
+        fireProjectChanged = () => projectChangedListeners.forEach((listener) => listener());
         const projectPathHandler = {
             getProjectName: jest.fn().mockImplementation(async () => projectName),
+            onDidChangeProject: (listener: () => void) => {
+                projectChangedListeners.push(listener);
+                return { dispose: jest.fn() };
+            },
         } as unknown as ProjectPathHandler;
 
         parser = new AssetsDigestParser(vscode.window.createOutputChannel("test"), projectPathHandler);
@@ -71,11 +79,12 @@ describe("AssetsDigestParser file watchers", () => {
         jest.restoreAllMocks();
     });
 
-    /** The Assets.digest.verse watcher, created first by setupFileWatcher. */
+    /**
+     * The Assets.digest.verse watcher, the only one setupFileWatcher creates:
+     * .uefnproject events arrive as ProjectPathHandler's project-changed
+     * event rather than through a watcher of the parser's own.
+     */
     const digestWatcher = (): FakeWatcher => watchers[0];
-
-    /** The .uefnproject watcher, created second. */
-    const projectWatcher = (): FakeWatcher => watchers[1];
 
     it("refills the cache after the digest changes", async () => {
         await parser.ensureCachePopulated();
@@ -121,7 +130,7 @@ describe("AssetsDigestParser file watchers", () => {
         projectName = "RenamedGame";
         digestContent = SECOND_DIGEST;
         readPaths = [];
-        projectWatcher().fireChange("C:\\Projects\\RenamedGame\\RenamedGame.uefnproject");
+        fireProjectChanged();
         await runScheduledRefresh();
 
         expect(readPaths).toEqual([expect.stringContaining("RenamedGame")]);
@@ -129,12 +138,12 @@ describe("AssetsDigestParser file watchers", () => {
         expect(parser.isAssetClassName("OldAsset")).toBe(false);
     });
 
-    it("re-parses for a .uefnproject file that appears after activation", async () => {
+    it("re-parses for a project that appears after activation", async () => {
         digestContent = null;
         await parser.ensureCachePopulated();
 
         digestContent = FIRST_DIGEST;
-        projectWatcher().fireCreate("C:\\Projects\\MyGame\\MyGame.uefnproject");
+        fireProjectChanged();
         await runScheduledRefresh();
 
         expect(parser.isAssetClassName("OldAsset")).toBe(true);

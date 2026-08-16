@@ -7,8 +7,9 @@ import { logger } from "../../utils";
  * cleared underneath it.
  *
  * The debounced update parses each changed file, then commits the new nodes.
- * Three paths null the cache during those parses - the .uefnproject watcher, the
- * watcher-teardown hook, and the Clear Project Path Cache command - and the
+ * Three paths null the cache during those parses - the project-changed
+ * subscriber, the watcher-teardown hook, and the Clear Project Path Cache
+ * command - and the
  * commit used to dereference the field again afterwards. Nothing awaited the
  * debounce callback, so the resulting TypeError surfaced as an unhandled
  * rejection in the extension host, the pending update was lost, and workspace
@@ -49,6 +50,8 @@ describe("ProjectPathCache.invalidateFiles when the cache changes mid-parse", ()
 
     /** Stands in for ProjectPathHandler; a name is all scanProject needs to succeed. */
     class FakeProjectPathHandler {
+        readonly onDidChangeProject = () => ({ dispose: jest.fn() });
+
         async getProjectName(): Promise<string | null> {
             return "MyGame";
         }
@@ -121,7 +124,7 @@ describe("ProjectPathCache.invalidateFiles when the cache changes mid-parse", ()
         const pending = cache.invalidateFiles(["Scripts/device.verse"]);
         await flushAsync();
 
-        // The Clear Project Path Cache command, or the .uefnproject watcher.
+        // The Clear Project Path Cache command, or the project-changed subscriber.
         cache.clear();
         release();
 
@@ -135,8 +138,8 @@ describe("ProjectPathCache.invalidateFiles when the cache changes mid-parse", ()
         const pending = cache.invalidateFiles(["Scripts/device.verse"]);
         await flushAsync();
 
-        // What the .uefnproject watcher does: clear, then rebuild. The rebuild
-        // scans every file itself, so the in-flight parse is stale by then.
+        // What the project-changed subscriber does: clear, then rebuild. The
+        // rebuild scans every file itself, so the in-flight parse is stale by then.
         cache.clear();
         await cache.rebuildCache();
         release();
@@ -166,7 +169,7 @@ describe("ProjectPathCache.invalidateFiles when the cache changes mid-parse", ()
         try {
             cache.setupFileWatchers();
 
-            // Watchers are created in order: **/*.verse first, then **/*.uefnproject.
+            // The .verse watcher is the only one the cache creates itself.
             const verseWatcher = createFileSystemWatcher.mock.results.map((result) => result.value as FakeWatcher)[0];
             expect(verseWatcher.globPattern).toBe("**/*.verse");
 

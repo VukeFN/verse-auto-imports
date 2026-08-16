@@ -58,14 +58,20 @@ describe("ProjectPathHandler", () => {
         projectsByDirectory = new Map();
 
         // findFiles is a bare mockResolvedValue([]) on the shared mock, so the
-        // per-directory answer has to be supplied here. The pattern's base is a
-        // WorkspaceFolder when the handler searches a folder and a Uri when it
-        // walks up from one, so both shapes have to be unwrapped.
+        // per-directory answer has to be supplied here. It serves the search
+        // inside a workspace folder; the parent walk probes directories with
+        // fs.readDirectory instead, mocked below off the same map.
         (vscode.workspace.findFiles as jest.Mock).mockImplementation(async (pattern: { base: { uri?: { fsPath: string }; fsPath?: string } }) => {
             const base = pattern.base.uri ?? (pattern.base as { fsPath: string });
             const directory = forwardSlashed(base.fsPath);
 
             return projectsByDirectory.has(directory) ? [vscode.Uri.file(projectPathIn(directory))] : [];
+        });
+
+        (vscode.workspace.fs.readDirectory as jest.Mock).mockImplementation(async (target: { fsPath: string }) => {
+            const directory = forwardSlashed(target.fsPath);
+
+            return projectsByDirectory.has(directory) ? [["Project.uefnproject", vscode.FileType.File]] : [];
         });
 
         jest.spyOn(fs, "readFileSync").mockImplementation(((target: string): string => {
@@ -86,6 +92,7 @@ describe("ProjectPathHandler", () => {
     afterEach(() => {
         jest.restoreAllMocks();
         (vscode.workspace.findFiles as jest.Mock).mockReset().mockResolvedValue([]);
+        (vscode.workspace.fs.readDirectory as jest.Mock).mockReset().mockRejectedValue(new Error("ENOENT"));
         (vscode.workspace as unknown as { workspaceFolders: unknown }).workspaceFolders = undefined;
     });
 

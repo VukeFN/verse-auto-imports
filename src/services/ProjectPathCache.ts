@@ -302,21 +302,24 @@ export class ProjectPathCache {
 
         disposables.push(this.fileWatcher);
 
-        // Watch for .uefnproject changes to trigger full cache rebuild.
-        // Creation counts as much as change: a workspace opened before the
-        // project file exists builds nothing, and the file appearing is the
-        // signal that a rebuild can finally succeed.
-        const projectWatcher = vscode.workspace.createFileSystemWatcher("**/*.uefnproject");
-        const rebuildOnProjectFile = () => {
-            logger.debug("ProjectPathCache", "Project file changed, triggering cache rebuild");
-            this.clear();
-            this.rebuildCache().catch((error) => {
-                logger.error("ProjectPathCache", "Failed to rebuild cache after project change", error);
-            });
-        };
-        projectWatcher.onDidChange(rebuildOnProjectFile);
-        projectWatcher.onDidCreate(rebuildOnProjectFile);
-        disposables.push(projectWatcher);
+        // Rebuild on ProjectPathHandler's project-changed event rather than a
+        // watcher of this class's own: the handler is the one place that can
+        // observe a .uefnproject outside the workspace folders, and it clears
+        // its identity cache before firing, so the rescan reads the new
+        // project. Creation counts as much as change: a workspace opened
+        // before the project file exists builds nothing, and the file
+        // appearing is the signal that a rebuild can finally succeed. On a
+        // delete the scan finds no project and commits nothing, which leaves
+        // the cache cleared rather than serving the deleted project's paths.
+        disposables.push(
+            this.projectPathHandler.onDidChangeProject(() => {
+                logger.debug("ProjectPathCache", "Project changed, triggering cache rebuild");
+                this.clear();
+                this.rebuildCache().catch((error) => {
+                    logger.error("ProjectPathCache", "Failed to rebuild cache after project change", error);
+                });
+            }),
+        );
 
         // Clear any pending debounced update on teardown so it cannot run
         // against a disposed extension context after deactivation.
@@ -332,12 +335,14 @@ export class ProjectPathCache {
         identifiers: number;
         files: number;
         generatedAt: number | null;
+        projectName: string | null;
     } {
         return {
             loaded: this.data !== null,
             identifiers: this.indexes.identifierIndex.size,
             files: this.indexes.fileIndex.size,
             generatedAt: this.data?.generatedAt || null,
+            projectName: this.data?.projectName || null,
         };
     }
 

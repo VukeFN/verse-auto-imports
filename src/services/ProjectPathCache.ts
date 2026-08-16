@@ -18,6 +18,15 @@ export class ProjectPathCache {
     private pendingUpdates: Set<string> = new Set();
     private updateDebounceTimer: NodeJS.Timeout | null = null;
     private initialized: boolean = false;
+    /** The running rebuild, shared with every caller that overlaps it. */
+    private rebuildInFlight: Promise<void> | null = null;
+    /**
+     * Bumped by {@link clear} and at each scan's start, and re-checked before a
+     * scan commits, so a scan that was superseded while awaiting - the
+     * .uefnproject watcher clears and rebuilds mid-flight - abandons its result
+     * instead of reverting the cache to it and persisting the regression.
+     */
+    private generation: number = 0;
 
     private static readonly CACHE_KEY = "projectPathTree";
     /** Storage key of the pre-2 metadata payload; cleared on save. */
@@ -143,9 +152,30 @@ export class ProjectPathCache {
      *
      * A scan that finds no project leaves the existing cache untouched rather
      * than emptying it, so a rebuild can never be worse than not rebuilding.
+     *
+     * A call that overlaps a running rebuild joins it rather than starting a
+     * second scan of the same project.
      */
     async rebuildCache(): Promise<void> {
+        if (this.rebuildInFlight) {
+            return this.rebuildInFlight;
+        }
+
+        const flight = this.doRebuild().finally(() => {
+            // Identity-checked so a clear() that nulled the field mid-flight,
+            // and any newer rebuild memoized since, are not clobbered.
+            if (this.rebuildInFlight === flight) {
+                this.rebuildInFlight = null;
+            }
+        });
+        this.rebuildInFlight = flight;
+
+        return flight;
+    }
+
+    private async doRebuild(): Promise<void> {
         const startTime = Date.now();
+        const generation = ++this.generation;
         logger.info("ProjectPathCache", "Rebuilding project path cache...");
 
         try {
@@ -159,6 +189,14 @@ export class ProjectPathCache {
             const data = await scanner.scanProject(workspaceFolders[0]);
 
             if (data) {
+                // The cache was cleared while scanning; this scan's snapshot
+                // predates whatever the clear made way for, so committing it
+                // would revert the cache and persist the reversion.
+                if (generation !== this.generation) {
+                    logger.debug("ProjectPathCache", "Cache changed during rebuild, discarding the scanned result");
+                    return;
+                }
+
                 this.data = data;
                 this.initialized = true;
                 this.rebuildIndexes();
@@ -313,6 +351,11 @@ export class ProjectPathCache {
         // Keeps `initialized` meaning "the cache holds data", so a later
         // initialize() rebuilds instead of returning early onto nothing.
         this.initialized = false;
+        // Invalidate any scan still in flight - its result predates this clear
+        // - and drop its memo so the next rebuildCache() starts a fresh scan
+        // instead of joining the superseded one.
+        this.generation++;
+        this.rebuildInFlight = null;
         this.indexes = buildProjectIndexes([]);
         this.pendingUpdates.clear();
 

@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
 import { logger } from "../utils";
+import { singleFlight } from "../utils/singleFlight";
 import { DigestEntry } from "./DigestParser";
 import { appendDeclaration } from "./digestParsing";
 import { BUNDLED_DIGEST_NAMES, digestDataFile } from "./digestManifest";
@@ -34,6 +35,12 @@ export class PrecompiledDigestLoader {
     private moduleIndex: Map<string, string[]> = new Map();
     private loaded: boolean = false;
     private loadError: Error | null = null;
+    /**
+     * Overlapping load calls must share one run: each run merges into
+     * digestCache, and `loaded` only latches after the merge, so a second
+     * concurrent run would append every declaration twice.
+     */
+    private readonly loadOnce = singleFlight(() => this.doLoad());
 
     constructor(private extensionContext: vscode.ExtensionContext) {}
 
@@ -43,13 +50,19 @@ export class PrecompiledDigestLoader {
      *
      * One file is enough to count as loaded, so a caller that sees
      * {@link isLoaded} true may still be holding a partial index. Only a total
-     * failure leaves it false. Calling again after success is a no-op.
+     * failure leaves it false. Calling again after success is a no-op, and a
+     * call that overlaps a running load joins it; only a settled failure runs
+     * the load again.
      */
     async loadPrecompiledDigests(): Promise<void> {
         if (this.loaded) {
             return;
         }
 
+        return this.loadOnce();
+    }
+
+    private async doLoad(): Promise<void> {
         const startTime = Date.now();
         logger.debug("PrecompiledDigestLoader", "Loading pre-compiled digest files...");
 

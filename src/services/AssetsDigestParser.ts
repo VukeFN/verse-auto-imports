@@ -3,6 +3,7 @@ import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
 import { logger } from "../utils";
+import { singleFlight } from "../utils/singleFlight";
 import { DeclarationHead, matchDeclarationHead } from "../utils/verseDeclarationHead";
 import { lineIndentWidth, popClosedBlocks } from "../utils/verseText";
 import { ProjectPathHandler } from "../project";
@@ -109,9 +110,17 @@ export class AssetsDigestParser {
     }
 
     /**
+     * Overlapping refresh calls must share one run: the TTL check reads state
+     * from before {@link getAssetsDigestPath}'s awaits, so every call that
+     * arrives while a parse is in flight passes it and would re-read the file.
+     */
+    private readonly parseOnce = singleFlight(() => this.doParse());
+
+    /**
      * Refreshes the cached names, doing nothing if they were parsed within
      * CACHE_DURATION or if the digest cannot be located. A file that cannot be
-     * read leaves the previously cached names in place.
+     * read leaves the previously cached names in place. A call that overlaps a
+     * running refresh joins it rather than parsing again.
      */
     async parseAssetsDigest(): Promise<void> {
         const now = Date.now();
@@ -120,6 +129,11 @@ export class AssetsDigestParser {
             return;
         }
 
+        return this.parseOnce();
+    }
+
+    private async doParse(): Promise<void> {
+        const now = Date.now();
         const digestPath = await this.getAssetsDigestPath();
         if (!digestPath) {
             return;

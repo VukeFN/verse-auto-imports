@@ -9,10 +9,11 @@ describe("ImportSuggestionExtractor", () => {
 
     /**
      * A diagnostic carries a range in the real API, and extraction reads its
-     * start line, so a fixture without one exercises nothing the extension ever
-     * sees.
+     * start position, so a fixture without one exercises nothing the extension
+     * ever sees.
      */
-    const diag = (message: string, line = 0): vscode.Diagnostic => ({ message, range: new vscode.Range(new vscode.Position(line, 0), new vscode.Position(line, 1)) }) as vscode.Diagnostic;
+    const diag = (message: string, line = 0, character = 0): vscode.Diagnostic =>
+        ({ message, range: new vscode.Range(new vscode.Position(line, character), new vscode.Position(line, character + 1)) }) as vscode.Diagnostic;
 
     beforeEach(() => {
         outputChannel = vscode.window.createOutputChannel("test");
@@ -357,24 +358,27 @@ describe("ImportSuggestionExtractor", () => {
 
         // Placement reads these to tell a pinned import the compiler is
         // reporting on from one that already resolves, so a path that arrives
-        // without its line is placed by the written order alone.
-        it("reports the line of every diagnostic that asked for a path", () => {
-            const { diagnosticLinesByPath } = extractor.extractImportsFromDiagnostics([
-                diag("Unknown identifier `button_device`. Did you forget to specify using { /Fortnite.com/Devices }", 12),
+        // without its position is placed by the written order alone.
+        it("reports the start position of every diagnostic that asked for a path", () => {
+            const { diagnosticPositionsByPath } = extractor.extractImportsFromDiagnostics([
+                diag("Unknown identifier `button_device`. Did you forget to specify using { /Fortnite.com/Devices }", 12, 5),
                 diag("Unknown identifier `creative_device`. Did you forget to specify using { /Fortnite.com/Devices }", 30),
-                diag("Unknown identifier `player`. Did you forget to specify using { /Verse.org/Simulation }", 7),
+                diag("Unknown identifier `player`. Did you forget to specify using { /Verse.org/Simulation }", 7, 21),
             ]);
 
-            expect(diagnosticLinesByPath.get("/Fortnite.com/Devices")).toEqual([12, 30]);
-            expect(diagnosticLinesByPath.get("/Verse.org/Simulation")).toEqual([7]);
+            expect(diagnosticPositionsByPath.get("/Fortnite.com/Devices")).toEqual([
+                { line: 12, character: 5 },
+                { line: 30, character: 0 },
+            ]);
+            expect(diagnosticPositionsByPath.get("/Verse.org/Simulation")).toEqual([{ line: 7, character: 21 }]);
         });
 
-        it("records no line for a message it declines to import from", () => {
-            const { diagnosticLinesByPath } = extractor.extractImportsFromDiagnostics([
+        it("records no position for a message it declines to import from", () => {
+            const { diagnosticPositionsByPath } = extractor.extractImportsFromDiagnostics([
                 diag("Unknown identifier `thing`. Did you forget to specify one of:\nusing { /GameA/Combat }\nusing { /GameB/Combat }", 4),
             ]);
 
-            expect(diagnosticLinesByPath.size).toBe(0);
+            expect(diagnosticPositionsByPath.size).toBe(0);
         });
     });
 });

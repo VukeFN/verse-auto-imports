@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { logger, settingsFor } from "../utils";
-import { ImportSuggestion, ImportSuggestionSource, ImportConfidence, MissingImports } from "../types";
+import { DiagnosticPosition, ImportSuggestion, ImportSuggestionSource, ImportConfidence, MissingImports } from "../types";
 import { DigestParser, AssetsDigestParser } from "../services";
 import { ImportFormatter } from "./ImportFormatter";
 
@@ -489,13 +489,14 @@ export class ImportSuggestionExtractor {
 
         // One collection, so the paths and their evidence cannot disagree about
         // which diagnostic named which path: the keys are the deduplicated
-        // paths, in the order the diagnostics named them. Lines are concatenated
-        // where two diagnostics name one path, because a second diagnostic
-        // asking for the same import is further evidence, not a replacement for
-        // the first.
-        const diagnosticLinesByPath = new Map<string, number[]>();
+        // paths, in the order the diagnostics named them. Positions are
+        // concatenated where two diagnostics name one path, because a second
+        // diagnostic asking for the same import is further evidence, not a
+        // replacement for the first.
+        const diagnosticPositionsByPath = new Map<string, DiagnosticPosition[]>();
         const record = (path: string, diagnostic: vscode.Diagnostic): void => {
-            diagnosticLinesByPath.set(path, [...(diagnosticLinesByPath.get(path) ?? []), diagnostic.range.start.line]);
+            const start = { line: diagnostic.range.start.line, character: diagnostic.range.start.character };
+            diagnosticPositionsByPath.set(path, [...(diagnosticPositionsByPath.get(path) ?? []), start]);
         };
 
         for (const diagnostic of diagnostics) {
@@ -530,8 +531,8 @@ export class ImportSuggestionExtractor {
             }
         }
 
-        const paths = Array.from(diagnosticLinesByPath.keys());
+        const paths = Array.from(diagnosticPositionsByPath.keys());
         logger.debug("ImportSuggestionExtractor", `Extracted ${paths.length} unique import paths from diagnostics`);
-        return { paths, diagnosticLinesByPath };
+        return { paths, diagnosticPositionsByPath };
     }
 }

@@ -279,6 +279,20 @@ export class ImportFormatter {
     }
 
     /**
+     * The `using` statement starting at offset `at` of `text`: its path, and
+     * the offset just past the statement in `text` itself.
+     *
+     * @param at Must index the statement's own `using`. matchImport trims its
+     *   input, so a slice beginning anywhere before the keyword would shift
+     *   every offset it reports; starting on the keyword makes the trim a
+     *   no-op and `at + end` an offset into `text`.
+     */
+    matchImportAt(text: string, at: number): { path: string; end: number } | null {
+        const match = ImportFormatter.matchImport(text.slice(at));
+        return match ? { path: match.path, end: at + match.end } : null;
+    }
+
+    /**
      * Whether an import comes from a digest source, which the
      * `behavior.digestImportPrefixes` setting defines and defaults to
      * Verse.org, Fortnite.com and UnrealEngine.com.

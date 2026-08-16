@@ -77,7 +77,7 @@ describe("ImportCodeActionProvider quick fix titles", () => {
                 { uri: { toString: () => `${folder}device.verse` } } as unknown as vscode.TextDocument,
                 {} as unknown as vscode.Range,
                 {
-                    diagnostics: [{ message: "Unknown identifier `player`. Did you forget to specify using { /Verse.org/Simulation }", range: { start: { line: 7 } } }],
+                    diagnostics: [{ message: "Unknown identifier `player`. Did you forget to specify using { /Verse.org/Simulation }", range: { start: { line: 7, character: 3 } } }],
                 } as unknown as vscode.CodeActionContext,
                 {} as unknown as vscode.CancellationToken,
             );
@@ -87,6 +87,10 @@ describe("ImportCodeActionProvider quick fix titles", () => {
             // addSingleImport is what gets written, so the title describes the
             // insertion only while these two agree.
             expect((actions ?? []).map((action) => action.command?.arguments?.[1])).toEqual(["using. /Verse.org/Simulation"]);
+            // The diagnostic's start position rides along as the placement
+            // evidence, so dropping either half silently loosens the span
+            // test back to whole lines.
+            expect((actions ?? []).map((action) => action.command?.arguments?.[2])).toEqual([{ line: 7, character: 3 }]);
         } finally {
             getConfiguration.mockReset();
             if (original) {

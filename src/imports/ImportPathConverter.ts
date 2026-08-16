@@ -24,7 +24,12 @@ interface ImportConversionResult {
      */
     convertedImport: string;
     moduleName: string;
-    /** Whether the module resolved to more than one location, listed in `possiblePaths`. */
+    /**
+     * Whether the caller must put a choice to the user, with the candidates
+     * in `possiblePaths`. Usually several locations; a single candidate means
+     * the lexical gate dropped an unwritable namesake, and the pick is what
+     * keeps that drop visible.
+     */
     isAmbiguous: boolean;
     possiblePaths?: string[];
     /**
@@ -1048,7 +1053,8 @@ export class ImportPathConverter {
      *
      * A module resolving to several locations comes back `isAmbiguous`, with
      * the candidates in `possiblePaths` and no statement built yet - the caller
-     * picks, then hands the choice to applyConversion.
+     * picks, then hands the choice to applyConversion. So does one whose
+     * candidate list the lexical gate narrowed, however few survive.
      */
     async convertToFullPath(importStatement: string, documentUri: vscode.Uri, line?: number): Promise<ImportConversionResult | null> {
         return this.resolveToFullPath(importStatement, documentUri, { pending: true }, line);

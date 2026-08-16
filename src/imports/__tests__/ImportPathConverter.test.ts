@@ -1503,6 +1503,23 @@ describe("ImportPathConverter.findModuleLocations in a multi-root workspace", ()
         expect((await converter.findModuleLocations("Inventory", documentUri)).locations).toEqual(["/Systems"]);
         expect(cache.lookupModuleLocations).not.toHaveBeenCalled();
     });
+
+    it("still consults the cache for a document the first folder owns", async () => {
+        // The other half of the guard, pinned so a comparison that stopped
+        // matching could not silently cost every workspace the fast path.
+        const cache = { lookupModuleLocations: jest.fn().mockResolvedValue([{ location: "/Cached", sourceFile: "Content/Cached/Mod.verse" }]) };
+        (vscode.workspace.fs.stat as jest.Mock).mockImplementation(async (uri: { fsPath: string }) => {
+            if (uri.fsPath.replace(/\\/g, "/") === `${digestRoot}/Content/Cached/Mod.verse`) return { type: vscode.FileType.File };
+            throw new Error("ENOENT");
+        });
+        const converter = converterWithProjectPath(projectVersePath);
+        converter.setProjectPathCache(cache as never);
+
+        const firstFolderDocument = vscode.Uri.file(`${digestRoot}/Scripts/Feature.verse`);
+
+        expect((await converter.findModuleLocations("Inventory", firstFolderDocument)).locations).toEqual(["/Cached"]);
+        expect(cache.lookupModuleLocations).toHaveBeenCalledWith("Inventory");
+    });
 });
 
 // findContentRoot admits an on-disk `content` through its case-insensitive

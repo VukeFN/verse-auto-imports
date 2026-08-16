@@ -1216,8 +1216,13 @@ const appliedText = (input: string, call = 0): string => {
         }
     }
     const offsetAt = (position: { line: number; character: number }): number => {
-        const lineStart = lineStarts[Math.min(position.line, lineStarts.length - 1)];
-        return Math.min(lineStart + position.character, input.length);
+        // A line past the last clamps to the end of the document, as VS Code's
+        // validatePosition clamps it - not to the last line's start, which
+        // would leave that line's text out of a range meant to cover it.
+        if (position.line >= lineStarts.length) {
+            return input.length;
+        }
+        return Math.min(lineStarts[position.line] + position.character, input.length);
     };
     const spans = appliedOperations(call).map((op, index) => {
         if (op.kind === "insert") {
@@ -2707,6 +2712,101 @@ describe("ImportDocumentEditor rewrite verification", () => {
                 });
             }
         }
+    });
+});
+
+/**
+ * Port-equivalence scaffold: buildPreservedContent against the live add-path
+ * writer, line for line, across every document shape and preserve-mode setting
+ * row. Deleted with the swap that routes the writer through the builder, at
+ * which point it compares a function against itself.
+ *
+ * Line-based and ending-insensitive on purpose: the builder joins with one
+ * detected ending where the old writer splices text into place, so endings may
+ * differ while any placement drift still has to surface.
+ */
+describe("buildPreservedContent matches the live add path", () => {
+    let editor: ImportDocumentEditor;
+
+    const documents: Array<[string, string]> = [
+        ["an empty file", ""],
+        ["no trailing newline", "using { /A }\ncode()"],
+        ["a trailing newline", "using { /A }\ncode()\n"],
+        ["CRLF", "using { /A }\r\ncode()\r\n"],
+        ["only imports", "using { /A }\nusing { /B }"],
+        ["no imports at all", "code()\nmore()"],
+        ["a header comment", "# licence\n\nusing { /A }\n\ncode()"],
+        ["an annotated import", "# why /A is here\nusing { /A }\n\ncode()"],
+        ["an import pinned by a second statement", "X := 1; using { /A }\ncode()"],
+        ["a commented-out import", "<#\nusing { /Old }\n#>\nusing { /A }\n\ncode()"],
+        ["an indented using pair", "using{\n    /A\n}\ncode()"],
+        ["a using inside a module body", "using { /A }\n\nM := module:\n    using { /B }\n    F():void = {}"],
+        ["two gapped blocks", "using { /A }\n\nusing { Local.One }\n\ncode()"],
+        ["a relative import under an absolute one", "using { /A }\nusing { Local.One }\n\ncode()"],
+        ["a pinned import below a block", "using { /A }\ncode()\nX := 1; using { /Verse.org/Simulation }\nmore()"],
+    ];
+
+    const settings: Array<[string, Record<string, unknown>]> = [
+        ["defaults", {}],
+        ["unsorted", { "behavior.sortImportsAlphabetically": false }],
+        ["grouped local first", { "behavior.importGrouping": "localFirst" }],
+        ["grouped digest first", { "behavior.importGrouping": "digestFirst" }],
+        ["grouped digest first, unsorted", { "behavior.importGrouping": "digestFirst", "behavior.sortImportsAlphabetically": false }],
+        ["dot syntax", { "behavior.importSyntax": "dot" }],
+    ];
+
+    function useSettings(overrides: Record<string, unknown>): void {
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValueOnce({
+            get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => (key in overrides ? overrides[key] : defaultValue)),
+            update: jest.fn().mockResolvedValue(undefined),
+        });
+    }
+
+    function optionsFrom(overrides: Record<string, unknown>) {
+        return {
+            preferDotSyntax: overrides["behavior.importSyntax"] === "dot",
+            sortAlphabetically: (overrides["behavior.sortImportsAlphabetically"] as boolean | undefined) ?? true,
+            importGrouping: (overrides["behavior.importGrouping"] as string | undefined) ?? "none",
+        };
+    }
+
+    beforeEach(() => {
+        const outputChannel = vscode.window.createOutputChannel("test");
+        editor = new ImportDocumentEditor(outputChannel, new ImportFormatter());
+        (vscode.workspace.applyEdit as unknown as jest.Mock).mockClear();
+    });
+
+    for (const [documentName, input] of documents) {
+        for (const [settingsName, overrides] of settings) {
+            it(`matches on ${documentName} with ${settingsName}`, async () => {
+                useSettings(overrides);
+                const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
+                expect(success).toBe(true);
+
+                const built = editor.buildPreservedContent(input, ["/Fortnite.com/Devices"], optionsFrom(overrides));
+                expect(built).not.toBeNull();
+                expect(built!.split(/\r?\n/)).toEqual(appliedText(input).split(/\r?\n/));
+            });
+        }
+    }
+
+    it("matches when diagnostic evidence raises a ceiling over a pinned consumer", async () => {
+        const input = "using { Economy.Shop } <#> note\n    body\ncode()";
+        useSettings({});
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy }"], new Map([["using { Economy }", [{ line: 0, character: 8 }]]]));
+        expect(success).toBe(true);
+
+        const built = editor.buildPreservedContent(input, ["Economy"], optionsFrom({}), new Map([["Economy", [{ line: 0, character: 8 }]]]));
+        expect(built).not.toBeNull();
+        expect(built!.split(/\r?\n/)).toEqual(appliedText(input).split(/\r?\n/));
+    });
+
+    it("returns null for a path the document already imports", () => {
+        expect(editor.buildPreservedContent("using { /A }\ncode()", ["/A"], optionsFrom({}))).toBeNull();
+    });
+
+    it("returns null for blank paths", () => {
+        expect(editor.buildPreservedContent("code()", ["  ", ""], optionsFrom({}))).toBeNull();
     });
 });
 

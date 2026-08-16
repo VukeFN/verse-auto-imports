@@ -275,16 +275,30 @@ describe("StatusBarHandler acknowledgment surfaces", () => {
         expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
     });
 
+    interface ActionItem {
+        description?: string;
+        action?: () => Promise<void>;
+    }
+
+    function pickItemByDescription(prefix: string): void {
+        (vscode.window.showQuickPick as jest.Mock).mockImplementation(async (items: ActionItem[]) => items.find((item) => item.description?.startsWith(prefix)));
+    }
+
     it("confirms a grouping menu pick in the status bar, not a toast", async () => {
-        interface ActionItem {
-            description?: string;
-            action?: () => Promise<void>;
-        }
-        (vscode.window.showQuickPick as jest.Mock).mockImplementation(async (items: ActionItem[]) => items.find((item) => item.description?.startsWith("Digest imports")));
+        pickItemByDescription("Digest imports");
 
         await makeHandler().showImportGroupingMenu();
 
         expect(statusBarTexts()).toContain("Import grouping: Digest imports first");
+        expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
+    });
+
+    it("confirms a CodeLens visibility pick in the status bar, not a toast", async () => {
+        pickItemByDescription("Always show");
+
+        await makeHandler().showCodeLensVisibilityMenu();
+
+        expect(statusBarTexts()).toContain("CodeLens visibility: Always visible");
         expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
     });
 });

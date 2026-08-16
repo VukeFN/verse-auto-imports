@@ -401,6 +401,7 @@ describe("CommandsHandler.convertAllToFullPath", () => {
         await handler.convertAllToFullPath(makeDocument());
 
         expect(vscode.window.setStatusBarMessage).toHaveBeenCalledWith("Using absolute paths for 0 imports.", expect.any(Number));
+        expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
         expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
     });
 });
@@ -657,6 +658,25 @@ describe("CommandsHandler failure logging", () => {
             expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
             expect(vscode.window.setStatusBarMessage).toHaveBeenCalledWith("Project path cache rebuilt: 12 identifiers from 3 files", expect.any(Number));
             expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
+        });
+
+        it("acknowledges a cleared cache in the status bar, not a toast", async () => {
+            const handler = makeCacheHandler({ clearAll: jest.fn().mockResolvedValue(undefined) });
+
+            await handler.clearPathCache();
+
+            expect(vscode.window.setStatusBarMessage).toHaveBeenCalledWith("Project path cache cleared", expect.any(Number));
+            expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
+        });
+
+        it("summarizes a loaded cache in one non-modal line, age included", async () => {
+            const handler = makeCacheHandler({
+                getStats: jest.fn().mockReturnValue({ loaded: true, identifiers: 12, files: 3, generatedAt: Date.now() - 6 * 60000 }),
+            });
+
+            await handler.showCacheStatus();
+
+            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith("Project cache: loaded, 12 identifiers from 3 files, age 6 min");
         });
     });
 

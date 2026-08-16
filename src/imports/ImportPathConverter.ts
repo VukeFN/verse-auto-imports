@@ -37,7 +37,7 @@ interface ImportConversionResult {
 /**
  * Where a module could be, and whether the search that answered was complete.
  *
- * `truncated` says the declaration scan stopped at its file cap, so `locations`
+ * `truncated` says a project-wide scan stopped at its file cap, so `locations`
  * holds whatever a sample of the project attested to. A location absent from it
  * may still exist, and a single entry is no evidence that the name is
  * unambiguous, so nothing may be written from a truncated answer.
@@ -517,18 +517,25 @@ export class ImportPathConverter {
      * no members to import, so nothing would name it.
      *
      * Capped at FOLDER_SCAN_FILE_LIMIT files enumerated.
+     *
+     * @returns whether the project holds more `.verse` files than
+     * FOLDER_SCAN_FILE_LIMIT, leaving the rest of it unenumerated
      */
-    private async searchProjectFolderModules(modulePath: string, locations: string[]): Promise<void> {
+    private async searchProjectFolderModules(modulePath: string, locations: string[]): Promise<boolean> {
         const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders || workspaceFolders.length === 0) return;
+        if (!workspaceFolders || workspaceFolders.length === 0) return false;
 
         const contentRoot = await this.scanContentRoot(workspaceFolders[0]);
-        if (!contentRoot) return;
+        if (!contentRoot) return false;
 
-        const verseFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(contentRoot, "**/*.verse"), "**/*.digest.verse", FOLDER_SCAN_FILE_LIMIT);
+        // One file past the limit is asked for and never folded in, so that a
+        // project holding exactly the limit is told apart from one holding
+        // more - the same boundary the declaration scan draws above.
+        const verseFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(contentRoot, "**/*.verse"), "**/*.digest.verse", FOLDER_SCAN_FILE_LIMIT + 1);
+        const enumeratedPartOnly = verseFiles.length > FOLDER_SCAN_FILE_LIMIT;
 
         const contentRelativeDirs = new Set<string>();
-        for (const file of verseFiles) {
+        for (const file of verseFiles.slice(0, FOLDER_SCAN_FILE_LIMIT)) {
             const directory = toContentRelativeDir(file.fsPath, contentRoot.fsPath);
 
             // null is a file outside Content, which contributes no importable
@@ -539,6 +546,8 @@ export class ImportPathConverter {
         for (const location of resolveFolderModuleLocations(modulePath, contentRelativeDirs)) {
             if (!locations.includes(location)) locations.push(location);
         }
+
+        return enumeratedPartOnly;
     }
 
     /**
@@ -566,8 +575,9 @@ export class ImportPathConverter {
      * answer here is a result and not a fault.
      *
      * `truncated` covers the declaration scan's own answer and an empty result,
-     * not an answer the folder search gave. The reasoning for that boundary,
-     * and what it knowingly leaves exposed, is at the assignment itself.
+     * not an answer a complete folder search gave. A folder search that hit
+     * its own cap clouds the result too, whatever it ends in. The reasoning
+     * for that boundary is at the assignment itself.
      */
     async findModuleLocations(modulePath: string, currentFileUri?: vscode.Uri): Promise<ModuleLocationSearch> {
         const locations: string[] = [];
@@ -623,28 +633,44 @@ export class ImportPathConverter {
             }
         }
 
+        let folderScanEnumeratedPart = false;
         if (locations.length === 0) {
             logger.debug("ImportPathConverter", `Phase 3: Searching folder modules across the project`);
             try {
-                await this.searchProjectFolderModules(modulePath, locations);
+                folderScanEnumeratedPart = await this.searchProjectFolderModules(modulePath, locations);
             } catch (error) {
+                // A phase that threw enumerated an unknown amount of the
+                // project, which is the position stopping at the cap leaves it
+                // in.
+                folderScanEnumeratedPart = true;
                 logger.debug("ImportPathConverter", `Error in Phase 3 (project folder modules): ${error}`);
+            }
+            if (folderScanEnumeratedPart) {
+                logger.debug("ImportPathConverter", `Phase 3 enumerated part of the project, so its answer is a sample`);
             }
         }
 
         // A partial declaration scan clouds its own answer, and clouds an empty
         // result, where the module may be declared in the part left unread.
         //
-        // It is deliberately not extended to the folder search's answer, and
-        // that is a trade rather than a proof. A declaration outranks a distant
-        // folder, so a declaration in the unread remainder would have answered
-        // instead of the folder chain, and trusting the folder chain can still
-        // put out the wrong location silently. Distrusting it costs more: a
-        // folder module has no declaration anywhere for this phase or the cache
-        // to hold, so the veto would refuse every folder module in a project
-        // past the cap - the commonest thing that reaches this search at all.
-        // Raising the cap is what shrinks the exposure; the rule cannot.
-        const truncated = declarationScanReadPart && (answeredByDeclarationScan || locations.length === 0);
+        // It is deliberately not extended to a complete folder search's answer,
+        // and that is a trade rather than a proof. A declaration outranks a
+        // distant folder, so a declaration in the unread remainder would have
+        // answered instead of the folder chain, and trusting the folder chain
+        // can still put out the wrong location silently. Distrusting it costs
+        // more: a folder module has no declaration anywhere for this phase or
+        // the cache to hold, so the veto would refuse every folder module in a
+        // project past the declaration cap - the commonest thing that reaches
+        // this search at all. Raising the cap is what shrinks the exposure; the
+        // rule cannot.
+        //
+        // That trade leans on the folder search reading the project's
+        // directories for itself, which stops being true past its own cap - so
+        // a partial folder enumeration clouds whatever the search ends in. The
+        // phase only runs while nothing is found, so either its answer is a
+        // sample's or the empty result may miss a folder in the unenumerated
+        // remainder.
+        const truncated = (declarationScanReadPart && (answeredByDeclarationScan || locations.length === 0)) || folderScanEnumeratedPart;
 
         logger.debug("ImportPathConverter", `Module search complete for '${modulePath}'`);
         logger.debug("ImportPathConverter", `Found ${locations.length} possible locations:`);
@@ -802,10 +828,7 @@ export class ImportPathConverter {
 
         const { locations, truncated } = await this.findModuleLocations(firstSegment, documentUri);
         if (truncated) {
-            logger.debug(
-                "ImportPathConverter",
-                `Refusing '${reference}' for ${fullPath}: the declaration scan stopped at ${DECLARATION_SCAN_FILE_LIMIT} files, so '${firstSegment}' was resolved against part of the project`,
-            );
+            logger.debug("ImportPathConverter", `Refusing '${reference}' for ${fullPath}: a project-wide scan stopped at its file cap, so '${firstSegment}' was resolved against part of the project`);
             return false;
         }
         if (locations.length !== 1) {
@@ -1018,11 +1041,11 @@ export class ImportPathConverter {
         // count decides: a location it did not reach is missing from the list,
         // and a namesake it did not reach is missing from the ambiguity.
         if (truncated) {
-            logger.debug("ImportPathConverter", `Refusing ${modulePath}: the declaration scan read part of the project`);
+            logger.debug("ImportPathConverter", `Refusing ${modulePath}: a project-wide scan read part of the project`);
             if (notice.pending) {
                 notice.pending = false;
                 vscode.window.showWarningMessage(
-                    `This project holds more than ${DECLARATION_SCAN_FILE_LIMIT} .verse files, which is as many as the search for a declared module reads. Imports that need one are left alone rather than pointed at a module found in part of the project; write those absolute paths by hand.`,
+                    `This project holds more .verse files than the project-wide module search reads through. Imports that need that search are left alone rather than pointed at a module found in part of the project; write those absolute paths by hand.`,
                 );
             }
             return null;

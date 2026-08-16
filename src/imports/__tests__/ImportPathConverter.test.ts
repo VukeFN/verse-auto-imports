@@ -1186,6 +1186,139 @@ describe("ImportPathConverter declaration scan file cap", () => {
     });
 });
 
+describe("ImportPathConverter folder scan file cap", () => {
+    const projectVersePath = "/mygame@fortnite.com/mygame";
+    const workspaceRoot = "C:/Project";
+
+    /** workspaceFolders is readonly in the real typings; the mock is writable. */
+    const setWorkspaceFolders = (folders: unknown): void => {
+        (vscode.workspace as unknown as { workspaceFolders: unknown }).workspaceFolders = folders;
+    };
+
+    /**
+     * A project of `fileCount` `.verse` files, each under Content/Target and
+     * none declaring a module, so only the folder search can place `Target`.
+     * The glob honours its maxResults in production, so the mock caps its own
+     * answer the same way rather than handing back more than was asked for.
+     */
+    const folderProjectOf = (fileCount: number): void => {
+        const files = Array.from({ length: fileCount }, (_, index) => `Content/Target/File${index}.verse`).map((file) => vscode.Uri.file(`${workspaceRoot}/${file}`));
+        (vscode.workspace.findFiles as jest.Mock).mockImplementation(async (_pattern: unknown, _exclude: unknown, maxResults?: number) =>
+            maxResults === undefined ? files : files.slice(0, maxResults),
+        );
+        (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(Buffer.from("Helper := class:\n", "utf8"));
+    };
+
+    beforeEach(() => {
+        setWorkspaceFolders([{ uri: { fsPath: workspaceRoot }, name: "Project", index: 0 }]);
+        stubTreeUnder(`${workspaceRoot}/Content`, []);
+    });
+
+    afterEach(() => {
+        setWorkspaceFolders(undefined);
+        (vscode.workspace.findFiles as jest.Mock).mockReset();
+        (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([]);
+        (vscode.workspace.fs.readFile as jest.Mock).mockRejectedValue(new Error("ENOENT"));
+        (vscode.workspace.fs.stat as jest.Mock).mockRejectedValue(new Error("ENOENT"));
+    });
+
+    const convert = (statement: string) => converterWithProjectPath(projectVersePath).convertToFullPath(statement, vscode.Uri.file(`${workspaceRoot}/Content/Scripts/Main.verse`), 0);
+
+    it("reports a folder search that enumerated only part of the project, so a caller can tell it from a complete one", async () => {
+        folderProjectOf(5001);
+
+        expect((await converterWithProjectPath(projectVersePath).findModuleLocations("Target")).truncated).toBe(true);
+    });
+
+    // The boundary is the whole point of the signal: a project of exactly the
+    // limit is enumerated end to end, and calling that truncated is the same
+    // conflation of complete and partial that the signal exists to end.
+    it("reports a project of exactly the limit as enumerated in full", async () => {
+        folderProjectOf(5000);
+
+        const search = await converterWithProjectPath(projectVersePath).findModuleLocations("Target");
+
+        expect(search.truncated).toBe(false);
+        expect(search.locations).toHaveLength(1);
+    });
+
+    // The one location a partial enumeration returns is a sample's answer: a
+    // namesake chain in the part it never listed would have made the
+    // conversion ambiguous, so writing this path unambiguously is the silent
+    // wrong module the cap hides.
+    it("refuses the conversion rather than writing a sample's answer", async () => {
+        folderProjectOf(5001);
+
+        expect(await convert("using { Target }")).toBeNull();
+    });
+
+    // The file past the limit is asked for to be counted, never to be folded
+    // in. Folding it in would make the enumeration's reach one more than the
+    // limit says.
+    it("never derives a directory from the file it asks for past the limit", async () => {
+        const filler = Array.from({ length: 5000 }, (_, index) => `Content/Filler/File${index}.verse`);
+        (vscode.workspace.findFiles as jest.Mock).mockImplementation(async (_pattern: unknown, _exclude: unknown, maxResults?: number) => {
+            const uris = filler.concat("Content/Target/Thing.verse").map((file) => vscode.Uri.file(`${workspaceRoot}/${file}`));
+            return maxResults === undefined ? uris : uris.slice(0, maxResults);
+        });
+        (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(Buffer.from("Helper := class:\n", "utf8"));
+
+        const search = await converterWithProjectPath(projectVersePath).findModuleLocations("Target");
+
+        expect(search.locations).toEqual([]);
+        expect(search.truncated).toBe(true);
+    });
+
+    // The cap belongs to the project-wide phases, which run only when the
+    // phases before them found nothing. An answer from proximity is not a
+    // sample's, however many files the project holds.
+    it("leaves an answer found near the file untouched by the cap", async () => {
+        folderProjectOf(5001);
+        // The Content root stays stubbed so the project-wide phases are
+        // reachable; the glob staying uncalled is then proximity outranking
+        // them, not a scan that could not start.
+        (vscode.workspace.fs.stat as jest.Mock).mockImplementation(async (uri: { fsPath: string }) => {
+            const relative = uri.fsPath.replace(/\\/g, "/");
+            if ([`${workspaceRoot}/Content`, `${workspaceRoot}/Content/Scripts/Target`].includes(relative)) return { type: vscode.FileType.Directory };
+            throw new Error("ENOENT");
+        });
+
+        const search = await converterWithProjectPath(projectVersePath).findModuleLocations("Target", vscode.Uri.file(`${workspaceRoot}/Content/Scripts/Main.verse`));
+
+        expect(search).toEqual({ locations: ["/Scripts"], truncated: false });
+        expect(vscode.workspace.findFiles as jest.Mock).not.toHaveBeenCalled();
+    });
+
+    // The condition belongs to the project, not to any one import, so a
+    // document-wide run states it once instead of once per line.
+    it("reports the cap once for a whole document", async () => {
+        folderProjectOf(5001);
+        const document = fakeDocument(["using { Target }", "using { Economy }", "using { Weapons }", "", "code()"]);
+        const warn = vscode.window.showWarningMessage as jest.Mock;
+        warn.mockClear();
+
+        const results = await converterWithProjectPath(projectVersePath).convertAllImportsToFullPath(document);
+
+        expect(results).toEqual([]);
+        expect(warn).toHaveBeenCalledTimes(1);
+        // The wording must stay true for whichever cap fired, so it names the
+        // project-wide search rather than a phase or a number.
+        expect(warn.mock.calls[0][0]).toMatch(/more \.verse files than the project-wide module search/);
+    });
+
+    // A phase that threw enumerated an unknown amount of the project, which
+    // leaves the caller where stopping at the cap leaves it. The declaration
+    // scan completes here, so only the folder search's own failure can cloud
+    // the answer.
+    it("treats a folder search that threw as a partial enumeration", async () => {
+        const files = Array.from({ length: 50 }, (_, index) => vscode.Uri.file(`${workspaceRoot}/Content/Target/File${index}.verse`));
+        (vscode.workspace.findFiles as jest.Mock).mockResolvedValueOnce(files).mockRejectedValueOnce(new Error("scan failed"));
+        (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(Buffer.from("Helper := class:\n", "utf8"));
+
+        expect((await converterWithProjectPath(projectVersePath).findModuleLocations("Target")).truncated).toBe(true);
+    });
+});
+
 describe("ImportPathConverter.convertToFullPath project-wide folder module search", () => {
     const projectVersePath = "/mygame@fortnite.com/mygame";
     const workspaceRoot = "C:/Project";

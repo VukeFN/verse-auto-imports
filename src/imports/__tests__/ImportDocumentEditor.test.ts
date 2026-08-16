@@ -628,6 +628,29 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
             );
         });
 
+        // The diagnostic is on the pinned pair's opener line but at column 0,
+        // inside `X := 1` - the compiler reporting on the definition, not on
+        // the pair whose `using:` starts at column 8. Read span-wide, that
+        // evidence hoisted the provider above the import that may bring its
+        // first segment into scope, and a compiling file stopped compiling.
+        it("leaves an added bare consumer below a pinned pair when the diagnostic is about the statement beside its opener", () => {
+            const input = ["X := 1; using:", "    Economy.Shop", "code()"].join("\n");
+
+            expect(editor.buildOrganizedContent(input, ["Features"], curlySorted, new Map([["Features", [{ line: 0, character: 0 }]]]))).toBe(
+                ["X := 1; using:", "    Economy.Shop", "using { Features }", "code()"].join("\n"),
+            );
+        });
+
+        // The same file with the diagnostic inside the `using:` opener itself -
+        // the narrowing must not cost the override its reach on a pair.
+        it("still writes the provider above a pinned pair the diagnostic reports on its opener", () => {
+            const input = ["X := 1; using:", "    Economy.Shop", "code()"].join("\n");
+
+            expect(editor.buildOrganizedContent(input, ["Features"], curlySorted, new Map([["Features", [{ line: 0, character: 8 }]]]))).toBe(
+                ["using { Features }", "", "X := 1; using:", "    Economy.Shop", "code()"].join("\n"),
+            );
+        });
+
         // Only the paths the pinned import could provide are held back. An
         // absolute path needs nothing in scope, so the file is still organized
         // around what stays.
@@ -2405,6 +2428,80 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             expect(insert).toBeDefined();
             expect(insert!.position!.line).toBe(0);
             expect(insert!.text).toBe("using { Features }\n\n");
+        });
+
+        // Regression for the diagnostic landing on the opener line of a pinned
+        // pair but inside the definition beside the clause. The `using:` starts
+        // at column 8, and column 0 is `X := 1` - the compiler reporting on the
+        // definition, not on the pair. Read span-wide, that evidence took the
+        // override and the provider was written above the import that may
+        // bring its first segment into scope, and a compiling file stopped
+        // compiling.
+        it("leaves a new import below a pinned pair when the diagnostic is about the statement beside its opener", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["X := 1; using:", "    Economy.Shop", "using { /Verse.org/Simulation }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 0, 0));
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            expect(operations.some((op) => op.kind === "insert")).toBe(false);
+
+            const replace = operations.find((op) => op.kind === "replace");
+            expect(replace).toBeDefined();
+            expect(replace!.range!.start.line).toBe(2);
+            expect(replace!.text).toBe("using { /Verse.org/Simulation }\nusing { Features }\n");
+        });
+
+        // The same file with the diagnostic inside the `using:` opener itself -
+        // column 8 is its `u`. The narrowing must not cost the override its
+        // reach on the opener line.
+        it("still writes the provider above a pinned pair the diagnostic reports on its opener", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["X := 1; using:", "    Economy.Shop", "using { /Verse.org/Simulation }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 0, 8));
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            expect(operations.some((op) => op.kind === "replace")).toBe(false);
+
+            const insert = operations.find((op) => op.kind === "insert");
+            expect(insert).toBeDefined();
+            expect(insert!.position!.line).toBe(0);
+            expect(insert!.text).toBe("using { Features }\n\n");
+        });
+
+        // The path text ends at column 16 and column 17 is inside the trailing
+        // comment - evidence about nothing the pair imports. Refusing it is the
+        // safe direction the whole predicate leans: a wrong override breaks a
+        // compiling file.
+        it("takes no override from a diagnostic past the path of a pinned pair", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["X := 1; using:", "    Economy.Shop # note", "using { /Verse.org/Simulation }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 1, 17));
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            expect(operations.some((op) => op.kind === "insert")).toBe(false);
+
+            const replace = operations.find((op) => op.kind === "replace");
+            expect(replace).toBeDefined();
+            expect(replace!.range!.start.line).toBe(2);
+            expect(replace!.text).toBe("using { /Verse.org/Simulation }\nusing { Features }\n");
         });
 
         // The floor reaches past the pinned statement, because the `using:` at

@@ -473,12 +473,20 @@ export class ImportDocumentEditor {
      * the line, outside a clause written after a `;`, which refuses the
      * override - the same safe direction.
      *
-     * Without `columns` the whole span still counts. That keeps a statement
+     * A multi-line pair carries `spanColumns` instead, and the evidence must
+     * start at or after its opener: from there to the end of the path on the
+     * last line, everything is the clause, and a diagnostic before the opener
+     * is about the statement written beside it - the same shared-line shape
+     * one line taller. Lines strictly inside the span count whole; the pair
+     * tolerates a blank or comment line there, and such a line holds no other
+     * statement for the evidence to be about.
+     *
+     * Without either field the whole span still counts. That keeps a statement
      * owning its span exactly as sharp as before, and leaves one shape loose:
-     * a pinned multi-line span - `X := 1; using:` over its indented path -
-     * still takes the override from a diagnostic about the statement beside
-     * its opener. A standing gap rather than one this predicate closes;
-     * narrowing it needs a span the scanner does not measure.
+     * a pinned multi-line braced clause still takes the override from a
+     * diagnostic about a statement beside its opener. Its paths can be split
+     * across lines, so it has no one line to measure an endpoint on, and the
+     * span goes unrecorded.
      *
      * Still kept to a pinned dotted consumer and a new import that can supply a
      * first segment for it, because the override is only worth the risk that
@@ -495,10 +503,20 @@ export class ImportDocumentEditor {
             return false;
         }
         const columns = imp.columns;
-        if (!columns) {
-            return diagnosticPositions.some((position) => position.line >= imp.startLine && position.line <= imp.endLine);
+        if (columns) {
+            return diagnosticPositions.some((position) => position.line === imp.startLine && position.character >= columns.start && position.character < columns.end);
         }
-        return diagnosticPositions.some((position) => position.line === imp.startLine && position.character >= columns.start && position.character < columns.end);
+        const spanColumns = imp.spanColumns;
+        if (spanColumns) {
+            return diagnosticPositions.some((position) =>
+                position.line === imp.startLine
+                    ? position.character >= spanColumns.start
+                    : position.line === imp.endLine
+                      ? position.character < spanColumns.end
+                      : position.line > imp.startLine && position.line < imp.endLine,
+            );
+        }
+        return diagnosticPositions.some((position) => position.line >= imp.startLine && position.line <= imp.endLine);
     }
 
     /**

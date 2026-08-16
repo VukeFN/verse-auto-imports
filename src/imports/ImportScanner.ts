@@ -73,14 +73,30 @@ export interface ScannedImport {
      * cannot decide, since a diagnostic on the line may be about the code
      * beside the statement rather than the statement itself
      * (ImportDocumentEditor.couldResolveAgainst). Present only with
-     * `startLine === endLine`.
+     * `startLine === endLine`; a multi-line pair carries `spanColumns`
+     * instead.
      *
      * Absent means no column knowledge, not that none is needed: a statement
-     * owning its whole span, a multi-line span, and a line whose comment
-     * structure defeats the column measurement all leave it unset, and evidence
-     * anywhere on the span then counts.
+     * owning its whole span and a line whose comment structure defeats the
+     * column measurement both leave it unset, and evidence anywhere on the
+     * span then counts.
      */
     columns?: ColumnSpan;
+    /**
+     * The endpoints of an indented pair's span: where its `using` opener
+     * starts on `startLine`, and where its path text ends on `endLine`.
+     * Everything between the two positions is the clause, so evidence there
+     * is about the pair, where evidence before the opener is about a
+     * statement written beside it (ImportDocumentEditor.couldResolveAgainst).
+     * Present only with `startLine !== endLine`, and only for the pair shape -
+     * a multi-line braced clause records nothing, its paths having no one
+     * line to measure an endpoint on.
+     *
+     * Absent means no column knowledge, exactly as for `columns`: a span the
+     * masked lines cannot corroborate leaves it unset, and evidence anywhere
+     * on the span then counts.
+     */
+    spanColumns?: SpanColumns;
 }
 
 /**
@@ -89,6 +105,18 @@ export interface ScannedImport {
  * the raw line - the space vscode.Position.character measures in.
  */
 export interface ColumnSpan {
+    start: number;
+    end: number;
+}
+
+/**
+ * Raw column endpoints of a multi-line span, one per end: `start` is the first
+ * character of the span's opener on its first line, `end` the offset just past
+ * its content on its last, both UTF-16 offsets into their raw lines - the
+ * space vscode.Position.character measures in. Not a ColumnSpan: the two
+ * offsets index different lines.
+ */
+export interface SpanColumns {
     start: number;
     end: number;
 }
@@ -639,6 +667,29 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
         return path ? { path, pathLine } : null;
     };
 
+    // The span endpoints of the pair `opener` opens, or undefined where the
+    // masked lines cannot corroborate them. Both ends are measured on `masked`
+    // - the one string whose offsets are raw columns - and each is reconciled
+    // against the code-derived reading that admitted the pair: the opener must
+    // show the same trailing `using:` the branch gated on, and the path line's
+    // masked content must be exactly the path the raw line yielded. A comment
+    // splicing or gluing a token breaks one of the two and leaves the span
+    // unmeasured, which only ever falls back to the whole-span test - the same
+    // one-sided degradation columnsForLinePaths documents.
+    const pairSpanColumns = (opener: number, pair: { path: string; pathLine: number }): SpanColumns | undefined => {
+        const openerMatch = /\busing\s*:\s*$/.exec(classifications[opener].masked);
+        if (!openerMatch) {
+            return undefined;
+        }
+        const pathMasked = classifications[pair.pathLine].masked;
+        const start = pathMasked.length - pathMasked.trimStart().length;
+        const end = pathMasked.trimEnd().length;
+        if (pathMasked.slice(start, end) !== pair.path) {
+            return undefined;
+        }
+        return { start: openerMatch.index, end };
+    };
+
     let i = 0;
     while (i < lines.length) {
         const line = lines[i];
@@ -729,6 +780,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
                     anchorsCommentBelow: anchorsCommentBelow(i, pair.pathLine),
                     rebuildLosesText: true,
                     trailingComment: ImportFormatter.extractTrailingComment(lines[pair.pathLine]),
+                    spanColumns: pairSpanColumns(i, pair),
                 });
                 i = pair.pathLine + 1;
                 continue;
@@ -801,6 +853,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
                     anchorsCommentBelow: anchorsCommentBelow(i, pair.pathLine),
                     rebuildLosesText: false,
                     trailingComment: ImportFormatter.extractTrailingComment(lines[pair.pathLine]),
+                    spanColumns: pairSpanColumns(i, pair),
                 });
                 i = pair.pathLine + 1;
                 continue;
@@ -892,6 +945,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
                 anchorsCommentBelow: anchorsCommentBelow(i, pair.pathLine),
                 rebuildLosesText: true,
                 trailingComment: ImportFormatter.extractTrailingComment(lines[pair.pathLine]),
+                spanColumns: pairSpanColumns(i, pair),
             });
             i = pair.pathLine + 1;
             continue;

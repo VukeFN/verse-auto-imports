@@ -1201,6 +1201,39 @@ function appliedOperations(call: number): RecordedOperation[] {
     return edit.operations;
 }
 
+/**
+ * The document text the recorded edit produces: every operation of one
+ * applyEdit call replayed onto `input`. Ranges are coordinates in `input`, as
+ * a WorkspaceEdit's are, so ops apply back-to-front; ties keep recorded order,
+ * with an insertion at the start of a replaced range landing first, as VS Code
+ * applies them.
+ */
+const appliedText = (input: string, call = 0): string => {
+    const lineStarts = [0];
+    for (let i = 0; i < input.length; i++) {
+        if (input[i] === "\n") {
+            lineStarts.push(i + 1);
+        }
+    }
+    const offsetAt = (position: { line: number; character: number }): number => {
+        const lineStart = lineStarts[Math.min(position.line, lineStarts.length - 1)];
+        return Math.min(lineStart + position.character, input.length);
+    };
+    const spans = appliedOperations(call).map((op, index) => {
+        if (op.kind === "insert") {
+            const offset = offsetAt(op.position!);
+            return { start: offset, end: offset, text: op.text ?? "", index };
+        }
+        return { start: offsetAt(op.range!.start), end: offsetAt(op.range!.end), text: op.kind === "replace" ? (op.text ?? "") : "", index };
+    });
+    spans.sort((a, b) => a.start - b.start || a.end - b.end || a.index - b.index);
+    let result = input;
+    for (let i = spans.length - 1; i >= 0; i--) {
+        result = result.slice(0, spans[i].start) + spans[i].text + result.slice(spans[i].end);
+    }
+    return result;
+};
+
 describe("ImportDocumentEditor.addImportsToDocument", () => {
     let editor: ImportDocumentEditor;
     const applyEditMock = () => vscode.workspace.applyEdit as unknown as jest.Mock;
@@ -1239,17 +1272,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
 
         expect(success).toBe(true);
-        const operations = appliedOperations(0);
-
-        const insert = operations.find((op) => op.kind === "insert");
-        expect(insert).toBeDefined();
-        expect(insert!.text).toContain("/Verse.org/Simulation");
-        expect(insert!.text).toContain("/Fortnite.com/Devices");
-
-        const deletes = operations.filter((op) => op.kind === "delete");
-        expect(deletes).toHaveLength(1);
-        expect(deletes[0].range!.start.line).toBe(0);
-        expect(deletes[0].range!.end.line).toBe(2);
+        expect(appliedText(input)).toBe("using { /Fortnite.com/Devices }\nusing { /Verse.org/Simulation }\n\nhello := 1");
     });
 
     it("recognizes an import that already exists as an indented pair and makes no edit", async () => {
@@ -1314,11 +1337,9 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
 
         expect(success).toBe(true);
-        const operations = appliedOperations(0);
-        expect(operations).toHaveLength(1);
-        expect(operations[0].kind).toBe("insert");
-        expect(operations[0].position).toEqual({ line: 4, character: 0 });
-        expect(operations[0].text).toBe("using { /Fortnite.com/Devices }\n\n");
+        expect(appliedText(input)).toBe(
+            "<#\nusing { /Fortnite.com/Devices }\n#>\n\nusing { /Fortnite.com/Devices }\n\nmy_device := class(creative_device):\n    Button : button_device = button_device{}",
+        );
     });
 
     it("adds a new import without rebuilding an import line that opens a block comment", async () => {
@@ -1329,11 +1350,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
 
         expect(success).toBe(true);
-        const operations = appliedOperations(0);
-        expect(operations).toHaveLength(1);
-        expect(operations[0].kind).toBe("insert");
-        expect(operations[0].position).toEqual({ line: 0, character: 0 });
-        expect(operations[0].text).toBe("using { /Fortnite.com/Devices }\n\n");
+        expect(appliedText(input)).toBe("using { /Fortnite.com/Devices }\n\nusing { /A } <# disabled below\nusing { /Old/Path }\n#>\n\ncode()");
     });
 
     it("still counts an import whose line opens a block comment as already present", async () => {
@@ -1391,15 +1408,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
 
         expect(success).toBe(true);
-        const operations = appliedOperations(0);
-
-        const insert = operations.find((op) => op.kind === "insert");
-        expect(insert!.text).not.toContain("/Verse.org/Random");
-
-        const deletes = operations.filter((op) => op.kind === "delete");
-        expect(deletes).toHaveLength(1);
-        expect(deletes[0].range!.start.line).toBe(0);
-        expect(deletes[0].range!.end.line).toBe(1);
+        expect(appliedText(input)).toBe("using { /Fortnite.com/Devices }\nusing { /Top }\n\nUtilities := module:\n    using { /Verse.org/Random }\n\n    GenerateId<public>():int = 1");
     });
 
     // The auto-import path, which users reach without invoking a command. It
@@ -1411,8 +1420,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Apple }"]);
 
         expect(success).toBe(true);
-        const replace = appliedOperations(0).find((op) => op.kind === "replace");
-        expect(replace!.text).toBe("using { /Apple }\nusing { /Zebra } # network only\n");
+        expect(appliedText(input)).toBe("using { /Apple }\nusing { /Zebra } # network only\n\nhello := 1");
     });
 
     it("keeps that comment when consolidating every import at the top", async () => {
@@ -1430,8 +1438,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Apple }"]);
 
         expect(success).toBe(true);
-        const insert = appliedOperations(0).find((op) => op.kind === "insert");
-        expect(insert!.text).toContain("using { /Zebra } # network only");
+        expect(appliedText(input)).toBe("using { /Apple }\nusing { /Zebra } # network only\n\nhello := 1");
     });
 
     it("does not add an import under an unclosed opener that ends the buffer", async () => {
@@ -1442,14 +1449,9 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /B }"]);
 
         expect(success).toBe(true);
-        // Pinned to the exact edit rather than to "no `<#` anywhere": a delete
-        // operation carries no text, so an assertion over every operation's
-        // text passes vacuously and would hold for an edit that writes nothing.
-        const operations = appliedOperations(0);
-        expect(operations).toHaveLength(1);
-        expect(operations[0].kind).toBe("insert");
-        expect(operations[0].text).toBe("using { /B }\n\n");
-        expect(operations[0].position!.line).toBe(0);
+        // Pinned to the whole document rather than to "no `<#` above the new
+        // import": that reading holds vacuously of an edit writing nothing.
+        expect(appliedText(input)).toBe("using { /B }\n\nhello := 1\nusing { /A } <#");
     });
 
     // The same two shapes through the auto-import path, which reaches the floor
@@ -1461,11 +1463,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Gadgets.Tools }"]);
 
         expect(success).toBe(true);
-        const operations = appliedOperations(0);
-        expect(operations).toHaveLength(1);
-        expect(operations[0].kind).toBe("insert");
-        expect(operations[0].text).toBe("using { Gadgets.Tools }\n\n");
-        expect(operations[0].position!.line).toBe(2);
+        expect(appliedText(input)).toBe("using { /A }; M := module:\n    Body<public>():int = 1\nusing { Gadgets.Tools }\n\ncode()");
     });
 
     it("does not add a relative import under an unclosed opener that ends the buffer", async () => {
@@ -1474,11 +1472,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Gadgets.Tools }"]);
 
         expect(success).toBe(true);
-        const operations = appliedOperations(0);
-        expect(operations).toHaveLength(1);
-        expect(operations[0].kind).toBe("insert");
-        expect(operations[0].text).toBe("using { Gadgets.Tools }\n\n");
-        expect(operations[0].position!.line).toBe(0);
+        expect(appliedText(input)).toBe("using { Gadgets.Tools }\n\nhello := 1\nusing { /A } <#");
     });
 
     it("adds it below a comment trailing the body a blank line separates from it", async () => {
@@ -1487,10 +1481,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Gadgets.Tools }"]);
 
         expect(success).toBe(true);
-        const operations = appliedOperations(0);
-        expect(operations).toHaveLength(1);
-        expect(operations[0].kind).toBe("insert");
-        expect(operations[0].position!.line).toBe(4);
+        expect(appliedText(input)).toBe("using { /A }; M := module:\n    Body<public>():int = 1\n\n    # what the module is for\nusing { Gadgets.Tools }\n\ncode()");
     });
 
     it("keeps the floor a pinned import above an unclosed opener raises", async () => {
@@ -1499,13 +1490,10 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features.Shop }"]);
 
         expect(success).toBe(true);
-        const operations = appliedOperations(0);
-        expect(operations).toHaveLength(1);
-        expect(operations[0].kind).toBe("insert");
         // Below the provider that could be bringing `Features` into scope, not
         // at the top of the file: the unwritable span above the comment is
         // skipped on its own, and takes no other pinned import's floor with it.
-        expect(operations[0].position!.line).toBe(1);
+        expect(appliedText(input)).toBe("using { Features }; X := 1\nusing { Features.Shop }\n\ncode()\nusing { /B } <# note");
     });
 
     function mockConfig(overrides: Record<string, unknown>): void {
@@ -1531,18 +1519,9 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Random }"]);
 
         expect(success).toBe(true);
-        const operations = appliedOperations(0);
-
-        const replace = operations.find((op) => op.kind === "replace");
-        expect(replace).toBeDefined();
-        expect(replace!.range!.start.line).toBe(3);
-        expect(replace!.text).toContain("/Fortnite.com/Random");
-        expect(replace!.text).toContain("/Verse.org/Simulation");
-        expect(replace!.text).toContain("/Fortnite.com/Devices");
-
-        // Nothing is inserted above the header comment.
-        const insertsAtTop = operations.filter((op) => op.kind === "insert" && op.position!.line === 0);
-        expect(insertsAtTop).toHaveLength(0);
+        expect(appliedText(input)).toBe(
+            "# Header comment line 1\n# Header comment line 2\n\nusing { /Fortnite.com/Devices }\nusing { /Fortnite.com/Random }\nusing { /Verse.org/Simulation }\n\nhello := 1",
+        );
     });
 
     it("preserve + localFirst: replaces a single import block below a header in place, not at the top", async () => {
@@ -1556,16 +1535,9 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Random }"]);
 
         expect(success).toBe(true);
-        const operations = appliedOperations(0);
-
-        const replace = operations.find((op) => op.kind === "replace");
-        expect(replace).toBeDefined();
-        expect(replace!.range!.start.line).toBe(3);
-        expect(replace!.text).toContain("/Fortnite.com/Random");
-        expect(replace!.text).toContain("/Verse.org/Simulation");
-
-        const insertsAtTop = operations.filter((op) => op.kind === "insert" && op.position!.line === 0);
-        expect(insertsAtTop).toHaveLength(0);
+        expect(appliedText(input)).toBe(
+            "# Header comment line 1\n# Header comment line 2\n\nusing { /Fortnite.com/Devices }\nusing { /Fortnite.com/Random }\nusing { /Verse.org/Simulation }\n\nhello := 1",
+        );
     });
 
     // Regrouping an ungrouped block writes the whole block, so localFirst gets
@@ -1582,12 +1554,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
 
         expect(success).toBe(true);
-        const operations = appliedOperations(0);
-
-        const replace = operations.find((op) => op.kind === "replace");
-        expect(replace).toBeDefined();
-        expect(replace!.text.indexOf("/Verse.org/Simulation")).toBeLessThan(replace!.text.indexOf("Economy.Shop"));
-        expect(replace!.text.indexOf("/Verse.org/Simulation")).toBeLessThan(replace!.text.indexOf("Features"));
+        expect(appliedText(input)).toBe("# Header comment line 1\n# Header comment line 2\n\nusing { /Verse.org/Simulation }\n\nusing { Economy.Shop }\nusing { Features }\n\nhello := 1");
     });
 
     // A file localFirst organized has two local blocks, one either side of the
@@ -1604,16 +1571,9 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /mygame@fortnite.com/mygame/Combat }", "using { Features }"]);
 
         expect(success).toBe(true);
-        const replaces = appliedOperations(0).filter((op) => op.kind === "replace");
-
-        const upper = replaces.find((op) => op.range!.start.line === 0);
-        expect(upper).toBeDefined();
-        expect(upper!.text).toContain("/mygame@fortnite.com/mygame/Combat");
-
-        const lower = replaces.find((op) => op.range!.start.line === 4);
-        expect(lower).toBeDefined();
-        expect(lower!.text).toContain("Features");
-        expect(lower!.text).not.toContain("Combat");
+        expect(appliedText(input)).toBe(
+            "using { /mygame@fortnite.com/mygame/Combat }\nusing { /mygame@fortnite.com/mygame/Utils }\n\nusing { /Verse.org/Simulation }\n\nusing { Economy.Shop }\nusing { Features }\n\nhello := 1",
+        );
     });
 
     it("preserve + digestFirst: a new bare local import lands after the dotted local import already in its block", async () => {
@@ -1627,11 +1587,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
 
         expect(success).toBe(true);
-        const operations = appliedOperations(0);
-
-        const replace = operations.find((op) => op.kind === "replace");
-        expect(replace).toBeDefined();
-        expect(replace!.text).toBe("using { Economy.Shop }\nusing { Features }\n");
+        expect(appliedText(input)).toBe("# Header comment line 1\n# Header comment line 2\n\nusing { /Verse.org/Simulation }\n\nusing { Economy.Shop }\nusing { Features }\n\nhello := 1");
     });
 
     it("preserve + grouping none + sort on (default config): merges a new bare import into the existing block, below the import already there", async () => {
@@ -1645,16 +1601,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
 
         expect(success).toBe(true);
-        const operations = appliedOperations(0);
-
-        const replace = operations.find((op) => op.kind === "replace");
-        expect(replace).toBeDefined();
-        expect(replace!.range!.start.line).toBe(0);
-        expect(replace!.text).toBe("using { Economy.Shop }\nusing { Features }\n");
-
-        // The new import is not appended after the block.
-        const insertsAfterBlock = operations.filter((op) => op.kind === "insert" && op.position!.line === 1);
-        expect(insertsAfterBlock).toHaveLength(0);
+        expect(appliedText(input)).toBe("using { Economy.Shop }\nusing { Features }\n\nhello := 1");
     });
 
     it("preserve + grouping none + sort OFF: keeps the original append-after-block behavior and leaves existing lines untouched", async () => {
@@ -1668,15 +1615,9 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
 
         expect(success).toBe(true);
-        const operations = appliedOperations(0);
-
-        // No block is rewritten; the existing import line stays as-is.
-        expect(operations.some((op) => op.kind === "replace")).toBe(false);
-
-        const insert = operations.find((op) => op.kind === "insert");
-        expect(insert).toBeDefined();
-        expect(insert!.position!.line).toBe(1);
-        expect(insert!.text).toBe("using { Features }\n");
+        // Appending after the block and merging into it write the same text
+        // here, and the text is the observable contract.
+        expect(appliedText(input)).toBe("using { Economy.Shop }\nusing { Features }\n\nhello := 1");
     });
 
     // A blank line between imports starts a second block, and rank-sorting only
@@ -1693,10 +1634,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
 
         expect(success).toBe(true);
-        const replaces = appliedOperations(0).filter((op) => op.kind === "replace");
-        expect(replaces).toHaveLength(1);
-        expect(replaces[0].range!.start.line).toBe(2);
-        expect(replaces[0].text).toBe("using { Features }\nusing { Economy.Shop }\n");
+        expect(appliedText(input)).toBe("using { /Verse.org/Simulation }\n\nusing { Features }\nusing { Economy.Shop }\n\nhello := 1");
     });
 
     // The dotted import in the earlier block can be what brings the new import's
@@ -1713,10 +1651,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
 
         expect(success).toBe(true);
-        const replaces = appliedOperations(0).filter((op) => op.kind === "replace");
-        expect(replaces).toHaveLength(1);
-        expect(replaces[0].range!.start.line).toBe(2);
-        expect(replaces[0].text).toBe("using { /Verse.org/Simulation }\nusing { Features }\n");
+        expect(appliedText(input)).toBe("using { Economy.Shop }\n\nusing { /Verse.org/Simulation }\nusing { Features }\n\nhello := 1");
     });
 
     it("preserve + grouping none + sort on: a new absolute import still joins the first block", async () => {
@@ -1730,10 +1665,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Random }"]);
 
         expect(success).toBe(true);
-        const replaces = appliedOperations(0).filter((op) => op.kind === "replace");
-        expect(replaces).toHaveLength(1);
-        expect(replaces[0].range!.start.line).toBe(0);
-        expect(replaces[0].text).toBe("using { /Fortnite.com/Random }\nusing { /Verse.org/Simulation }\n");
+        expect(appliedText(input)).toBe("using { /Fortnite.com/Random }\nusing { /Verse.org/Simulation }\n\nusing { /Fortnite.com/Devices }\n\nhello := 1");
     });
 
     it("preserve + grouping none + sort on: imports whose ranks want different blocks are merged into each block separately", async () => {
@@ -1747,18 +1679,9 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Random }", "using { Economy.Shop }"]);
 
         expect(success).toBe(true);
-        const replaces = appliedOperations(0).filter((op) => op.kind === "replace");
-        expect(replaces).toHaveLength(2);
-
         // The absolute path joins the block of absolute paths, the dotted
         // reference the block holding its provider.
-        expect(replaces[0].range!.start.line).toBe(0);
-        expect(replaces[0].text).toBe("using { /Fortnite.com/Random }\nusing { /Verse.org/Simulation }\n");
-        expect(replaces[1].range!.start.line).toBe(2);
-        expect(replaces[1].text).toBe("using { Features }\nusing { Economy.Shop }\n");
-
-        // Blocks are disjoint, so the two replacements cannot overlap.
-        expect(replaces[0].range!.end.line).toBeLessThanOrEqual(replaces[1].range!.start.line);
+        expect(appliedText(input)).toBe("using { /Fortnite.com/Random }\nusing { /Verse.org/Simulation }\n\nusing { Features }\nusing { Economy.Shop }\n\nhello := 1");
     });
 
     it("preserve + grouping none + sort OFF: appends after the last import block, not the first", async () => {
@@ -1772,13 +1695,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
 
         expect(success).toBe(true);
-        const operations = appliedOperations(0);
-        expect(operations.some((op) => op.kind === "replace")).toBe(false);
-
-        const insert = operations.find((op) => op.kind === "insert");
-        expect(insert).toBeDefined();
-        expect(insert!.position!.line).toBe(3);
-        expect(insert!.text).toBe("using { Economy.Shop }\n");
+        expect(appliedText(input)).toBe("using { /Verse.org/Simulation }\n\nusing { Features }\nusing { Economy.Shop }\n\nhello := 1");
     });
 
     // Line 0 is the top of the file, not the top of the import block. Inserting
@@ -1795,15 +1712,12 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
 
         expect(success).toBe(true);
-        const insert = appliedOperations(0).find((op) => op.kind === "insert");
-        expect(insert).toBeDefined();
-        expect(insert!.position!.line).toBe(3);
-        expect(insert!.text).toBe("using { Economy.Shop }\n");
+        expect(appliedText(input)).toBe("# Copyright 2026 MyGame\n\nusing { /Verse.org/Simulation }\nusing { Economy.Shop }\n\nhello := 1");
     });
 
-    // The line after the last import does not exist in a document with no
-    // trailing newline, and VS Code clamps a position past the end onto the end
-    // of the last line - splicing the two statements into one unreadable line.
+    // A document with no trailing newline has no line below its last import for
+    // the new one to occupy, so the new statement has to arrive carrying its own
+    // line break - or the two of them end up spliced onto one unreadable line.
     it("preserve + grouping none + sort OFF: appends onto a block that ends the document", async () => {
         mockConfig({
             "behavior.preserveImportLocations": true,
@@ -1815,11 +1729,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /B }"]);
 
         expect(success).toBe(true);
-        const insert = appliedOperations(0).find((op) => op.kind === "insert");
-        expect(insert).toBeDefined();
-        expect(insert!.position!.line).toBe(1);
-        expect(insert!.position!.character).toBe("using { /A }".length);
-        expect(insert!.text).toBe("\nusing { /B }");
+        expect(appliedText(input)).toBe("code()\nusing { /A }\nusing { /B }");
     });
 
     it("writes CRLF endings into a CRLF document when merging into an existing block", async () => {
@@ -1833,8 +1743,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input, vscode.EndOfLine.CRLF), ["using { Features }"]);
 
         expect(success).toBe(true);
-        const replace = appliedOperations(0).find((op) => op.kind === "replace");
-        expect(replace!.text).toBe("using { Economy.Shop }\r\nusing { Features }\r\n");
+        expect(appliedText(input)).toBe("using { Economy.Shop }\r\nusing { Features }\r\n\r\nhello := 1\r\n");
     });
 
     it("writes CRLF endings into a CRLF document when inserting a new block at the top", async () => {
@@ -1847,8 +1756,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input, vscode.EndOfLine.CRLF), ["using { /Fortnite.com/Random }"]);
 
         expect(success).toBe(true);
-        const insert = appliedOperations(0).find((op) => op.kind === "insert");
-        expect(insert!.text).toBe("using { /Fortnite.com/Random }\r\n\r\n");
+        expect(appliedText(input)).toBe("using { /Fortnite.com/Random }\r\n\r\nhello := 1\r\nworld := 2\r\n");
     });
 
     it("writes CRLF endings into a CRLF document when consolidating at the top", async () => {
@@ -1858,8 +1766,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input, vscode.EndOfLine.CRLF), ["using { /Fortnite.com/Devices }"]);
 
         expect(success).toBe(true);
-        const insert = appliedOperations(0).find((op) => op.kind === "insert");
-        expect(insert!.text).toBe("using { /Fortnite.com/Devices }\r\nusing { /Verse.org/Simulation }\r\n");
+        expect(appliedText(input)).toBe("using { /Fortnite.com/Devices }\r\nusing { /Verse.org/Simulation }\r\n\r\nhello := 1\r\n");
     });
 
     it("preserve + digestFirst: inserts at the top when the file has no existing imports", async () => {
@@ -1872,15 +1779,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Random }"]);
 
         expect(success).toBe(true);
-        const operations = appliedOperations(0);
-
-        const insert = operations.find((op) => op.kind === "insert");
-        expect(insert).toBeDefined();
-        expect(insert!.position!.line).toBe(0);
-        expect(insert!.text).toContain("/Fortnite.com/Random");
-
-        expect(operations.some((op) => op.kind === "replace")).toBe(false);
-        expect(operations.some((op) => op.kind === "delete")).toBe(false);
+        expect(appliedText(input)).toBe("using { /Fortnite.com/Random }\n\nhello := 1\nworld := 2");
     });
 
     // The rule that a header stays above the block was held by the organize
@@ -1900,10 +1799,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
 
             expect(success).toBe(true);
-            const insert = appliedOperations(0).find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(2);
-            expect(insert!.text).toBe("using { /Fortnite.com/Devices }\n\n");
+            expect(appliedText(input)).toBe("# Copyright 2026 MyGame\n\nusing { /Fortnite.com/Devices }\n\nhello := 1");
         });
 
         // Grouping with no block of its own to regroup: the file's only import
@@ -1919,10 +1815,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
 
             expect(success).toBe(true);
-            const insert = appliedOperations(0).find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(2);
-            expect(insert!.text).toBe("using { /Fortnite.com/Devices }\n\n");
+            expect(appliedText(input)).toBe("# Copyright 2026 MyGame\n\nusing { /Fortnite.com/Devices }\n\nusing { Economy.Shop } <#> note\n    body\nhello := 1");
         });
 
         it("consolidating: writes the consolidated block below the header", async () => {
@@ -1932,10 +1825,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
 
             expect(success).toBe(true);
-            const insert = appliedOperations(0).find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(2);
-            expect(insert!.text).toBe("using { /Fortnite.com/Devices }\nusing { /Verse.org/Simulation }\n");
+            expect(appliedText(input)).toBe("# Copyright 2026 MyGame\n\nusing { /Fortnite.com/Devices }\nusing { /Verse.org/Simulation }\n\nhello := 1");
         });
 
         // Every case above has code below the header. Where the header is an
@@ -1949,9 +1839,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /B }"]);
 
             expect(success).toBe(true);
-            const insert = appliedOperations(0).find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(0);
+            expect(appliedText(input)).toBe("using { /B }\n\n<# note\nstill note");
         });
 
         it("writes between a closed header and the unclosed opener below it", async () => {
@@ -1961,9 +1849,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /B }"]);
 
             expect(success).toBe(true);
-            const insert = appliedOperations(0).find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(1);
+            expect(appliedText(input)).toBe("# Copyright 2026 MyGame\nusing { /B }\n\n<# unclosed\nmore");
         });
     });
 
@@ -1984,14 +1870,10 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
-            expect(operations).toHaveLength(1);
-            expect(operations[0].kind).toBe("insert");
-            // Line 2, not line 1: the line below the marker is the comment's
-            // own body, and an import at column 0 there both lands inside the
-            // comment and truncates the rest of what the author wrote.
-            expect(operations[0].position).toEqual({ line: 2, character: 0 });
-            expect(operations[0].text).toBe("using { Economy.Shop }\n\n");
+            // Below the comment body, not between the marker and it: an import
+            // at column 0 there both lands inside the comment and truncates the
+            // rest of what the author wrote.
+            expect(appliedText(input)).toBe("using { Features } <#> why this is here\n    it brings Economy into scope\nusing { Economy.Shop }\n\ncode()");
         });
 
         it("writes a new consumer below an anchored provider, past the block comment it leaves open", async () => {
@@ -2005,11 +1887,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
-            expect(operations).toHaveLength(1);
-            expect(operations[0].kind).toBe("insert");
-            expect(operations[0].position).toEqual({ line: 3, character: 0 });
-            expect(operations[0].text).toBe("using { Economy.Shop }\n\n");
+            expect(appliedText(input)).toBe("using { Features } <# why this is here\nit brings Economy into scope\n#>\nusing { Economy.Shop }\n\ncode()");
         });
 
         it("keeps a new consumer out of a block that sits above the anchored provider it needs", async () => {
@@ -2023,14 +1901,8 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
             // The block at line 0 would have taken it, above the provider.
-            expect(operations.some((op) => op.kind === "replace")).toBe(false);
-
-            const insert = operations.find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(4);
-            expect(insert!.text).toBe("using { Economy.Shop }\n\n");
+            expect(appliedText(input)).toBe("using { /Verse.org/Simulation }\n\nusing { Features } <#> note\n    body\nusing { Economy.Shop }\n\ncode()");
         });
 
         it("still merges a new consumer into a block that sits below the anchored provider", async () => {
@@ -2044,15 +1916,9 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
             // Nothing forbids that block, so the ordinary merge still happens
             // rather than a standalone line.
-            expect(operations.some((op) => op.kind === "insert")).toBe(false);
-
-            const replace = operations.find((op) => op.kind === "replace");
-            expect(replace).toBeDefined();
-            expect(replace!.range!.start.line).toBe(3);
-            expect(replace!.text).toBe("using { /Verse.org/Simulation }\nusing { Economy.Shop }\n");
+            expect(appliedText(input)).toBe("using { Features } <#> note\n    body\n\nusing { /Verse.org/Simulation }\nusing { Economy.Shop }\ncode()");
         });
 
         it("writes a new provider above the anchored consumer that depends on it", async () => {
@@ -2066,15 +1932,9 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 0));
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
             // Merging into the block below would put the provider under the
             // anchored consumer, which is the same breakage the other way up.
-            expect(operations.some((op) => op.kind === "replace")).toBe(false);
-
-            const insert = operations.find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(0);
-            expect(insert!.text).toBe("using { Features }\n\n");
+            expect(appliedText(input)).toBe("using { Features }\n\nusing { Economy.Shop } <#> note\n    body\n\nusing { /Verse.org/Simulation }\ncode()");
         });
 
         // The anchored consumer names the line the new import must stay above,
@@ -2093,13 +1953,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 2));
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
-            expect(operations.some((op) => op.kind === "insert")).toBe(false);
-
-            const replace = operations.find((op) => op.kind === "replace");
-            expect(replace).toBeDefined();
-            expect(replace!.range!.start.line).toBe(0);
-            expect(replace!.text).toBe("using { /Verse.org/Simulation }\nusing { Features }\n");
+            expect(appliedText(input)).toBe("using { /Verse.org/Simulation }\nusing { Features }\n\nusing { Economy.Shop } <#> note\n    body\ncode()");
         });
 
         it("sort OFF: appends below the anchored provider rather than after the last block", async () => {
@@ -2113,10 +1967,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
 
             expect(success).toBe(true);
-            const insert = appliedOperations(0).find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(4);
-            expect(insert!.text).toBe("using { Economy.Shop }\n");
+            expect(appliedText(input)).toBe("using { /Verse.org/Simulation }\n\nusing { Features } <#> note\n    body\nusing { Economy.Shop }\ncode()");
         });
 
         // The provider has to clear the anchored consumer, and an anchored
@@ -2134,10 +1985,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 0));
 
             expect(success).toBe(true);
-            const insert = appliedOperations(0).find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(0);
-            expect(insert!.text).toBe("using { Features }\n\n");
+            expect(appliedText(input)).toBe("using { Features }\n\nusing { Economy.Shop } <#> note\n    body\nusing { /A } <#> note\n    body\ncode()");
         });
 
         // Directly above the statement that needs it, which is not the same
@@ -2156,10 +2004,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 2));
 
             expect(success).toBe(true);
-            const insert = appliedOperations(0).find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(2);
-            expect(insert!.text).toBe("using { Features }\n\n");
+            expect(appliedText(input)).toBe("# Copyright 2026 MyGame\n\nusing { Features }\n\nusing { Economy.Shop } <#> note\n    body\nusing { /Verse.org/Simulation }\ncode()");
         });
 
         // An anchored bare import does not constrain a new absolute one: an
@@ -2178,13 +2023,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
-            expect(operations.some((op) => op.kind === "insert")).toBe(false);
-
-            const replace = operations.find((op) => op.kind === "replace");
-            expect(replace).toBeDefined();
-            expect(replace!.range!.start.line).toBe(2);
-            expect(replace!.text).toBe("using { /Fortnite.com/Devices }\nusing { /Verse.org/Simulation }\n");
+            expect(appliedText(input)).toBe("using { Features } <#> why\n    body\nusing { /Fortnite.com/Devices }\nusing { /Verse.org/Simulation }\ncode()");
         });
 
         it("digestFirst with two existing groups: keeps a new consumer out of the group above the anchored provider", async () => {
@@ -2197,14 +2036,8 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
             // The local group at line 2 would have taken it, above the provider.
-            expect(operations.some((op) => op.kind === "replace")).toBe(false);
-
-            const insert = operations.find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(6);
-            expect(insert!.text).toBe("using { Economy.Shop }\n");
+            expect(appliedText(input)).toBe("using { /Verse.org/Simulation }\n\nusing { Other }\n\nusing { Features } <#> note\n    body\nusing { Economy.Shop }\ncode()");
         });
 
         // Two new paths of different ranks take their bounds from different
@@ -2221,16 +2054,9 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }", "using { Zone.Area }"]);
 
             expect(success).toBe(true);
-            const inserts = appliedOperations(0).filter((op) => op.kind === "insert");
-            expect(inserts).toHaveLength(2);
-
-            // The absolute path is only needed above the anchored consumer.
-            expect(inserts[0].position!.line).toBe(0);
-            expect(inserts[0].text).toBe("using { /Fortnite.com/Devices }\n\n");
-
-            // The dotted one needs `Features` above it, so it goes below.
-            expect(inserts[1].position!.line).toBe(4);
-            expect(inserts[1].text).toBe("using { Zone.Area }\n\n");
+            // The absolute path is only needed above the anchored consumer; the
+            // dotted one needs `Features` above it, so it goes below.
+            expect(appliedText(input)).toBe("using { /Fortnite.com/Devices }\n\nusing { Economy.Shop } <#> note\n    body\nusing { Features } <#> why\n    body\nusing { Zone.Area }\n\ncode()");
         });
 
         // The one branch that rewrites a block in place and inserts on its own
@@ -2246,20 +2072,10 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 0));
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
-
             // The existing block is rebuilt where it stands, without the
-            // displaced path in it.
-            const replace = operations.find((op) => op.kind === "replace");
-            expect(replace).toBeDefined();
-            expect(replace!.range!.start.line).toBe(2);
-            expect(replace!.text).toBe("using { /Verse.org/Simulation }\n");
-
-            // The provider goes above the anchored consumer that needs it.
-            const insert = operations.find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(0);
-            expect(insert!.text).toBe("using { Features }\n");
+            // displaced path in it, and the provider goes above the anchored
+            // consumer that needs it.
+            expect(appliedText(input)).toBe("using { Features }\nusing { Economy.Shop } <#> note\n    body\nusing { /Verse.org/Simulation }\ncode()");
         });
 
         it("digestFirst: writes the new group below the anchored provider, not at the top", async () => {
@@ -2272,10 +2088,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
 
             expect(success).toBe(true);
-            const insert = appliedOperations(0).find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(2);
-            expect(insert!.text).toBe("using { Economy.Shop }\n\n");
+            expect(appliedText(input)).toBe("using { Features } <#> note\n    body\nusing { Economy.Shop }\n\ncode()");
         });
     });
 
@@ -2294,14 +2107,8 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Delta }"]);
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
             // The local group at line 0 would have taken it, above Beta.Gamma.
-            expect(operations.some((op) => op.kind === "replace")).toBe(false);
-
-            const insert = operations.find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(4);
-            expect(insert!.text).toBe("using { Delta }\n");
+            expect(appliedText(input)).toBe("using { Alpha }\n\nusing { /Verse.org/Simulation }\nusing { Beta.Gamma }\nusing { Delta }\n\ncode()");
         });
 
         it("localFirst: keeps a new relative import out of the local group above a later relative import", async () => {
@@ -2314,13 +2121,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Delta }"]);
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
-            expect(operations.some((op) => op.kind === "replace")).toBe(false);
-
-            const insert = operations.find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(4);
-            expect(insert!.text).toBe("using { Delta }\n");
+            expect(appliedText(input)).toBe("using { Alpha }\n\nusing { /Verse.org/Simulation }\nusing { Beta.Gamma }\nusing { Delta }\n\ncode()");
         });
 
         it("still merges a new relative import into its group when every block below holds only absolute imports", async () => {
@@ -2333,15 +2134,9 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Delta }"]);
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
             // Nothing below can be providing for it, so the group still takes
             // it rather than falling back to a standalone line.
-            expect(operations.some((op) => op.kind === "insert")).toBe(false);
-
-            const replace = operations.find((op) => op.kind === "replace");
-            expect(replace).toBeDefined();
-            expect(replace!.range!.start.line).toBe(0);
-            expect(replace!.text).toBe("using { Alpha }\nusing { Delta }\n");
+            expect(appliedText(input)).toBe("using { Alpha }\nusing { Delta }\n\nusing { /Verse.org/Simulation }\n\ncode()");
         });
 
         it("still merges a new absolute import into the digest group above a later relative import", async () => {
@@ -2354,15 +2149,9 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
             // An absolute path needs nothing in scope above it, so a relative
             // import below is not a provider it has to stay under.
-            expect(operations.some((op) => op.kind === "insert")).toBe(false);
-
-            const replace = operations.find((op) => op.kind === "replace");
-            expect(replace).toBeDefined();
-            expect(replace!.range!.start.line).toBe(0);
-            expect(replace!.text).toBe("using { /Fortnite.com/Devices }\nusing { /Verse.org/Simulation }\n");
+            expect(appliedText(input)).toBe("using { /Fortnite.com/Devices }\nusing { /Verse.org/Simulation }\n\nusing { Alpha }\nusing { Beta.Gamma }\n\ncode()");
         });
     });
 
@@ -2385,14 +2174,8 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
             // The block at line 0 would have taken it, above the provider.
-            expect(operations.some((op) => op.kind === "replace")).toBe(false);
-
-            const insert = operations.find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(3);
-            expect(insert!.text).toBe("using { Economy.Shop }\n\n");
+            expect(appliedText(input)).toBe("using { /Verse.org/Simulation }\nX := 1\nusing { Features }; MyVal := 5\nusing { Economy.Shop }\n\ncode()");
         });
 
         it("still merges a new consumer into a block that sits below the pinned provider", async () => {
@@ -2406,15 +2189,9 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
             // Nothing forbids that block, so the ordinary merge still happens
             // rather than a standalone line.
-            expect(operations.some((op) => op.kind === "insert")).toBe(false);
-
-            const replace = operations.find((op) => op.kind === "replace");
-            expect(replace).toBeDefined();
-            expect(replace!.range!.start.line).toBe(1);
-            expect(replace!.text).toBe("using { /Verse.org/Simulation }\nusing { Economy.Shop }\n");
+            expect(appliedText(input)).toBe("using { Features }; MyVal := 5\nusing { /Verse.org/Simulation }\nusing { Economy.Shop }\ncode()");
         });
 
         it("writes a new provider above the pinned consumer that depends on it", async () => {
@@ -2428,15 +2205,9 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 0));
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
             // Merging into the block below would put the provider under the
             // pinned consumer, which is the same breakage the other way up.
-            expect(operations.some((op) => op.kind === "replace")).toBe(false);
-
-            const insert = operations.find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(0);
-            expect(insert!.text).toBe("using { Features }\n\n");
+            expect(appliedText(input)).toBe("using { Features }\n\nusing { Economy.Shop }; MyVal := 5\nusing { /Verse.org/Simulation }\ncode()");
         });
 
         // The same file and the same new import as the test above, differing
@@ -2457,13 +2228,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 2));
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
-            expect(operations.some((op) => op.kind === "insert")).toBe(false);
-
-            const replace = operations.find((op) => op.kind === "replace");
-            expect(replace).toBeDefined();
-            expect(replace!.range!.start.line).toBe(1);
-            expect(replace!.text).toBe("using { /Verse.org/Simulation }\nusing { Features }\n");
+            expect(appliedText(input)).toBe("using { Economy.Shop }; MyVal := 5\nusing { /Verse.org/Simulation }\nusing { Features }\ncode()");
         });
 
         // Regression for the diagnostic landing on the pinned line but inside
@@ -2484,13 +2249,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 0, 24));
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
-            expect(operations.some((op) => op.kind === "insert")).toBe(false);
-
-            const replace = operations.find((op) => op.kind === "replace");
-            expect(replace).toBeDefined();
-            expect(replace!.range!.start.line).toBe(1);
-            expect(replace!.text).toBe("using { /Verse.org/Simulation }\nusing { Features }\n");
+            expect(appliedText(input)).toBe("using { Economy.Shop }; MyVal := 5\nusing { /Verse.org/Simulation }\nusing { Features }\ncode()");
         });
 
         // The same line, the diagnostic now inside the clause itself - column 8
@@ -2508,13 +2267,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 0, 8));
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
-            expect(operations.some((op) => op.kind === "replace")).toBe(false);
-
-            const insert = operations.find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(0);
-            expect(insert!.text).toBe("using { Features }\n\n");
+            expect(appliedText(input)).toBe("using { Features }\n\nusing { Economy.Shop }; MyVal := 5\nusing { /Verse.org/Simulation }\ncode()");
         });
 
         // A clause written after a definition starts at column 8, so the head
@@ -2532,13 +2285,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 0, 16));
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
-            expect(operations.some((op) => op.kind === "replace")).toBe(false);
-
-            const insert = operations.find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(0);
-            expect(insert!.text).toBe("using { Features }\n\n");
+            expect(appliedText(input)).toBe("using { Features }\n\nX := 1; using { Economy.Shop }\nusing { /Verse.org/Simulation }\ncode()");
         });
 
         it("takes no override from a diagnostic on the definition preceding a clause", async () => {
@@ -2552,13 +2299,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 0, 0));
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
-            expect(operations.some((op) => op.kind === "insert")).toBe(false);
-
-            const replace = operations.find((op) => op.kind === "replace");
-            expect(replace).toBeDefined();
-            expect(replace!.range!.start.line).toBe(1);
-            expect(replace!.text).toBe("using { /Verse.org/Simulation }\nusing { Features }\n");
+            expect(appliedText(input)).toBe("X := 1; using { Economy.Shop }\nusing { /Verse.org/Simulation }\nusing { Features }\ncode()");
         });
 
         // The span is two lines and the compiler reports an unresolved path on
@@ -2576,10 +2317,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 1));
 
             expect(success).toBe(true);
-            const insert = appliedOperations(0).find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(0);
-            expect(insert!.text).toBe("using { Features }\n\n");
+            expect(appliedText(input)).toBe("using { Features }\n\nusing { Other }; using:\n    Economy.Shop\nusing { /Verse.org/Simulation }\ncode()");
         });
 
         // Regression for the diagnostic landing on the opener line of a pinned
@@ -2600,13 +2338,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 0, 0));
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
-            expect(operations.some((op) => op.kind === "insert")).toBe(false);
-
-            const replace = operations.find((op) => op.kind === "replace");
-            expect(replace).toBeDefined();
-            expect(replace!.range!.start.line).toBe(2);
-            expect(replace!.text).toBe("using { /Verse.org/Simulation }\nusing { Features }\n");
+            expect(appliedText(input)).toBe("X := 1; using:\n    Economy.Shop\nusing { /Verse.org/Simulation }\nusing { Features }\ncode()");
         });
 
         // The same file with the diagnostic inside the `using:` opener itself -
@@ -2623,13 +2355,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 0, 8));
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
-            expect(operations.some((op) => op.kind === "replace")).toBe(false);
-
-            const insert = operations.find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(0);
-            expect(insert!.text).toBe("using { Features }\n\n");
+            expect(appliedText(input)).toBe("using { Features }\n\nX := 1; using:\n    Economy.Shop\nusing { /Verse.org/Simulation }\ncode()");
         });
 
         // The path text ends at column 16 and column 17 is inside the trailing
@@ -2647,13 +2373,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 1, 17));
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
-            expect(operations.some((op) => op.kind === "insert")).toBe(false);
-
-            const replace = operations.find((op) => op.kind === "replace");
-            expect(replace).toBeDefined();
-            expect(replace!.range!.start.line).toBe(2);
-            expect(replace!.text).toBe("using { /Verse.org/Simulation }\nusing { Features }\n");
+            expect(appliedText(input)).toBe("X := 1; using:\n    Economy.Shop # note\nusing { /Verse.org/Simulation }\nusing { Features }\ncode()");
         });
 
         // The floor reaches past the pinned statement, because the `using:` at
@@ -2672,10 +2392,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
 
             expect(success).toBe(true);
-            const insert = appliedOperations(0).find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(2);
-            expect(insert!.text).toBe("using { Features }\n\n");
+            expect(appliedText(input)).toBe("X := 1; using { /A }; using:\n    Foo'Loc'\nusing { Features }\n\ncode()");
         });
 
         // A caller that names no diagnostic has to be read as evidence of
@@ -2692,13 +2409,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
-            expect(operations.some((op) => op.kind === "insert")).toBe(false);
-
-            const replace = operations.find((op) => op.kind === "replace");
-            expect(replace).toBeDefined();
-            expect(replace!.range!.start.line).toBe(1);
-            expect(replace!.text).toBe("using { /Verse.org/Simulation }\nusing { Features }\n");
+            expect(appliedText(input)).toBe("using { Economy.Shop }; MyVal := 5\nusing { /Verse.org/Simulation }\nusing { Features }\ncode()");
         });
 
         it("sort OFF: appends below the pinned provider rather than after the last block", async () => {
@@ -2712,10 +2423,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
 
             expect(success).toBe(true);
-            const insert = appliedOperations(0).find((op) => op.kind === "insert");
-            expect(insert).toBeDefined();
-            expect(insert!.position!.line).toBe(3);
-            expect(insert!.text).toBe("using { Economy.Shop }\n");
+            expect(appliedText(input)).toBe("using { /Verse.org/Simulation }\nX := 1\nusing { Features }; MyVal := 5\nusing { Economy.Shop }\ncode()");
         });
     });
 
@@ -2737,11 +2445,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
-            expect(operations).toHaveLength(1);
-            expect(operations[0].kind).toBe("insert");
-            expect(operations[0].position).toEqual({ line: 0, character: 0 });
-            expect(operations[0].text).toBe("using { /Fortnite.com/Devices }\n");
+            expect(appliedText(input)).toBe("using { /Fortnite.com/Devices }\nusing { Features }; X := 1\nusing { Economy.Shop }\ncode()");
         });
 
         it("still hoists a consumer written above the pinned line", async () => {
@@ -2751,16 +2455,9 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
             // Position is the question, not presence: hoisting this one lands
             // it above the pinned line, which is where it already was.
-            const insert = operations.find((op) => op.kind === "insert");
-            expect(insert!.text).toBe("using { /Fortnite.com/Devices }\nusing { Economy.Shop }\n");
-
-            const deletes = operations.filter((op) => op.kind === "delete");
-            expect(deletes).toHaveLength(1);
-            expect(deletes[0].range!.start.line).toBe(0);
-            expect(deletes[0].range!.end.line).toBe(1);
+            expect(appliedText(input)).toBe("using { /Fortnite.com/Devices }\nusing { Economy.Shop }\nusing { Features }; MyVal := 5\ncode()");
         });
 
         it("writes a new consumer below the pinned provider instead of into the block", async () => {
@@ -2770,20 +2467,9 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy.Shop }"]);
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
-
-            const inserts = operations.filter((op) => op.kind === "insert");
-            expect(inserts).toHaveLength(2);
-            expect(inserts[0].position).toEqual({ line: 0, character: 0 });
-            expect(inserts[0].text).toBe("using { /Verse.org/Simulation }\n");
-            expect(inserts[1].position!.line).toBe(1);
-            expect(inserts[1].text).toBe("using { Economy.Shop }\n");
-
-            // The hoisted import still leaves its line, or the file imports it
-            // twice.
-            const deletes = operations.filter((op) => op.kind === "delete");
-            expect(deletes).toHaveLength(1);
-            expect(deletes[0].range).toEqual({ start: { line: 1, character: 0 }, end: { line: 2, character: 0 } });
+            // The hoisted import leaves the line it was written on, or the
+            // file imports it twice.
+            expect(appliedText(input)).toBe("using { /Verse.org/Simulation }\nusing { Features }; MyVal := 5\nusing { Economy.Shop }\ncode()");
         });
 
         // The same shape as the test below, with no diagnostic naming the
@@ -2798,15 +2484,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
-
-            const top = operations.find((op) => op.kind === "insert" && op.position!.line === 0);
-            expect(top).toBeDefined();
-            expect(top!.text).toBe("using { /A }\n");
-
-            const below = operations.find((op) => op.kind === "insert" && op.text.includes("using { Features }"));
-            expect(below).toBeDefined();
-            expect(below!.position!.line).toBe(3);
+            expect(appliedText(input)).toBe("using { /A }\ncode()\nusing { Economy.Shop }; X := 1\nusing { Features }\nmore()");
         });
 
         it("still consolidates a new provider the pinned consumer below it may need", async () => {
@@ -2816,14 +2494,9 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 2));
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
             // The block itself sits above the pinned consumer, so nothing is
             // gained by writing the provider on a line of its own further down.
-            expect(operations).toHaveLength(2);
-            expect(operations[0].kind).toBe("insert");
-            expect(operations[0].position).toEqual({ line: 0, character: 0 });
-            expect(operations[0].text).toBe("using { /A }\nusing { Features }\n");
-            expect(operations[1].range).toEqual({ start: { line: 0, character: 0 }, end: { line: 1, character: 0 } });
+            expect(appliedText(input)).toBe("using { /A }\nusing { Features }\ncode()\nusing { Economy.Shop }; X := 1");
         });
 
         it("takes the floor over a pinned consumer sitting above it", async () => {
@@ -2837,11 +2510,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             // for, and it is left unfixed: the line above it is also above the
             // pinned import that may bring this path's own first segment into
             // scope. A compiling file outranks a fixed diagnostic.
-            const operations = appliedOperations(0);
-            expect(operations).toHaveLength(1);
-            expect(operations[0].kind).toBe("insert");
-            expect(operations[0].position!.line).toBe(3);
-            expect(operations[0].text).toBe("using { Economy }\n");
+            expect(appliedText(input)).toBe("using { Economy.Shop }; X := 1\ncode()\nusing { Features }; Y := 2\nusing { Economy }\nmore()");
         });
 
         it("keeps both copies of a path written on either side of the pinned line", async () => {
@@ -2854,10 +2523,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             // Grounding is keyed on the path: hoisting the copy above the
             // pinned line while the block declines to re-emit the path would
             // delete the one line that had to keep it.
-            const operations = appliedOperations(0);
-            expect(operations).toHaveLength(1);
-            expect(operations[0].kind).toBe("insert");
-            expect(operations[0].text).toBe("using { /Fortnite.com/Devices }\n");
+            expect(appliedText(input)).toBe("using { /Fortnite.com/Devices }\nusing { Economy.Shop }\nusing { Features }; X := 1\nusing { Economy.Shop }\ncode()");
         });
 
         it("splits the delete around a grounded import rather than taking its line with the block", async () => {
@@ -2867,17 +2533,9 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
-
-            const insert = operations.find((op) => op.kind === "insert");
-            expect(insert!.text).toBe("using { /A }\nusing { /B }\nusing { /Fortnite.com/Devices }\n");
-
             // One block, two runs: deleting it whole would take the grounded
             // line with it while nothing re-emits that path, losing the import.
-            const deletes = operations.filter((op) => op.kind === "delete").sort((a, b) => a.range!.start.line - b.range!.start.line);
-            expect(deletes).toHaveLength(2);
-            expect(deletes[0].range).toEqual({ start: { line: 1, character: 0 }, end: { line: 2, character: 0 } });
-            expect(deletes[1].range).toEqual({ start: { line: 3, character: 0 }, end: { line: 4, character: 0 } });
+            expect(appliedText(input)).toBe("using { /A }\nusing { /B }\nusing { /Fortnite.com/Devices }\nusing { Features }; MyVal := 5\nusing { Economy.Shop }\ncode()");
         });
 
         it("grounds against a provider pinned by the comment it anchors, past the comment body", async () => {
@@ -2887,10 +2545,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
-            expect(operations).toHaveLength(1);
-            expect(operations[0].kind).toBe("insert");
-            expect(operations[0].text).toBe("using { /Fortnite.com/Devices }\n");
+            expect(appliedText(input)).toBe("using { /Fortnite.com/Devices }\nusing { Features } <#> why this is here\n    it brings Economy into scope\nusing { Economy.Shop }\ncode()");
         });
 
         it("consolidates a file with nothing pinned exactly as before", async () => {
@@ -2900,13 +2555,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /C }"]);
 
             expect(success).toBe(true);
-            const operations = appliedOperations(0);
-            expect(operations).toHaveLength(2);
-            expect(operations[0].kind).toBe("insert");
-            expect(operations[0].position).toEqual({ line: 0, character: 0 });
-            expect(operations[0].text).toBe("using { /A }\nusing { /B }\nusing { /C }\n");
-            expect(operations[1].kind).toBe("delete");
-            expect(operations[1].range).toEqual({ start: { line: 0, character: 0 }, end: { line: 2, character: 0 } });
+            expect(appliedText(input)).toBe("using { /A }\nusing { /B }\nusing { /C }\ncode()");
         });
     });
 });
@@ -2955,7 +2604,7 @@ describe("ImportDocumentEditor rewrite verification", () => {
         const success = await editor.organizeImports(fakeDocument(input), []);
 
         expect(success).toBe(true);
-        expect(appliedOperations(0)[0].text).toBe("using { /A }\nusing { /B }\n\ncode()");
+        expect(appliedText(input)).toBe("using { /A }\nusing { /B }\n\ncode()");
     });
 
     // The off-by-one the ticket names, on the path that has no output text to
@@ -2981,7 +2630,7 @@ describe("ImportDocumentEditor rewrite verification", () => {
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /B }"]);
 
         expect(success).toBe(true);
-        expect(appliedOperations(0)[0].text).toContain("using { /B }");
+        expect(appliedText(input)).toBe("using { /A }\nusing { /B }\ncode()");
     });
 
     // insertImportLines documents its past-the-end branch as the thing standing
@@ -3082,7 +2731,7 @@ describe("ImportDocumentEditor.organizeImports carries the diagnostic evidence",
         const success = await editor.organizeImports(fakeDocument(input), ["Features"], new Map([["Features", [{ line: 0, character: 0 }]]]));
 
         expect(success).toBe(true);
-        expect(appliedOperations(0)[0].text).toBe(["using { Features }", "", "using { Economy.Shop } <#> note", "    body", "code()"].join("\n"));
+        expect(appliedText(input)).toBe("using { Features }\n\nusing { Economy.Shop } <#> note\n    body\ncode()");
     });
 
     it("leaves the written order alone when the evidence names a line elsewhere", async () => {
@@ -3091,7 +2740,7 @@ describe("ImportDocumentEditor.organizeImports carries the diagnostic evidence",
         const success = await editor.organizeImports(fakeDocument(input), ["Features"], new Map([["Features", [{ line: 2, character: 0 }]]]));
 
         expect(success).toBe(true);
-        expect(appliedOperations(0)[0].text).toBe(["using { Economy.Shop } <#> note", "    body", "using { Features }", "code()"].join("\n"));
+        expect(appliedText(input)).toBe("using { Economy.Shop } <#> note\n    body\nusing { Features }\ncode()");
     });
 
     it("leaves the written order alone when the caller has no evidence at all", async () => {
@@ -3100,7 +2749,7 @@ describe("ImportDocumentEditor.organizeImports carries the diagnostic evidence",
         const success = await editor.organizeImports(fakeDocument(input), ["Features"]);
 
         expect(success).toBe(true);
-        expect(appliedOperations(0)[0].text).toBe(["using { Economy.Shop } <#> note", "    body", "using { Features }", "code()"].join("\n"));
+        expect(appliedText(input)).toBe("using { Economy.Shop } <#> note\n    body\nusing { Features }\ncode()");
     });
 });
 
@@ -3138,10 +2787,7 @@ describe("ImportDocumentEditor.ensureEmptyLinesAfterImports", () => {
         const success = await editor.ensureEmptyLinesAfterImports(fakeDocument(input));
 
         expect(success).toBe(true);
-        const operations = appliedOperations(0);
-        expect(operations).toHaveLength(1);
-        expect(operations[0].kind).toBe("insert");
-        expect(operations[0].position!.line).toBe(1);
+        expect(appliedText(input)).toBe("using { /Top }\n\ncode()");
     });
 
     // This runs right after both writers, so an LF blank line here would put
@@ -3152,8 +2798,7 @@ describe("ImportDocumentEditor.ensureEmptyLinesAfterImports", () => {
         const success = await editor.ensureEmptyLinesAfterImports(fakeDocument(input, vscode.EndOfLine.CRLF));
 
         expect(success).toBe(true);
-        const operations = appliedOperations(0);
-        expect(operations[0].text).toBe("\r\n");
+        expect(appliedText(input)).toBe("using { /Top }\r\n\r\ncode()\r\n");
     });
 });
 

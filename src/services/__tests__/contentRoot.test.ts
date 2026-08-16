@@ -83,3 +83,28 @@ describe("findContentRoot", () => {
         expect(root).toBeNull();
     });
 });
+
+// The stat behind every other candidate is case-insensitive on Windows, so
+// this test used to be the one byte-exact comparison in the resolver: a
+// workspace opened at an on-disk `content` got the "Content" candidate,
+// statted `content/Content`, and found nothing.
+describe("contentRootCandidates under the platform's case rule", () => {
+    const realPlatform = process.platform;
+    const setPlatform = (platform: string): void => {
+        Object.defineProperty(process, "platform", { value: platform, configurable: true });
+    };
+
+    afterEach(() => setPlatform(realPlatform));
+
+    it("offers the folder itself for an on-disk `content`, where the filesystem folds case", () => {
+        setPlatform("win32");
+
+        expect(contentRootCandidates("C:/Project/content", null)).toEqual([""]);
+    });
+
+    it("keeps the spellings apart where the filesystem is byte-exact", () => {
+        setPlatform("linux");
+
+        expect(contentRootCandidates("/repo/content", null)).toEqual(["Content"]);
+    });
+});

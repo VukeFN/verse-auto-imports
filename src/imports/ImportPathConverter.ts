@@ -4,6 +4,7 @@ import { logger } from "../utils";
 import { ProjectPathHandler } from "../project";
 import { ProjectPathCache } from "../services";
 import { findContentRoot } from "../services/contentRoot";
+import { sameFsSegment } from "../services/pathCasing";
 import { buildProjectIndexes, resolveFolderModuleLocations, resolveModuleLocations, toContentRelativeDir } from "../services/moduleLocationLookup";
 import { ProjectPathNode } from "../types";
 import { findExplicitModuleDeclarations } from "../visibility/moduleDeclarations";
@@ -155,6 +156,45 @@ export class ImportPathConverter {
      */
     static buildFullVersePath(projectVersePath: string, location: string, modulePath: string): string {
         return location === "/" || location === "" ? `${projectVersePath}/${modulePath}` : `${projectVersePath}${location}/${modulePath}`;
+    }
+
+    /**
+     * A path's first segment as the parser lexes it: a Label - alphanumeric
+     * or `_` or `.` or `-`, and it may start with a digit - optionally
+     * carrying `@` and a second Label. Only the first segment admits either;
+     * VerseGrammar.h's Path production.
+     */
+    private static readonly FIRST_SEGMENT_LABEL = /^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:@[A-Za-z0-9_][A-Za-z0-9_.-]*)?$/;
+
+    /**
+     * Every later segment: an Ident - a letter or `_`, then alphanumerics or
+     * `_` - with an optional quoted suffix of printable ASCII minus
+     * `\ { } " '` and the comment digraphs; VerseGrammar.h's Ident production.
+     */
+    private static readonly IDENT_SEGMENT = /^[A-Za-z_][A-Za-z0-9_]*(?:'(?:(?!<#|#>|[\\{}"'])[ -~])*')?$/;
+
+    /**
+     * The first segment of an absolute Verse path the parser cannot lex, or
+     * null when every segment can.
+     *
+     * The location half of a built path is disk directory names, and a
+     * directory's name answers to the filesystem's rules rather than the
+     * language's - `2Player` and `My Mods` are ordinary folders no `using`
+     * can name. This is the gate between the two: a path failing here must
+     * be refused, because writing it replaces a compiling import with a
+     * parse error reported as success.
+     */
+    private static firstUnlexableSegment(fullVersePath: string): string | null {
+        const segments = ImportPathConverter.splitPath(fullVersePath);
+        if (segments.length === 0) return fullVersePath;
+
+        if (!ImportPathConverter.FIRST_SEGMENT_LABEL.test(segments[0])) return segments[0];
+
+        for (const segment of segments.slice(1)) {
+            if (!ImportPathConverter.IDENT_SEGMENT.test(segment)) return segment;
+        }
+
+        return null;
     }
 
     /**
@@ -325,11 +365,17 @@ export class ImportPathConverter {
         const fileDir = path.dirname(relativeFilePath).replace(/\\/g, "/");
         const dirSegments = fileDir === "" || fileDir === "." ? [] : fileDir.split("/");
 
-        if (path.basename(workspaceFolderPath) === CONTENT_FOLDER) {
+        // The Content segment is matched under the platform's case rule,
+        // because findContentRoot admits an on-disk `content` through its
+        // stat: a byte-exact test here would silently place no file in a
+        // project the scan phases and the visibility writer serve. The
+        // segments kept below stay as disk spells them - they become module
+        // names, which the compiler resolves byte-exact.
+        if (sameFsSegment(path.basename(workspaceFolderPath), CONTENT_FOLDER)) {
             return { contentRootRelative: "", fileDirRelative: dirSegments.join("/") };
         }
 
-        const rootIndex = dirSegments.indexOf(CONTENT_FOLDER);
+        const rootIndex = dirSegments.findIndex((segment) => sameFsSegment(segment, CONTENT_FOLDER));
         if (rootIndex < 0) return null;
 
         const contentRootRelative = dirSegments.slice(0, rootIndex + 1).join("/");
@@ -443,14 +489,14 @@ export class ImportPathConverter {
      * `Outer.Inner` names the inner one, and a file's directory alone cannot say
      * which module a declaration is.
      *
+     * @param workspaceFolder the folder whose project is scanned - the one
+     * holding the importing document, so a multi-root workspace answers from
+     * the tree the file sits in
      * @returns whether the project holds more `.verse` files than
      * DECLARATION_SCAN_FILE_LIMIT, leaving the rest of it unread
      */
-    private async searchExplicitModuleDefinitions(modulePath: string, locations: string[]): Promise<boolean> {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders || workspaceFolders.length === 0) return false;
-
-        const contentRoot = await this.scanContentRoot(workspaceFolders[0]);
+    private async searchExplicitModuleDefinitions(modulePath: string, locations: string[], workspaceFolder: vscode.WorkspaceFolder): Promise<boolean> {
+        const contentRoot = await this.scanContentRoot(workspaceFolder);
         if (!contentRoot) return false;
 
         // Scope the scan to the project's Content root. The UEFN-generated
@@ -479,7 +525,7 @@ export class ImportPathConverter {
             // two found it. Taking the path against the folder passed below
             // rather than asking which folder the file sits in is what keeps
             // the anchor and the path from being read off different folders.
-            const sourceFile = path.relative(workspaceFolders[0].uri.fsPath, file.fsPath).replace(/\\/g, "/");
+            const sourceFile = path.relative(workspaceFolder.uri.fsPath, file.fsPath).replace(/\\/g, "/");
 
             // Only a live declaration attests to a location; a commented-out one
             // or one quoted in a string names a module that does not exist.
@@ -496,7 +542,7 @@ export class ImportPathConverter {
         }
 
         const { moduleNameIndex } = buildProjectIndexes(nodes);
-        for (const candidate of resolveModuleLocations(modulePath, moduleNameIndex, { workspaceFolderPath: workspaceFolders[0].uri.fsPath, contentRootPath: contentRoot.fsPath })) {
+        for (const candidate of resolveModuleLocations(modulePath, moduleNameIndex, { workspaceFolderPath: workspaceFolder.uri.fsPath, contentRootPath: contentRoot.fsPath })) {
             logger.debug("ImportPathConverter", `Found module definition in: ${candidate.sourceFile}`);
             if (!locations.includes(candidate.location)) locations.push(candidate.location);
         }
@@ -518,14 +564,13 @@ export class ImportPathConverter {
      *
      * Capped at FOLDER_SCAN_FILE_LIMIT files enumerated.
      *
+     * @param workspaceFolder the folder whose project is enumerated, as in
+     * searchExplicitModuleDefinitions
      * @returns whether the project holds more `.verse` files than
      * FOLDER_SCAN_FILE_LIMIT, leaving the rest of it unenumerated
      */
-    private async searchProjectFolderModules(modulePath: string, locations: string[]): Promise<boolean> {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders || workspaceFolders.length === 0) return false;
-
-        const contentRoot = await this.scanContentRoot(workspaceFolders[0]);
+    private async searchProjectFolderModules(modulePath: string, locations: string[], workspaceFolder: vscode.WorkspaceFolder): Promise<boolean> {
+        const contentRoot = await this.scanContentRoot(workspaceFolder);
         if (!contentRoot) return false;
 
         // One file past the limit is asked for and never folded in, so that a
@@ -586,6 +631,13 @@ export class ImportPathConverter {
 
         logger.debug("ImportPathConverter", `Searching for module '${modulePath}'`);
 
+        // The folder the project-wide phases scan: the one holding the
+        // document, so a multi-root workspace answers from the tree the
+        // importing file sits in. The first folder stands in only for a
+        // caller with no document, or a document no folder holds - the one
+        // position with no better anchor to offer.
+        const scanFolder = (currentFileUri && vscode.workspace.getWorkspaceFolder(currentFileUri)) || workspaceFolders[0];
+
         if (currentFileUri) {
             try {
                 await this.searchImplicitModules(modulePath, currentFileUri, locations);
@@ -598,7 +650,12 @@ export class ImportPathConverter {
         // candidate is checked against the filesystem before it is trusted, and
         // the full scan below still runs whenever the cache yields nothing
         // valid - empty, stale, or never set.
-        if (locations.length === 0 && this.projectPathCache) {
+        //
+        // Consulted only for the first folder's documents, because the cache
+        // is built by scanning that folder alone (ProjectPathCache.doRebuild)
+        // and its answers are anchored there. A document another folder owns
+        // skips it and lets the scans below read the right tree.
+        if (locations.length === 0 && this.projectPathCache && scanFolder === workspaceFolders[0]) {
             const candidates = await this.projectPathCache.lookupModuleLocations(modulePath);
             for (const candidate of candidates) {
                 if (locations.includes(candidate.location)) {
@@ -620,7 +677,7 @@ export class ImportPathConverter {
         if (locations.length === 0) {
             logger.debug("ImportPathConverter", `Phase 2: Searching explicit module definitions`);
             try {
-                declarationScanReadPart = await this.searchExplicitModuleDefinitions(modulePath, locations);
+                declarationScanReadPart = await this.searchExplicitModuleDefinitions(modulePath, locations, scanFolder);
             } catch (error) {
                 // A phase that threw read an unknown amount of the project,
                 // which is the position stopping at the cap leaves it in.
@@ -637,7 +694,7 @@ export class ImportPathConverter {
         if (locations.length === 0) {
             logger.debug("ImportPathConverter", `Phase 3: Searching folder modules across the project`);
             try {
-                folderScanEnumeratedPart = await this.searchProjectFolderModules(modulePath, locations);
+                folderScanEnumeratedPart = await this.searchProjectFolderModules(modulePath, locations, scanFolder);
             } catch (error) {
                 // A phase that threw enumerated an unknown amount of the
                 // project, which is the position stopping at the cap leaves it
@@ -812,10 +869,7 @@ export class ImportPathConverter {
      * declaration scan runs only when the folder phases found nothing. A folder
      * whose name differs from the reference only in case satisfies the search
      * on a case-insensitive filesystem, so this confirms the casing it asked
-     * about rather than the casing on disk. And the scanning phases read
-     * `workspaceFolders[0]` rather than the folder holding the document, so in
-     * a multi-root workspace they can answer from a tree the importing file is
-     * nowhere in.
+     * about rather than the casing on disk.
      */
     private async referenceResolvesTo(reference: string, fullPath: string, documentUri: vscode.Uri, projectVersePath: string): Promise<boolean> {
         const referenceSegments = reference.split(".");
@@ -1057,11 +1111,35 @@ export class ImportPathConverter {
             logger.debug("ImportPathConverter", `No locations found for ${modulePath}`);
             vscode.window.showErrorMessage(`Could not find module '${moduleName}'. Please verify the module exists and is properly defined.`);
             return null;
-        } else if (possibleLocations.length === 1) {
-            const location = possibleLocations[0];
-            logger.debug("ImportPathConverter", `Single location found: '${location}'`);
+        }
 
-            const fullPath = ImportPathConverter.buildFullVersePath(projectVersePath, location, modulePath);
+        // Locations are read off disk directory names, so a candidate can hold
+        // a segment no `using` can name. Each is gated before it is offered: a
+        // candidate that cannot lex could only ever be written as a parse
+        // error, so dropping it narrows the choice to the paths that compile,
+        // and losing every candidate refuses the conversion outright.
+        const writablePaths: string[] = [];
+        let unlexableSegment: string | null = null;
+        for (const location of possibleLocations) {
+            const candidate = ImportPathConverter.buildFullVersePath(projectVersePath, location, modulePath);
+            const badSegment = ImportPathConverter.firstUnlexableSegment(candidate);
+            if (badSegment === null) {
+                writablePaths.push(candidate);
+            } else {
+                unlexableSegment = unlexableSegment ?? badSegment;
+                logger.debug("ImportPathConverter", `Dropping ${candidate}: '${badSegment}' cannot appear in a Verse path`);
+            }
+        }
+
+        if (writablePaths.length === 0) {
+            vscode.window.showWarningMessage(
+                `Cannot convert '${moduleName}': its location contains '${unlexableSegment}', which cannot appear in a Verse path. Rename that folder or write the import by hand.`,
+            );
+            return null;
+        }
+
+        if (writablePaths.length === 1) {
+            const fullPath = writablePaths[0];
             logger.debug("ImportPathConverter", `Constructed full path: ${fullPath}`);
 
             const convertedImport = usesCurlyBraces ? `using { ${fullPath} }` : `using. ${fullPath}`;
@@ -1073,18 +1151,16 @@ export class ImportPathConverter {
                 isAmbiguous: false,
                 line,
             };
-        } else {
-            const possiblePaths = possibleLocations.map((location) => ImportPathConverter.buildFullVersePath(projectVersePath, location, modulePath));
-
-            return {
-                originalImport: importStatement,
-                convertedImport: "",
-                moduleName,
-                isAmbiguous: true,
-                possiblePaths,
-                line,
-            };
         }
+
+        return {
+            originalImport: importStatement,
+            convertedImport: "",
+            moduleName,
+            isAmbiguous: true,
+            possiblePaths: writablePaths,
+            line,
+        };
     }
 
     /**

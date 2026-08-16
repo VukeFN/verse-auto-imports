@@ -1,6 +1,7 @@
 import * as path from "path";
 import * as vscode from "vscode";
 import { logger } from "../utils";
+import { sameFsSegment } from "./pathCasing";
 
 /** The Content folder that anchors every importable module location. */
 const CONTENT_FOLDER = "Content";
@@ -37,7 +38,11 @@ const PLUGINS_FOLDER = "Plugins";
  * and the visibility writer must not create files outside the workspace.
  */
 export function contentRootCandidates(workspaceFolderPath: string, rootPluginName: string | null, projectFileDirectory: string | null = null): string[] {
-    if (path.basename(workspaceFolderPath) === CONTENT_FOLDER) {
+    // Under the platform's case rule, because the stat that accepts every
+    // other candidate is case-insensitive on Windows: a byte-exact test here
+    // would refuse a workspace opened at an on-disk `content` while the same
+    // folder passes everywhere else.
+    if (sameFsSegment(path.basename(workspaceFolderPath), CONTENT_FOLDER)) {
         return [""];
     }
 

@@ -227,3 +227,64 @@ describe("StatusBarHandler display", () => {
         expect(item.accessibilityInformation).toEqual({ label: "Verse Auto Imports" });
     });
 });
+
+// Regression for the feedback-surface policy: routine acknowledgments are
+// 3-second status bar messages, never notification toasts.
+describe("StatusBarHandler acknowledgment surfaces", () => {
+    beforeEach(() => {
+        jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+        jest.clearAllMocks();
+    });
+
+    function makeHandler(): StatusBarHandler {
+        return new StatusBarHandler(vscode.window.createOutputChannel("test"));
+    }
+
+    function statusBarTexts(): string[] {
+        return (vscode.window.setStatusBarMessage as jest.Mock).mock.calls.map(([text]) => String(text));
+    }
+
+    it("acknowledges a snooze in the status bar, not a toast", () => {
+        makeHandler().startSnooze(5);
+
+        expect(statusBarTexts()).toContain("Auto imports snoozed for 5 minutes");
+        expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
+    });
+
+    it("acknowledges a cancelled snooze in the status bar, not a toast", () => {
+        const handler = makeHandler();
+        handler.startSnooze(5);
+
+        handler.cancelSnooze();
+
+        expect(statusBarTexts()).toContain("Auto imports resumed");
+        expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
+    });
+
+    it("announces an expired snooze in the status bar, not a toast", () => {
+        makeHandler().startSnooze(5);
+
+        jest.advanceTimersByTime(5 * 60 * 1000 + 1000);
+
+        expect(statusBarTexts()).toContain("Auto imports resumed automatically");
+        expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
+    });
+
+    it("confirms a grouping menu pick in the status bar, not a toast", async () => {
+        interface ActionItem {
+            description?: string;
+            action?: () => Promise<void>;
+        }
+        (vscode.window.showQuickPick as jest.Mock).mockImplementation(async (items: ActionItem[]) => items.find((item) => item.description?.startsWith("Digest imports")));
+
+        await makeHandler().showImportGroupingMenu();
+
+        expect(statusBarTexts()).toContain("Import grouping: Digest imports first");
+        expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
+    });
+});

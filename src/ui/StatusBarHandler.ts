@@ -9,6 +9,7 @@ interface QuickPickItemWithAction extends vscode.QuickPickItem {
 const STATUS_BAR_PRIORITY = 100;
 const SNOOZE_INTERVAL_MS = 1000;
 const MS_PER_MINUTE = 60000;
+const STATUS_MESSAGE_DURATION_MS = 3000;
 
 function toggleIcon(enabled: boolean, label: string): string {
     return enabled ? `$(check) ${label}` : `$(blank) ${label}`;
@@ -354,7 +355,7 @@ export class StatusBarHandler {
             action: async () => {
                 await writeSetting("behavior.importGrouping", "none", resource);
                 logger.debug("StatusBarHandler", "Import grouping changed to: none");
-                vscode.window.showInformationMessage("Import grouping disabled");
+                vscode.window.setStatusBarMessage("Import grouping disabled", STATUS_MESSAGE_DURATION_MS);
             },
         });
 
@@ -364,7 +365,7 @@ export class StatusBarHandler {
             action: async () => {
                 await writeSetting("behavior.importGrouping", "digestFirst", resource);
                 logger.debug("StatusBarHandler", "Import grouping changed to: digestFirst");
-                vscode.window.showInformationMessage("Import grouping: Digest imports first");
+                vscode.window.setStatusBarMessage("Import grouping: Digest imports first", STATUS_MESSAGE_DURATION_MS);
             },
         });
 
@@ -374,7 +375,7 @@ export class StatusBarHandler {
             action: async () => {
                 await writeSetting("behavior.importGrouping", "localFirst", resource);
                 logger.debug("StatusBarHandler", "Import grouping changed to: localFirst");
-                vscode.window.showInformationMessage("Import grouping: Local imports first");
+                vscode.window.setStatusBarMessage("Import grouping: Local imports first", STATUS_MESSAGE_DURATION_MS);
             },
         });
 
@@ -419,7 +420,7 @@ export class StatusBarHandler {
             action: async () => {
                 await writeSetting("pathConversion.codeLensVisibility", "hover");
                 logger.debug("StatusBarHandler", "CodeLens visibility changed to: hover");
-                vscode.window.showInformationMessage("CodeLens visibility: Hover only");
+                vscode.window.setStatusBarMessage("CodeLens visibility: Hover only", STATUS_MESSAGE_DURATION_MS);
             },
         });
 
@@ -429,7 +430,7 @@ export class StatusBarHandler {
             action: async () => {
                 await writeSetting("pathConversion.codeLensVisibility", "always");
                 logger.debug("StatusBarHandler", "CodeLens visibility changed to: always");
-                vscode.window.showInformationMessage("CodeLens visibility: Always visible");
+                vscode.window.setStatusBarMessage("CodeLens visibility: Always visible", STATUS_MESSAGE_DURATION_MS);
             },
         });
 
@@ -474,7 +475,7 @@ export class StatusBarHandler {
 
         this.updateDisplay();
 
-        vscode.window.showInformationMessage(`Auto imports snoozed for ${minutes} minutes`);
+        vscode.window.setStatusBarMessage(`Auto imports snoozed for ${minutes} minutes`, STATUS_MESSAGE_DURATION_MS);
     }
 
     private extendSnooze(minutes: number): void {
@@ -484,7 +485,7 @@ export class StatusBarHandler {
         this.snoozeEndTime += minutes * MS_PER_MINUTE;
         this.updateDisplay();
 
-        vscode.window.showInformationMessage(`Snooze extended by ${minutes} minutes`);
+        vscode.window.setStatusBarMessage(`Snooze extended by ${minutes} minutes`, STATUS_MESSAGE_DURATION_MS);
     }
 
     private clearSnoozeState(): void {
@@ -501,11 +502,11 @@ export class StatusBarHandler {
         this.clearSnoozeState();
 
         this.updateDisplay();
-        vscode.window.showInformationMessage("Auto imports resumed");
+        vscode.window.setStatusBarMessage("Auto imports resumed", STATUS_MESSAGE_DURATION_MS);
     }
 
     /**
-     * Ends the snooze without a notification, for the case where the user has
+     * Ends the snooze without a message, for the case where the user has
      * just turned auto import on themselves: they already know imports are
      * back, and saying so again is noise on an action they took.
      */
@@ -523,7 +524,7 @@ export class StatusBarHandler {
         this.clearSnoozeState();
 
         this.updateDisplay();
-        vscode.window.showInformationMessage("Auto imports resumed automatically");
+        vscode.window.setStatusBarMessage("Auto imports resumed automatically", STATUS_MESSAGE_DURATION_MS);
     }
 
     /**

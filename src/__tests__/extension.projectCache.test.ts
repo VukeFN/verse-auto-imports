@@ -120,8 +120,18 @@ describe("activate with cache.enableProjectCache off", () => {
         await commandHandler("verseAutoImports.showCacheStatus")();
 
         const [status] = messageTexts(vscode.window.showInformationMessage as jest.Mock);
-        expect(status).toContain("Project Cache: Disabled");
-        expect(status).not.toContain("Not loaded");
+        expect(status).toBe("Project cache: disabled");
+    });
+
+    it("reports the status without blocking the window", async () => {
+        activateWithCache(false);
+
+        await commandHandler("verseAutoImports.showCacheStatus")();
+
+        // A second argument would be the options object; { modal: true } here
+        // is the regression this pins.
+        const call = (vscode.window.showInformationMessage as jest.Mock).mock.calls[0];
+        expect(call).toHaveLength(1);
     });
 
     it("does not watch the project for cache invalidation", async () => {
@@ -164,7 +174,7 @@ describe("activate with cache.enableProjectCache on", () => {
         await commandHandler("verseAutoImports.showCacheStatus")();
 
         const [status] = messageTexts(vscode.window.showInformationMessage as jest.Mock);
-        expect(status).not.toContain("Project Cache: Disabled");
+        expect(status).not.toContain("disabled");
         expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
     });
 });

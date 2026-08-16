@@ -14,10 +14,9 @@ import { ProjectPathCache } from "../ProjectPathCache";
  * These run against stub VS Code workspace APIs, so no extension host is needed.
  */
 describe("ProjectPathCache recovery after an empty first build", () => {
-    /** The subset of the mock watcher these tests drive. */
+    /** The subset of the mock watcher these tests inspect. */
     interface FakeWatcher {
         globPattern: unknown;
-        fireCreate(fsPath: string): void;
     }
 
     const createFileSystemWatcher = vscode.workspace.createFileSystemWatcher as unknown as jest.Mock;
@@ -43,9 +42,22 @@ describe("ProjectPathCache recovery after an empty first build", () => {
      * Stands in for ProjectPathHandler. `projectName` starts null - the state
      * that makes ProjectPathScanner.scanProject return null - and the tests
      * flip it to model the .uefnproject becoming discoverable.
+     * fireProjectChanged models the handler observing a .uefnproject event.
      */
     class FakeProjectPathHandler {
         projectName: string | null = null;
+        private readonly listeners: Array<() => void> = [];
+
+        readonly onDidChangeProject = (listener: () => void) => {
+            this.listeners.push(listener);
+            return { dispose: jest.fn() };
+        };
+
+        fireProjectChanged(): void {
+            for (const listener of this.listeners) {
+                listener();
+            }
+        }
 
         async getProjectName(): Promise<string | null> {
             return this.projectName;
@@ -94,19 +106,21 @@ describe("ProjectPathCache recovery after an empty first build", () => {
         expect(cache.getStats().loaded).toBe(true);
     });
 
-    it("rebuilds when the .uefnproject file is created after startup", async () => {
+    it("rebuilds when the project appears after startup", async () => {
         await cache.initialize();
         expect(cache.getStats().loaded).toBe(false);
 
         cache.setupFileWatchers();
 
-        // Watchers are created in order: **/*.verse first, then **/*.uefnproject.
+        // The cache watches only .verse files itself; .uefnproject events
+        // arrive as ProjectPathHandler's project-changed event, so the
+        // create-after-startup recovery rides that signal.
         const watchers = createFileSystemWatcher.mock.results.map((result) => result.value as FakeWatcher);
-        const projectWatcher = watchers[1];
-        expect(projectWatcher.globPattern).toBe("**/*.uefnproject");
+        expect(watchers).toHaveLength(1);
+        expect(watchers[0].globPattern).toBe("**/*.verse");
 
         handler.projectName = "MyGame";
-        projectWatcher.fireCreate("C:\\Project\\MyGame.uefnproject");
+        handler.fireProjectChanged();
         await flushAsync();
 
         expect(cache.getStats().loaded).toBe(true);

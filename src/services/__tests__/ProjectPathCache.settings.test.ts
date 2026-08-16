@@ -48,6 +48,8 @@ describe("ProjectPathCache settings", () => {
 
     /** Stands in for ProjectPathHandler; a name is all the scan needs to succeed. */
     class FakeProjectPathHandler {
+        readonly onDidChangeProject = () => ({ dispose: jest.fn() });
+
         async getProjectName(): Promise<string | null> {
             return "MyGame";
         }
@@ -115,7 +117,7 @@ describe("ProjectPathCache settings", () => {
             const invalidateFiles = jest.spyOn(cache, "invalidateFiles").mockResolvedValue(undefined);
             cache.setupFileWatchers();
 
-            // Watchers are created in order: **/*.verse first, then **/*.uefnproject.
+            // The .verse watcher is the only one the cache creates itself.
             const verseWatcher = createFileSystemWatcher.mock.results.map((result) => result.value as FakeWatcher)[0];
             expect(verseWatcher.globPattern).toBe("**/*.verse");
             verseWatcher.fireChange("C:\\Project\\Content\\Scripts\\device.verse");

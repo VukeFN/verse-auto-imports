@@ -38,10 +38,17 @@ describe("commands and snooze (playbook T7/T8)", () => {
         }
     });
 
-    it("T7: rebuild path cache completes against the fixture workspace", async () => {
-        // Resolving without throwing is the assertion: the cache scan must
-        // cope with the multi-root fixture layout (Content plus digest roots).
-        await vscode.commands.executeCommand("verseAutoImports.rebuildPathCache");
+    it("T7: rebuild path cache discovers the fixture project outside the workspace folders", async () => {
+        // The fixture .uefnproject sits in Project/, above the opened
+        // Project/Content folder - the UEFN multi-root shape - so a loaded
+        // cache carrying the project's name pins the whole discovery chain:
+        // the parent walk, the parse, and the scan keyed on the identity.
+        const stats = await vscode.commands.executeCommand<{ loaded: boolean; files: number; projectName: string | null }>("verseAutoImports.rebuildPathCache");
+
+        assert.ok(stats, "rebuildPathCache returned no stats - is the cache disabled in the harness?");
+        assert.strictEqual(stats.loaded, true, "the rebuilt cache reports itself unloaded");
+        assert.strictEqual(stats.projectName, "VerseAutoImportsIntegrationHarness", "the cache does not carry the fixture project's name");
+        assert.ok(stats.files > 0, "the scan indexed no files from the fixture workspace");
     });
 
     // Regression (#132): the snooze used to write general.autoImport: false

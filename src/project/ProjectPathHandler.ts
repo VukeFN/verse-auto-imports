@@ -76,6 +76,28 @@ export class ProjectPathHandler {
      */
     private readonly searchesInFlight = new Map<string, Promise<LocatedProjectFile | null>>();
 
+    private readonly projectChangedEmitter = new vscode.EventEmitter<void>();
+
+    /**
+     * Fires after a `.uefnproject` create, change or delete has cleared this
+     * handler's cache, so a listener that re-reads project identity reads the
+     * post-change answer. This is the one project-changed signal in the
+     * extension; components that depend on identity subscribe here rather than
+     * watching `.uefnproject` themselves.
+     */
+    readonly onDidChangeProject: vscode.Event<void> = this.projectChangedEmitter.event;
+
+    /**
+     * One anchored watcher per discovered project directory outside the
+     * workspace folders, keyed by that directory. Entries are never pruned on
+     * identity change: a directory whose project file was deleted keeps its
+     * watcher, which is exactly what observes the file coming back.
+     */
+    private readonly anchoredWatchers = new Map<string, vscode.FileSystemWatcher>();
+
+    /** Whether {@link setupFileWatcher} is active, which gates all anchoring. */
+    private watching = false;
+
     constructor(private outputChannel: vscode.OutputChannel) {}
 
     /**
@@ -129,6 +151,12 @@ export class ProjectPathHandler {
                 // on disk and must not be cached over the fresh search's.
                 if (projectFile && this.searchesInFlight.get(key) === flight) {
                     this.projectFilesByScope.set(key, projectFile);
+                }
+                // Anchored even when the commit above was skipped: a
+                // superseded parse can still name the right directory to
+                // watch, and anchoring an already-watched one is a no-op.
+                if (projectFile) {
+                    this.anchorProjectDirectory(projectFile.directory);
                 }
                 return projectFile;
             })
@@ -240,11 +268,20 @@ export class ProjectPathHandler {
             }
 
             try {
-                const globPattern = new vscode.RelativePattern(vscode.Uri.file(parentDir), "*.uefnproject");
-                const files = await vscode.workspace.findFiles(globPattern, null, 1);
+                // Probed with readDirectory rather than findFiles: these
+                // directories sit outside the workspace, where findFiles'
+                // documented contract is to return nothing.
+                const entries = await vscode.workspace.fs.readDirectory(vscode.Uri.file(parentDir));
+                const names = entries
+                    .filter(([name, type]) => (type & vscode.FileType.File) !== 0 && name.endsWith(".uefnproject"))
+                    .map(([name]) => name)
+                    .sort();
 
-                if (files.length > 0) {
-                    const projectFilePath = files[0].fsPath;
+                if (names.length > 0) {
+                    // Joined as a Uri rather than with path.join, which would
+                    // reseat the separators and hand parseProjectFile a
+                    // directory spelled differently from the one probed.
+                    const projectFilePath = vscode.Uri.joinPath(vscode.Uri.file(parentDir), names[0]).fsPath;
                     logger.debug("ProjectPathHandler", `Found .uefnproject file in parent directory (${level + 1} level(s) up): ${projectFilePath}`);
 
                     return ProjectPathHandler.parseProjectFile(projectFilePath);
@@ -336,22 +373,73 @@ export class ProjectPathHandler {
     }
 
     /**
-     * Starts clearing the cache whenever a `.uefnproject` file is created,
-     * changed or deleted. The caller owns the returned watcher and must
-     * dispose it.
+     * Clears the cache and then tells subscribers, in that order: the clear
+     * happening first is what {@link onDidChangeProject} promises them.
+     */
+    private readonly handleProjectFileEvent = () => {
+        this.clearCache();
+        logger.debug("ProjectPathHandler", "Project file changed, cache cleared");
+        this.projectChangedEmitter.fire();
+    };
+
+    /**
+     * Watches `directory` for `.uefnproject` events when nothing else can: a
+     * string-glob watcher reports nothing outside the workspace folders, so a
+     * project directory out there needs its own anchored watcher.
+     */
+    private anchorProjectDirectory(directory: string): void {
+        if (!this.watching || this.anchoredWatchers.has(directory)) {
+            return;
+        }
+        if (vscode.workspace.getWorkspaceFolder(vscode.Uri.file(directory))) {
+            // The string-glob watcher already fires here, and a second
+            // watcher would double every subscriber's reaction.
+            return;
+        }
+
+        const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(directory), "*.uefnproject"));
+        watcher.onDidChange(this.handleProjectFileEvent);
+        watcher.onDidCreate(this.handleProjectFileEvent);
+        watcher.onDidDelete(this.handleProjectFileEvent);
+
+        this.anchoredWatchers.set(directory, watcher);
+        logger.debug("ProjectPathHandler", `Watching project directory outside the workspace: ${directory}`);
+    }
+
+    /**
+     * Starts clearing the cache and firing {@link onDidChangeProject} whenever
+     * a `.uefnproject` file is created, changed or deleted. The caller owns
+     * the returned handle and must dispose it. Meant for one call per handler:
+     * disposing the handle retires {@link onDidChangeProject} with it.
+     *
+     * Files inside the workspace folders are covered by a string-glob watcher;
+     * a project discovered outside them gets a watcher anchored to its own
+     * directory, added here for discoveries already cached and from the search
+     * path for later ones. Anchoring from the search path is what keeps a
+     * project observed whose discovery finishes after this call.
      */
     setupFileWatcher(): vscode.Disposable {
         const watcher = vscode.workspace.createFileSystemWatcher("**/*.uefnproject");
 
-        const clearCacheHandler = () => {
-            this.clearCache();
-            logger.debug("ProjectPathHandler", "Project file changed, cache cleared");
+        watcher.onDidChange(this.handleProjectFileEvent);
+        watcher.onDidCreate(this.handleProjectFileEvent);
+        watcher.onDidDelete(this.handleProjectFileEvent);
+
+        this.watching = true;
+        for (const located of this.projectFilesByScope.values()) {
+            this.anchorProjectDirectory(located.directory);
+        }
+
+        return {
+            dispose: () => {
+                this.watching = false;
+                watcher.dispose();
+                for (const anchored of this.anchoredWatchers.values()) {
+                    anchored.dispose();
+                }
+                this.anchoredWatchers.clear();
+                this.projectChangedEmitter.dispose();
+            },
         };
-
-        watcher.onDidChange(clearCacheHandler);
-        watcher.onDidCreate(clearCacheHandler);
-        watcher.onDidDelete(clearCacheHandler);
-
-        return watcher;
     }
 }

@@ -333,6 +333,7 @@ const workspace = {
         readFile: jest.fn().mockRejectedValue(new Error("ENOENT")),
         stat: jest.fn().mockRejectedValue(new Error("ENOENT")),
         writeFile: jest.fn().mockResolvedValue(undefined),
+        readDirectory: jest.fn().mockRejectedValue(new Error("ENOENT")),
     },
     createFileSystemWatcher: jest.fn().mockImplementation((globPattern: unknown) => new FileSystemWatcher(globPattern)),
     // Empty by default so a test that only needs the scan to complete does not

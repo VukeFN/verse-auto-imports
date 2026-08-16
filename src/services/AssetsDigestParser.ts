@@ -54,10 +54,7 @@ export class AssetsDigestParser {
     /**
      * How long to wait after the last watcher event before re-parsing. UEFN
      * rewrites the digest in bursts, so waiting coalesces a burst into one
-     * parse. It also leaves room for ProjectPathHandler, which clears its
-     * project name cache from a separate watcher on the same `.uefnproject`
-     * event: both handlers run in the same event-loop turn, so the wait is far
-     * longer than the gap between them, though nothing contracts that order.
+     * parse.
      */
     private static readonly REFRESH_DEBOUNCE_MS = 250;
 
@@ -347,20 +344,17 @@ export class AssetsDigestParser {
 
         disposables.push(watcher);
 
-        // Also watch for .uefnproject changes: the digest path is derived from
-        // the project name, so a rename points the parser at a different file
-        // and the class names cached from the previous project are stale.
-        const projectWatcher = vscode.workspace.createFileSystemWatcher("**/*.uefnproject");
-        const handleProjectChange = () => {
-            logger.debug("AssetsDigestParser", "Project file changed, refreshing asset class names");
-            this.scheduleRefresh();
-        };
-
-        projectWatcher.onDidChange(handleProjectChange);
-        projectWatcher.onDidCreate(handleProjectChange);
-        projectWatcher.onDidDelete(handleProjectChange);
-
-        disposables.push(projectWatcher);
+        // Also refresh on ProjectPathHandler's project-changed event: the
+        // digest path is derived from the project name, so a rename points the
+        // parser at a different file and the class names cached from the
+        // previous project are stale. The handler clears its identity cache
+        // before firing, so the refresh re-reads the new name.
+        disposables.push(
+            this.projectPathHandler.onDidChangeProject(() => {
+                logger.debug("AssetsDigestParser", "Project changed, refreshing asset class names");
+                this.scheduleRefresh();
+            }),
+        );
 
         // Drop any queued refresh on teardown so it cannot run after the
         // extension has been deactivated.

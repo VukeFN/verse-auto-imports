@@ -2436,6 +2436,8 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
     // import across the pinned one that may bring its first segment into scope -
     // the hoist buildOrganizedContent already refuses. Verse resolves `using`
     // top-down, so the file stopped compiling.
+    // Consolidating runs the same rebuilder as Optimize Imports, so the block
+    // it writes carries that rebuild's blank separator before the body.
     describe("consolidating past an import pinned to its line", () => {
         const consolidating = {
             "behavior.preserveImportLocations": false,
@@ -2450,7 +2452,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
 
             expect(success).toBe(true);
-            expect(appliedText(input)).toBe("using { /Fortnite.com/Devices }\nusing { Features }; X := 1\nusing { Economy.Shop }\ncode()");
+            expect(appliedText(input)).toBe("using { /Fortnite.com/Devices }\n\nusing { Features }; X := 1\nusing { Economy.Shop }\ncode()");
         });
 
         it("still hoists a consumer written above the pinned line", async () => {
@@ -2462,7 +2464,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             expect(success).toBe(true);
             // Position is the question, not presence: hoisting this one lands
             // it above the pinned line, which is where it already was.
-            expect(appliedText(input)).toBe("using { /Fortnite.com/Devices }\nusing { Economy.Shop }\nusing { Features }; MyVal := 5\ncode()");
+            expect(appliedText(input)).toBe("using { /Fortnite.com/Devices }\nusing { Economy.Shop }\n\nusing { Features }; MyVal := 5\ncode()");
         });
 
         it("writes a new consumer below the pinned provider instead of into the block", async () => {
@@ -2474,7 +2476,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             expect(success).toBe(true);
             // The hoisted import leaves the line it was written on, or the
             // file imports it twice.
-            expect(appliedText(input)).toBe("using { /Verse.org/Simulation }\nusing { Features }; MyVal := 5\nusing { Economy.Shop }\ncode()");
+            expect(appliedText(input)).toBe("using { /Verse.org/Simulation }\n\nusing { Features }; MyVal := 5\nusing { Economy.Shop }\ncode()");
         });
 
         // The same shape as the test below, with no diagnostic naming the
@@ -2489,7 +2491,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"]);
 
             expect(success).toBe(true);
-            expect(appliedText(input)).toBe("using { /A }\ncode()\nusing { Economy.Shop }; X := 1\nusing { Features }\nmore()");
+            expect(appliedText(input)).toBe("using { /A }\n\ncode()\nusing { Economy.Shop }; X := 1\nusing { Features }\nmore()");
         });
 
         it("still consolidates a new provider the pinned consumer below it may need", async () => {
@@ -2501,7 +2503,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             expect(success).toBe(true);
             // The block itself sits above the pinned consumer, so nothing is
             // gained by writing the provider on a line of its own further down.
-            expect(appliedText(input)).toBe("using { /A }\nusing { Features }\ncode()\nusing { Economy.Shop }; X := 1");
+            expect(appliedText(input)).toBe("using { /A }\nusing { Features }\n\ncode()\nusing { Economy.Shop }; X := 1");
         });
 
         it("takes the floor over a pinned consumer sitting above it", async () => {
@@ -2528,7 +2530,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             // Grounding is keyed on the path: hoisting the copy above the
             // pinned line while the block declines to re-emit the path would
             // delete the one line that had to keep it.
-            expect(appliedText(input)).toBe("using { /Fortnite.com/Devices }\nusing { Economy.Shop }\nusing { Features }; X := 1\nusing { Economy.Shop }\ncode()");
+            expect(appliedText(input)).toBe("using { /Fortnite.com/Devices }\n\nusing { Economy.Shop }\nusing { Features }; X := 1\nusing { Economy.Shop }\ncode()");
         });
 
         it("splits the delete around a grounded import rather than taking its line with the block", async () => {
@@ -2540,7 +2542,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             expect(success).toBe(true);
             // One block, two runs: deleting it whole would take the grounded
             // line with it while nothing re-emits that path, losing the import.
-            expect(appliedText(input)).toBe("using { /A }\nusing { /B }\nusing { /Fortnite.com/Devices }\nusing { Features }; MyVal := 5\nusing { Economy.Shop }\ncode()");
+            expect(appliedText(input)).toBe("using { /A }\nusing { /B }\nusing { /Fortnite.com/Devices }\n\nusing { Features }; MyVal := 5\nusing { Economy.Shop }\ncode()");
         });
 
         it("grounds against a provider pinned by the comment it anchors, past the comment body", async () => {
@@ -2550,7 +2552,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
 
             expect(success).toBe(true);
-            expect(appliedText(input)).toBe("using { /Fortnite.com/Devices }\nusing { Features } <#> why this is here\n    it brings Economy into scope\nusing { Economy.Shop }\ncode()");
+            expect(appliedText(input)).toBe("using { /Fortnite.com/Devices }\n\nusing { Features } <#> why this is here\n    it brings Economy into scope\nusing { Economy.Shop }\ncode()");
         });
 
         it("consolidates a file with nothing pinned exactly as before", async () => {
@@ -2560,7 +2562,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /C }"]);
 
             expect(success).toBe(true);
-            expect(appliedText(input)).toBe("using { /A }\nusing { /B }\nusing { /C }\ncode()");
+            expect(appliedText(input)).toBe("using { /A }\nusing { /B }\nusing { /C }\n\ncode()");
         });
     });
 });
@@ -2612,16 +2614,11 @@ describe("ImportDocumentEditor rewrite verification", () => {
         expect(appliedText(input)).toBe("using { /A }\nusing { /B }\n\ncode()");
     });
 
-    // The off-by-one the ticket names, on the path that has no output text to
-    // read: a hoisted run reaching one line past its block deletes the code
-    // line below it.
-    it("refuses to add imports when a queued deletion reaches onto code", async () => {
-        const input = "using { /A }\ncode()";
-        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValueOnce({
-            get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => (key === "behavior.preserveImportLocations" ? false : defaultValue)),
-            update: jest.fn().mockResolvedValue(undefined),
-        });
-        jest.spyOn(editor as unknown as { hoistedRuns: () => Array<{ start: number; end: number }> }, "hoistedRuns").mockReturnValue([{ start: 0, end: 1 }]);
+    // The add path reads its guard off the same rebuilt text as organize, so
+    // an injected composition bug in its builder must be refused the same way.
+    it("refuses to add imports when the rebuilt text loses a line of code", async () => {
+        const input = "using { /A }\ncode()\nmore()";
+        jest.spyOn(editor, "buildPreservedContent").mockReturnValue("using { /A }\nusing { /B }\ncode()");
 
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /B }"]);
 
@@ -2629,28 +2626,34 @@ describe("ImportDocumentEditor rewrite verification", () => {
         expect(applyEditMock()).not.toHaveBeenCalled();
     });
 
-    it("adds imports as usual when the queued edits touch nothing but imports", async () => {
+    it("refuses to add imports when the rebuilt text drops an import", async () => {
+        const input = "using { /A }\ncode()";
+        jest.spyOn(editor, "buildPreservedContent").mockReturnValue("using { /B }\ncode()");
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /B }"]);
+
+        expect(success).toBe(false);
+        expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
+    // A null from the builder with paths still to add is its splices refusing
+    // to compose, and nothing may reach the document on it.
+    it("refuses to add imports when the rebuilt text could not be composed", async () => {
+        jest.spyOn(editor, "buildPreservedContent").mockReturnValue(null);
+
+        const success = await editor.addImportsToDocument(fakeDocument("code()"), ["using { /B }"]);
+
+        expect(success).toBe(false);
+        expect(applyEditMock()).not.toHaveBeenCalled();
+    });
+
+    it("adds imports as usual when the rebuilt text is sound", async () => {
         const input = "using { /A }\ncode()";
 
         const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /B }"]);
 
         expect(success).toBe(true);
         expect(appliedText(input)).toBe("using { /A }\nusing { /B }\ncode()");
-    });
-
-    // insertImportLines documents its past-the-end branch as the thing standing
-    // between the writer and "one unreadable line where two belong". An
-    // insertion carries no range, so nothing else here would notice.
-    it("refuses to add imports when an insertion splices onto a line of code", async () => {
-        type InsertImportLines = (edit: vscode.WorkspaceEdit, document: vscode.TextDocument, line: number, statements: string[], eol: string, blankLineAfter: boolean) => void;
-        jest.spyOn(editor as unknown as { insertImportLines: InsertImportLines }, "insertImportLines").mockImplementation((edit, document, _line, statements, eol) => {
-            edit.insert(document.uri, new vscode.Position(0, "code()".length), statements.join(eol) + eol);
-        });
-
-        const success = await editor.addImportsToDocument(fakeDocument("code()"), ["using { /B }"]);
-
-        expect(success).toBe(false);
-        expect(applyEditMock()).not.toHaveBeenCalled();
     });
 
     /**
@@ -2715,98 +2718,27 @@ describe("ImportDocumentEditor rewrite verification", () => {
     });
 });
 
-/**
- * Port-equivalence scaffold: buildPreservedContent against the live add-path
- * writer, line for line, across every document shape and preserve-mode setting
- * row. Deleted with the swap that routes the writer through the builder, at
- * which point it compares a function against itself.
- *
- * Line-based and ending-insensitive on purpose: the builder joins with one
- * detected ending where the old writer splices text into place, so endings may
- * differ while any placement drift still has to surface.
- */
-describe("buildPreservedContent matches the live add path", () => {
+describe("ImportDocumentEditor.buildPreservedContent", () => {
     let editor: ImportDocumentEditor;
 
-    const documents: Array<[string, string]> = [
-        ["an empty file", ""],
-        ["no trailing newline", "using { /A }\ncode()"],
-        ["a trailing newline", "using { /A }\ncode()\n"],
-        ["CRLF", "using { /A }\r\ncode()\r\n"],
-        ["only imports", "using { /A }\nusing { /B }"],
-        ["no imports at all", "code()\nmore()"],
-        ["a header comment", "# licence\n\nusing { /A }\n\ncode()"],
-        ["an annotated import", "# why /A is here\nusing { /A }\n\ncode()"],
-        ["an import pinned by a second statement", "X := 1; using { /A }\ncode()"],
-        ["a commented-out import", "<#\nusing { /Old }\n#>\nusing { /A }\n\ncode()"],
-        ["an indented using pair", "using{\n    /A\n}\ncode()"],
-        ["a using inside a module body", "using { /A }\n\nM := module:\n    using { /B }\n    F():void = {}"],
-        ["two gapped blocks", "using { /A }\n\nusing { Local.One }\n\ncode()"],
-        ["a relative import under an absolute one", "using { /A }\nusing { Local.One }\n\ncode()"],
-        ["a pinned import below a block", "using { /A }\ncode()\nX := 1; using { /Verse.org/Simulation }\nmore()"],
-    ];
-
-    const settings: Array<[string, Record<string, unknown>]> = [
-        ["defaults", {}],
-        ["unsorted", { "behavior.sortImportsAlphabetically": false }],
-        ["grouped local first", { "behavior.importGrouping": "localFirst" }],
-        ["grouped digest first", { "behavior.importGrouping": "digestFirst" }],
-        ["grouped digest first, unsorted", { "behavior.importGrouping": "digestFirst", "behavior.sortImportsAlphabetically": false }],
-        ["dot syntax", { "behavior.importSyntax": "dot" }],
-    ];
-
-    function useSettings(overrides: Record<string, unknown>): void {
-        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValueOnce({
-            get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => (key in overrides ? overrides[key] : defaultValue)),
-            update: jest.fn().mockResolvedValue(undefined),
-        });
-    }
-
-    function optionsFrom(overrides: Record<string, unknown>) {
-        return {
-            preferDotSyntax: overrides["behavior.importSyntax"] === "dot",
-            sortAlphabetically: (overrides["behavior.sortImportsAlphabetically"] as boolean | undefined) ?? true,
-            importGrouping: (overrides["behavior.importGrouping"] as string | undefined) ?? "none",
-        };
-    }
+    const defaults = { preferDotSyntax: false, sortAlphabetically: true, importGrouping: "none" };
 
     beforeEach(() => {
         const outputChannel = vscode.window.createOutputChannel("test");
         editor = new ImportDocumentEditor(outputChannel, new ImportFormatter());
-        (vscode.workspace.applyEdit as unknown as jest.Mock).mockClear();
-    });
-
-    for (const [documentName, input] of documents) {
-        for (const [settingsName, overrides] of settings) {
-            it(`matches on ${documentName} with ${settingsName}`, async () => {
-                useSettings(overrides);
-                const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /Fortnite.com/Devices }"]);
-                expect(success).toBe(true);
-
-                const built = editor.buildPreservedContent(input, ["/Fortnite.com/Devices"], optionsFrom(overrides));
-                expect(built).not.toBeNull();
-                expect(built!.split(/\r?\n/)).toEqual(appliedText(input).split(/\r?\n/));
-            });
-        }
-    }
-
-    it("matches when diagnostic evidence raises a ceiling over a pinned consumer", async () => {
-        const input = "using { Economy.Shop } <#> note\n    body\ncode()";
-        useSettings({});
-        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Economy }"], new Map([["using { Economy }", [{ line: 0, character: 8 }]]]));
-        expect(success).toBe(true);
-
-        const built = editor.buildPreservedContent(input, ["Economy"], optionsFrom({}), new Map([["Economy", [{ line: 0, character: 8 }]]]));
-        expect(built).not.toBeNull();
-        expect(built!.split(/\r?\n/)).toEqual(appliedText(input).split(/\r?\n/));
     });
 
     it("returns null for a path the document already imports", () => {
-        expect(editor.buildPreservedContent("using { /A }\ncode()", ["/A"], optionsFrom({}))).toBeNull();
+        expect(editor.buildPreservedContent("using { /A }\ncode()", ["/A"], defaults)).toBeNull();
     });
 
     it("returns null for blank paths", () => {
-        expect(editor.buildPreservedContent("code()", ["  ", ""], optionsFrom({}))).toBeNull();
+        expect(editor.buildPreservedContent("code()", ["  ", ""], defaults)).toBeNull();
+    });
+
+    it("leaves every line it does not rewrite untouched", () => {
+        const input = "# note\nusing { /A }\n\ncode()\nmore()";
+        expect(editor.buildPreservedContent(input, ["/B"], defaults)).toBe("# note\nusing { /A }\nusing { /B }\n\ncode()\nmore()");
     });
 });
 

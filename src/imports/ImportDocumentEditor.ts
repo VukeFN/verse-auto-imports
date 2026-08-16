@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { logger, settingsFor } from "../utils";
 import { DiagnosticPosition, DiagnosticPositionsByPath, DiagnosticPositionsByStatement } from "../types";
 import { ImportFormatter } from "./ImportFormatter";
-import { QueuedEdit, verifyImportEdits, verifyOrganizedRewrite } from "./ImportRewriteGuard";
+import { verifyOrganizedRewrite } from "./ImportRewriteGuard";
 import {
     allUsingPaths,
     classifyLines,
@@ -149,24 +149,20 @@ export function minimalSplice(before: string, after: string): TextSplice | null 
 }
 
 /**
- * The edits queued for one document, in the shape ImportRewriteGuard reads.
- *
- * Taken from the WorkspaceEdit rather than recorded as the writers build it, so
- * the guard answers for what is about to be applied rather than for what some
- * parallel bookkeeping says was meant.
+ * The position of `offset` in `text`, counting lines by "\n". Computed from
+ * the text a splice was measured against, never from the document, which may
+ * disagree with it by the time the edit is built.
  */
-function queuedEditsFor(edit: vscode.WorkspaceEdit, uri: vscode.Uri): QueuedEdit[] {
-    return edit
-        .entries()
-        .filter(([entryUri]) => entryUri.toString() === uri.toString())
-        .flatMap(([, edits]) => edits)
-        .map((textEdit) => ({
-            startLine: textEdit.range.start.line,
-            startCharacter: textEdit.range.start.character,
-            endLine: textEdit.range.end.line,
-            endCharacter: textEdit.range.end.character,
-            newText: textEdit.newText,
-        }));
+function positionAt(text: string, offset: number): vscode.Position {
+    let line = 0;
+    let lineStart = 0;
+    for (let i = 0; i < offset; i++) {
+        if (text[i] === "\n") {
+            line++;
+            lineStart = i + 1;
+        }
+    }
+    return new vscode.Position(line, offset - lineStart);
 }
 
 /**
@@ -486,31 +482,7 @@ export class ImportDocumentEditor {
         return statements.map((statement) => this.withTrailingComment(statement, trailingByStatement));
     }
 
-    private createBlockReplacementEdit(
-        edit: vscode.WorkspaceEdit,
-        document: vscode.TextDocument,
-        block: ImportBlock,
-        newPaths: string[],
-        preferDotSyntax: boolean,
-        sortAlphabetically: boolean,
-        eol: LineEnding,
-    ): void {
-        const existingBlockPaths = block.imports.map((imp) => imp.path);
-
-        let combinedPaths = [...existingBlockPaths, ...newPaths];
-        if (sortAlphabetically) {
-            combinedPaths = this.formatter.sortImportsByRank(combinedPaths);
-        }
-
-        const formattedImports = this.withTrailingComments(
-            combinedPaths.map((path) => this.formatter.formatImportStatement(path, preferDotSyntax)),
-            this.trailingCommentsByStatement(block.imports, preferDotSyntax),
-        );
-
-        edit.replace(document.uri, new vscode.Range(new vscode.Position(block.start, 0), new vscode.Position(block.end + 1, 0)), formattedImports.join(eol) + eol);
-    }
-
-    /** The lines a block rebuilds to once `newPaths` join it: createBlockReplacementEdit's content, without the edit. */
+    /** The lines a block rebuilds to once `newPaths` join it, sorted as one where the sort is on. */
     private blockReplacementLines(block: ImportBlock, newPaths: string[], preferDotSyntax: boolean, sortAlphabetically: boolean): string[] {
         const existingBlockPaths = block.imports.map((imp) => imp.path);
 
@@ -529,7 +501,7 @@ export class ImportDocumentEditor {
      * Chooses which existing import block a new path must be merged into so the
      * ordering holds across the whole file rather than only inside one block.
      *
-     * createBlockReplacementEdit sorts the block it rewrites, so it keeps a new
+     * blockReplacementLines sorts the block it rebuilds, so it keeps a new
      * import below a provider only while both sit in that same block. Any blank
      * line between imports starts a second block, so always merging into
      * `importBlocks[0]` could place a new `using { Economy.Shop }` above the
@@ -570,9 +542,9 @@ export class ImportDocumentEditor {
      *
      * Where the import carries `columns`, the evidence must start inside them:
      * a statement sharing its line with other code would otherwise take the
-     * override from a diagnostic about that other statement, and the override's
-     * failure direction is a file that stops compiling, which outranks a fixed
-     * diagnostic (see hoistFloor on the same asymmetry). The compiler anchors
+     * override from a diagnostic about that other statement, and a false
+     * override's failure direction is a file that stops compiling for a
+     * diagnostic that was never about this import. The compiler anchors
      * an unresolved-identifier diagnostic to the identifier's own node
      * (CreateGlitchForMissingUsing's call sites, SemanticAnalyzer.cpp:12544,
      * :12864), so a start position is enough to tell the two statements apart.
@@ -657,39 +629,6 @@ export class ImportDocumentEditor {
             return false;
         }
         return pinned.some((other) => other.path !== imp.path && other.startLine < imp.startLine);
-    }
-
-    /**
-     * The last line a pinned import forbids `path` from being hoisted above, or
-     * -1 where none does. `path` has no line of its own to keep, so a pinned
-     * import that must precede it both rules the block out and names the line
-     * the path is written below instead.
-     *
-     * The floor is pinnedBounds', so a rebuilt block and a singly added import
-     * read one rule rather than two. Only the floor: the ceiling pinnedBounds
-     * returns with it answers a question this caller has already answered,
-     * since a block above every pinned line, and a path written directly below
-     * this floor, both precede every pinned import further down.
-     *
-     * The diagnostic evidence still has to reach it, because a pinned import
-     * that evidence shows is the consumer raises no floor either - carrying the
-     * new import past that one is the fix the diagnostic asked for.
-     *
-     * A ceiling raised *above* the floor is the one it genuinely drops: the
-     * path lands below a pinned import that could have been the consumer it was
-     * added for, leaving that diagnostic unfixed. Deliberate - the alternative
-     * carries it above the pinned import bringing its own first segment into
-     * scope, and a compiling file outranks a fixed diagnostic.
-     *
-     * Exempts the path from itself for the reason crossesPinnedProvider does.
-     */
-    private hoistFloor(pinned: ScannedImport[], classifications: LineClassification[], path: string, diagnosticPositions: DiagnosticPositionsByPath): number {
-        return this.pinnedBounds(
-            pinned.filter((imp) => imp.path !== path),
-            classifications,
-            path,
-            diagnosticPositions,
-        ).floor;
     }
 
     /**
@@ -820,31 +759,10 @@ export class ImportDocumentEditor {
     }
 
     /**
-     * Writes a run of import statements on their own lines at `line`.
-     *
-     * One home for the end-of-document case, which every caller has to handle
-     * the same way: the line after the last one does not exist in a document
-     * with no trailing newline, and VS Code clamps a position past the end onto
-     * the end of the last line - splicing the first statement onto whatever is
-     * already there and leaving one unreadable line where two belong.
-     */
-    private insertImportLines(edit: vscode.WorkspaceEdit, document: vscode.TextDocument, line: number, statements: string[], eol: LineEnding, blankLineAfter: boolean): void {
-        const text = statements.join(eol);
-
-        if (line < document.lineCount) {
-            edit.insert(document.uri, new vscode.Position(line, 0), text + eol + (blankLineAfter ? eol : ""));
-            return;
-        }
-
-        edit.insert(document.uri, document.lineAt(document.lineCount - 1).range.end, eol + text);
-    }
-
-    /**
-     * A splice writing a run of import statements on their own lines at `line`.
-     * insertImportLines' shape in text space, where past-the-end needs no
-     * clamping - but the blank line is still dropped there, as the append
-     * branch of that writer drops it: nothing follows the run, so the blank
-     * would only add a trailing empty line the old writer never wrote.
+     * A splice writing a run of import statements on their own lines at
+     * `line`. Past the end of the document the statements append with no
+     * blank line after them: nothing follows the run, so the blank would only
+     * add a trailing empty line.
      */
     private insertSplice(line: number, lineCount: number, statements: string[], blankLineAfter: boolean): LineSplice {
         const start = Math.min(line, lineCount);
@@ -853,11 +771,10 @@ export class ImportDocumentEditor {
     }
 
     /**
-     * A splice rebuilding a block's line range as `newLines`.
-     * createBlockReplacementEdit's shape in text space: that writer replaced
-     * [start, end + 1) with every statement followed by the line ending, so a
-     * block ending the document gains a trailing break. The join only writes
-     * endings between lines, so here that break is an explicit empty line.
+     * A splice rebuilding a block's line range as `newLines`, each written
+     * with a line ending after it - so a block ending the document gains a
+     * trailing break. The join only writes endings between lines, which makes
+     * that break an explicit empty line here.
      */
     private blockSplice(block: ImportBlock, newLines: string[], lineCount: number): LineSplice {
         const endExclusive = block.end + 1;
@@ -903,32 +820,6 @@ export class ImportDocumentEditor {
     }
 
     /**
-     * The line ranges of a block that consolidating at the top may delete: the
-     * runs of imports it hoists, with the grounded ones left out.
-     *
-     * Deleting the block whole would take a grounded import's line with it while
-     * its path is deliberately not re-emitted at the top, losing the import
-     * rather than moving it. A block's imports are adjacent by construction, so
-     * a block with nothing grounded yields one run covering exactly the block.
-     */
-    private hoistedRuns(block: ImportBlock, grounded: Set<string>): Array<{ start: number; end: number }> {
-        const runs: Array<{ start: number; end: number }> = [];
-        for (const imp of block.imports) {
-            if (grounded.has(imp.path)) {
-                continue;
-            }
-
-            const last = runs[runs.length - 1];
-            if (last && imp.startLine === last.end + 1) {
-                last.end = imp.endLine;
-            } else {
-                runs.push({ start: imp.startLine, end: imp.endLine });
-            }
-        }
-        return runs;
-    }
-
-    /**
      * Writes the statements whose paths the document does not already import,
      * then normalizes the blank lines after the block. True when nothing needed
      * adding, as well as when the edit succeeded.
@@ -964,52 +855,14 @@ export class ImportDocumentEditor {
         });
 
         const text = document.getText();
-        const eol = resolveEol(document, text);
-        const lines = text.split(LINE_SPLIT);
-        const scannedImports = scanModuleImports(lines);
-
-        // Blocks are built from the movable imports below, so a pinned one is
-        // in none of them and no placement decision can see it. Kept here, with
-        // the comment structure a placement needs to read its span, so every
-        // site can bound itself against them. See PinnedBounds.
-        //
-        // Both pin reasons, because the two are indistinguishable to placement:
-        // either way the line stays where it was written, and a new import may
-        // not cross it.
-        const classifications = classifyLines(lines);
-        const pinned = pinnedImports(scannedImports);
-
-        // The top of the file for everything written below, in place of line 0.
-        // See headerLineCount. Every line it covers is comment or blank, so
-        // starting here crosses no `using` and changes no resolution order.
-        const headerEnd = headerLineCount(classifications);
-
-        const importBlocks: ImportBlock[] = [];
-        for (const imp of rewritableImports(scannedImports)) {
-            logger.debug("ImportDocumentEditor", `Found existing import at line ${imp.startLine}: ${imp.path}`);
-
-            const lastBlock = importBlocks[importBlocks.length - 1];
-            if (lastBlock && imp.startLine === lastBlock.end + 1) {
-                lastBlock.end = imp.endLine;
-                lastBlock.imports.push(imp);
-            } else {
-                importBlocks.push({ start: imp.startLine, end: imp.endLine, imports: [imp] });
-            }
-        }
-
-        logger.debug("ImportDocumentEditor", `Found ${scannedImports.length} existing imports in ${importBlocks.length} blocks`);
 
         // Existence is judged from every import, a pinned one included: it is
         // imported, so nothing needs adding for it.
-        const existingPaths = new Set<string>(scannedImports.map((imp) => imp.path));
-        // Relocation is judged only from the movable ones. Re-emitting a
-        // pinned path at the top while its own line necessarily stays put
-        // would duplicate the import rather than move it.
-        const relocatablePaths = new Set<string>(rewritableImports(scannedImports).map((imp) => imp.path));
+        const existingPaths = new Set<string>(scanModuleImports(text.split(LINE_SPLIT)).map((imp) => imp.path));
 
         const newImportPaths = new Set<string>();
         // Re-keyed from the statement the caller holds to the path every
-        // placement rule below works in, and concatenated where two statements
+        // placement rule works in, and concatenated where two statements
         // share a path: a second diagnostic asking for the same import is
         // further evidence, not a replacement for the first.
         const diagnosticPositionsByPath = new Map<string, DiagnosticPosition[]>();
@@ -1031,347 +884,64 @@ export class ImportDocumentEditor {
             return true;
         }
 
-        const edit = new vscode.WorkspaceEdit();
+        const options: RebuildOptions = { preferDotSyntax, sortAlphabetically, importGrouping, fallbackEol: documentEol(document) };
+        const requestedPaths = Array.from(newImportPaths);
+        const target = preserveImportLocations
+            ? this.buildPreservedContent(text, requestedPaths, options, diagnosticPositionsByPath)
+            : this.buildOrganizedContent(text, requestedPaths, options, diagnosticPositionsByPath);
 
-        if (preserveImportLocations) {
-            // A gap between two blocks is the author's own grouping, so the
-            // configured strategy is applied by adding to whichever group each
-            // new path belongs in rather than by regrouping the file.
-            const hasGrouping =
-                importGrouping !== "none" &&
-                importBlocks.length >= 2 &&
-                importBlocks.some((block, i) => {
-                    if (i === 0) return false;
-                    return block.start > importBlocks[i - 1].end + 1;
-                });
-
-            if (hasGrouping && importBlocks.length >= 2) {
-                let digestBlockIndex = -1;
-                let firstLocalBlockIndex = -1;
-                let lastLocalBlockIndex = -1;
-
-                importBlocks.forEach((block, index) => {
-                    const blockPaths = block.imports.map((imp) => imp.path);
-                    const hasDigest = blockPaths.some((path) => this.formatter.isDigestImport(path));
-                    const hasLocal = blockPaths.some((path) => !this.formatter.isDigestImport(path));
-
-                    // A block counts as a group only if it is pure. A mixed one
-                    // is evidence of nothing, so it is left as neither and
-                    // takes no new import.
-                    if (hasDigest && !hasLocal) {
-                        digestBlockIndex = index;
-                    } else if (hasLocal && !hasDigest) {
-                        firstLocalBlockIndex = firstLocalBlockIndex === -1 ? index : firstLocalBlockIndex;
-                        lastLocalBlockIndex = index;
-                    }
-                });
-
-                // localFirst writes the local imports as two groups either side
-                // of the digest one (ImportFormatter.groupAndFormatImports), so
-                // a file it organized offers two local blocks rather than one.
-                // Which of them a new local path belongs in is the question
-                // selectTargetBlockIndex already answers: an absolute path
-                // needs nothing in scope and goes in the first, a relative one
-                // may resolve through anything above it and goes in the last.
-                // The two indices coincide under every other strategy, which
-                // leaves one local block and the same answer either way.
-                const newDigestPaths: string[] = [];
-                const newLocalAbsolutePaths: string[] = [];
-                const newLocalRelativePaths: string[] = [];
-
-                for (const path of newImportPaths) {
-                    if (this.formatter.isDigestImport(path)) {
-                        newDigestPaths.push(path);
-                    } else if (this.formatter.resolvesAgainstScopeAbove(path)) {
-                        newLocalRelativePaths.push(path);
-                    } else {
-                        newLocalAbsolutePaths.push(path);
-                    }
-                }
-
-                // A block can only take a new import where both the pinned
-                // imports and the movable ones below it leave room for it.
-                // Rebuilding a block writes the new statement at that block's
-                // lines, so which block absorbs a path is a placement decision
-                // like any other, and a block sitting above a provider cannot
-                // make one. The two bounds count different imports, though:
-                // see blockKeepsRelativeOrder for why an absolute import in a
-                // later block is let through where a pinned one is not.
-                //
-                // Partitioned in one pass rather than filtered twice, so taken
-                // and unhandled are complements by construction: two filters
-                // that have to stay each other's negation write a path into
-                // both lists, or into neither, as soon as one is edited alone.
-                const splitForBlock = (blockIndex: number, paths: string[]): { taken: string[]; unhandled: string[] } => {
-                    const taken: string[] = [];
-                    const unhandled: string[] = [];
-                    for (const path of paths) {
-                        const canTake =
-                            blockIndex >= 0 &&
-                            this.blockIsWithin(importBlocks[blockIndex], this.pinnedBounds(pinned, classifications, path, diagnosticPositionsByPath)) &&
-                            this.blockKeepsRelativeOrder(importBlocks, blockIndex, path);
-                        (canTake ? taken : unhandled).push(path);
-                    }
-                    return { taken, unhandled };
-                };
-
-                // Collected per block before any edit is made, because the two
-                // local routes reach the same block under every strategy but
-                // localFirst. Rewriting that block once per route would leave
-                // two replacements over the same lines, and the second would
-                // drop what the first added.
-                const takenByBlock = new Map<number, string[]>();
-                const unhandledPaths: string[] = [];
-
-                for (const [blockIndex, paths] of [
-                    [digestBlockIndex, newDigestPaths],
-                    [firstLocalBlockIndex, newLocalAbsolutePaths],
-                    [lastLocalBlockIndex, newLocalRelativePaths],
-                ] as Array<[number, string[]]>) {
-                    const { taken, unhandled } = splitForBlock(blockIndex, paths);
-                    if (taken.length > 0) {
-                        takenByBlock.set(blockIndex, [...(takenByBlock.get(blockIndex) ?? []), ...taken]);
-                    }
-                    // Imports no block took: one with no matching block, and
-                    // one its matching block cannot hold - because a pinned
-                    // import keeps it out, or a relative import below it does.
-                    unhandledPaths.push(...unhandled);
-                }
-
-                for (const blockIndex of [...takenByBlock.keys()].sort((a, b) => a - b)) {
-                    this.createBlockReplacementEdit(edit, document, importBlocks[blockIndex], takenByBlock.get(blockIndex)!, preferDotSyntax, sortAlphabetically, eol);
-                }
-
-                if (unhandledPaths.length > 0) {
-                    const desired = importBlocks.length > 0 ? importBlocks[importBlocks.length - 1].end + 1 : headerEnd;
-                    for (const [line, paths] of this.groupByPlacementLine(unhandledPaths, desired, pinned, classifications, diagnosticPositionsByPath)) {
-                        this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, importBlocks.length === 0);
-                    }
-                }
-            } else {
-                if (importGrouping !== "none" && existingPaths.size > 0) {
-                    // Grouping is wanted and the file has none, so the imports
-                    // are regrouped in place. A new path a pinned import
-                    // keeps out of the rebuilt block is written on its own line
-                    // below that import instead, rather than into a group that
-                    // sits above it. Only the new paths are asked: this branch
-                    // sees at most one block (2+ gapped blocks reach the
-                    // hasGrouping branch above), so every relocated path is
-                    // already inside the block being rebuilt in place.
-                    const displacedPaths =
-                        importBlocks.length > 0
-                            ? Array.from(newImportPaths).filter((path) => !this.blockIsWithin(importBlocks[0], this.pinnedBounds(pinned, classifications, path, diagnosticPositionsByPath)))
-                            : [];
-                    const displaced = new Set(displacedPaths);
-
-                    const allPaths = new Set<string>([...relocatablePaths, ...newImportPaths].filter((path) => !displaced.has(path)));
-                    const allImportsArray = Array.from(allPaths);
-                    const groupedImports = this.withTrailingComments(
-                        this.formatter.groupAndFormatImports(allImportsArray, preferDotSyntax, sortAlphabetically, importGrouping),
-                        this.trailingCommentsByStatement(rewritableImports(scannedImports), preferDotSyntax),
-                    );
-
-                    if (importBlocks.length > 0) {
-                        // In place, so the block stays where the author put it
-                        // rather than moving to the top of the file. The loop
-                        // over any further block is defensive: this branch sees
-                        // only one, as above.
-                        const firstBlock = importBlocks[0];
-                        edit.replace(document.uri, new vscode.Range(new vscode.Position(firstBlock.start, 0), new vscode.Position(firstBlock.end + 1, 0)), groupedImports.join(eol) + eol);
-
-                        for (let i = importBlocks.length - 1; i >= 1; i--) {
-                            const block = importBlocks[i];
-                            edit.delete(document.uri, new vscode.Range(new vscode.Position(block.start, 0), new vscode.Position(block.end + 1, 0)));
-                        }
-
-                        for (const [line, paths] of this.groupByPlacementLine(displacedPaths, firstBlock.end + 1, pinned, classifications, diagnosticPositionsByPath)) {
-                            this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, false);
-                        }
-                    } else {
-                        // No existing block - write the imports at the top, or
-                        // below a pinned import that has to precede one of
-                        // them. Split by line like every other site rather than
-                        // written as one run under a merged bound: paths of
-                        // different ranks take their bounds from different
-                        // pinned imports, and one path's floor can sit below
-                        // another's ceiling, leaving the group no line it can
-                        // legally occupy at all.
-                        //
-                        // A relocated path is never among these. Every
-                        // rewritable import opens or extends a block, so no
-                        // block means none of them, which is also why the
-                        // trailing comments here are always empty.
-                        for (const [line, paths] of this.groupByPlacementLine(allImportsArray, headerEnd, pinned, classifications, diagnosticPositionsByPath)) {
-                            this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, true);
-                        }
-                    }
-                } else {
-                    const newImportPathsArray = Array.from(newImportPaths);
-
-                    if (sortAlphabetically && importBlocks.length > 0) {
-                        // Merge each new import into an existing block in place
-                        // so the combined block is sorted as one, with the
-                        // absolute paths at the top and every relative import
-                        // in its written order. Appending the new imports after
-                        // the block instead would leave them below imports the
-                        // sort had already placed, in a second region the sort
-                        // never sees together.
-                        //
-                        // Which block each import joins is a whole-file
-                        // decision, not always the first one: sorting one block
-                        // orders the new import against that block alone, which
-                        // leaves it free to sit above a provider in another
-                        // block (see selectTargetBlockIndex).
-                        //
-                        // Only a block inside the space the pinned imports
-                        // leave is eligible, and the selector chooses among
-                        // those. A pinned import is in no block, so offering
-                        // the selector every block lets it merge an import into
-                        // one above the pinned provider that import needs.
-                        const pathsByBlock = new Map<number, string[]>();
-                        const unblockedPaths: string[] = [];
-                        for (const path of newImportPathsArray) {
-                            const bounds = this.pinnedBounds(pinned, classifications, path, diagnosticPositionsByPath);
-                            const eligible = importBlocks.map((block, index) => ({ block, index })).filter(({ block }) => this.blockIsWithin(block, bounds));
-
-                            if (eligible.length === 0) {
-                                // No block sits where this import may go, so it
-                                // is written on its own line there instead.
-                                unblockedPaths.push(path);
-                                continue;
-                            }
-
-                            // The selector reports a position in the list it was
-                            // given, so its answer is read back through that
-                            // list to reach the real block.
-                            const chosen = this.selectTargetBlockIndex(
-                                eligible.map(({ block }) => block),
-                                path,
-                            );
-                            const index = eligible[chosen].index;
-                            const targetPaths = pathsByBlock.get(index);
-                            if (targetPaths) {
-                                targetPaths.push(path);
-                            } else {
-                                pathsByBlock.set(index, [path]);
-                            }
-                        }
-
-                        // Blocks are disjoint, so the replacements never overlap.
-                        // Neither can a standalone line below collide with one.
-                        // placementLine returns one of two things, and a pinned
-                        // import's span holds no block line either way: its own
-                        // line breaks the contiguity a block is built from, and
-                        // past that line the span is comment body or the lines
-                        // indented under it, neither of which holds a column-0
-                        // import the scanner would collect - an indented body
-                        // ends at the first column-0 line of code, which is the
-                        // earliest a block could start.
-                        //
-                        // - A ceiling, which is a pinned import's own line.
-                        // - floor + 1, reached only when every block was
-                        //   refused, which for a path with no ceiling means
-                        //   every block starts at or below the floor. The floor
-                        //   is the end of a pinned span, so a block starting
-                        //   at or below it ends before that span begins, and
-                        //   floor + 1 is past the end of the block.
-                        for (const index of [...pathsByBlock.keys()].sort((a, b) => a - b)) {
-                            this.createBlockReplacementEdit(edit, document, importBlocks[index], pathsByBlock.get(index)!, preferDotSyntax, true, eol);
-                        }
-
-                        // headerEnd never decides anything here, and is passed
-                        // so that no site holds a different top of the file: a
-                        // path with unconstrained bounds finds every block
-                        // eligible, so an unblocked one always has a floor or a
-                        // ceiling, and both sit at or below the header's end.
-                        for (const [line, paths] of this.groupByPlacementLine(unblockedPaths, headerEnd, pinned, classifications, diagnosticPositionsByPath)) {
-                            this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, true, importGrouping), eol, true);
-                        }
-                    } else {
-                        // Sorting off, or no block to merge into: the new
-                        // imports are appended and no existing line is touched.
-                        //
-                        // After the last import block, not the first: with
-                        // sorting off nothing reorders a block afterwards, so
-                        // any earlier position could leave a new import above
-                        // one that has to stay above it.
-                        //
-                        // Wherever that block sits, not only when it starts at
-                        // line 0. A file whose imports open below a licence
-                        // header has its first block at a later line, so
-                        // inserting at line 0 there writes the new import above
-                        // the header and leaves two disconnected import regions
-                        // behind.
-                        //
-                        // With no block at all the top of the file is where a
-                        // new import goes - unless a pinned import that has to
-                        // precede it sits there, which is the one case a file
-                        // whose only import is pinned always reaches. That is
-                        // what groupByPlacementLine answers, from either start.
-                        const desired = importBlocks.length > 0 ? importBlocks[importBlocks.length - 1].end + 1 : headerEnd;
-                        const blankLineAfter = importBlocks.length === 0;
-
-                        for (const [line, paths] of this.groupByPlacementLine(newImportPathsArray, desired, pinned, classifications, diagnosticPositionsByPath)) {
-                            this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, blankLineAfter);
-                        }
-                    }
-                }
-            }
-        } else {
-            // The block is written above every pinned line, so hoisting an
-            // import from below one carries it across. See groundedPaths.
-            const grounded = this.groundedPaths(pinned, rewritableImports(scannedImports));
-
-            // A new path has no line of its own to keep, so a pinned import
-            // that has to precede it names the line it is written below
-            // instead. The floor alone, as buildOrganizedContent asks of a path
-            // it adds and for its reason: this block goes above every pinned
-            // line, so a ceiling is already satisfied by it. See hoistFloor.
-            const blockPaths = new Set<string>(Array.from(relocatablePaths).filter((path) => !grounded.has(path)));
-            const newPathsByLine = new Map<number, string[]>();
-            for (const path of newImportPaths) {
-                const floor = this.hoistFloor(pinned, classifications, path, diagnosticPositionsByPath);
-                if (floor === -1) {
-                    blockPaths.add(path);
-                    continue;
-                }
-                newPathsByLine.set(floor + 1, [...(newPathsByLine.get(floor + 1) ?? []), path]);
-            }
-
-            // Grounding can leave the block with nothing to write, and an empty
-            // block is a stray line ending at the top of the file.
-            if (blockPaths.size > 0) {
-                const formattedImports = this.withTrailingComments(
-                    this.formatter.groupAndFormatImports(Array.from(blockPaths), preferDotSyntax, sortAlphabetically, importGrouping),
-                    this.trailingCommentsByStatement(rewritableImports(scannedImports), preferDotSyntax),
-                );
-
-                // No blank line after the block: ensureEmptyLinesAfterImports
-                // runs once the edit has been applied and puts the configured
-                // number there.
-                this.insertImportLines(edit, document, headerEnd, formattedImports, eol, false);
-            }
-
-            for (const [line, paths] of [...newPathsByLine].sort(([a], [b]) => a - b)) {
-                this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, false);
-            }
-
-            for (let i = importBlocks.length - 1; i >= 0; i--) {
-                for (const run of this.hoistedRuns(importBlocks[i], grounded).reverse()) {
-                    edit.delete(document.uri, new vscode.Range(new vscode.Position(run.start, 0), new vscode.Position(run.end + 1, 0)));
-                }
-            }
-        }
-
-        const refusal = verifyImportEdits(lines, queuedEditsFor(edit, document.uri), newImportPaths);
-        if (refusal) {
-            logger.error("ImportDocumentEditor", `Refusing to update imports: ${refusal}`);
+        // Neither builder may answer null here: the paths are non-empty and
+        // none is imported yet, so a null is buildPreservedContent refusing
+        // colliding splices rather than "nothing to do".
+        if (target === null) {
+            logger.error("ImportDocumentEditor", "Refusing to update imports: the rebuilt text could not be composed");
             return false;
         }
 
+        return this.applyRebuiltText(document, text, target, requestedPaths, {
+            unchanged: "No import changes needed, skipping update",
+            refuse: "Refusing to update imports",
+            applied: "Successfully updated imports in document",
+            failed: "Failed to update imports in document",
+            errored: "Error updating imports",
+        });
+    }
+
+    /**
+     * Applies a rebuilt document text as one minimal, line-aligned edit, after
+     * the rewrite guard has read the whole text back. True when the target
+     * already matches the document.
+     *
+     * `text` must be the exact string the rebuild read: the splice's offsets
+     * are coordinates in it, and reading the document again here would hand
+     * them to a buffer an edit may have moved under us.
+     */
+    private async applyRebuiltText(
+        document: vscode.TextDocument,
+        text: string,
+        target: string,
+        requestedPaths: readonly string[],
+        messages: { unchanged: string; refuse: string; applied: string; failed: string; errored: string },
+    ): Promise<boolean> {
+        if (target === text) {
+            logger.debug("ImportDocumentEditor", messages.unchanged);
+            return true;
+        }
+
+        const refusal = verifyOrganizedRewrite(text, target, requestedPaths);
+        if (refusal) {
+            logger.error("ImportDocumentEditor", `${messages.refuse}: ${refusal}`);
+            return false;
+        }
+
+        // Null only for equal texts, which the skip above already answered.
+        const splice = minimalSplice(text, target)!;
+        const edit = new vscode.WorkspaceEdit();
+        edit.replace(document.uri, new vscode.Range(positionAt(text, splice.start), positionAt(text, splice.end)), splice.newText);
+
         try {
             const success = await vscode.workspace.applyEdit(edit);
-            logger.info("ImportDocumentEditor", success ? "Successfully updated imports in document" : "Failed to update imports in document");
+            logger.info("ImportDocumentEditor", success ? messages.applied : messages.failed);
 
             if (success) {
                 await this.applyEmptyLinesAfterImports(document);
@@ -1379,7 +949,7 @@ export class ImportDocumentEditor {
 
             return success;
         } catch (error) {
-            logger.error("ImportDocumentEditor", `Error updating imports: ${error}`, error);
+            logger.error("ImportDocumentEditor", `${messages.errored}: ${error}`, error);
             return false;
         }
     }
@@ -1767,7 +1337,7 @@ export class ImportDocumentEditor {
      * above that line as well; one written below it keeps its line, untidy but
      * compiling. An additional path has no line to keep, so it is written
      * directly below the pinned statement that constrains it. See
-     * crossesPinnedProvider and hoistFloor.
+     * crossesPinnedProvider, pinnedBounds and placementLine.
      *
      * The result keeps the text's own line ending, so rebuilding an already
      * organized document reproduces it byte for byte and organizeImports can
@@ -1855,29 +1425,37 @@ export class ImportDocumentEditor {
         }
 
         // An additional path the block cannot take is written on its own line
-        // directly below the pinned statement that constrains it, since it has
-        // no line of its own to keep. Declining to write it at all would make
-        // organizing a file with such an import silently add nothing.
+        // in the space its bounds leave, since it has no line of its own to
+        // keep. Declining to write it at all would make organizing a file with
+        // such an import silently add nothing.
         //
-        // Grouped by line as groupByPlacementLine groups the add path's, and
-        // deliberately not through it: that one places a run against a document
-        // being edited, honouring a ceiling as well, while these are spliced
-        // into text being rebuilt and hoistFloor says why no ceiling binds.
+        // The bounds are pinnedBounds', with the path exempted from itself for
+        // the reason crossesPinnedProvider gives, so a rebuilt block and a
+        // singly placed path read one rule rather than two. No floor means the
+        // block takes it: the block sits above every pinned line, so a ceiling
+        // alone is already satisfied there. A floored path goes through
+        // placementLine, whose ceiling-over-floor precedence is the one
+        // conflict rule both entry points share - a diagnostic reaches here
+        // whenever the caller has one, and the pinned consumer it names must
+        // end up below the path added to resolve it.
+        //
+        // Keys name the line the run is written above, clamped to the header's
+        // end so no bound can carry an import into the header.
         const topExtraPaths: string[] = [];
         const groundedExtrasByLine = new Map<number, string[]>();
         for (const path of extraPaths) {
-            // A diagnostic reaches here whenever the caller has one: Optimize
-            // Imports adds what the compiler currently reports as missing. A
-            // pinned import the evidence shows to be the consumer therefore
-            // raises a ceiling rather than a floor, and the block above every
-            // pinned line satisfies it. Only the floor is read, for the reason
-            // hoistFloor gives.
-            const floor = this.hoistFloor(pinned, classifications, path, diagnosticPositionsByPath);
-            if (floor === -1) {
+            const bounds = this.pinnedBounds(
+                pinned.filter((imp) => imp.path !== path),
+                classifications,
+                path,
+                diagnosticPositionsByPath,
+            );
+            if (bounds.floor === -1) {
                 topExtraPaths.push(path);
                 continue;
             }
-            groundedExtrasByLine.set(floor, [...(groundedExtrasByLine.get(floor) ?? []), path]);
+            const line = Math.max(this.placementLine(bounds.floor + 1, bounds), headerEnd);
+            groundedExtrasByLine.set(line, [...(groundedExtrasByLine.get(line) ?? []), path]);
         }
 
         // Every line the rebuilt block accounts for: the import statements
@@ -1909,17 +1487,28 @@ export class ImportDocumentEditor {
         const header = lines.slice(0, headerEnd);
         const body: string[] = [];
         for (let index = headerEnd; index < lines.length; index++) {
-            if (!hoistedLines.has(index)) {
-                body.push(lines[index]);
-            }
             const groundedExtras = groundedExtrasByLine.get(index);
             if (groundedExtras) {
                 // Grouping is a property of the block at the top, so a run
                 // written between two body lines is emitted ungrouped: the
                 // separator a strategy puts between its two groups would read
                 // as a gap in the code around it.
+                //
+                // Emitted above the keyed line whether or not that line itself
+                // survives the hoist: a floor's own line is pinned and always
+                // survives, but a placement one past a hoisted import must not
+                // vanish with it.
                 body.push(...this.formatter.groupAndFormatImports(groundedExtras, options.preferDotSyntax, options.sortAlphabetically, "none"));
             }
+            if (!hoistedLines.has(index)) {
+                body.push(lines[index]);
+            }
+        }
+        // A path floored by a span ending the file is keyed one past the last
+        // line, which the loop never reaches.
+        const trailingExtras = groundedExtrasByLine.get(lines.length);
+        if (trailingExtras) {
+            body.push(...this.formatter.groupAndFormatImports(trailingExtras, options.preferDotSyntax, options.sortAlphabetically, "none"));
         }
 
         const uniquePaths = Array.from(new Set([...paths, ...topExtraPaths]));
@@ -1994,34 +1583,18 @@ export class ImportDocumentEditor {
             diagnosticPositionsByPath,
         );
 
-        if (organized === null || organized === text) {
+        if (organized === null) {
             logger.debug("ImportDocumentEditor", "No import changes needed by organize");
             return true;
         }
 
-        const refusal = verifyOrganizedRewrite(text, organized, additionalPaths);
-        if (refusal) {
-            logger.error("ImportDocumentEditor", `Refusing to organize imports: ${refusal}`);
-            return false;
-        }
-
-        const edit = new vscode.WorkspaceEdit();
-        const fullRange = new vscode.Range(new vscode.Position(0, 0), document.lineAt(document.lineCount - 1).range.end);
-        edit.replace(document.uri, fullRange, organized);
-
-        try {
-            const success = await vscode.workspace.applyEdit(edit);
-            logger.info("ImportDocumentEditor", success ? "Organized imports in document" : "Failed to organize imports");
-
-            if (success) {
-                await this.applyEmptyLinesAfterImports(document);
-            }
-
-            return success;
-        } catch (error) {
-            logger.error("ImportDocumentEditor", `Error organizing imports: ${error}`, error);
-            return false;
-        }
+        return this.applyRebuiltText(document, text, organized, additionalPaths, {
+            unchanged: "No import changes needed by organize",
+            refuse: "Refusing to organize imports",
+            applied: "Organized imports in document",
+            failed: "Failed to organize imports",
+            errored: "Error organizing imports",
+        });
     }
 
     /**

@@ -2564,6 +2564,76 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             expect(success).toBe(true);
             expect(appliedText(input)).toBe("using { /A }\nusing { /B }\nusing { /C }\n\ncode()");
         });
+
+        it("carries an import's annotation with it into the block", async () => {
+            mockConfig(consolidating);
+            const input = ["using { /A }", "# why /B is here", "using { /B }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /C }"]);
+
+            expect(success).toBe(true);
+            expect(appliedText(input)).toBe("using { /A }\n# why /B is here\nusing { /B }\nusing { /C }\n\ncode()");
+        });
+
+        it("withholds a movable duplicate of a pinned path when every using is absolute", async () => {
+            mockConfig(consolidating);
+            const input = ["using { /B }; X := 1", "using { /B }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /C }"]);
+
+            expect(success).toBe(true);
+            expect(appliedText(input)).toBe("using { /C }\n\nusing { /B }; X := 1\ncode()");
+        });
+    });
+});
+
+/**
+ * The one conflict rule. A diagnostic inside a pinned dotted import's own
+ * statement licenses reading the added path as its provider, which must then
+ * precede it (the ceiling); another pinned import the added path could resolve
+ * through asks it to stay below (the floor). Where the two collide the ceiling
+ * wins on every route: a `using` resolves through the `using` set above it in
+ * document order, so a provider written below its evidenced consumer can never
+ * fix the diagnostic that asked for it, while the floor is form-based
+ * suspicion with no evidence behind it. See placementLine.
+ */
+describe("one conflict rule across both entry points", () => {
+    let editor: ImportDocumentEditor;
+
+    const input = ["using { Economy.Shop } <#> note", "    the marker body", "using { Features2 }; X := 1", "code()"].join("\n");
+    const resolved = "using { Features }\nusing { Economy.Shop } <#> note\n    the marker body\nusing { Features2 }; X := 1\ncode()";
+
+    beforeEach(() => {
+        const outputChannel = vscode.window.createOutputChannel("test");
+        editor = new ImportDocumentEditor(outputChannel, new ImportFormatter());
+        (vscode.workspace.applyEdit as unknown as jest.Mock).mockClear();
+    });
+
+    it("organize writes the evidenced provider above its consumer past a floor below", async () => {
+        const success = await editor.organizeImports(fakeDocument(input), ["Features"], new Map([["Features", [{ line: 0, character: 8 }]]]));
+
+        expect(success).toBe(true);
+        expect(appliedText(input)).toBe(resolved);
+    });
+
+    it("a consolidating add produces the same document", async () => {
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValueOnce({
+            get: jest.fn().mockImplementation((key: string, defaultValue?: unknown) => (key === "behavior.preserveImportLocations" ? false : defaultValue)),
+            update: jest.fn().mockResolvedValue(undefined),
+        });
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], new Map([["using { Features }", [{ line: 0, character: 8 }]]]));
+
+        expect(success).toBe(true);
+        expect(appliedText(input)).toBe(resolved);
+    });
+
+    it("a preserving add picks the same line", async () => {
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], new Map([["using { Features }", [{ line: 0, character: 8 }]]]));
+
+        expect(success).toBe(true);
+        // The same placement; only the blank line after a fresh run differs.
+        expect(appliedText(input)).toBe("using { Features }\n\nusing { Economy.Shop } <#> note\n    the marker body\nusing { Features2 }; X := 1\ncode()");
     });
 });
 

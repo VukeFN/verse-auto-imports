@@ -3,6 +3,7 @@ import { logger, settingsFor } from "../utils";
 import { ProjectPathHandler } from "../project";
 import { findContentRoot } from "../services/contentRoot";
 import { toContentRelativeDir } from "../services/moduleLocationLookup";
+import { sameFsPath } from "../services/pathCasing";
 import { appendDeclarationBlock, buildDeclarationBlock, nestDeclarationEdit } from "./definitionsContent";
 import { findExplicitModuleDeclarations } from "./moduleDeclarations";
 import { ModuleVisibilityRequest } from "./ModuleVisibilityMessage";
@@ -178,19 +179,26 @@ export class ModuleVisibilityWriter {
             return { reason: `'${request.moduleName}' is already reachable from the importing module.` };
         }
 
-        const definitionsUri = this.definitionsUri(contentRoot);
-        if (!definitionsUri) {
+        const configuredDefinitionsUri = this.definitionsUri(contentRoot);
+        if (!configuredDefinitionsUri) {
             return { reason: "verseAutoImports.moduleVisibility.definitionsFileName must be a plain file name ending in .verse." };
         }
-        const definitionsKey = definitionsUri.toString();
 
         // Every module on the path is looked up, the reachable prefix included:
         // the chain written into the definitions file has to nest through them,
         // and a part it writes must repeat whatever they already declare.
-        const scan = await this.findDeclarations(contentRoot, [...prefix, ...segments.map((segment) => segment.name)], definitionsKey);
+        const scan = await this.findDeclarations(contentRoot, [...prefix, ...segments.map((segment) => segment.name)], configuredDefinitionsUri);
         if ("unreadable" in scan) {
             return { reason: `'${vscode.workspace.asRelativePath(scan.unreadable, false)}' could not be read, so whether it declares part of '${request.moduleName}' is unknown.` };
         }
+
+        // The on-disk spelling wins over the configured one wherever the scan
+        // listed the file: VS Code keeps two URI spellings of one Windows file
+        // as two documents, so keying the whole-file replace by the configured
+        // spelling while the scan keys its edits by disk writes the same file
+        // twice in one applyEdit, and whichever document saves last wins.
+        const definitionsUri = scan.definitionsOnDisk ?? configuredDefinitionsUri;
+        const definitionsKey = definitionsUri.toString();
 
         const { declarations, scanned } = scan;
         const resolved = resolveVisibility(prefix, segments, declarations, definitionsKey);
@@ -426,20 +434,34 @@ export class ModuleVisibilityWriter {
      * @param contentRoot the root the scan sweeps and every path is taken
      * against, resolved once by the caller: deriving it a second time here
      * would let the folder written to and the folder read from disagree.
-     * @param definitionsKey the definitions file, whose text is kept even when
-     * it declares none of these modules, because the caller appends to it. A
-     * file holding no module declaration at all is skipped before that, and
-     * reaches the caller through readDefinitions instead.
+     * @param definitionsUri the configured definitions file, matched against
+     * the scan under the platform's case rule so a user-created spelling that
+     * differs only in case is adopted (as `definitionsOnDisk`) rather than
+     * doubled. Its text is kept even when it declares none of these modules,
+     * because the caller appends to it. A file holding no module declaration
+     * at all is skipped before that, and reaches the caller through
+     * readDefinitions instead.
      */
     private async findDeclarations(
         contentRoot: vscode.Uri,
         names: readonly string[],
-        definitionsKey: string,
-    ): Promise<{ declarations: FoundDeclaration[]; scanned: Map<string, ScannedFile> } | UnreadableFile> {
+        definitionsUri: vscode.Uri,
+    ): Promise<{ declarations: FoundDeclaration[]; scanned: Map<string, ScannedFile>; definitionsOnDisk: vscode.Uri | null } | UnreadableFile> {
         const verseFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(contentRoot, "**/*.verse"), "**/*.digest.verse");
         const wanted = new Set(names);
         const declarations: FoundDeclaration[] = [];
         const scanned = new Map<string, ScannedFile>();
+
+        // Adopted from the listing rather than from the read results, so a
+        // definitions file the declaration reader skips - empty, or holding
+        // no `module` at all - still resolves to its on-disk spelling.
+        let definitionsOnDisk: vscode.Uri | null = null;
+        for (const file of verseFiles) {
+            if (sameFsPath(file.fsPath, definitionsUri.fsPath)) {
+                definitionsOnDisk = file;
+                break;
+            }
+        }
 
         for (let i = 0; i < verseFiles.length; i += SCAN_CONCURRENCY) {
             const batch = await Promise.all(verseFiles.slice(i, i + SCAN_CONCURRENCY).map((file) => this.readDeclarations(file, contentRoot, wanted)));
@@ -453,16 +475,15 @@ export class ModuleVisibilityWriter {
                     logger.debug("ModuleVisibilityWriter", `Stopped the scan at unreadable file ${result.unreadable.toString()}`);
                     return result;
                 }
-                const key = result.file.uri.toString();
-                if (result.declarations.length > 0 || key === definitionsKey) {
-                    scanned.set(key, result.file);
+                if (result.declarations.length > 0 || sameFsPath(result.file.uri.fsPath, definitionsUri.fsPath)) {
+                    scanned.set(result.file.uri.toString(), result.file);
                     declarations.push(...result.declarations);
                 }
             }
         }
 
         logger.debug("ModuleVisibilityWriter", `Scanned ${verseFiles.length} file(s), found ${declarations.length} matching declaration(s)`);
-        return { declarations, scanned };
+        return { declarations, scanned, definitionsOnDisk };
     }
 
     /**

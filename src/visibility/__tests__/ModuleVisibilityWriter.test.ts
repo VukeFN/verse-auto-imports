@@ -753,3 +753,82 @@ describe("ModuleVisibilityWriter under a nested plugin Content root", () => {
         expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("no 'Content' folder"));
     });
 });
+
+// A Windows user creates the definitions file by hand as `_Definitions.verse`.
+// The filesystem treats that and the configured `_definitions.verse` as one
+// file; the writer keyed them as two, so the scan's declarations were read as
+// a user file's - conflicting with the very block they belong to - and a
+// whole-file replace could target one spelling while in-place edits targeted
+// the other, both written in one applyEdit.
+describe("ModuleVisibilityWriter under a case-drifted definitions file name", () => {
+    const realPlatform = process.platform;
+    const setPlatform = (platform: string): void => {
+        Object.defineProperty(process, "platform", { value: platform, configurable: true });
+    };
+
+    const publicizeDeepTools = () =>
+        writer().makeModulePublic({
+            targetPath: `${PROJECT}/Gadgets/Deep/Tools`,
+            importerPath: `${PROJECT}/Scripts`,
+            moduleName: "Tools",
+        });
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        afterScan.clear();
+        (vscode.workspace.applyEdit as jest.Mock).mockResolvedValue(true);
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+            get: jest.fn().mockImplementation((_key: string, fallback?: unknown) => fallback),
+            update: jest.fn(),
+        });
+    });
+
+    afterEach(() => {
+        setPlatform(realPlatform);
+        (vscode.workspace as any).workspaceFolders = undefined;
+        (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([]);
+        (vscode.workspace.fs.stat as jest.Mock).mockRejectedValue(new Error("ENOENT"));
+    });
+
+    it("adopts the on-disk spelling as its one write target, where the filesystem folds case", async () => {
+        setPlatform("win32");
+        givenProject({ "Content/_Definitions.verse": "Gadgets := module:\n    Deep := module {}\n" });
+
+        await publicizeDeepTools();
+
+        const operations = appliedOperations();
+        expect(operations).toHaveLength(1);
+        expect(operations[0].kind).toBe("replace");
+        expect(forwardSlashed(operations[0].uri)).toBe(`${ROOT}/Content/_Definitions.verse`);
+        expect(operations[0].text).toBe("Gadgets := module:\n    Deep<public> := module:\n        Tools<public> := module {}\n");
+        expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
+    });
+
+    it("adopts the on-disk spelling even when the drifted file is empty", async () => {
+        // An empty file holds no declaration for the reader to report, so the
+        // adoption must come from the scan's listing rather than from what
+        // was read - otherwise the block lands under the configured spelling
+        // while the empty file sits beside it.
+        setPlatform("win32");
+        givenProject({ "Content/_Definitions.verse": "" });
+
+        await publicizeDeepTools();
+
+        const operations = appliedOperations();
+        expect(operations.map((operation: { uri: vscode.Uri }) => forwardSlashed(operation.uri))).toEqual([`${ROOT}/Content/_Definitions.verse`, `${ROOT}/Content/_Definitions.verse`]);
+        expect(operations[1].text).toBe("Gadgets := module:\n    Deep<public> := module:\n        Tools<public> := module {}\n");
+    });
+
+    it("keeps the two spellings apart where the filesystem does", async () => {
+        // On a byte-exact filesystem the on-disk file really is a different
+        // file, so its declarations are a user file's and restating them is
+        // the conflict the writer refuses.
+        setPlatform("linux");
+        givenProject({ "Content/_Definitions.verse": "Gadgets := module:\n    Deep := module {}\n" });
+
+        await publicizeDeepTools();
+
+        expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("re-declaring"));
+    });
+});

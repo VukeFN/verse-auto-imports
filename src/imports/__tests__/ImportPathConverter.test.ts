@@ -1392,3 +1392,184 @@ describe("ImportPathConverter.convertToFullPath project-wide folder module searc
         expect(await convert("using { Economy.Shop }", "Scripts/Main.verse")).toBeNull();
     });
 });
+
+// Locations are disk directory names, and a directory answers to the
+// filesystem's rules rather than the language's - so a folder the parser
+// cannot lex used to flow straight into a written `using` as a parse error
+// reported as success.
+describe("ImportPathConverter.convertToFullPath lexical gate", () => {
+    const projectVersePath = "/mygame@fortnite.com/mygame";
+    const documentUri = vscode.Uri.file("C:/project/test.verse");
+
+    /** A converter whose module search answers with these fixed locations. */
+    function converterWithLocations(locations: string[]): ImportPathConverter {
+        const converter = converterWithProjectPath(projectVersePath);
+        converter.findModuleLocations = async () => ({ locations, truncated: false });
+        return converter;
+    }
+
+    beforeEach(() => {
+        (vscode.window.showWarningMessage as jest.Mock).mockClear();
+    });
+
+    it("refuses a location holding a segment that cannot lex, and names the segment", async () => {
+        const converter = converterWithLocations(["/My Mods"]);
+
+        expect(await converter.convertToFullPath("using { Shop }", documentUri, 0)).toBeNull();
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("'My Mods'"));
+    });
+
+    it("refuses a segment starting with a digit, which only the path's first label may", async () => {
+        const converter = converterWithLocations(["/2Player"]);
+
+        expect(await converter.convertToFullPath("using { Shop }", documentUri, 0)).toBeNull();
+    });
+
+    it("keeps a quoted-suffix segment, which the parser lexes", async () => {
+        const converter = converterWithLocations(["/Zone'2'"]);
+
+        const result = await converter.convertToFullPath("using { Shop }", documentUri, 0);
+
+        expect(result?.convertedImport).toBe("using { /mygame@fortnite.com/mygame/Zone'2'/Shop }");
+    });
+
+    it("keeps a narrowed answer ambiguous, so the dropped candidate stays visible", async () => {
+        // The dropped candidate could only ever be written as a parse error,
+        // so it is not offered - but writing the survivor unprompted would
+        // silently choose between modules the search could not tell apart.
+        // The single-entry pick is the notice.
+        const converter = converterWithLocations(["/My Mods", "/Economy"]);
+
+        const result = await converter.convertToFullPath("using { Shop }", documentUri, 0);
+
+        expect(result?.isAmbiguous).toBe(true);
+        expect(result?.possiblePaths).toEqual(["/mygame@fortnite.com/mygame/Economy/Shop"]);
+    });
+
+    it("keeps a genuinely ambiguous answer ambiguous", async () => {
+        const converter = converterWithLocations(["/Systems", "/Economy"]);
+
+        const result = await converter.convertToFullPath("using { Shop }", documentUri, 0);
+
+        expect(result?.isAmbiguous).toBe(true);
+        expect(result?.possiblePaths).toEqual(["/mygame@fortnite.com/mygame/Systems/Shop", "/mygame@fortnite.com/mygame/Economy/Shop"]);
+    });
+});
+
+// The project-wide phases used to scan workspaceFolders[0] whatever document
+// asked, so in a multi-root workspace - which the UEFN-generated workspace is -
+// they answered from a tree the importing file is nowhere in.
+describe("ImportPathConverter.findModuleLocations in a multi-root workspace", () => {
+    const projectVersePath = "/mygame@fortnite.com/mygame";
+    const digestRoot = "C:/Digests";
+    const projectRoot = "C:/Project";
+    const documentUri = vscode.Uri.file(`${projectRoot}/Content/Scripts/Feature.verse`);
+
+    beforeEach(() => {
+        setWorkspaceFolders([
+            { uri: { fsPath: digestRoot }, name: "Digests", index: 0 },
+            { uri: { fsPath: projectRoot }, name: "Project", index: 1 },
+        ]);
+        // Only the second folder holds a Content root; the first is the kind
+        // of digest sibling the generated workspace opens ahead of it.
+        (vscode.workspace.fs.stat as jest.Mock).mockImplementation(async (uri: { fsPath: string }) => {
+            if (uri.fsPath.replace(/\\/g, "/") === `${projectRoot}/Content`) return { type: vscode.FileType.Directory };
+            throw new Error("ENOENT");
+        });
+        (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([vscode.Uri.file(`${projectRoot}/Content/Systems/Inventory.verse`)]);
+        (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(Buffer.from("Inventory := module:\n", "utf8"));
+    });
+
+    afterEach(() => {
+        setWorkspaceFolders(undefined);
+        (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([]);
+        (vscode.workspace.fs.readFile as jest.Mock).mockRejectedValue(new Error("ENOENT"));
+        (vscode.workspace.fs.stat as jest.Mock).mockRejectedValue(new Error("ENOENT"));
+    });
+
+    it("scans the folder holding the document, not the first folder", async () => {
+        const converter = converterWithProjectPath(projectVersePath);
+
+        expect((await converter.findModuleLocations("Inventory", documentUri)).locations).toEqual(["/Systems"]);
+    });
+
+    it("skips the cache for a document another folder owns", async () => {
+        // The cache is built by scanning the first folder alone, so its
+        // answers are anchored there and cannot speak for this document.
+        const cache = { lookupModuleLocations: jest.fn().mockResolvedValue([{ location: "/Wrong", sourceFile: "Content/Wrong/Mod.verse" }]) };
+        const converter = converterWithProjectPath(projectVersePath);
+        converter.setProjectPathCache(cache as never);
+
+        expect((await converter.findModuleLocations("Inventory", documentUri)).locations).toEqual(["/Systems"]);
+        expect(cache.lookupModuleLocations).not.toHaveBeenCalled();
+    });
+
+    it("still consults the cache for a document the first folder owns", async () => {
+        // The other half of the guard, pinned so a comparison that stopped
+        // matching could not silently cost every workspace the fast path.
+        const cache = { lookupModuleLocations: jest.fn().mockResolvedValue([{ location: "/Cached", sourceFile: "Content/Cached/Mod.verse" }]) };
+        (vscode.workspace.fs.stat as jest.Mock).mockImplementation(async (uri: { fsPath: string }) => {
+            if (uri.fsPath.replace(/\\/g, "/") === `${digestRoot}/Content/Cached/Mod.verse`) return { type: vscode.FileType.File };
+            throw new Error("ENOENT");
+        });
+        const converter = converterWithProjectPath(projectVersePath);
+        converter.setProjectPathCache(cache as never);
+
+        const firstFolderDocument = vscode.Uri.file(`${digestRoot}/Scripts/Feature.verse`);
+
+        expect((await converter.findModuleLocations("Inventory", firstFolderDocument)).locations).toEqual(["/Cached"]);
+        expect(cache.lookupModuleLocations).toHaveBeenCalledWith("Inventory");
+    });
+});
+
+// findContentRoot admits an on-disk `content` through its case-insensitive
+// stat, so the scan phases and the visibility writer serve such a project -
+// while the document-relative placement compared byte-exact and silently
+// placed no file in it: no scope for the relative conversion, no near-file
+// search, and no message either way.
+describe("ImportPathConverter.convertFromFullPath under an on-disk `content` root", () => {
+    const projectVersePath = "/mygame@fortnite.com/mygame";
+    const workspaceRoot = "C:/Project";
+    const documentUri = vscode.Uri.file(`${workspaceRoot}/content/Systems/Economy/Feature.verse`);
+
+    const realPlatform = process.platform;
+    const setPlatform = (platform: string): void => {
+        Object.defineProperty(process, "platform", { value: platform, configurable: true });
+    };
+
+    /** A case-insensitive disk holding `content/Systems/Economy/Shop`, as Windows serves it. */
+    const stubCaseInsensitiveTree = (): void => {
+        const folders = ["content", "content/Systems", "content/Systems/Economy", "content/Systems/Economy/Shop"].map((folder) => `${workspaceRoot}/${folder}`.toLowerCase());
+        (vscode.workspace.fs.stat as jest.Mock).mockImplementation(async (uri: { fsPath: string }) => {
+            if (!folders.includes(uri.fsPath.replace(/\\/g, "/").toLowerCase())) throw new Error("ENOENT");
+            return { type: vscode.FileType.Directory };
+        });
+    };
+
+    beforeEach(() => {
+        setWorkspaceFolders([{ uri: { fsPath: workspaceRoot }, name: "Project", index: 0 }]);
+        stubCaseInsensitiveTree();
+    });
+
+    afterEach(() => {
+        setPlatform(realPlatform);
+        setWorkspaceFolders(undefined);
+        (vscode.workspace.fs.stat as jest.Mock).mockRejectedValue(new Error("ENOENT"));
+    });
+
+    it("places the file under the root the stat admits, where the filesystem folds case", async () => {
+        setPlatform("win32");
+        const converter = converterWithProjectPath(projectVersePath);
+
+        const result = await converter.convertFromFullPath(`using. ${projectVersePath}/Systems/Economy/Shop`, documentUri, 0);
+
+        expect(result?.convertedImport).toBe("using. Shop");
+    });
+
+    it("keeps refusing where the filesystem is byte-exact", async () => {
+        setPlatform("linux");
+        const converter = converterWithProjectPath(projectVersePath);
+
+        expect(await converter.convertFromFullPath(`using. ${projectVersePath}/Systems/Economy/Shop`, documentUri, 0)).toBeNull();
+    });
+});

@@ -74,6 +74,14 @@ describe("nestDeclarationEdit", () => {
         );
     });
 
+    it("reads the body indent past a comment line, which may sit at any indent", () => {
+        // Copying the comment's 8 spaces would leave the block's first code
+        // line deeper than Deep, which the compiler rejects as inconsistent.
+        expect(applied("Gadgets := module:\n        # note\n    Deep := module {}\n", "Gadgets", [{ name: "Tools", specifier: "public" }])).toBe(
+            "Gadgets := module:\n    Tools<public> := module {}\n        # note\n    Deep := module {}\n",
+        );
+    });
+
     it("reads the body indent past blank lines, which stay inside the block", () => {
         expect(applied("Gadgets := module:\n\n    Deep := module {}\n", "Gadgets", [{ name: "Tools", specifier: "public" }])).toBe(
             "Gadgets := module:\n    Tools<public> := module {}\n\n    Deep := module {}\n",

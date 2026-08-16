@@ -3,6 +3,7 @@
  * in, string out - no VS Code dependencies.
  */
 
+import { maskCommentsAndStrings } from "../utils/verseText";
 import { ModuleDeclaration, SourceSpan } from "./moduleDeclarations";
 
 /** One module in a chain about to be written, and the specifier it carries. */
@@ -97,7 +98,9 @@ function nestIntoColonBody(content: string, anchor: ModuleDeclaration, segments:
 
     const anchorPrefix = linePrefix(content, anchor.insertionPoint - anchor.name.length);
     const insertAt = headLineEnd === -1 ? content.length : headLineEnd + 1;
-    const childPrefix = bodyPrefix(content, insertAt, anchorPrefix) ?? anchorPrefix + INDENT;
+    // Masked, so a comment-only line - which may sit at any indent - reads as
+    // blank rather than supplying the prefix the block's code lines must match.
+    const childPrefix = bodyPrefix(maskCommentsAndStrings(content), insertAt, anchorPrefix) ?? anchorPrefix + INDENT;
 
     const block = buildDeclarationBlock(segments, childPrefix).split("\n").join(eol);
     return { span: { start: insertAt, end: insertAt }, text: headLineEnd === -1 ? `${eol}${block}${eol}` : `${block}${eol}` };

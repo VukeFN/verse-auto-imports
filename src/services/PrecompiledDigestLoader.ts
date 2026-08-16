@@ -41,6 +41,13 @@ export class PrecompiledDigestLoader {
      * concurrent run would append every declaration twice.
      */
     private readonly loadOnce = singleFlight(() => this.doLoad());
+    /**
+     * Bumped by {@link clear} and captured at each load's start, and re-checked
+     * before the load latches, so a load that a clear overtook cannot set
+     * `loaded` over the emptied index - which would make every later call
+     * return early onto nothing.
+     */
+    private loadGeneration: number = 0;
 
     constructor(private extensionContext: vscode.ExtensionContext) {}
 
@@ -64,6 +71,7 @@ export class PrecompiledDigestLoader {
 
     private async doLoad(): Promise<void> {
         const startTime = Date.now();
+        const generation = this.loadGeneration;
         logger.debug("PrecompiledDigestLoader", "Loading pre-compiled digest files...");
 
         try {
@@ -78,6 +86,14 @@ export class PrecompiledDigestLoader {
             }
 
             const successCount = await this.loadFromDirectory(dataDir);
+
+            // The index was cleared while loading; what this run merged is
+            // gone, so latching `loaded` here would leave it true over an
+            // empty cache.
+            if (generation !== this.loadGeneration) {
+                logger.debug("PrecompiledDigestLoader", "Cache cleared during load, leaving it unloaded");
+                return;
+            }
 
             if (successCount > 0) {
                 this.loaded = true;
@@ -188,6 +204,11 @@ export class PrecompiledDigestLoader {
         this.moduleIndex.clear();
         this.loaded = false;
         this.loadError = null;
+        // Invalidate any load still in flight - what it merged was just
+        // emptied - and drop its memo so the next call starts a fresh load
+        // instead of joining the overtaken one.
+        this.loadGeneration++;
+        this.loadOnce.reset();
         logger.debug("PrecompiledDigestLoader", "Cache cleared");
     }
 }

@@ -28,6 +28,32 @@ describe("singleFlight", () => {
         expect(await wrapped()).toBe(2);
     });
 
+    it("starts a fresh run after a reset instead of joining the dropped one", async () => {
+        let runs = 0;
+        const releases: Array<() => void> = [];
+        const wrapped = singleFlight(() => {
+            const run = ++runs;
+            return new Promise<number>((resolve) => {
+                releases.push(() => resolve(run));
+            });
+        });
+
+        const dropped = wrapped();
+        wrapped.reset();
+        const fresh = wrapped();
+        expect(wrapped()).toBe(fresh);
+
+        // The dropped run settles first; that must not clear the fresh
+        // run's memo.
+        releases[0]();
+        expect(await dropped).toBe(1);
+        expect(wrapped()).toBe(fresh);
+
+        releases[1]();
+        expect(await fresh).toBe(2);
+        expect(runs).toBe(2);
+    });
+
     it("propagates rejection to every sharer and stays retryable", async () => {
         let attempts = 0;
         const wrapped = singleFlight(async () => {

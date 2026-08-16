@@ -1,3 +1,14 @@
+/** A single-flight wrapper: call it to run or join, reset it to invalidate. */
+export interface SingleFlight<T> {
+    (): Promise<T>;
+    /**
+     * Drops the memo, so the next call starts a fresh run instead of joining
+     * one already in flight. The dropped run keeps running for the callers
+     * that hold it; whether its result may still commit is the owner's check.
+     */
+    reset(): void;
+}
+
 /**
  * Wraps an async operation so overlapping calls share one run.
  *
@@ -6,10 +17,10 @@
  * cleared, so the next call starts a fresh run - which is what keeps a failed
  * run retryable.
  */
-export function singleFlight<T>(run: () => Promise<T>): () => Promise<T> {
+export function singleFlight<T>(run: () => Promise<T>): SingleFlight<T> {
     let inFlight: Promise<T> | null = null;
 
-    return () => {
+    const wrapped = (): Promise<T> => {
         if (!inFlight) {
             const flight = run().finally(() => {
                 // Identity-checked so a wrapper reset while this run was
@@ -23,4 +34,10 @@ export function singleFlight<T>(run: () => Promise<T>): () => Promise<T> {
 
         return inFlight;
     };
+
+    wrapped.reset = (): void => {
+        inFlight = null;
+    };
+
+    return wrapped;
 }

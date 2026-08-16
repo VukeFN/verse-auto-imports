@@ -115,6 +115,13 @@ export class AssetsDigestParser {
      * arrives while a parse is in flight passes it and would re-read the file.
      */
     private readonly parseOnce = singleFlight(() => this.doParse());
+    /**
+     * Bumped by {@link clearCache} and captured at each parse's start, and
+     * re-checked before the parse commits, so a parse that a clear overtook -
+     * the digest watcher refreshing while one is in flight - abandons its
+     * pre-change names instead of committing them and stamping the TTL.
+     */
+    private parseGeneration: number = 0;
 
     /**
      * Refreshes the cached names, doing nothing if they were parsed within
@@ -134,6 +141,7 @@ export class AssetsDigestParser {
 
     private async doParse(): Promise<void> {
         const now = Date.now();
+        const generation = this.parseGeneration;
         const digestPath = await this.getAssetsDigestPath();
         if (!digestPath) {
             return;
@@ -142,6 +150,14 @@ export class AssetsDigestParser {
         try {
             logger.debug("AssetsDigestParser", `Parsing Assets.digest.verse: ${digestPath}`);
             const content = fs.readFileSync(digestPath, "utf8");
+
+            // The cache was cleared while locating the file; these names were
+            // resolved against the pre-clear project, and committing them
+            // would also stamp the TTL over the refresh that cleared it.
+            if (generation !== this.parseGeneration) {
+                logger.debug("AssetsDigestParser", "Cache cleared during parse, discarding the parsed names");
+                return;
+            }
 
             this.classNames.clear();
             for (const name of AssetsDigestParser.parseDigestContent(content)) {
@@ -247,6 +263,12 @@ export class AssetsDigestParser {
         this.classNames.clear();
         this.lastParsed = 0;
         this.cachedDigestPath = null;
+        // Invalidate any parse still in flight - its names predate this clear
+        // - and drop its memo so the next parse runs fresh instead of joining
+        // the overtaken one. refreshCache depends on this: it clears and then
+        // parses immediately, expecting a post-change read.
+        this.parseGeneration++;
+        this.parseOnce.reset();
         logger.debug("AssetsDigestParser", "Cache cleared");
     }
 

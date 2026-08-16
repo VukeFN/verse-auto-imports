@@ -52,6 +52,21 @@ describe("PrecompiledDigestLoader under concurrent invocation", () => {
         expect(loader.isLoaded()).toBe(true);
     });
 
+    it("does not latch `loaded` for a load that clear() overtook", async () => {
+        // The one await in a load sits between the merge and the latch, so
+        // start a load, clear while it is suspended there, and let it finish.
+        const overtaken = loader.loadPrecompiledDigests();
+        loader.clear();
+        await overtaken;
+
+        // Latching over the emptied index would make every later call return
+        // early onto nothing; instead the loader stays unloaded and reloads.
+        expect(loader.isLoaded()).toBe(false);
+        await loader.loadPrecompiledDigests();
+        expect(loader.isLoaded()).toBe(true);
+        expect(loader.getEntry("device")).toHaveLength(1);
+    });
+
     it("still short-circuits a call after the load has settled", async () => {
         await loader.loadPrecompiledDigests();
         readFileSync.mockClear();

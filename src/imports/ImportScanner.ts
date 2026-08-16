@@ -408,7 +408,11 @@ export function indentedBodyLine(classifications: LineClassification[], opener: 
  * span here; the statements before the clause are the caller's to record.
  *
  * Read from the classifications rather than the raw text, so a brace written in
- * a comment or inside a string literal closes nothing.
+ * a comment or inside a string literal closes nothing. One caveat rides along
+ * from the lexer: on a line the tracked lex leaves inside an open literal,
+ * classification falls back to reading the text as code, so an unterminated
+ * string spelling `; using {` can open a phantom span here. That input does
+ * not compile, and the exposure predates this reader.
  *
  * Indentation is the caller's question, not this one's: scanModuleImports asks
  * only about column 0, allUsingPaths about every line.
@@ -421,6 +425,12 @@ export function indentedBodyLine(classifications: LineClassification[], opener: 
  *   one path where the file does not compile: a `using` clause takes a single
  *   path, and a buffer being edited need not compile yet.
  */
+// What may precede a braced clause's `{` or end a line whose brace sits below:
+// a statement-head `using`, alone on the line or after a `;`. One rule, tested
+// against the code before the brace in one form and the whole line in the
+// other, so the two spellings cannot drift apart.
+const USING_CLAUSE_HEAD = /(?:^|;)\s*using\s*$/;
+
 function bracedUsingSpan(classifications: LineClassification[], opener: number): { paths: string[]; endLine: number } | null {
     const openerCode = classifications[opener].codeOutsideLiterals;
 
@@ -453,12 +463,12 @@ function bracedUsingSpan(classifications: LineClassification[], opener: number):
     let braceLine: number;
     let braceCol: number;
     if (lineDepth > 0) {
-        if (!/(?:^|;)\s*using\s*$/.test(openerCode.slice(0, openAt))) {
+        if (!USING_CLAUSE_HEAD.test(openerCode.slice(0, openAt))) {
             return null;
         }
         braceLine = opener;
         braceCol = openAt;
-    } else if (/(?:^|;)\s*using\s*$/.test(openerCode)) {
+    } else if (USING_CLAUSE_HEAD.test(openerCode)) {
         const below = firstCodeLineBelow(classifications, opener);
         if (below === -1 || !classifications[below].codeOutsideLiterals.trim().startsWith("{")) {
             return null;
@@ -473,9 +483,10 @@ function bracedUsingSpan(classifications: LineClassification[], opener: number):
     // column it sits at, so the content is cut at that brace rather than at the
     // last one on its line.
     //
-    // Counted by scanBraces, the one brace primitive, rather than by a loop of
-    // its own: a second counter is a second opinion about which `{` delimits a
-    // body.
+    // Counted by scanBraces, the one brace primitive. The walk above is not a
+    // second opinion about this question: it decides where the clause opens,
+    // clamping at zero because a closing brace pairs upward; from the `{` it
+    // named, pairing is scanBraces's alone.
     let depth = 0;
     let endLine = -1;
     let closeAt = -1;
@@ -494,7 +505,7 @@ function bracedUsingSpan(classifications: LineClassification[], opener: number):
     // lines carry removes a comment written on the line; it knows nothing of an
     // indented comment opened above it, which is what can leave the whole
     // closing line inert while still spelling a brace.
-    if (endLine === -1 || endLine === opener || classifications[endLine].kind !== "code") {
+    if (endLine === -1 || classifications[endLine].kind !== "code") {
         return null;
     }
 

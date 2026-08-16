@@ -420,6 +420,21 @@ describe("scanModuleImports", () => {
         ]);
     });
 
+    it("records a braced clause whose bare using ends a complete-using line", () => {
+        expect(scanModuleImports(["using { /A }; using", "{", "    /B", "}", "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 0, end: 12 } },
+            { path: "/B", startLine: 0, endLine: 3, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // The line closing a class body is a closing line like any other: its `}`
+    // pairs upward, and the clause opened after it is a file-level import.
+    it("records a braced clause opened on the line closing a class body", () => {
+        expect(scanModuleImports(["Foo := class {", "    X := 1", "}; using {", "    /A", "}", "code()"])).toEqual([
+            { path: "/A", startLine: 2, endLine: 4, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
     // The closing line of one span can open the next: a `}` closing a clause
     // opened above pairs upward, never with a `{` written after it.
     it("records a braced clause opened on the closing line of another", () => {

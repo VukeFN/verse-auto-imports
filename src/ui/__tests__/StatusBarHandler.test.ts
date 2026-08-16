@@ -182,12 +182,15 @@ describe("StatusBarHandler display", () => {
         jest.clearAllMocks();
     });
 
-    function makeItem(): { handler: StatusBarHandler; item: { text: string; tooltip: string } } {
+    interface ItemSurface {
+        text: string;
+        tooltip: string;
+        accessibilityInformation?: { label: string };
+    }
+
+    function makeItem(): { handler: StatusBarHandler; item: ItemSurface } {
         const handler = new StatusBarHandler(vscode.window.createOutputChannel("test"));
-        const item = (vscode.window.createStatusBarItem as jest.Mock).mock.results[0].value as {
-            text: string;
-            tooltip: string;
-        };
+        const item = (vscode.window.createStatusBarItem as jest.Mock).mock.results[0].value as ItemSurface;
         return { handler, item };
     }
 
@@ -216,8 +219,11 @@ describe("StatusBarHandler display", () => {
         expect(item.text).toBe("$(verse-imports-icon)");
     });
 
-    // With no text label left, the tooltip is the only hover identification.
-    it("names the item in the tooltip", () => {
-        expect(makeItem().item.tooltip).toBe("Verse Auto Imports");
+    // With no text label left, the tooltip is the only hover identification
+    // and accessibilityInformation the only screen-reader surface.
+    it("names the item in the tooltip and for screen readers", () => {
+        const { item } = makeItem();
+        expect(item.tooltip).toBe("Verse Auto Imports");
+        expect(item.accessibilityInformation).toEqual({ label: "Verse Auto Imports" });
     });
 });

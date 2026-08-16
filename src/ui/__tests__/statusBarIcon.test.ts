@@ -38,7 +38,34 @@ function readWoffTables(file: string): SfntTables {
     return tables;
 }
 
-/** The glyph id a character maps to, or null when the font does not map it. */
+function mapInFormat4Subtable(cmap: Buffer, subtable: number, codepoint: number): number | null {
+    const segCountX2 = cmap.readUInt16BE(subtable + 6);
+    const endBase = subtable + 14;
+    const startBase = endBase + segCountX2 + 2;
+    const deltaBase = startBase + segCountX2;
+    const rangeBase = deltaBase + segCountX2;
+
+    for (let seg = 0; seg < segCountX2 / 2; seg++) {
+        const start = cmap.readUInt16BE(startBase + seg * 2);
+        const end = cmap.readUInt16BE(endBase + seg * 2);
+        if (codepoint < start || codepoint > end) continue;
+
+        const rangeOffset = cmap.readUInt16BE(rangeBase + seg * 2);
+        if (rangeOffset === 0) {
+            return (codepoint + cmap.readInt16BE(deltaBase + seg * 2)) & 0xffff;
+        }
+        const glyphAt = rangeBase + seg * 2 + rangeOffset + (codepoint - start) * 2;
+        const glyph = cmap.readUInt16BE(glyphAt);
+        return glyph === 0 ? null : (glyph + cmap.readInt16BE(deltaBase + seg * 2)) & 0xffff;
+    }
+    return null;
+}
+
+/**
+ * The glyph id a character maps to, or null when the font does not map it.
+ * Consults every format-4 subtable, not only the first: which encoding record
+ * comes first depends on the generator, the exact variable this file guards.
+ */
 function glyphIdFor(tables: SfntTables, codepoint: number): number | null {
     const cmap = tables["cmap"];
     const records = cmap.readUInt16BE(2);
@@ -46,26 +73,8 @@ function glyphIdFor(tables: SfntTables, codepoint: number): number | null {
         const subtable = cmap.readUInt32BE(4 + i * 8 + 4);
         if (cmap.readUInt16BE(subtable) !== 4) continue;
 
-        const segCountX2 = cmap.readUInt16BE(subtable + 6);
-        const endBase = subtable + 14;
-        const startBase = endBase + segCountX2 + 2;
-        const deltaBase = startBase + segCountX2;
-        const rangeBase = deltaBase + segCountX2;
-
-        for (let seg = 0; seg < segCountX2 / 2; seg++) {
-            const start = cmap.readUInt16BE(startBase + seg * 2);
-            const end = cmap.readUInt16BE(endBase + seg * 2);
-            if (codepoint < start || codepoint > end) continue;
-
-            const rangeOffset = cmap.readUInt16BE(rangeBase + seg * 2);
-            if (rangeOffset === 0) {
-                return (codepoint + cmap.readInt16BE(deltaBase + seg * 2)) & 0xffff;
-            }
-            const glyphAt = rangeBase + seg * 2 + rangeOffset + (codepoint - start) * 2;
-            const glyph = cmap.readUInt16BE(glyphAt);
-            return glyph === 0 ? null : (glyph + cmap.readInt16BE(deltaBase + seg * 2)) & 0xffff;
-        }
-        return null;
+        const glyph = mapInFormat4Subtable(cmap, subtable, codepoint);
+        if (glyph !== null) return glyph;
     }
     return null;
 }
@@ -78,6 +87,13 @@ function outlineLength(tables: SfntTables, glyphId: number): number {
     const longFormat = tables["head"].readUInt16BE(50) === 1;
     const loca = tables["loca"];
     return longFormat ? loca.readUInt32BE((glyphId + 1) * 4) - loca.readUInt32BE(glyphId * 4) : (loca.readUInt16BE((glyphId + 1) * 2) - loca.readUInt16BE(glyphId * 2)) * 2;
+}
+
+function contourCount(tables: SfntTables, glyphId: number): number {
+    const longFormat = tables["head"].readUInt16BE(50) === 1;
+    const loca = tables["loca"];
+    const offset = longFormat ? loca.readUInt32BE(glyphId * 4) : loca.readUInt16BE(glyphId * 2) * 2;
+    return tables["glyf"].readInt16BE(offset);
 }
 
 describe("verse-imports-icon contribution", () => {
@@ -97,5 +113,15 @@ describe("verse-imports-icon contribution", () => {
         expect(glyphId).not.toBeNull();
         expect(glyphId).not.toBe(0);
         expect(outlineLength(tables, glyphId as number)).toBeGreaterThan(0);
+    });
+
+    // The glyph is the arrow plus a V carved into two pieces by the gap
+    // around the arrow. A regeneration that collapses the count back to two
+    // has lost the carve; a deliberate redesign updates this pin with it.
+    it("keeps the carved gap that separates the arrow from the V", () => {
+        const tables = readWoffTables(path.join(repoRoot, icon.default.fontPath));
+        const codepoint = parseInt(icon.default.fontCharacter.slice(1), 16);
+
+        expect(contourCount(tables, glyphIdFor(tables, codepoint) as number)).toBe(3);
     });
 });

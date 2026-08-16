@@ -173,7 +173,7 @@ export class CommandsHandler {
             await document.save();
 
             logger.info("CommandsHandler", "Successfully optimized imports");
-            vscode.window.showInformationMessage("Imports optimized successfully");
+            vscode.window.setStatusBarMessage("Imports optimized successfully", CommandsHandler.STATUS_MESSAGE_DURATION_MS);
         } catch (error) {
             logger.error("CommandsHandler", "Error optimizing imports", error);
             vscode.window.showErrorMessage(`Failed to optimize imports: ${error}`);
@@ -415,7 +415,7 @@ export class CommandsHandler {
             );
 
             const stats = this.deps.projectPathCache.getStats();
-            vscode.window.showInformationMessage(`Project path cache rebuilt: ${stats.identifiers} identifiers from ${stats.files} files`);
+            vscode.window.setStatusBarMessage(`Project path cache rebuilt: ${stats.identifiers} identifiers from ${stats.files} files`, CommandsHandler.STATUS_MESSAGE_DURATION_MS);
             return stats;
         } catch (error) {
             logger.error("CommandsHandler", "Failed to rebuild project path cache", error);
@@ -439,7 +439,7 @@ export class CommandsHandler {
 
             await this.deps.projectPathCache.clearAll();
 
-            vscode.window.showInformationMessage("Project path cache cleared");
+            vscode.window.setStatusBarMessage("Project path cache cleared", CommandsHandler.STATUS_MESSAGE_DURATION_MS);
         } catch (error) {
             logger.error("CommandsHandler", "Failed to clear project path cache", error);
             vscode.window.showErrorMessage(`Failed to clear project path cache: ${error instanceof Error ? error.message : String(error)}`);
@@ -450,27 +450,20 @@ export class CommandsHandler {
         try {
             const cacheStats = this.deps.projectPathCache?.getStats();
 
-            const lines: string[] = [];
-
-            if (cacheStats) {
-                lines.push(`Project Cache: ${cacheStats.loaded ? "Loaded" : "Not loaded"}`);
-                if (cacheStats.loaded) {
-                    lines.push(`  Identifiers: ${cacheStats.identifiers}`);
-                    lines.push(`  Files: ${cacheStats.files}`);
-                    if (cacheStats.generatedAt) {
-                        const age = Date.now() - cacheStats.generatedAt;
-                        const ageMinutes = Math.floor(age / 60000);
-                        lines.push(`  Age: ${ageMinutes} minutes`);
-                    }
-                }
+            let summary: string;
+            if (!cacheStats) {
+                summary = "Project cache: disabled";
+            } else if (!cacheStats.loaded) {
+                summary = "Project cache: not loaded";
             } else {
-                lines.push("Project Cache: Disabled");
+                summary = `Project cache: loaded, ${cacheStats.identifiers} identifiers from ${cacheStats.files} files`;
+                if (cacheStats.generatedAt) {
+                    const ageMinutes = Math.floor((Date.now() - cacheStats.generatedAt) / 60000);
+                    summary += `, age ${ageMinutes} min`;
+                }
             }
 
-            lines.push("");
-            lines.push("Cache Location: VS Code Workspace Storage");
-
-            vscode.window.showInformationMessage(lines.join("\n"), { modal: true });
+            vscode.window.showInformationMessage(summary);
         } catch (error) {
             logger.error("CommandsHandler", "Error showing cache status", error);
             vscode.window.showErrorMessage(`Failed to show cache status: ${error instanceof Error ? error.message : String(error)}`);
@@ -520,7 +513,7 @@ export class CommandsHandler {
         const summary = `Using ${pathKind} paths for ${convertedCount} import${convertedCount !== 1 ? "s" : ""}.`;
 
         if (failedCount === 0) {
-            vscode.window.showInformationMessage(summary);
+            vscode.window.setStatusBarMessage(summary, CommandsHandler.STATUS_MESSAGE_DURATION_MS);
             return;
         }
 

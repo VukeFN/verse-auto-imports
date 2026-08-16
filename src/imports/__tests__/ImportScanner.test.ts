@@ -33,6 +33,17 @@ describe("allUsingPaths", () => {
         expect(allUsingPaths(["using{", "    /A", "}; using { /B }", "code()"])).toEqual(["/A", "/B"]);
     });
 
+    // The clause need not head its line: `;` separates statements exactly as a
+    // newline does, so a definition can precede the opener. A path this reader
+    // drops is what the caller reads as permission to remove an import.
+    it("collects the path of a braced clause opened after a definition", () => {
+        expect(allUsingPaths(["X := 1; using {", "    Economy.Shop", "}", "code()"])).toEqual(["Economy.Shop"]);
+    });
+
+    it("collects the path of a braced clause opened after a complete using", () => {
+        expect(allUsingPaths(["using { /A }; using {", "    /B", "}", "code()"])).toEqual(["/A", "/B"]);
+    });
+
     it("collects a multi-line braced path indented inside a module body, which scanModuleImports skips", () => {
         const lines = ["using { /A }", "MyModule := module:", "    using{", "        Economy.Shop", "    }", "code()"];
         expect(allUsingPaths(lines)).toEqual(["/A", "Economy.Shop"]);
@@ -378,6 +389,69 @@ describe("scanModuleImports", () => {
             { path: "/A", startLine: 0, endLine: 2, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
             { path: "/B", startLine: 2, endLine: 2, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 3, end: 15 } },
         ]);
+    });
+
+    // A `using` may follow a non-using definition after `;` on one line, and a
+    // braced clause opens across line breaks, so the span is real code. With no
+    // entry recorded, the path did not count as present and a diagnostic asking
+    // for it wrote a second copy above lines already making the import.
+    it("records the span of a braced clause opened after a definition, pinned", () => {
+        expect(scanModuleImports(["X := 1; using {", "    Economy.Shop", "}", "code()"])).toEqual([
+            { path: "Economy.Shop", startLine: 0, endLine: 2, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // The complete statement at the head is what carries the line past the
+    // module-import classification, so this shape strands its trailing clause
+    // on the headed side of the scan rather than the reject branch - both are
+    // read now, and both entries are pinned.
+    it("records a complete using and the braced clause it leaves open, both pinned", () => {
+        expect(scanModuleImports(["using { /A }; using {", "    /B", "}", "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 0, end: 12 } },
+            { path: "/B", startLine: 0, endLine: 2, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // The same clause with its brace on the line below: a line break before
+    // the `{` is whitespace to the parser, so both spell one clause.
+    it("records a braced clause whose bare using ends a definition-headed line", () => {
+        expect(scanModuleImports(["X := 1; using", "{", "    /A", "}", "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 3, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    it("records a braced clause whose bare using ends a complete-using line", () => {
+        expect(scanModuleImports(["using { /A }; using", "{", "    /B", "}", "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 0, end: 12 } },
+            { path: "/B", startLine: 0, endLine: 3, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // The line closing a class body is a closing line like any other: its `}`
+    // pairs upward, and the clause opened after it is a file-level import.
+    it("records a braced clause opened on the line closing a class body", () => {
+        expect(scanModuleImports(["Foo := class {", "    X := 1", "}; using {", "    /A", "}", "code()"])).toEqual([
+            { path: "/A", startLine: 2, endLine: 4, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // The closing line of one span can open the next: a `}` closing a clause
+    // opened above pairs upward, never with a `{` written after it.
+    it("records a braced clause opened on the closing line of another", () => {
+        expect(scanModuleImports(["using{", "    /A", "}; using {", "    /B", "}", "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 2, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "/B", startLine: 2, endLine: 4, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+        ]);
+    });
+
+    // An unclosed brace that is not a `using` clause opens a body, not an
+    // import - the code before the brace decides.
+    it("records nothing for a class body opened at the end of its line", () => {
+        expect(scanModuleImports(["Foo := class {", "    using { /A }", "}", "code()"])).toEqual([]);
+    });
+
+    it("records nothing for a definition-headed braced using the file never closes", () => {
+        expect(scanModuleImports(["X := 1; using {", "    /A", "code()"])).toEqual([]);
     });
 
     // The `<#>` makes every line indented past it comment text, so the path

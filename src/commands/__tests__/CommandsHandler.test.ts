@@ -144,17 +144,18 @@ describe("CommandsHandler.optimizeImports", () => {
         expect((vscode.window.showWarningMessage as jest.Mock).mock.calls[0][0]).toMatch(/Could not optimize imports/);
         // Saving here would write the unorganized content back to disk.
         expect(document.save).not.toHaveBeenCalled();
-        expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
+        expect(vscode.window.setStatusBarMessage).not.toHaveBeenCalled();
     });
 
-    it("saves and reports success when the edit applies", async () => {
+    it("saves and reports success in the status bar when the edit applies", async () => {
         const document = activateVerseDocument();
         const handler = makeHandler({ organizeImports: jest.fn().mockResolvedValue(true) });
 
         await handler.optimizeImports();
 
         expect(document.save).toHaveBeenCalledTimes(1);
-        expect(vscode.window.showInformationMessage).toHaveBeenCalledWith("Imports optimized successfully");
+        expect(vscode.window.setStatusBarMessage).toHaveBeenCalledWith("Imports optimized successfully", expect.any(Number));
+        expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
         expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
     });
 
@@ -399,7 +400,8 @@ describe("CommandsHandler.convertAllToFullPath", () => {
 
         await handler.convertAllToFullPath(makeDocument());
 
-        expect(vscode.window.showInformationMessage).toHaveBeenCalledWith("Using absolute paths for 0 imports.");
+        expect(vscode.window.setStatusBarMessage).toHaveBeenCalledWith("Using absolute paths for 0 imports.", expect.any(Number));
+        expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
         expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
     });
 });
@@ -418,7 +420,7 @@ describe("CommandsHandler.convertAllToRelativePath", () => {
         expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
     });
 
-    it("reports the count as before when every edit applies", async () => {
+    it("reports the count in the status bar when every edit applies", async () => {
         const { handler } = makeConversionHandler({
             convertAllImportsFromFullPath: jest.fn().mockResolvedValue([makeConversion(), makeConversion()]),
             applyConversion: jest.fn().mockResolvedValue(true),
@@ -426,7 +428,8 @@ describe("CommandsHandler.convertAllToRelativePath", () => {
 
         await handler.convertAllToRelativePath(makeDocument());
 
-        expect(vscode.window.showInformationMessage).toHaveBeenCalledWith("Using relative paths for 2 imports.");
+        expect(vscode.window.setStatusBarMessage).toHaveBeenCalledWith("Using relative paths for 2 imports.", expect.any(Number));
+        expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
         expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
     });
 });
@@ -640,10 +643,10 @@ describe("CommandsHandler failure logging", () => {
 
             expect(errors).toHaveBeenCalledTimes(1);
             expect(vscode.window.showErrorMessage).toHaveBeenCalledTimes(1);
-            expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
+            expect(vscode.window.setStatusBarMessage).not.toHaveBeenCalled();
         });
 
-        it("still reports the rebuilt counts when nothing fails", async () => {
+        it("still reports the rebuilt counts, in the status bar, when nothing fails", async () => {
             const handler = makeCacheHandler({
                 rebuildCache: jest.fn().mockResolvedValue(undefined),
                 getStats: jest.fn().mockReturnValue({ identifiers: 12, files: 3 }),
@@ -653,7 +656,27 @@ describe("CommandsHandler failure logging", () => {
 
             expect(errors).not.toHaveBeenCalled();
             expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
-            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith("Project path cache rebuilt: 12 identifiers from 3 files");
+            expect(vscode.window.setStatusBarMessage).toHaveBeenCalledWith("Project path cache rebuilt: 12 identifiers from 3 files", expect.any(Number));
+            expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
+        });
+
+        it("acknowledges a cleared cache in the status bar, not a toast", async () => {
+            const handler = makeCacheHandler({ clearAll: jest.fn().mockResolvedValue(undefined) });
+
+            await handler.clearPathCache();
+
+            expect(vscode.window.setStatusBarMessage).toHaveBeenCalledWith("Project path cache cleared", expect.any(Number));
+            expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
+        });
+
+        it("summarizes a loaded cache in one non-modal line, age included", async () => {
+            const handler = makeCacheHandler({
+                getStats: jest.fn().mockReturnValue({ loaded: true, identifiers: 12, files: 3, generatedAt: Date.now() - 6 * 60000 }),
+            });
+
+            await handler.showCacheStatus();
+
+            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith("Project cache: loaded, 12 identifiers from 3 files, age 6 min");
         });
     });
 

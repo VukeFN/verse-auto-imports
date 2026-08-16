@@ -403,8 +403,16 @@ export function indentedBodyLine(classifications: LineClassification[], opener: 
  * closes on one line, which is why every caller that has to see a span asks
  * this instead of asking them.
  *
+ * The clause need not head its line. `;` separates statements exactly as a
+ * newline does, so `X := 1; using {` and `using { /A }; using {` each open a
+ * span here; the statements before the clause are the caller's to record.
+ *
  * Read from the classifications rather than the raw text, so a brace written in
- * a comment or inside a string literal closes nothing.
+ * a comment or inside a string literal closes nothing. One caveat rides along
+ * from the lexer: on a line the tracked lex leaves inside an open literal,
+ * classification falls back to reading the text as code, so an unterminated
+ * string spelling `; using {` can open a phantom span here. That input does
+ * not compile, and the exposure predates this reader.
  *
  * Indentation is the caller's question, not this one's: scanModuleImports asks
  * only about column 0, allUsingPaths about every line.
@@ -417,22 +425,56 @@ export function indentedBodyLine(classifications: LineClassification[], opener: 
  *   one path where the file does not compile: a `using` clause takes a single
  *   path, and a buffer being edited need not compile yet.
  */
-function bracedUsingSpan(classifications: LineClassification[], opener: number): { paths: string[]; endLine: number } | null {
-    const openerCode = classifications[opener].codeOutsideLiterals.trim();
+// What may precede a braced clause's `{` or end a line whose brace sits below:
+// a statement-head `using`, alone on the line or after a `;`. One rule, tested
+// against the code before the brace in one form and the whole line in the
+// other, so the two spellings cannot drift apart.
+const USING_CLAUSE_HEAD = /(?:^|;)\s*using\s*$/;
 
-    // Where the braces begin. On the opener's own line for `using {`, and on
-    // the first line of code below it for a `using` whose brace is written
-    // there - a line break before the `{` is whitespace to the parser, so both
-    // spell the same clause.
+function bracedUsingSpan(classifications: LineClassification[], opener: number): { paths: string[]; endLine: number } | null {
+    const openerCode = classifications[opener].codeOutsideLiterals;
+
+    // The `{` of the clause the line leaves open at its end: the last brace
+    // that took the depth up from the line's own base level without coming
+    // back. Depth is clamped at zero on the way there, because a `}` closing a
+    // construct opened on an earlier line pairs upward, never with a `{`
+    // written after it - `}; using {` opens a clause exactly as a fresh line
+    // would.
+    let lineDepth = 0;
+    let openAt = -1;
+    for (let pos = 0; pos < openerCode.length; pos++) {
+        const character = openerCode[pos];
+        if (character === "{") {
+            if (lineDepth === 0) {
+                openAt = pos;
+            }
+            lineDepth += 1;
+        } else if (character === "}") {
+            lineDepth = Math.max(0, lineDepth - 1);
+        }
+    }
+
+    // Where the braces begin. On the opener's own line for a clause whose `{`
+    // the line leaves open, and on the first line of code below it for a
+    // `using` the line ends on - a line break before the `{` is whitespace to
+    // the parser, so both spell the same clause. Neither spelling need head
+    // the line: `;` separates statements exactly as a newline does, so what
+    // must end in `using` is the code before the brace, not the line.
     let braceLine: number;
-    if (/^using\s*\{/.test(openerCode)) {
+    let braceCol: number;
+    if (lineDepth > 0) {
+        if (!USING_CLAUSE_HEAD.test(openerCode.slice(0, openAt))) {
+            return null;
+        }
         braceLine = opener;
-    } else if (/^using$/.test(openerCode)) {
+        braceCol = openAt;
+    } else if (USING_CLAUSE_HEAD.test(openerCode)) {
         const below = firstCodeLineBelow(classifications, opener);
         if (below === -1 || !classifications[below].codeOutsideLiterals.trim().startsWith("{")) {
             return null;
         }
         braceLine = below;
+        braceCol = classifications[below].codeOutsideLiterals.indexOf("{");
     } else {
         return null;
     }
@@ -441,15 +483,16 @@ function bracedUsingSpan(classifications: LineClassification[], opener: number):
     // column it sits at, so the content is cut at that brace rather than at the
     // last one on its line.
     //
-    // Counted by scanBraces, the one brace primitive, rather than by a loop of
-    // its own: a second counter is a second opinion about which `{` delimits a
-    // body.
+    // Counted by scanBraces, the one brace primitive. The walk above is not a
+    // second opinion about this question: it decides where the clause opens,
+    // clamping at zero because a closing brace pairs upward; from the `{` it
+    // named, pairing is scanBraces's alone.
     let depth = 0;
     let endLine = -1;
     let closeAt = -1;
     for (let line = braceLine; line < classifications.length && endLine === -1; line++) {
         const code = classifications[line].codeOutsideLiterals;
-        const scan = scanBraces(code, 0, code.length, depth);
+        const scan = scanBraces(code, line === braceLine ? braceCol : 0, code.length, depth);
         if (scan.closedAt !== -1) {
             endLine = line;
             closeAt = scan.closedAt;
@@ -462,16 +505,16 @@ function bracedUsingSpan(classifications: LineClassification[], opener: number):
     // lines carry removes a comment written on the line; it knows nothing of an
     // indented comment opened above it, which is what can leave the whole
     // closing line inert while still spelling a brace.
-    if (endLine === -1 || endLine === opener || classifications[endLine].kind !== "code") {
+    if (endLine === -1 || classifications[endLine].kind !== "code") {
         return null;
     }
 
     const braceCode = classifications[braceLine].codeOutsideLiterals;
     const between: string[] = [];
     if (braceLine === endLine) {
-        between.push(braceCode.slice(braceCode.indexOf("{") + 1, closeAt));
+        between.push(braceCode.slice(braceCol + 1, closeAt));
     } else {
-        between.push(braceCode.slice(braceCode.indexOf("{") + 1));
+        between.push(braceCode.slice(braceCol + 1));
         for (let line = braceLine + 1; line < endLine; line++) {
             // Only code, because a `<#>` written on the opener makes the lines
             // indented past it comment text, and the masking these lines carry
@@ -541,7 +584,10 @@ function bracedUsingSpan(classifications: LineClassification[], opener: number):
  *   before the brace is whitespace to the parser. Without this the span is
  *   invisible whole: the opener fails a classification that needs the closing
  *   brace on one line, and the path between the braces is indented, which the
- *   rule above skips. See bracedUsingSpan.
+ *   rule above skips. A clause opened after a statement on its line - a
+ *   definition or a complete `using` alike - is read the same way, with the
+ *   statements before it recorded against the opener line, pinned.
+ *   See bracedUsingSpan.
  * - Content classification (module import vs local-scope using) is delegated
  *   to ImportFormatter.isModuleImport, passing `{ atFileScope: true }` since
  *   every candidate here already sits at column 0. So a bare identifier at
@@ -691,6 +737,46 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
         return { start: openerMatch.index, end };
     };
 
+    // Every complete `using` statement `line` writes, each recorded against
+    // the line alone and pinned: a line recorded this way also carries text no
+    // rebuild from one path reproduces, so no writer may rebuild it.
+    const pushPinnedLineStatements = (line: number): void => {
+        const statements = classifications[line].codeOutsideLiterals.trim();
+        const linePaths = usingPathsOnLine(formatter, statements);
+        const lineColumns = columnsForLinePaths(formatter, linePaths, classifications[line].masked);
+        linePaths.forEach((linePath, statementIndex) => {
+            imports.push({
+                path: linePath,
+                startLine: line,
+                endLine: line,
+                anchorsCommentBelow: anchorsCommentBelow(line, line),
+                rebuildLosesText: true,
+                trailingComment: ImportFormatter.extractTrailingComment(lines[line].trim()),
+                columns: lineColumns[statementIndex],
+            });
+        });
+    };
+
+    // Every path of the braced span `opener` opens, pinned: the span holds
+    // lines no rebuild from one path reproduces - the braces may sit around a
+    // comment or a blank line the author wrote, and collapsing the span onto a
+    // single line is a rewrite nothing asked for.
+    const pushBracedSpan = (opener: number, braced: { paths: string[]; endLine: number }): void => {
+        for (const bracedPath of braced.paths) {
+            imports.push({
+                path: bracedPath,
+                startLine: opener,
+                endLine: braced.endLine,
+                anchorsCommentBelow: anchorsCommentBelow(opener, braced.endLine),
+                rebuildLosesText: true,
+                // The opener's own comment. Nothing re-emits a pinned entry,
+                // and the path sits on a line inside the braces rather than
+                // after the statement.
+                trailingComment: ImportFormatter.extractTrailingComment(lines[opener].trim()),
+            });
+        }
+    };
+
     let i = 0;
     while (i < lines.length) {
         const line = lines[i];
@@ -735,19 +821,7 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
             // than widened to admit them. Everything below it may then keep
             // testing the raw line, as the `using:` branch does - see the note
             // there on why the two inputs have to agree.
-            const headlessPaths = usingPathsOnLine(formatter, statements);
-            const headlessColumns = columnsForLinePaths(formatter, headlessPaths, classifications[i].masked);
-            headlessPaths.forEach((linePath, statementIndex) => {
-                imports.push({
-                    path: linePath,
-                    startLine: i,
-                    endLine: i,
-                    anchorsCommentBelow: anchorsCommentBelow(i, i),
-                    rebuildLosesText: true,
-                    trailingComment: ImportFormatter.extractTrailingComment(trimmed),
-                    columns: headlessColumns[statementIndex],
-                });
-            });
+            pushPinnedLineStatements(i);
 
             // The pair such a line opens, `X := 1; using:` over an indented
             // path. The loop above records nothing for it - a `using:` writes
@@ -794,26 +868,11 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
             // that too. The whole span goes uncounted, and a writer then adds a
             // second copy of a path the file already imports.
             //
-            // Pinned, like everything else this branch records. The span holds
-            // lines no rebuild from one path reproduces: the braces may sit
-            // around a comment or a blank line the author wrote, and collapsing
-            // the span onto a single line is a rewrite nothing asked for.
-            // Counting the path is what the duplicate needed.
+            // Pinned, like everything else this branch records. Counting the
+            // path is what the duplicate needed.
             const braced = bracedUsingSpan(classifications, i);
             if (braced) {
-                for (const bracedPath of braced.paths) {
-                    imports.push({
-                        path: bracedPath,
-                        startLine: i,
-                        endLine: braced.endLine,
-                        anchorsCommentBelow: anchorsCommentBelow(i, braced.endLine),
-                        rebuildLosesText: true,
-                        // The opener's own comment. Nothing re-emits a pinned
-                        // entry, and the path sits on a line inside the braces
-                        // rather than after the statement.
-                        trailingComment: ImportFormatter.extractTrailingComment(trimmed),
-                    });
-                }
+                pushBracedSpan(i, braced);
                 // Resumed *on* the closing line, not past it. A `;` separates
                 // statements exactly as a newline does, so `}; using { /B }`
                 // writes an import after the clause closes, and stepping over
@@ -949,6 +1008,28 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
                 spanColumns: pairSpanColumns(i, pair),
             });
             i = pair.pathLine + 1;
+            continue;
+        }
+
+        // The braced clause the line's last statement leaves open,
+        // `using { /A }; using {` over an indented path over its own `}`. The
+        // complete statement at the head is what carries the line past the
+        // gate above - the classification reads the line from its head and
+        // says nothing about the remainder - and every branch below reads
+        // complete statements only, so without this the trailing clause's
+        // whole span goes uncounted and a writer adds a second copy of a path
+        // the file already imports. The reject branch closes the same gap for
+        // a line a definition heads; this is its mirror for a line a complete
+        // `using` does.
+        //
+        // Everything recorded is pinned: the line and the span alike hold
+        // text no rebuild from one path reproduces. Resumed *on* the closing
+        // line, not past it, for the reason the reject branch gives.
+        const bracedTail = bracedUsingSpan(classifications, i);
+        if (bracedTail) {
+            pushPinnedLineStatements(i);
+            pushBracedSpan(i, bracedTail);
+            i = bracedTail.endLine;
             continue;
         }
 

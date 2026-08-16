@@ -466,8 +466,12 @@ export class ImportDocumentEditor {
      * override from a diagnostic about that other statement, and the override's
      * failure direction is a file that stops compiling, which outranks a fixed
      * diagnostic (see hoistFloor on the same asymmetry). The compiler anchors
-     * an unresolved-identifier diagnostic to the identifier's own token, so a
-     * start position is enough to tell the two statements apart.
+     * an unresolved-identifier diagnostic to the identifier's own node
+     * (CreateGlitchForMissingUsing's call sites, SemanticAnalyzer.cpp:12544,
+     * :12864), so a start position is enough to tell the two statements apart.
+     * A compiler reporting a whole-line range instead starts it at the head of
+     * the line, outside a clause written after a `;`, which refuses the
+     * override - the same safe direction.
      *
      * Without `columns` the whole span still counts. That keeps a statement
      * owning its span exactly as sharp as before, and leaves one shape loose:

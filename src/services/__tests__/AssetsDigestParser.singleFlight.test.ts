@@ -127,6 +127,42 @@ describe("AssetsDigestParser.parseAssetsDigest under concurrent invocation", () 
         expect(parser.getAssetClassNames().has("OldAsset")).toBe(false);
     });
 
+    it("recovers the current project's path after a settled refresh is overwritten by an overtaken parse", async () => {
+        // The stricter interleaving: the fresh parse settles and memoizes the
+        // current path BEFORE the overtaken run resumes and the discard
+        // branch drops the memo. The cost must be one extra search, never a
+        // wrong answer.
+        const OLD_DIGEST_PATH = path.join(LOCAL_APP_DATA, "UnrealEditorFortnite", "Saved", "VerseProject", "OldGame", "OldGame-Assets", "Assets.digest.verse");
+        jest.spyOn(fs, "existsSync").mockImplementation((target) => String(target) === DIGEST_PATH || String(target) === OLD_DIGEST_PATH);
+        readFileSync.mockImplementation(((target: fs.PathOrFileDescriptor) =>
+            String(target) === OLD_DIGEST_PATH ? "OldAsset<scoped {/mygame@fortnite.com/oldgame}> := class(mesh_component):\n" : DIGEST_SOURCE) as unknown as typeof fs.readFileSync);
+
+        let nowValue = 1_000_000;
+        jest.spyOn(Date, "now").mockImplementation(() => nowValue);
+
+        let release: () => void = () => {};
+        const gate = new Promise<void>((resolve) => {
+            release = resolve;
+        });
+        gateNextLookup = async () => {
+            await gate;
+            return "OldGame";
+        };
+
+        const overtaken = parser.parseAssetsDigest();
+        parser.clearCache();
+        await parser.parseAssetsDigest();
+        release();
+        await overtaken;
+
+        nowValue += 6 * 60 * 1000;
+        readFileSync.mockClear();
+        await parser.parseAssetsDigest();
+        expect(readFileSync).toHaveBeenCalledTimes(1);
+        expect(readFileSync).toHaveBeenCalledWith(DIGEST_PATH, "utf8");
+        expect(parser.getAssetClassNames().has("OldAsset")).toBe(false);
+    });
+
     it("still serves the TTL cache once a parse has settled", async () => {
         await parser.parseAssetsDigest();
         readFileSync.mockClear();

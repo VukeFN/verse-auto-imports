@@ -74,8 +74,13 @@ export class AssetsDigestParser {
      * `{LOCALAPPDATA}\UnrealEditorFortnite\Saved\VerseProject\{ProjectName}\`,
      * in a `{ProjectName}-Assets` subfolder on current UEFN and directly in the
      * project folder on older versions.
+     *
+     * The memo this writes is resolved against a project name read after an
+     * await, so it can belong to a project a clearCache has since dropped. A
+     * caller must revalidate with its own generation check and undo the memo
+     * on discard, as {@link doParse} does - which is why this stays private.
      */
-    async getAssetsDigestPath(): Promise<string | null> {
+    private async getAssetsDigestPath(): Promise<string | null> {
         if (this.cachedDigestPath && fs.existsSync(this.cachedDigestPath)) {
             return this.cachedDigestPath;
         }

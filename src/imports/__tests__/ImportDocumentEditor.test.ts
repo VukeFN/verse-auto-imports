@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { detectEol, ImportDocumentEditor } from "../ImportDocumentEditor";
+import { applyLineSplices, detectEol, ImportDocumentEditor, minimalSplice } from "../ImportDocumentEditor";
 import { ImportFormatter } from "../ImportFormatter";
 import * as vscode from "vscode";
 
@@ -24,6 +24,138 @@ describe("detectEol", () => {
 
     it("prefers LF on a tie", () => {
         expect(detectEol("a\r\nb\n")).toBe("\n");
+    });
+});
+
+describe("applyLineSplices", () => {
+    const lines = ["a", "b", "c", "d"];
+
+    it("returns the lines unchanged with no splices", () => {
+        expect(applyLineSplices(lines, [])).toEqual(["a", "b", "c", "d"]);
+    });
+
+    it("replaces a range", () => {
+        expect(applyLineSplices(lines, [{ start: 1, endExclusive: 3, newLines: ["B"] }])).toEqual(["a", "B", "d"]);
+    });
+
+    it("inserts above the line equal bounds name", () => {
+        expect(applyLineSplices(lines, [{ start: 2, endExclusive: 2, newLines: ["X"] }])).toEqual(["a", "b", "X", "c", "d"]);
+    });
+
+    it("appends with equal bounds at the array's length", () => {
+        expect(applyLineSplices(lines, [{ start: 4, endExclusive: 4, newLines: ["X"] }])).toEqual(["a", "b", "c", "d", "X"]);
+    });
+
+    it("applies splices by position whatever order they arrive in", () => {
+        const splices = [
+            { start: 3, endExclusive: 4, newLines: ["D"] },
+            { start: 0, endExclusive: 1, newLines: ["A"] },
+        ];
+        expect(applyLineSplices(lines, splices)).toEqual(["A", "b", "c", "D"]);
+    });
+
+    it("puts an insertion at the start of a replaced range first", () => {
+        const splices = [
+            { start: 1, endExclusive: 3, newLines: ["B"] },
+            { start: 1, endExclusive: 1, newLines: ["X"] },
+        ];
+        expect(applyLineSplices(lines, splices)).toEqual(["a", "X", "B", "d"]);
+    });
+
+    it("keeps two insertions at one line in their given order", () => {
+        const splices = [
+            { start: 2, endExclusive: 2, newLines: ["X"] },
+            { start: 2, endExclusive: 2, newLines: ["Y"] },
+        ];
+        expect(applyLineSplices(lines, splices)).toEqual(["a", "b", "X", "Y", "c", "d"]);
+    });
+
+    it("refuses overlapping splices", () => {
+        const splices = [
+            { start: 0, endExclusive: 2, newLines: ["A"] },
+            { start: 1, endExclusive: 3, newLines: ["B"] },
+        ];
+        expect(applyLineSplices(lines, splices)).toBeNull();
+    });
+
+    it("refuses a splice reaching past the array", () => {
+        expect(applyLineSplices(lines, [{ start: 3, endExclusive: 5, newLines: [] }])).toBeNull();
+    });
+
+    it("refuses inverted bounds", () => {
+        expect(applyLineSplices(lines, [{ start: 2, endExclusive: 1, newLines: [] }])).toBeNull();
+    });
+});
+
+describe("minimalSplice", () => {
+    const apply = (before: string, after: string): string => {
+        const splice = minimalSplice(before, after);
+        if (splice === null) {
+            return before;
+        }
+        return before.slice(0, splice.start) + splice.newText + before.slice(splice.end);
+    };
+
+    it("returns null for identical texts", () => {
+        expect(minimalSplice("a\nb\n", "a\nb\n")).toBeNull();
+    });
+
+    it("replaces one changed line on line boundaries", () => {
+        const splice = minimalSplice("a\nold\nc\n", "a\nnew\nc\n")!;
+        expect(splice).toEqual({ start: 2, end: 6, newText: "new\n" });
+    });
+
+    it("inserts a line without touching its neighbours", () => {
+        const splice = minimalSplice("a\nc\n", "a\nb\nc\n")!;
+        expect(splice).toEqual({ start: 2, end: 2, newText: "b\n" });
+    });
+
+    it("inserts at the top of a file sharing no prefix", () => {
+        const splice = minimalSplice("code()", "using { /A }\ncode()")!;
+        expect(splice).toEqual({ start: 0, end: 0, newText: "using { /A }\n" });
+    });
+
+    it("appends to a document with no trailing newline without inventing one", () => {
+        expect(apply("using { /A }\ncode()", "using { /A }\nusing { /B }\ncode()")).toBe("using { /A }\nusing { /B }\ncode()");
+    });
+
+    it("replaces to the end when the last line changes and has no newline", () => {
+        const splice = minimalSplice("a\ncode(1)", "a\ncode(2)")!;
+        expect(splice).toEqual({ start: 2, end: 9, newText: "code(2)" });
+    });
+
+    it("deletes a run of lines", () => {
+        const splice = minimalSplice("a\nx\ny\nb\n", "a\nb\n")!;
+        expect(splice).toEqual({ start: 2, end: 6, newText: "" });
+    });
+
+    it("covers the whole text when nothing is shared", () => {
+        const splice = minimalSplice("x\ny\n", "p\nq\n")!;
+        expect(splice.start).toBe(0);
+        expect(splice.end).toBe(4);
+        expect(splice.newText).toBe("p\nq\n");
+    });
+
+    it("never splits a CRLF pair", () => {
+        const splice = minimalSplice("a\r\nold\r\nc\r\n", "a\r\nnew\r\nc\r\n")!;
+        expect(splice).toEqual({ start: 3, end: 8, newText: "new\r\n" });
+    });
+
+    it("produces an edit for an ending-only normalization", () => {
+        expect(apply("a\r\nb\n", "a\nb\n")).toBe("a\nb\n");
+    });
+
+    it("inserts into an empty text", () => {
+        const splice = minimalSplice("", "using { /A }\n")!;
+        expect(splice).toEqual({ start: 0, end: 0, newText: "using { /A }\n" });
+    });
+
+    it("round-trips a scattered multi-hunk change as one line-aligned range", () => {
+        const before = "h\nusing { /A }\nbody\nusing { /B }\ntail\n";
+        const after = "h\nusing { /A }\nusing { /B }\nbody\ntail\n";
+        expect(apply(before, after)).toBe(after);
+        const splice = minimalSplice(before, after)!;
+        expect(before.slice(0, splice.start).endsWith("\n") || splice.start === 0).toBe(true);
     });
 });
 

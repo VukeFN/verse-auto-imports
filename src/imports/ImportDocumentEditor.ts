@@ -65,6 +65,89 @@ function resolveEol(document: vscode.TextDocument, text: string): LineEnding {
     return detectEol(text) ?? documentEol(document);
 }
 
+/** A rewrite of lines [start, endExclusive) as `newLines`. Equal bounds insert above `start`. */
+export interface LineSplice {
+    start: number;
+    endExclusive: number;
+    newLines: string[];
+}
+
+/**
+ * `lines` with every splice applied, or null where two overlap or one reaches
+ * outside the array. No placement branch emits either shape, so a null is a
+ * composition bug - and it has to be answered here rather than by the rewrite
+ * guard, which compares paths as a set and so cannot see an import written
+ * twice by overlapping splices.
+ *
+ * Insertions at one line keep their given order, and an insertion at the start
+ * of a replaced range goes first, as VS Code applies a WorkspaceEdit's.
+ */
+export function applyLineSplices(lines: string[], splices: LineSplice[]): string[] | null {
+    const ordered = [...splices].sort((a, b) => a.start - b.start || a.endExclusive - b.endExclusive);
+
+    const result: string[] = [];
+    let cursor = 0;
+    for (const splice of ordered) {
+        if (splice.start < cursor || splice.endExclusive < splice.start || splice.endExclusive > lines.length) {
+            return null;
+        }
+        result.push(...lines.slice(cursor, splice.start), ...splice.newLines);
+        cursor = splice.endExclusive;
+    }
+    result.push(...lines.slice(cursor));
+    return result;
+}
+
+/**
+ * A replacement of characters [start, end) with `newText`. Offsets are UTF-16
+ * units into the text the splice was computed from, which is how VS Code
+ * positions count as well.
+ */
+export interface TextSplice {
+    start: number;
+    end: number;
+    newText: string;
+}
+
+/**
+ * The one line-aligned edit that turns `before` into `after`, or null when the
+ * two already match.
+ *
+ * Character-offset arithmetic rather than a line diff, for two shapes a line
+ * diff gets wrong: a hunk reaching the end of a document with no trailing
+ * newline, where rejoining lines invents one; and a rebuild that only
+ * normalizes line endings, whose lines all compare equal while the text does
+ * not. Both bounds sit on a line start or the text's own end, so the range
+ * never splits a CRLF pair.
+ */
+export function minimalSplice(before: string, after: string): TextSplice | null {
+    if (before === after) {
+        return null;
+    }
+
+    const sharedMax = Math.min(before.length, after.length);
+    let shared = 0;
+    while (shared < sharedMax && before[shared] === after[shared]) {
+        shared++;
+    }
+    const start = shared === 0 ? 0 : before.lastIndexOf("\n", shared - 1) + 1;
+
+    // Bounded away from the snapped prefix in both texts, so the two never
+    // claim one character twice.
+    const suffixMax = sharedMax - start;
+    let suffix = 0;
+    while (suffix < suffixMax && before[before.length - 1 - suffix] === after[after.length - 1 - suffix]) {
+        suffix++;
+    }
+    let end = before.length - suffix;
+    if (end > start && end < before.length && before[end - 1] !== "\n") {
+        const lineBreak = before.indexOf("\n", end);
+        end = lineBreak === -1 ? before.length : lineBreak + 1;
+    }
+
+    return { start, end, newText: after.slice(start, after.length - (before.length - end)) };
+}
+
 /**
  * The edits queued for one document, in the shape ImportRewriteGuard reads.
  *

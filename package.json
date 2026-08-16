@@ -21,6 +21,15 @@
     "onLanguage:verse"
   ],
   "main": "./out/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "Verse Auto Imports relies on Verse compiler diagnostics and project file scanning, which are unavailable in virtual workspaces."
+    }
+  },
   "contributes": {
     "languages": [
       {

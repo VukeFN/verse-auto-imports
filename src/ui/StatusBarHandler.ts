@@ -34,6 +34,10 @@ export class StatusBarHandler {
         // nothing: change it alone and the item stops responding to clicks.
         this.statusBarItem.command = "verseAutoImports.showStatusMenu";
         this.statusBarItem.name = "Verse Auto Imports";
+        // The text below is icon-only, so the tooltip carries the hover
+        // identification and accessibilityInformation the screen-reader label.
+        this.statusBarItem.tooltip = "Verse Auto Imports";
+        this.statusBarItem.accessibilityInformation = { label: "Verse Auto Imports" };
 
         this.updateDisplay();
         this.statusBarItem.show();
@@ -73,11 +77,13 @@ export class StatusBarHandler {
     }
 
     updateDisplay(): void {
+        // The icon id resolves through contributes.icons in package.json
+        // (media/icon.woff); rename it there and the item renders blank.
         if (this.isSnoozeActive()) {
             const remaining = this.getRemainingTime();
-            this.statusBarItem.text = `Verse Auto Imports (${remaining})`;
+            this.statusBarItem.text = `$(verse-imports-icon) ${remaining}`;
         } else {
-            this.statusBarItem.text = "Verse Auto Imports";
+            this.statusBarItem.text = "$(verse-imports-icon)";
         }
     }
 

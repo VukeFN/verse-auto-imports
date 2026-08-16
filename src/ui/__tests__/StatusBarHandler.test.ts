@@ -167,3 +167,63 @@ describe("StatusBarHandler teardown", () => {
         expect(listener.dispose).toHaveBeenCalledTimes(1);
     });
 });
+
+// The icon id below must stay in step with the contributes.icons entry in
+// package.json; statusBarIcon.test.ts pins that entry against the font itself.
+describe("StatusBarHandler display", () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+        jest.clearAllMocks();
+    });
+
+    interface ItemSurface {
+        text: string;
+        tooltip: string;
+        accessibilityInformation?: { label: string };
+    }
+
+    function makeItem(): { handler: StatusBarHandler; item: ItemSurface } {
+        const handler = new StatusBarHandler(vscode.window.createOutputChannel("test"));
+        const item = (vscode.window.createStatusBarItem as jest.Mock).mock.results[0].value as ItemSurface;
+        return { handler, item };
+    }
+
+    it("shows the icon glyph alone when idle", () => {
+        expect(makeItem().item.text).toBe("$(verse-imports-icon)");
+    });
+
+    // While snoozed the countdown is the only visible sign that imports are
+    // paused, so it must survive the move to an icon-only label.
+    it("keeps the snooze countdown beside the icon", () => {
+        const { handler, item } = makeItem();
+
+        handler.startSnooze(5);
+        expect(item.text).toBe("$(verse-imports-icon) 5:00");
+
+        jest.advanceTimersByTime(90 * 1000);
+        expect(item.text).toBe("$(verse-imports-icon) 3:30");
+    });
+
+    it("returns to the bare icon when the snooze is cancelled", () => {
+        const { handler, item } = makeItem();
+        handler.startSnooze(5);
+
+        handler.cancelSnooze();
+
+        expect(item.text).toBe("$(verse-imports-icon)");
+    });
+
+    // With no text label left, the tooltip is the only hover identification
+    // and accessibilityInformation the only screen-reader surface.
+    it("names the item in the tooltip and for screen readers", () => {
+        const { item } = makeItem();
+        expect(item.tooltip).toBe("Verse Auto Imports");
+        expect(item.accessibilityInformation).toEqual({ label: "Verse Auto Imports" });
+    });
+});

@@ -147,17 +147,19 @@ export class AssetsDigestParser {
             return;
         }
 
+        // The cache was cleared while locating the file; the path was
+        // resolved against the pre-clear project, so committing its names
+        // would stamp the TTL over the refresh that cleared it, and the path
+        // itself was just memoized over the one the clear dropped.
+        if (generation !== this.parseGeneration) {
+            this.cachedDigestPath = null;
+            logger.debug("AssetsDigestParser", "Cache cleared during parse, discarding the parsed names");
+            return;
+        }
+
         try {
             logger.debug("AssetsDigestParser", `Parsing Assets.digest.verse: ${digestPath}`);
             const content = fs.readFileSync(digestPath, "utf8");
-
-            // The cache was cleared while locating the file; these names were
-            // resolved against the pre-clear project, and committing them
-            // would also stamp the TTL over the refresh that cleared it.
-            if (generation !== this.parseGeneration) {
-                logger.debug("AssetsDigestParser", "Cache cleared during parse, discarding the parsed names");
-                return;
-            }
 
             this.classNames.clear();
             for (const name of AssetsDigestParser.parseDigestContent(content)) {

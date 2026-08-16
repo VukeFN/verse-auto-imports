@@ -78,7 +78,9 @@ describe("AssetsDigestParser.parseAssetsDigest under concurrent invocation", () 
         release();
         await Promise.all([overtaken, refreshed]);
 
-        expect(readFileSync).toHaveBeenCalledTimes(2);
+        // One read: the refresh's own. The overtaken parse discards before
+        // it reads, and the refresh must not have joined it.
+        expect(readFileSync).toHaveBeenCalledTimes(1);
         expect(parser.getAssetClassNames().has("TestSphere")).toBe(true);
 
         // The overtaken parse must not have stamped the TTL over the clear:
@@ -87,6 +89,42 @@ describe("AssetsDigestParser.parseAssetsDigest under concurrent invocation", () 
         readFileSync.mockClear();
         await parser.parseAssetsDigest();
         expect(readFileSync).toHaveBeenCalledTimes(1);
+    });
+
+    it("drops the digest path an overtaken parse memoized for the pre-clear project", async () => {
+        // A project rename: the overtaken parse resolves the old name and, on
+        // resume, re-memoizes the old project's digest path over the one the
+        // clear dropped. Both digest files still exist on disk.
+        const OLD_DIGEST_PATH = path.join(LOCAL_APP_DATA, "UnrealEditorFortnite", "Saved", "VerseProject", "OldGame", "OldGame-Assets", "Assets.digest.verse");
+        jest.spyOn(fs, "existsSync").mockImplementation((target) => String(target) === DIGEST_PATH || String(target) === OLD_DIGEST_PATH);
+        readFileSync.mockImplementation(((target: fs.PathOrFileDescriptor) =>
+            String(target) === OLD_DIGEST_PATH ? "OldAsset<scoped {/mygame@fortnite.com/oldgame}> := class(mesh_component):\n" : DIGEST_SOURCE) as unknown as typeof fs.readFileSync);
+
+        let nowValue = 1_000_000;
+        jest.spyOn(Date, "now").mockImplementation(() => nowValue);
+
+        let release: () => void = () => {};
+        const gate = new Promise<void>((resolve) => {
+            release = resolve;
+        });
+        gateNextLookup = async () => {
+            await gate;
+            return "OldGame";
+        };
+
+        const overtaken = parser.parseAssetsDigest();
+        parser.clearCache();
+        const refreshed = parser.parseAssetsDigest();
+        release();
+        await Promise.all([overtaken, refreshed]);
+        expect(parser.getAssetClassNames().has("TestSphere")).toBe(true);
+
+        // Past the TTL, the next parse must locate the current project's
+        // digest rather than reuse the renamed-away project's memoized path.
+        nowValue += 6 * 60 * 1000;
+        await parser.parseAssetsDigest();
+        expect(parser.getAssetClassNames().has("TestSphere")).toBe(true);
+        expect(parser.getAssetClassNames().has("OldAsset")).toBe(false);
     });
 
     it("still serves the TTL cache once a parse has settled", async () => {

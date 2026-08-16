@@ -59,7 +59,8 @@ export class PrecompiledDigestLoader {
      * {@link isLoaded} true may still be holding a partial index. Only a total
      * failure leaves it false. Calling again after success is a no-op, and a
      * call that overlaps a running load joins it; only a settled failure runs
-     * the load again.
+     * the load again. A load that {@link clear} overtakes resolves without
+     * loading: resolution alone is not success - {@link isLoaded} is.
      */
     async loadPrecompiledDigests(): Promise<void> {
         if (this.loaded) {

@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { logger, settingsFor } from "../utils";
-import { ImportSuggestion } from "../types";
+import { DiagnosticPosition, ImportSuggestion } from "../types";
 import { ImportHandler } from "../imports";
 
 /**
@@ -157,7 +157,7 @@ export class DiagnosticsHandler {
                 const multiOptionStrategy = config.get<string>("behavior.multiOptionStrategy", "quickfix");
 
                 const autoImportSuggestions = new Set<string>();
-                // The line a diagnostic was reported on, kept beside the
+                // The position a diagnostic was reported at, kept beside the
                 // statement it asked for. Placement needs it to tell a pinned
                 // import that failed to resolve from one that merely looks as
                 // though it could (ImportDocumentEditor.couldResolveAgainst),
@@ -165,12 +165,14 @@ export class DiagnosticsHandler {
                 //
                 // Both go through one function so the set and the map cannot
                 // disagree about which statements were added: a statement in
-                // the set with no line placed as though no diagnostic asked for
-                // it, which is the reading this signal exists to correct.
-                const diagnosticLinesByStatement = new Map<string, number[]>();
+                // the set with no position is placed as though no diagnostic
+                // asked for it, which is the reading this signal exists to
+                // correct.
+                const diagnosticPositionsByStatement = new Map<string, DiagnosticPosition[]>();
                 const recordSuggestion = (statement: string, diagnostic: vscode.Diagnostic): void => {
                     autoImportSuggestions.add(statement);
-                    diagnosticLinesByStatement.set(statement, [...(diagnosticLinesByStatement.get(statement) ?? []), diagnostic.range.start.line]);
+                    const start = { line: diagnostic.range.start.line, character: diagnostic.range.start.character };
+                    diagnosticPositionsByStatement.set(statement, [...(diagnosticPositionsByStatement.get(statement) ?? []), start]);
                 };
                 let hasMultiOptionSuggestions = false;
 
@@ -224,7 +226,7 @@ export class DiagnosticsHandler {
                     // The edit is rejected when the document moved on between
                     // the read and the write, or when the file is read-only.
                     // Reporting the imports as applied hides that entirely.
-                    const applied = await this.importHandler.addImportsToDocument(document, Array.from(autoImportSuggestions), diagnosticLinesByStatement);
+                    const applied = await this.importHandler.addImportsToDocument(document, Array.from(autoImportSuggestions), diagnosticPositionsByStatement);
 
                     if (applied) {
                         vscode.window.setStatusBarMessage(`Auto-imported ${autoImportSuggestions.size} statements to ${displayName}`, 3000);

@@ -376,7 +376,7 @@ describe("scanModuleImports", () => {
     it("records an import written after the closing brace of a braced span", () => {
         expect(scanModuleImports(["using{", "    /A", "}; using { /B }", "code()"])).toEqual([
             { path: "/A", startLine: 0, endLine: 2, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
-            { path: "/B", startLine: 2, endLine: 2, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "/B", startLine: 2, endLine: 2, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 3, end: 15 } },
         ]);
     });
 
@@ -417,7 +417,7 @@ describe("scanModuleImports", () => {
     // making that import.
     it("records a bare dotted import that shares its line with a definition, pinned", () => {
         expect(scanModuleImports(["using. Features; MyVal := 5", "", "code()"])).toEqual([
-            { path: "Features", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "Features", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 0, end: 15 } },
         ]);
     });
 
@@ -434,7 +434,7 @@ describe("scanModuleImports", () => {
     // Economy.Shop stranded in the body as a bare indented expression.
     it("consumes a using: pair opened after a semicolon, pinning both paths", () => {
         expect(scanModuleImports(["using { /X }; using:", "    Economy.Shop", "", "code()"])).toEqual([
-            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 0, end: 12 } },
             { path: "Economy.Shop", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
         ]);
     });
@@ -445,7 +445,7 @@ describe("scanModuleImports", () => {
     // bare expression, imported by nothing.
     it("consumes a using: pair opened after a bare dotted import, pinning both paths", () => {
         expect(scanModuleImports(["using. Features; using:", "    Economy.Shop", "", "code()"])).toEqual([
-            { path: "Features", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "Features", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 0, end: 15 } },
             { path: "Economy.Shop", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
         ]);
     });
@@ -502,7 +502,7 @@ describe("scanModuleImports", () => {
     // path before the `;`.
     it("consumes a pair opened after a semicolon when a comment trails the opener", () => {
         expect(scanModuleImports(["using { /X }; using: # note", "    Economy.Shop", "code()"])).toEqual([
-            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "# note" },
+            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "# note", columns: { start: 0, end: 12 } },
             { path: "Economy.Shop", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
         ]);
     });
@@ -521,9 +521,11 @@ describe("scanModuleImports", () => {
     // single-statement branch - which would rebuild it and delete the
     // `; using:`.
     it("pins a pair opened after a semicolon whose using: opens no indented path", () => {
-        expect(scanModuleImports(["using { /X }; using:", "code()"])).toEqual([{ path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" }]);
+        expect(scanModuleImports(["using { /X }; using:", "code()"])).toEqual([
+            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 0, end: 12 } },
+        ]);
         expect(scanModuleImports(["using { /X }; using:", "    # just a note", "code()"])).toEqual([
-            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 0, end: 12 } },
         ]);
     });
 
@@ -538,10 +540,10 @@ describe("scanModuleImports", () => {
     // gate and into this branch instead.
     it("does not count a path the pair opener comments out", () => {
         expect(scanModuleImports(["using { /A }; using: <#>", "    /Verse.org/Random", "code()"])).toEqual([
-            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, rebuildLosesText: true, trailingComment: "<#>" },
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, rebuildLosesText: true, trailingComment: "<#>", columns: { start: 0, end: 12 } },
         ]);
         expect(scanModuleImports(["using { /A }; using: <# note", "    /Verse.org/Random", "code()"])).toEqual([
-            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, rebuildLosesText: true, trailingComment: "<# note" },
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: true, rebuildLosesText: true, trailingComment: "<# note", columns: { start: 0, end: 12 } },
         ]);
     });
 
@@ -554,7 +556,7 @@ describe("scanModuleImports", () => {
     // other two strand nothing by declining, and do.
     it("keeps a content-declined path a pair opened after a using provides", () => {
         expect(scanModuleImports(["using { /A }; using:", "    Foo'Loc'", "code()"])).toEqual([
-            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 0, end: 12 } },
             { path: "Foo'Loc'", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
         ]);
         expect(scanModuleImports(["using:", "    Foo'Loc'", "code()"])).toEqual([]);
@@ -568,8 +570,8 @@ describe("scanModuleImports", () => {
     // path the file already imports.
     it("records every statement written before the pair a line opens", () => {
         expect(scanModuleImports(["using { /X }; using { /Y }; using:", "    Economy.Shop", "", "code()"])).toEqual([
-            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
-            { path: "/Y", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 0, end: 12 } },
+            { path: "/Y", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 14, end: 26 } },
             { path: "Economy.Shop", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
         ]);
     });
@@ -594,7 +596,7 @@ describe("scanModuleImports", () => {
 
     it("records every statement written before a pair opened after a definition", () => {
         expect(scanModuleImports(["X := 1; using { /A }; using:", "    Economy.Shop", "code()"])).toEqual([
-            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 8, end: 20 } },
             { path: "Economy.Shop", startLine: 0, endLine: 1, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
         ]);
     });
@@ -679,20 +681,20 @@ describe("scanModuleImports", () => {
     // affected.
     it("records a using written after a definition on its line, pinned", () => {
         expect(scanModuleImports(["X := 1; using { /Verse.org/Random }", "code()"])).toEqual([
-            { path: "/Verse.org/Random", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "/Verse.org/Random", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 8, end: 35 } },
         ]);
     });
 
     it("records a dotted using written after a definition on its line", () => {
         expect(scanModuleImports(["X := 1; using. /Verse.org/Random", "code()"])).toEqual([
-            { path: "/Verse.org/Random", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "/Verse.org/Random", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 8, end: 32 } },
         ]);
     });
 
     it("records every using written after a definition, in written order", () => {
         expect(scanModuleImports(["X := 1; using { /X }; using { Economy.Shop }", "code()"])).toEqual([
-            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
-            { path: "Economy.Shop", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 8, end: 20 } },
+            { path: "Economy.Shop", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 22, end: 44 } },
         ]);
     });
 
@@ -729,8 +731,38 @@ describe("scanModuleImports", () => {
     // the literal beside it does not.
     it("records only the statement a line writes beside a literal naming a path", () => {
         expect(scanModuleImports(['using { /A }; Hint := "using { /B }"', "code()"])).toEqual([
-            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 0, end: 12 } },
         ]);
+    });
+
+    // Columns are measured on the masked line, where a comment is blanked in
+    // place, so the second statement's span starts where the raw text writes
+    // it - an offset into the comment-stripped code would land 7 short here
+    // and hand the diagnostic span test the wrong statement.
+    it("measures columns on the raw line where a comment sits between two statements", () => {
+        expect(scanModuleImports(["using { /X }<# n #>; using { Economy.Shop }", "", "code()"])).toEqual([
+            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "<# n #>; using { Economy.Shop }", columns: { start: 0, end: 12 } },
+            { path: "Economy.Shop", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "<# n #>; using { Economy.Shop }", columns: { start: 21, end: 43 } },
+        ]);
+    });
+
+    // A comment splicing the keyword apart writes a statement only the
+    // rejoined code sees; the masked line has no `using` token there, so the
+    // two runs disagree and no column can be trusted. The path is still
+    // recorded - dropping it is the error the rejoin exists to prevent - and
+    // the entry falls back to line-granular evidence.
+    it("records a comment-spliced using without columns", () => {
+        expect(scanModuleImports(["us<##>ing { /A }; X := 1", "", "code()"])).toEqual([
+            { path: "/A", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "<##>ing { /A }; X := 1" },
+        ]);
+    });
+
+    // The mirror disagreement: removing the comment glues the keyword to the
+    // identifier before it, so only the masked line sees a `using` token. The
+    // masked run supplies positions for the recorded paths and never adds a
+    // statement of its own.
+    it("does not let the masked run add a using the code does not write", () => {
+        expect(scanModuleImports(["X<##>using { /A }", "", "code()"])).toEqual([]);
     });
 
     // The masking must not reach a `'`. The lexer opens a char literal on one,
@@ -757,8 +789,8 @@ describe("scanModuleImports", () => {
     // one path fewer than the file had, with nothing left behind to say so.
     it("records both statements a line carrying two writes, pinning both", () => {
         expect(scanModuleImports(["using { /X }; using { Economy.Shop }", "", "code()"])).toEqual([
-            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
-            { path: "Economy.Shop", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 0, end: 12 } },
+            { path: "Economy.Shop", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 14, end: 36 } },
         ]);
     });
 
@@ -800,8 +832,8 @@ describe("scanModuleImports", () => {
     // imported and a writer was free to add a second copy of it.
     it("pins a line whose dotted statement precedes another, under both real paths", () => {
         expect(scanModuleImports(["using. /X; using { Economy.Shop }", "code()"])).toEqual([
-            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
-            { path: "Economy.Shop", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 0, end: 9 } },
+            { path: "Economy.Shop", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 11, end: 33 } },
         ]);
     });
 
@@ -811,7 +843,9 @@ describe("scanModuleImports", () => {
     // rebuilt the line from that path into `using { /X; MyVal := 5 }` - the
     // definition folded inside the braces, and the file no longer compiled.
     it("pins a line that writes a definition after its dotted import", () => {
-        expect(scanModuleImports(["using. /X; MyVal := 5", "", "code()"])).toEqual([{ path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" }]);
+        expect(scanModuleImports(["using. /X; MyVal := 5", "", "code()"])).toEqual([
+            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 0, end: 9 } },
+        ]);
     });
 
     it("offers no rewritable import for a line that writes a definition after its dotted import", () => {
@@ -856,7 +890,7 @@ describe("scanModuleImports", () => {
     // was gone, under an import block well-formed enough to say nothing.
     it("pins a line that writes a definition after its import", () => {
         expect(scanModuleImports(["using { /X }; MyVal := 5", "", "code()"])).toEqual([
-            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "" },
+            { path: "/X", startLine: 0, endLine: 0, anchorsCommentBelow: false, rebuildLosesText: true, trailingComment: "", columns: { start: 0, end: 12 } },
         ]);
     });
 

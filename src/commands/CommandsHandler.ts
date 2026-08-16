@@ -4,6 +4,7 @@ import { ImportHandler, ImportPathConverter, ImportCodeLensProvider } from "../i
 import { StatusBarHandler } from "../ui";
 import { ProjectPathCache } from "../services";
 import { ModuleVisibilityRequest, ModuleVisibilityWriter } from "../visibility";
+import { DiagnosticPosition } from "../types";
 
 /** The collaborators the commands act on, wired once during activation. */
 export interface CommandsDependencies {
@@ -114,17 +115,21 @@ export class CommandsHandler {
     /**
      * Adds one import statement to a document.
      *
-     * @param diagnosticLine The 0-based line the diagnostic behind this import
-     *   was reported on, which decides whether a pinned import may be read as
-     *   the one that needs it. Optional because a caller that cannot name a
+     * @param diagnosticPosition The start position of the diagnostic behind
+     *   this import, which decides whether a pinned import may be read as the
+     *   one that needs it. Optional because a caller that cannot name a
      *   diagnostic must not imply it knows of one - placement then follows the
      *   written order alone.
      */
-    async addSingleImport(document: vscode.TextDocument, importStatement: string, diagnosticLine?: number): Promise<void> {
+    async addSingleImport(document: vscode.TextDocument, importStatement: string, diagnosticPosition?: DiagnosticPosition): Promise<void> {
         // A false here means applyEdit was rejected - a stale document version
         // or a read-only file - and the document is unchanged. Reporting the
         // import as added would leave the only trace in the output channel.
-        const applied = await this.deps.importHandler.addImportsToDocument(document, [importStatement], diagnosticLine === undefined ? undefined : new Map([[importStatement, [diagnosticLine]]]));
+        const applied = await this.deps.importHandler.addImportsToDocument(
+            document,
+            [importStatement],
+            diagnosticPosition === undefined ? undefined : new Map([[importStatement, [diagnosticPosition]]]),
+        );
 
         if (!applied) {
             logger.warn("CommandsHandler", `Failed to add import: ${importStatement}`);
@@ -193,7 +198,7 @@ export class CommandsHandler {
             // Read straight from the current diagnostics rather than waiting on
             // the auto-import debounce, so the command does not race it.
             const diagnostics = vscode.languages.getDiagnostics(document.uri);
-            const { paths, diagnosticLinesByPath } = this.deps.importHandler.extractImportsFromDiagnostics(diagnostics);
+            const { paths, diagnosticPositionsByPath } = this.deps.importHandler.extractImportsFromDiagnostics(diagnostics);
             logger.debug("CommandsHandler", `Found ${paths.length} missing import(s) in current diagnostics`);
 
             // The missing paths are handed to the organizer rather than added
@@ -202,7 +207,7 @@ export class CommandsHandler {
             // with them, or the organizer cannot tell a pinned import the
             // compiler is reporting on from one that already resolves, and
             // writes the fix below the statement that needed it.
-            const applied = await this.deps.importHandler.organizeImports(document, paths, diagnosticLinesByPath);
+            const applied = await this.deps.importHandler.organizeImports(document, paths, diagnosticPositionsByPath);
 
             if (!applied) {
                 logger.warn("CommandsHandler", "Import organization was not applied to the document");

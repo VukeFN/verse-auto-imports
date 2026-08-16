@@ -588,7 +588,7 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         it("writes an added bare provider above a pinned dotted import the diagnostic reports on", () => {
             const input = ["using { Economy.Shop } <#> note", "    body", "code()"].join("\n");
 
-            expect(editor.buildOrganizedContent(input, ["Features"], curlySorted, new Map([["Features", [0]]]))).toBe(
+            expect(editor.buildOrganizedContent(input, ["Features"], curlySorted, new Map([["Features", [{ line: 0, character: 0 }]]]))).toBe(
                 ["using { Features }", "", "using { Economy.Shop } <#> note", "    body", "code()"].join("\n"),
             );
         });
@@ -600,8 +600,31 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         it("leaves an added bare consumer below a pinned dotted import when the diagnostic points elsewhere", () => {
             const input = ["using { Economy.Shop } <#> note", "    body", "code()"].join("\n");
 
-            expect(editor.buildOrganizedContent(input, ["Features"], curlySorted, new Map([["Features", [2]]]))).toBe(
+            expect(editor.buildOrganizedContent(input, ["Features"], curlySorted, new Map([["Features", [{ line: 2, character: 0 }]]]))).toBe(
                 ["using { Economy.Shop } <#> note", "    body", "using { Features }", "code()"].join("\n"),
+            );
+        });
+
+        // The diagnostic is on the pinned line but at column 24, inside
+        // `MyVal := 5` - the compiler reporting on the definition sharing the
+        // line, not on the clause. Read line-wide, that evidence hoisted the
+        // provider above the import that may bring its first segment into
+        // scope, and a compiling file stopped compiling.
+        it("leaves an added bare consumer below a pinned import when the diagnostic is about the statement beside it", () => {
+            const input = ["using { Economy.Shop }; MyVal := 5", "code()"].join("\n");
+
+            expect(editor.buildOrganizedContent(input, ["Features"], curlySorted, new Map([["Features", [{ line: 0, character: 24 }]]]))).toBe(
+                ["using { Economy.Shop }; MyVal := 5", "using { Features }", "code()"].join("\n"),
+            );
+        });
+
+        // The same line with the diagnostic inside the clause itself - the
+        // narrowing must not cost the override its reach on a shared line.
+        it("still writes the provider above a shared-line consumer the diagnostic reports inside", () => {
+            const input = ["using { Economy.Shop }; MyVal := 5", "code()"].join("\n");
+
+            expect(editor.buildOrganizedContent(input, ["Features"], curlySorted, new Map([["Features", [{ line: 0, character: 8 }]]]))).toBe(
+                ["using { Features }", "", "using { Economy.Shop }; MyVal := 5", "code()"].join("\n"),
             );
         });
 
@@ -1008,14 +1031,17 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
     const applyEditMock = () => vscode.workspace.applyEdit as unknown as jest.Mock;
 
     /**
-     * The diagnostic-line argument addImportsToDocument takes, for one statement
-     * the compiler reported on one line.
+     * The diagnostic-position argument addImportsToDocument takes, for one
+     * statement the compiler reported at one position.
      *
      * A pinned import is read as the consumer of a new import only where a
      * diagnostic lands inside its own statement, so a call that omits this is
      * exercising the no-evidence path and expects the written order to hold.
+     *
+     * Character 0 is the head of the line: inside a clause that heads its
+     * line, outside one written after a `;`.
      */
-    const reportedOn = (statement: string, line: number): ReadonlyMap<string, readonly number[]> => new Map([[statement, [line]]]);
+    const reportedOn = (statement: string, line: number, character = 0): ReadonlyMap<string, readonly { line: number; character: number }[]> => new Map([[statement, [{ line, character }]]]);
 
     beforeEach(() => {
         const outputChannel = vscode.window.createOutputChannel("test");
@@ -2265,6 +2291,101 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
             expect(replace!.text).toBe("using { /Verse.org/Simulation }\nusing { Features }\n");
         });
 
+        // Regression for the diagnostic landing on the pinned line but inside
+        // the statement beside the clause. The pinned import's own text ends at
+        // column 22, and column 24 is `MyVal := 5` - the compiler reporting on
+        // the definition, not on the import. Read line-wide, that evidence took
+        // the override and the provider was written above the import that may
+        // bring its first segment into scope, and a compiling file stopped
+        // compiling.
+        it("leaves a new import below a pinned consumer when the diagnostic is about the statement beside it", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["using { Economy.Shop }; MyVal := 5", "using { /Verse.org/Simulation }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 0, 24));
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            expect(operations.some((op) => op.kind === "insert")).toBe(false);
+
+            const replace = operations.find((op) => op.kind === "replace");
+            expect(replace).toBeDefined();
+            expect(replace!.range!.start.line).toBe(1);
+            expect(replace!.text).toBe("using { /Verse.org/Simulation }\nusing { Features }\n");
+        });
+
+        // The same line, the diagnostic now inside the clause itself - column 8
+        // is the `E` of Economy. The narrowing must not cost the override its
+        // reach: a shared line whose own clause failed to resolve still forces
+        // the provider above it.
+        it("still writes the provider above a shared-line consumer the diagnostic reports inside", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["using { Economy.Shop }; MyVal := 5", "using { /Verse.org/Simulation }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 0, 8));
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            expect(operations.some((op) => op.kind === "replace")).toBe(false);
+
+            const insert = operations.find((op) => op.kind === "insert");
+            expect(insert).toBeDefined();
+            expect(insert!.position!.line).toBe(0);
+            expect(insert!.text).toBe("using { Features }\n\n");
+        });
+
+        // A clause written after a definition starts at column 8, so the head
+        // of its line is outside it. Both directions on one fixture: evidence
+        // inside the clause takes the override, evidence on the definition at
+        // the head of the line does not.
+        it("reads the columns of a clause written after a definition", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["X := 1; using { Economy.Shop }", "using { /Verse.org/Simulation }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 0, 16));
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            expect(operations.some((op) => op.kind === "replace")).toBe(false);
+
+            const insert = operations.find((op) => op.kind === "insert");
+            expect(insert).toBeDefined();
+            expect(insert!.position!.line).toBe(0);
+            expect(insert!.text).toBe("using { Features }\n\n");
+        });
+
+        it("takes no override from a diagnostic on the definition preceding a clause", async () => {
+            mockConfig({
+                "behavior.preserveImportLocations": true,
+                "behavior.importGrouping": "none",
+                "behavior.sortImportsAlphabetically": true,
+            });
+            const input = ["X := 1; using { Economy.Shop }", "using { /Verse.org/Simulation }", "code()"].join("\n");
+
+            const success = await editor.addImportsToDocument(fakeDocument(input), ["using { Features }"], reportedOn("using { Features }", 0, 0));
+
+            expect(success).toBe(true);
+            const operations = appliedOperations(0);
+            expect(operations.some((op) => op.kind === "insert")).toBe(false);
+
+            const replace = operations.find((op) => op.kind === "replace");
+            expect(replace).toBeDefined();
+            expect(replace!.range!.start.line).toBe(1);
+            expect(replace!.text).toBe("using { /Verse.org/Simulation }\nusing { Features }\n");
+        });
+
         // The span is two lines and the compiler reports an unresolved path on
         // the path line, so the bound is the pinned import's end and not its
         // start. Narrowed to the start, this file takes no ceiling and the
@@ -2709,7 +2830,7 @@ describe("ImportDocumentEditor.organizeImports carries the diagnostic evidence",
     it("writes the provider above the pinned consumer the diagnostic reports on", async () => {
         const input = ["using { Economy.Shop } <#> note", "    body", "code()"].join("\n");
 
-        const success = await editor.organizeImports(fakeDocument(input), ["Features"], new Map([["Features", [0]]]));
+        const success = await editor.organizeImports(fakeDocument(input), ["Features"], new Map([["Features", [{ line: 0, character: 0 }]]]));
 
         expect(success).toBe(true);
         expect(appliedOperations(0)[0].text).toBe(["using { Features }", "", "using { Economy.Shop } <#> note", "    body", "code()"].join("\n"));
@@ -2718,7 +2839,7 @@ describe("ImportDocumentEditor.organizeImports carries the diagnostic evidence",
     it("leaves the written order alone when the evidence names a line elsewhere", async () => {
         const input = ["using { Economy.Shop } <#> note", "    body", "code()"].join("\n");
 
-        const success = await editor.organizeImports(fakeDocument(input), ["Features"], new Map([["Features", [2]]]));
+        const success = await editor.organizeImports(fakeDocument(input), ["Features"], new Map([["Features", [{ line: 2, character: 0 }]]]));
 
         expect(success).toBe(true);
         expect(appliedOperations(0)[0].text).toBe(["using { Economy.Shop } <#> note", "    body", "using { Features }", "code()"].join("\n"));

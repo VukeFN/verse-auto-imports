@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { logger, settingsFor } from "../utils";
-import { DiagnosticLinesByPath, DiagnosticLinesByStatement } from "../types";
+import { DiagnosticPosition, DiagnosticPositionsByPath, DiagnosticPositionsByStatement } from "../types";
 import { ImportFormatter } from "./ImportFormatter";
 import { QueuedEdit, verifyImportEdits, verifyOrganizedRewrite } from "./ImportRewriteGuard";
 import {
@@ -265,7 +265,7 @@ interface PinnedBounds {
  * For a caller that cannot name the diagnostic behind a path. It raises no
  * ceiling, which is the ordering every other rule here keeps.
  */
-const NO_DIAGNOSTIC_LINES: DiagnosticLinesByPath = new Map();
+const NO_DIAGNOSTIC_POSITIONS: DiagnosticPositionsByPath = new Map();
 
 /**
  * Managing a document's import block: adding the imports a diagnostic asked
@@ -453,17 +453,32 @@ export class ImportDocumentEditor {
      *
      * This is the one place a newly added import is read as the provider rather
      * than the consumer, and it overrides the written order every other rule
-     * here keeps. `diagnosticLines` is what licenses that override: a diagnostic
-     * reported on this import's own line is the compiler saying something there
-     * failed to resolve, so whatever is being added for it has to precede it.
-     * Form alone cannot say that. A pinned dotted import that already resolves
-     * is far commoner - the file compiled before the edit - and against one of
-     * those the new import is the consumer, which the written order keeps below
-     * it.
+     * here keeps. `diagnosticPositions` is what licenses that override: a
+     * diagnostic reported inside this import's own text is the compiler saying
+     * it failed to resolve, so whatever is being added for it has to precede
+     * it. Form alone cannot say that. A pinned dotted import that already
+     * resolves is far commoner - the file compiled before the edit - and
+     * against one of those the new import is the consumer, which the written
+     * order keeps below it.
      *
-     * A line, not a range, so an import pinned by a statement sharing its line
-     * still takes the override from a diagnostic about that other statement.
-     * Narrowing it needs a column, which ScannedImport does not carry.
+     * Where the import carries `columns`, the evidence must start inside them:
+     * a statement sharing its line with other code would otherwise take the
+     * override from a diagnostic about that other statement, and the override's
+     * failure direction is a file that stops compiling, which outranks a fixed
+     * diagnostic (see hoistFloor on the same asymmetry). The compiler anchors
+     * an unresolved-identifier diagnostic to the identifier's own node
+     * (CreateGlitchForMissingUsing's call sites, SemanticAnalyzer.cpp:12544,
+     * :12864), so a start position is enough to tell the two statements apart.
+     * A compiler reporting a whole-line range instead starts it at the head of
+     * the line, outside a clause written after a `;`, which refuses the
+     * override - the same safe direction.
+     *
+     * Without `columns` the whole span still counts. That keeps a statement
+     * owning its span exactly as sharp as before, and leaves one shape loose:
+     * a pinned multi-line span - `X := 1; using:` over its indented path -
+     * still takes the override from a diagnostic about the statement beside
+     * its opener. A standing gap rather than one this predicate closes;
+     * narrowing it needs a span the scanner does not measure.
      *
      * Still kept to a pinned dotted consumer and a new import that can supply a
      * first segment for it, because the override is only worth the risk that
@@ -471,15 +486,19 @@ export class ImportDocumentEditor {
      * and writing a standalone line, so widening it fragments a file into
      * import regions to satisfy nothing.
      *
-     * @param diagnosticLines 0-based lines of the diagnostics that asked for the
-     *   new import. Empty where the caller knows of none, and empty raises no
-     *   ceiling.
+     * @param diagnosticPositions Start positions of the diagnostics that asked
+     *   for the new import. Empty where the caller knows of none, and empty
+     *   raises no ceiling.
      */
-    private couldResolveAgainst(imp: ScannedImport, rank: number, diagnosticLines: readonly number[]): boolean {
+    private couldResolveAgainst(imp: ScannedImport, rank: number, diagnosticPositions: readonly DiagnosticPosition[]): boolean {
         if (this.formatter.importRank(imp.path) !== 2 || rank >= 2) {
             return false;
         }
-        return diagnosticLines.some((line) => line >= imp.startLine && line <= imp.endLine);
+        const columns = imp.columns;
+        if (!columns) {
+            return diagnosticPositions.some((position) => position.line >= imp.startLine && position.line <= imp.endLine);
+        }
+        return diagnosticPositions.some((position) => position.line === imp.startLine && position.character >= columns.start && position.character < columns.end);
     }
 
     /**
@@ -533,12 +552,12 @@ export class ImportDocumentEditor {
      *
      * Exempts the path from itself for the reason crossesPinnedProvider does.
      */
-    private hoistFloor(pinned: ScannedImport[], classifications: LineClassification[], path: string, diagnosticLines: DiagnosticLinesByPath): number {
+    private hoistFloor(pinned: ScannedImport[], classifications: LineClassification[], path: string, diagnosticPositions: DiagnosticPositionsByPath): number {
         return this.pinnedBounds(
             pinned.filter((imp) => imp.path !== path),
             classifications,
             path,
-            diagnosticLines,
+            diagnosticPositions,
         ).floor;
     }
 
@@ -546,10 +565,10 @@ export class ImportDocumentEditor {
      * Where the imports pinned to their line allow a new `path` to be written.
      * See PinnedBounds.
      */
-    private pinnedBounds(pinned: ScannedImport[], classifications: LineClassification[], path: string, diagnosticLines: DiagnosticLinesByPath): PinnedBounds {
+    private pinnedBounds(pinned: ScannedImport[], classifications: LineClassification[], path: string, diagnosticPositions: DiagnosticPositionsByPath): PinnedBounds {
         const rank = this.formatter.importRank(path);
         const needsScopeAbove = this.formatter.resolvesAgainstScopeAbove(path);
-        const linesForPath = diagnosticLines.get(path) ?? [];
+        const positionsForPath = diagnosticPositions.get(path) ?? [];
 
         let floor = -1;
         let ceiling = -1;
@@ -559,7 +578,7 @@ export class ImportDocumentEditor {
             // below the ceiling it raised, and blockIsWithin would then refuse
             // every block - including one lying entirely above the ceiling,
             // which satisfies the ceiling and the written order both.
-            if (this.couldResolveAgainst(imp, rank, linesForPath)) {
+            if (this.couldResolveAgainst(imp, rank, positionsForPath)) {
                 ceiling = ceiling === -1 ? imp.startLine : Math.min(ceiling, imp.startLine);
                 continue;
             }
@@ -694,10 +713,16 @@ export class ImportDocumentEditor {
      * starting from the line the site would have used had no import been
      * pinned. Paths wanting the same line are written together.
      */
-    private groupByPlacementLine(paths: string[], desired: number, pinned: ScannedImport[], classifications: LineClassification[], diagnosticLines: DiagnosticLinesByPath): Map<number, string[]> {
+    private groupByPlacementLine(
+        paths: string[],
+        desired: number,
+        pinned: ScannedImport[],
+        classifications: LineClassification[],
+        diagnosticPositions: DiagnosticPositionsByPath,
+    ): Map<number, string[]> {
         const byLine = new Map<number, string[]>();
         for (const path of paths) {
-            const line = this.placementLine(desired, this.pinnedBounds(pinned, classifications, path, diagnosticLines));
+            const line = this.placementLine(desired, this.pinnedBounds(pinned, classifications, path, diagnosticPositions));
             byLine.set(line, [...(byLine.get(line) ?? []), path]);
         }
         return new Map([...byLine].sort(([a], [b]) => a - b));
@@ -757,18 +782,18 @@ export class ImportDocumentEditor {
      * the imports it must sit relative to; with it off, the movable imports are
      * consolidated at the top, bar any a pinned line holds where it is.
      *
-     * @param diagnosticLinesByStatement The 0-based lines of the diagnostics
+     * @param diagnosticPositionsByStatement The start positions of the diagnostics
      *   that asked for each statement, keyed on the statement as it appears in
      *   `importStatements`. A statement with no entry is placed by the written
      *   order alone; only couldResolveAgainst reads these, to tell a pinned
      *   import that failed to resolve from one that merely looks like it could.
      */
-    async addImportsToDocument(document: vscode.TextDocument, importStatements: string[], diagnosticLinesByStatement?: DiagnosticLinesByStatement): Promise<boolean> {
-        return this.serialize(document, () => this.applyImports(document, importStatements, diagnosticLinesByStatement));
+    async addImportsToDocument(document: vscode.TextDocument, importStatements: string[], diagnosticPositionsByStatement?: DiagnosticPositionsByStatement): Promise<boolean> {
+        return this.serialize(document, () => this.applyImports(document, importStatements, diagnosticPositionsByStatement));
     }
 
     /** addImportsToDocument, without the wait for the writes ahead of it. */
-    private async applyImports(document: vscode.TextDocument, importStatements: string[], diagnosticLinesByStatement?: DiagnosticLinesByStatement): Promise<boolean> {
+    private async applyImports(document: vscode.TextDocument, importStatements: string[], diagnosticPositionsByStatement?: DiagnosticPositionsByStatement): Promise<boolean> {
         logger.info("ImportDocumentEditor", `Adding ${importStatements.length} import statements to document`);
 
         const config = settingsFor(document.uri);
@@ -831,16 +856,16 @@ export class ImportDocumentEditor {
         // placement rule below works in, and concatenated where two statements
         // share a path: a second diagnostic asking for the same import is
         // further evidence, not a replacement for the first.
-        const diagnosticLinesByPath = new Map<string, number[]>();
+        const diagnosticPositionsByPath = new Map<string, DiagnosticPosition[]>();
         importStatements.forEach((imp) => {
             const path = this.formatter.extractPathFromImport(imp);
             if (path && !existingPaths.has(path)) {
                 logger.debug("ImportDocumentEditor", `New import needed: ${path}`);
                 newImportPaths.add(path);
 
-                const diagnosticLines = diagnosticLinesByStatement?.get(imp);
-                if (diagnosticLines?.length) {
-                    diagnosticLinesByPath.set(path, [...(diagnosticLinesByPath.get(path) ?? []), ...diagnosticLines]);
+                const diagnosticPositions = diagnosticPositionsByStatement?.get(imp);
+                if (diagnosticPositions?.length) {
+                    diagnosticPositionsByPath.set(path, [...(diagnosticPositionsByPath.get(path) ?? []), ...diagnosticPositions]);
                 }
             }
         });
@@ -927,7 +952,7 @@ export class ImportDocumentEditor {
                     for (const path of paths) {
                         const canTake =
                             blockIndex >= 0 &&
-                            this.blockIsWithin(importBlocks[blockIndex], this.pinnedBounds(pinned, classifications, path, diagnosticLinesByPath)) &&
+                            this.blockIsWithin(importBlocks[blockIndex], this.pinnedBounds(pinned, classifications, path, diagnosticPositionsByPath)) &&
                             this.blockKeepsRelativeOrder(importBlocks, blockIndex, path);
                         (canTake ? taken : unhandled).push(path);
                     }
@@ -963,7 +988,7 @@ export class ImportDocumentEditor {
 
                 if (unhandledPaths.length > 0) {
                     const desired = importBlocks.length > 0 ? importBlocks[importBlocks.length - 1].end + 1 : headerEnd;
-                    for (const [line, paths] of this.groupByPlacementLine(unhandledPaths, desired, pinned, classifications, diagnosticLinesByPath)) {
+                    for (const [line, paths] of this.groupByPlacementLine(unhandledPaths, desired, pinned, classifications, diagnosticPositionsByPath)) {
                         this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, importBlocks.length === 0);
                     }
                 }
@@ -979,7 +1004,7 @@ export class ImportDocumentEditor {
                     // already inside the block being rebuilt in place.
                     const displacedPaths =
                         importBlocks.length > 0
-                            ? Array.from(newImportPaths).filter((path) => !this.blockIsWithin(importBlocks[0], this.pinnedBounds(pinned, classifications, path, diagnosticLinesByPath)))
+                            ? Array.from(newImportPaths).filter((path) => !this.blockIsWithin(importBlocks[0], this.pinnedBounds(pinned, classifications, path, diagnosticPositionsByPath)))
                             : [];
                     const displaced = new Set(displacedPaths);
 
@@ -1003,7 +1028,7 @@ export class ImportDocumentEditor {
                             edit.delete(document.uri, new vscode.Range(new vscode.Position(block.start, 0), new vscode.Position(block.end + 1, 0)));
                         }
 
-                        for (const [line, paths] of this.groupByPlacementLine(displacedPaths, firstBlock.end + 1, pinned, classifications, diagnosticLinesByPath)) {
+                        for (const [line, paths] of this.groupByPlacementLine(displacedPaths, firstBlock.end + 1, pinned, classifications, diagnosticPositionsByPath)) {
                             this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, false);
                         }
                     } else {
@@ -1020,7 +1045,7 @@ export class ImportDocumentEditor {
                         // rewritable import opens or extends a block, so no
                         // block means none of them, which is also why the
                         // trailing comments here are always empty.
-                        for (const [line, paths] of this.groupByPlacementLine(allImportsArray, headerEnd, pinned, classifications, diagnosticLinesByPath)) {
+                        for (const [line, paths] of this.groupByPlacementLine(allImportsArray, headerEnd, pinned, classifications, diagnosticPositionsByPath)) {
                             this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, true);
                         }
                     }
@@ -1050,7 +1075,7 @@ export class ImportDocumentEditor {
                         const pathsByBlock = new Map<number, string[]>();
                         const unblockedPaths: string[] = [];
                         for (const path of newImportPathsArray) {
-                            const bounds = this.pinnedBounds(pinned, classifications, path, diagnosticLinesByPath);
+                            const bounds = this.pinnedBounds(pinned, classifications, path, diagnosticPositionsByPath);
                             const eligible = importBlocks.map((block, index) => ({ block, index })).filter(({ block }) => this.blockIsWithin(block, bounds));
 
                             if (eligible.length === 0) {
@@ -1103,7 +1128,7 @@ export class ImportDocumentEditor {
                         // path with unconstrained bounds finds every block
                         // eligible, so an unblocked one always has a floor or a
                         // ceiling, and both sit at or below the header's end.
-                        for (const [line, paths] of this.groupByPlacementLine(unblockedPaths, headerEnd, pinned, classifications, diagnosticLinesByPath)) {
+                        for (const [line, paths] of this.groupByPlacementLine(unblockedPaths, headerEnd, pinned, classifications, diagnosticPositionsByPath)) {
                             this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, true, importGrouping), eol, true);
                         }
                     } else {
@@ -1130,7 +1155,7 @@ export class ImportDocumentEditor {
                         const desired = importBlocks.length > 0 ? importBlocks[importBlocks.length - 1].end + 1 : headerEnd;
                         const blankLineAfter = importBlocks.length === 0;
 
-                        for (const [line, paths] of this.groupByPlacementLine(newImportPathsArray, desired, pinned, classifications, diagnosticLinesByPath)) {
+                        for (const [line, paths] of this.groupByPlacementLine(newImportPathsArray, desired, pinned, classifications, diagnosticPositionsByPath)) {
                             this.insertImportLines(edit, document, line, this.formatter.groupAndFormatImports(paths, preferDotSyntax, sortAlphabetically, importGrouping), eol, blankLineAfter);
                         }
                     }
@@ -1149,7 +1174,7 @@ export class ImportDocumentEditor {
             const blockPaths = new Set<string>(Array.from(relocatablePaths).filter((path) => !grounded.has(path)));
             const newPathsByLine = new Map<number, string[]>();
             for (const path of newImportPaths) {
-                const floor = this.hoistFloor(pinned, classifications, path, diagnosticLinesByPath);
+                const floor = this.hoistFloor(pinned, classifications, path, diagnosticPositionsByPath);
                 if (floor === -1) {
                     blockPaths.add(path);
                     continue;
@@ -1248,7 +1273,7 @@ export class ImportDocumentEditor {
             /** Line ending to use when the text has no line break to detect one from. */
             fallbackEol?: LineEnding;
         },
-        diagnosticLinesByPath: DiagnosticLinesByPath = NO_DIAGNOSTIC_LINES,
+        diagnosticPositionsByPath: DiagnosticPositionsByPath = NO_DIAGNOSTIC_POSITIONS,
     ): string | null {
         const eol = detectEol(text) ?? options.fallbackEol ?? "\n";
         const lines = text.split(LINE_SPLIT);
@@ -1348,7 +1373,7 @@ export class ImportDocumentEditor {
             // raises a ceiling rather than a floor, and the block above every
             // pinned line satisfies it. Only the floor is read, for the reason
             // hoistFloor gives.
-            const floor = this.hoistFloor(pinned, classifications, path, diagnosticLinesByPath);
+            const floor = this.hoistFloor(pinned, classifications, path, diagnosticPositionsByPath);
             if (floor === -1) {
                 topExtraPaths.push(path);
                 continue;
@@ -1446,12 +1471,12 @@ export class ImportDocumentEditor {
      * and written in the preferred syntax at the top of the file. Unlike
      * addImportsToDocument this reorganizes even when nothing new is added.
      */
-    async organizeImports(document: vscode.TextDocument, additionalPaths: string[], diagnosticLinesByPath: DiagnosticLinesByPath = NO_DIAGNOSTIC_LINES): Promise<boolean> {
-        return this.serialize(document, () => this.applyOrganizedImports(document, additionalPaths, diagnosticLinesByPath));
+    async organizeImports(document: vscode.TextDocument, additionalPaths: string[], diagnosticPositionsByPath: DiagnosticPositionsByPath = NO_DIAGNOSTIC_POSITIONS): Promise<boolean> {
+        return this.serialize(document, () => this.applyOrganizedImports(document, additionalPaths, diagnosticPositionsByPath));
     }
 
     /** organizeImports, without the wait for the writes ahead of it. */
-    private async applyOrganizedImports(document: vscode.TextDocument, additionalPaths: string[], diagnosticLinesByPath: DiagnosticLinesByPath): Promise<boolean> {
+    private async applyOrganizedImports(document: vscode.TextDocument, additionalPaths: string[], diagnosticPositionsByPath: DiagnosticPositionsByPath): Promise<boolean> {
         const config = settingsFor(document.uri);
         const preferDotSyntax = config.get<string>("behavior.importSyntax", "curly") === "dot";
         const sortAlphabetically = config.get<boolean>("behavior.sortImportsAlphabetically", true);
@@ -1467,7 +1492,7 @@ export class ImportDocumentEditor {
                 importGrouping,
                 fallbackEol: documentEol(document),
             },
-            diagnosticLinesByPath,
+            diagnosticPositionsByPath,
         );
 
         if (organized === null || organized === text) {

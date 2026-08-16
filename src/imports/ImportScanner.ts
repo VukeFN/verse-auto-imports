@@ -67,6 +67,30 @@ export interface ScannedImport {
      * otherwise discard it, deleting text the author wrote.
      */
     trailingComment: string;
+    /**
+     * The statement's own text on its line, recorded where it shares a single
+     * line with code it did not write - the one shape a line-granular test
+     * cannot decide, since a diagnostic on the line may be about the code
+     * beside the statement rather than the statement itself
+     * (ImportDocumentEditor.couldResolveAgainst). Present only with
+     * `startLine === endLine`.
+     *
+     * Absent means no column knowledge, not that none is needed: a statement
+     * owning its whole span, a multi-line span, and a line whose comment
+     * structure defeats the column measurement all leave it unset, and evidence
+     * anywhere on the span then counts.
+     */
+    columns?: ColumnSpan;
+}
+
+/**
+ * A half-open raw column span on one line: `start` is the first character of
+ * the spanned text, `end` the offset just past it, both UTF-16 offsets into
+ * the raw line - the space vscode.Position.character measures in.
+ */
+export interface ColumnSpan {
+    start: number;
+    end: number;
 }
 
 /**
@@ -133,6 +157,14 @@ export interface LineClassification {
      * as imported; see LexedLine.codeOutsideLiterals.
      */
     codeOutsideLiterals: string;
+    /**
+     * The whole line with comments and literal contents replaced by spaces,
+     * length-preserving, so an offset into it is a raw column. The only string
+     * here that can answer where on its line a statement sits; both code
+     * strings drop comments without replacement and so disagree with the raw
+     * line about every offset past one. See LexedLine.masked.
+     */
+    masked: string;
 }
 
 /**
@@ -177,6 +209,7 @@ export function classifyLines(lines: string[]): LineClassification[] {
             continuesCommentAbove: insideBlockComment || scan.insideIndentedComment,
             codeWithoutComments: scan.codeWithoutComments,
             codeOutsideLiterals: scan.codeOutsideLiterals,
+            masked: scan.masked,
         };
 
         state.depth = scan.depth;
@@ -650,7 +683,9 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
             // than widened to admit them. Everything below it may then keep
             // testing the raw line, as the `using:` branch does - see the note
             // there on why the two inputs have to agree.
-            for (const linePath of usingPathsOnLine(formatter, statements)) {
+            const headlessPaths = usingPathsOnLine(formatter, statements);
+            const headlessColumns = columnsForLinePaths(formatter, headlessPaths, classifications[i].masked);
+            headlessPaths.forEach((linePath, statementIndex) => {
                 imports.push({
                     path: linePath,
                     startLine: i,
@@ -658,8 +693,9 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
                     anchorsCommentBelow: anchorsCommentBelow(i, i),
                     rebuildLosesText: true,
                     trailingComment: ImportFormatter.extractTrailingComment(trimmed),
+                    columns: headlessColumns[statementIndex],
                 });
-            }
+            });
 
             // The pair such a line opens, `X := 1; using:` over an indented
             // path. The loop above records nothing for it - a `using:` writes
@@ -812,7 +848,9 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
             // Counted with usingPathsOnLine because this branch holds first
             // refusal over the one below, so a line ending in `using:` is
             // counted here or nowhere.
-            for (const precedingPath of usingPathsOnLine(formatter, statements)) {
+            const precedingPaths = usingPathsOnLine(formatter, statements);
+            const precedingColumns = columnsForLinePaths(formatter, precedingPaths, classifications[i].masked);
+            precedingPaths.forEach((precedingPath, statementIndex) => {
                 imports.push({
                     path: precedingPath,
                     startLine: i,
@@ -824,8 +862,9 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
                     // Nothing re-emits a pinned entry, and the code has its
                     // comments already removed so it could only answer "none".
                     trailingComment: ImportFormatter.extractTrailingComment(trimmed),
+                    columns: precedingColumns[statementIndex],
                 });
-            }
+            });
 
             // A complete `using` at the head of the line is what carries it
             // past the gate above, so the trivia that gate refuses a
@@ -876,7 +915,8 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
         // needs the count exact in both directions.
         const pathsOnLine = usingPathsOnLine(formatter, statements);
         if (pathsOnLine.length > 1) {
-            for (const linePath of pathsOnLine) {
+            const sharedColumns = columnsForLinePaths(formatter, pathsOnLine, classifications[i].masked);
+            pathsOnLine.forEach((linePath, statementIndex) => {
                 imports.push({
                     path: linePath,
                     startLine: i,
@@ -886,8 +926,9 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
                     // The same comment for each entry, since they share a line.
                     // Nothing re-emits it - that is what being pinned means.
                     trailingComment: ImportFormatter.extractTrailingComment(trimmed),
+                    columns: sharedColumns[statementIndex],
                 });
-            }
+            });
             i += 1;
             continue;
         }
@@ -907,13 +948,21 @@ export function scanModuleImports(lines: string[]): ScannedImport[] {
         // means being right about which ones mean nothing.
         const path = formatter.extractPathFromImport(trimmed);
         if (path) {
+            // Columns only where the leftover text makes the line shared:
+            // a statement owning its line needs no narrower span, and leaving
+            // the field absent there keeps "present" meaning "shared". The
+            // masked run must agree it is the line's one statement, through
+            // the same reconciliation every shared site uses.
+            const losesText = formatter.textAfterImport(codeWithoutComments) !== "";
+            const headColumns = losesText ? columnsForLinePaths(formatter, [path], classifications[i].masked)[0] : undefined;
             imports.push({
                 path,
                 startLine: i,
                 endLine: i,
                 anchorsCommentBelow: anchorsCommentBelow(i, i),
-                rebuildLosesText: formatter.textAfterImport(codeWithoutComments) !== "",
+                rebuildLosesText: losesText,
                 trailingComment: ImportFormatter.extractTrailingComment(trimmed),
+                columns: headColumns,
             });
         }
         i += 1;
@@ -958,11 +1007,10 @@ export function pinnedImports(scannedImports: ScannedImport[]): ScannedImport[] 
  * The path of every `using` written anywhere in a line of live code, in written
  * order, or [] when it writes none.
  *
- * extractPathFromImport reads a statement from the head of what it is given, so
- * a statement that does not open the line is handed its own head rather than
- * the line. That keeps one copy of the two statement patterns instead of a
- * looser second copy that searches, which is what reads a comment as the line's
- * statement.
+ * matchImportAt reads a statement from the offset it is given, so a statement
+ * that does not open the line is read from its own head rather than the line's.
+ * That keeps one copy of the two statement patterns instead of a looser second
+ * copy that searches, which is what reads a comment as the line's statement.
  *
  * Every `using` is collected rather than the first, because `;` separates
  * definitions in a scope exactly as a newline does. Stopping at the first hides
@@ -979,17 +1027,51 @@ export function pinnedImports(scannedImports: ScannedImport[]): ScannedImport[] 
  * between them, `X := 1<# note #>using { /A }`, which this does not report.
  */
 function usingPathsOnLine(formatter: ImportFormatter, code: string): string[] {
-    const paths: string[] = [];
-    for (let at = code.indexOf("using"); at !== -1; at = code.indexOf("using", at + 1)) {
-        if (at > 0 && /[A-Za-z0-9_]/.test(code[at - 1])) {
+    return usingStatementsOnLine(formatter, code).map((statement) => statement.path);
+}
+
+/**
+ * Every `using` statement written anywhere in `text`, each with the offsets
+ * it occupies there. The one walk under both usingPathsOnLine and
+ * columnsForLinePaths: reader and measurer share it, so they cannot drift
+ * into the looser second copy usingPathsOnLine's doc warns against. Offsets
+ * mean what `text` means - raw columns only when `text` is the masked line.
+ */
+function usingStatementsOnLine(formatter: ImportFormatter, text: string): { path: string; start: number; end: number }[] {
+    const statements: { path: string; start: number; end: number }[] = [];
+    for (let at = text.indexOf("using"); at !== -1; at = text.indexOf("using", at + 1)) {
+        if (at > 0 && /[A-Za-z0-9_]/.test(text[at - 1])) {
             continue;
         }
-        const path = formatter.extractPathFromImport(code.slice(at));
-        if (path) {
-            paths.push(path);
+        const match = formatter.matchImportAt(text, at);
+        if (match) {
+            statements.push({ path: match.path, start: at, end: match.end });
         }
     }
-    return paths;
+    return statements;
+}
+
+/**
+ * The column span for each of a line's recorded paths, or undefined for all of
+ * them where the columns cannot be trusted.
+ *
+ * `paths` is what usingPathsOnLine read from the line's code and stays the
+ * count of record; the walk over `masked` only supplies positions, and never
+ * adds an entry of its own. The two are matched by path sequence, which is
+ * evidence rather than proof: one comment splicing or gluing a token changes
+ * the count or a path and is caught here, but a splice and a glue cancelling
+ * in count with equal paths passes and hands an entry its neighbour's span.
+ * What bounds that: a span is always a subset of its line, so a wrong one
+ * grants nothing the whole-line fallback would not have granted - it can only
+ * refuse an override, the direction placement already prefers
+ * (ImportDocumentEditor.couldResolveAgainst).
+ */
+function columnsForLinePaths(formatter: ImportFormatter, paths: string[], masked: string): (ColumnSpan | undefined)[] {
+    const spans = usingStatementsOnLine(formatter, masked);
+    if (spans.length !== paths.length || spans.some((span, index) => span.path !== paths[index])) {
+        return paths.map(() => undefined);
+    }
+    return spans.map((span) => ({ start: span.start, end: span.end }));
 }
 
 /**

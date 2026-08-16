@@ -655,7 +655,7 @@ export class ImportPathConverter {
         // is built by scanning that folder alone (ProjectPathCache.doRebuild)
         // and its answers are anchored there. A document another folder owns
         // skips it and lets the scans below read the right tree.
-        if (locations.length === 0 && this.projectPathCache && scanFolder === workspaceFolders[0]) {
+        if (locations.length === 0 && this.projectPathCache && scanFolder.index === 0) {
             const candidates = await this.projectPathCache.lookupModuleLocations(modulePath);
             for (const candidate of candidates) {
                 if (locations.includes(candidate.location)) {
@@ -1131,14 +1131,21 @@ export class ImportPathConverter {
             }
         }
 
+        // The segment is quoted without naming its origin: it is usually a
+        // disk folder, but the same gate catches a project prefix from the
+        // `.uefnproject` and a reference the user typed, and "rename that
+        // folder" is the wrong remedy for both.
         if (writablePaths.length === 0) {
-            vscode.window.showWarningMessage(
-                `Cannot convert '${moduleName}': its location contains '${unlexableSegment}', which cannot appear in a Verse path. Rename that folder or write the import by hand.`,
-            );
+            vscode.window.showWarningMessage(`Cannot convert '${moduleName}': '${unlexableSegment}' cannot appear in a Verse path. Write the import by hand.`);
             return null;
         }
 
-        if (writablePaths.length === 1) {
+        // Only where the gate dropped nothing: a dropped candidate is
+        // invisible to the user, so the sole survivor of a real ambiguity
+        // stays ambiguous below and the pick doubles as the notice - writing
+        // it unprompted would silently choose between modules the search
+        // could not tell apart.
+        if (writablePaths.length === 1 && unlexableSegment === null) {
             const fullPath = writablePaths[0];
             logger.debug("ImportPathConverter", `Constructed full path: ${fullPath}`);
 

@@ -804,6 +804,21 @@ describe("ModuleVisibilityWriter under a case-drifted definitions file name", ()
         expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
     });
 
+    it("adopts the on-disk spelling even when the drifted file is empty", async () => {
+        // An empty file holds no declaration for the reader to report, so the
+        // adoption must come from the scan's listing rather than from what
+        // was read - otherwise the block lands under the configured spelling
+        // while the empty file sits beside it.
+        setPlatform("win32");
+        givenProject({ "Content/_Definitions.verse": "" });
+
+        await publicizeDeepTools();
+
+        const operations = appliedOperations();
+        expect(operations.map((operation: { uri: vscode.Uri }) => forwardSlashed(operation.uri))).toEqual([`${ROOT}/Content/_Definitions.verse`, `${ROOT}/Content/_Definitions.verse`]);
+        expect(operations[1].text).toBe("Gadgets := module:\n    Deep<public> := module:\n        Tools<public> := module {}\n");
+    });
+
     it("keeps the two spellings apart where the filesystem does", async () => {
         // On a byte-exact filesystem the on-disk file really is a different
         // file, so its declarations are a user file's and restating them is

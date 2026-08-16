@@ -28,7 +28,13 @@ export function sameFsSegment(a: string, b: string): boolean {
     return fileSystemFoldsCase() ? a.toLowerCase() === b.toLowerCase() : a === b;
 }
 
-/** Whether two paths address the same file under the platform's case rule, whichever separators they carry. */
+/**
+ * Whether two paths address the same file under the platform's case rule,
+ * whichever separators they carry. The comparison is textual after separator
+ * normalization - `.` and `..` are not resolved - which serves callers
+ * passing `Uri.fsPath` values, where neither occurs.
+ */
 export function sameFsPath(a: string, b: string): boolean {
-    return sameFsSegment(a.replace(/\\/g, "/"), b.replace(/\\/g, "/"));
+    const normalize = (candidate: string): string => candidate.replace(/\\/g, "/");
+    return fileSystemFoldsCase() ? normalize(a).toLowerCase() === normalize(b).toLowerCase() : normalize(a) === normalize(b);
 }

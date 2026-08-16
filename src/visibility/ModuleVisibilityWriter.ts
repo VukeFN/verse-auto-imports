@@ -451,7 +451,17 @@ export class ModuleVisibilityWriter {
         const wanted = new Set(names);
         const declarations: FoundDeclaration[] = [];
         const scanned = new Map<string, ScannedFile>();
+
+        // Adopted from the listing rather than from the read results, so a
+        // definitions file the declaration reader skips - empty, or holding
+        // no `module` at all - still resolves to its on-disk spelling.
         let definitionsOnDisk: vscode.Uri | null = null;
+        for (const file of verseFiles) {
+            if (sameFsPath(file.fsPath, definitionsUri.fsPath)) {
+                definitionsOnDisk = file;
+                break;
+            }
+        }
 
         for (let i = 0; i < verseFiles.length; i += SCAN_CONCURRENCY) {
             const batch = await Promise.all(verseFiles.slice(i, i + SCAN_CONCURRENCY).map((file) => this.readDeclarations(file, contentRoot, wanted)));
@@ -465,11 +475,7 @@ export class ModuleVisibilityWriter {
                     logger.debug("ModuleVisibilityWriter", `Stopped the scan at unreadable file ${result.unreadable.toString()}`);
                     return result;
                 }
-                const isDefinitionsFile = sameFsPath(result.file.uri.fsPath, definitionsUri.fsPath);
-                if (isDefinitionsFile && !definitionsOnDisk) {
-                    definitionsOnDisk = result.file.uri;
-                }
-                if (result.declarations.length > 0 || isDefinitionsFile) {
+                if (result.declarations.length > 0 || sameFsPath(result.file.uri.fsPath, definitionsUri.fsPath)) {
                     scanned.set(result.file.uri.toString(), result.file);
                     declarations.push(...result.declarations);
                 }

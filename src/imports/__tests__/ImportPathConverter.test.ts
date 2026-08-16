@@ -1433,15 +1433,17 @@ describe("ImportPathConverter.convertToFullPath lexical gate", () => {
         expect(result?.convertedImport).toBe("using { /mygame@fortnite.com/mygame/Zone'2'/Shop }");
     });
 
-    it("narrows an ambiguous answer to the candidates that can be written", async () => {
+    it("keeps a narrowed answer ambiguous, so the dropped candidate stays visible", async () => {
         // The dropped candidate could only ever be written as a parse error,
-        // so the one that compiles is not ambiguous with it.
+        // so it is not offered - but writing the survivor unprompted would
+        // silently choose between modules the search could not tell apart.
+        // The single-entry pick is the notice.
         const converter = converterWithLocations(["/My Mods", "/Economy"]);
 
         const result = await converter.convertToFullPath("using { Shop }", documentUri, 0);
 
-        expect(result?.isAmbiguous).toBe(false);
-        expect(result?.convertedImport).toBe("using { /mygame@fortnite.com/mygame/Economy/Shop }");
+        expect(result?.isAmbiguous).toBe(true);
+        expect(result?.possiblePaths).toEqual(["/mygame@fortnite.com/mygame/Economy/Shop"]);
     });
 
     it("keeps a genuinely ambiguous answer ambiguous", async () => {

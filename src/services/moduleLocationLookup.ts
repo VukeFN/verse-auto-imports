@@ -1,3 +1,4 @@
+import * as path from "path";
 import { ProjectPathNode } from "../types";
 
 /**
@@ -10,9 +11,6 @@ import { ProjectPathNode } from "../types";
  * otherwise. The converter builds the final Verse path as
  * `${projectVersePath}${location}/${modulePath}`.
  */
-
-/** The Content folder that anchors importable module locations. */
-const CONTENT_FOLDER = "Content";
 
 /**
  * A resolved module location plus the file that proves it, so callers can
@@ -90,10 +88,15 @@ export function buildProjectIndexes(nodes: readonly ProjectPathNode[]): ProjectI
  * tail of the file's Content-relative directory (folders are implicit
  * modules). Non-module declarations are never considered.
  *
- * @param workspaceIsContent whether the workspace folder itself is the
- * Content folder (source file paths then have no "Content/" prefix).
+ * @param options the two anchors a node's workspace-relative `sourceFile` is
+ * placed against: the folder it is relative to, and the project's Content root
+ * wherever that sits under it.
  */
-export function resolveModuleLocations(modulePath: string, moduleNameIndex: ReadonlyMap<string, ProjectPathNode[]>, options: { workspaceIsContent: boolean }): ModuleLocationCandidate[] {
+export function resolveModuleLocations(
+    modulePath: string,
+    moduleNameIndex: ReadonlyMap<string, ProjectPathNode[]>,
+    options: { workspaceFolderPath: string; contentRootPath: string },
+): ModuleLocationCandidate[] {
     const requested = modulePath
         .replace(/^\//, "")
         .split("/")
@@ -130,7 +133,7 @@ export function resolveModuleLocations(modulePath: string, moduleNameIndex: Read
             continue;
         }
 
-        const contentRelativeDir = toContentRelativeDir(node.sourceFile, options.workspaceIsContent);
+        const contentRelativeDir = toContentRelativeDir(path.join(options.workspaceFolderPath, node.sourceFile), options.contentRootPath);
         if (contentRelativeDir === null) {
             continue;
         }
@@ -222,30 +225,33 @@ export function resolveFolderModuleLocations(modulePath: string, contentRelative
 }
 
 /**
- * The Content-relative directory of a workspace-relative source file, or null
- * when the file sits outside the Content folder and so cannot provide an
- * importable module location.
+ * The directory of a source file relative to the Content root, "" at the root
+ * itself, or null when the file sits outside it and so provides no importable
+ * module location.
  *
  * Exported so the converter's filesystem scan maps paths through this rather
  * than through a second copy of the rule: the two must agree on where Content
  * starts, or the same project resolves differently depending on which of them
  * asked.
  *
- * @param sourceFile workspace-relative, separated by "/"
+ * Both paths are absolute, so the root is subtracted by `path.relative` rather
+ * than by stripping a prefix the caller spelled. The root is found by a stat,
+ * and a caller cannot reproduce the on-disk spelling of what that stat matched:
+ * a plugin name read from the project file need not match its directory's case.
+ * `path.relative` folds on Windows, where UEFN runs, so the two agree there; on
+ * a case-sensitive platform a root whose spelling differs from its directory
+ * places no file, which is the fail-closed direction.
  */
-export function toContentRelativeDir(sourceFile: string, workspaceIsContent: boolean): string | null {
-    const lastSlash = sourceFile.lastIndexOf("/");
-    const dir = lastSlash === -1 ? "" : sourceFile.slice(0, lastSlash);
+export function toContentRelativeDir(sourceFileAbsolute: string, contentRootAbsolute: string): string | null {
+    const belowRoot = path.relative(contentRootAbsolute, sourceFileAbsolute).replace(/\\/g, "/");
 
-    if (workspaceIsContent) {
-        return dir === "." ? "" : dir;
+    // `path.relative` says "outside the root" two ways: it climbs out with
+    // `..`, and on Windows it hands back the target whole when the two are on
+    // different drives, where no `..` could express the step.
+    if (belowRoot === ".." || belowRoot.startsWith("../") || path.isAbsolute(belowRoot)) {
+        return null;
     }
 
-    if (dir === CONTENT_FOLDER) {
-        return "";
-    }
-    if (dir.startsWith(`${CONTENT_FOLDER}/`)) {
-        return dir.slice(CONTENT_FOLDER.length + 1);
-    }
-    return null;
+    const lastSlash = belowRoot.lastIndexOf("/");
+    return lastSlash === -1 ? "" : belowRoot.slice(0, lastSlash);
 }

@@ -9,10 +9,18 @@ function classNode(name: string, fullPath: string, sourceFile: string): ProjectP
     return { name, fullPath, type: "class", isPublic: true, sourceFile };
 }
 
-function resolve(modulePath: string, nodes: ProjectPathNode[], workspaceIsContent = false) {
+const WORKSPACE_ROOT = "C:/Project";
+
+/**
+ * @param contentRootRelative where the project's Content root sits under the
+ *   workspace folder. "" is a workspace folder that is itself the Content root,
+ *   which is what UEFN's generated workspace opens.
+ */
+function resolve(modulePath: string, nodes: ProjectPathNode[], contentRootRelative = "Content") {
     const { moduleNameIndex } = buildProjectIndexes(nodes);
     return resolveModuleLocations(modulePath, moduleNameIndex, {
-        workspaceIsContent,
+        workspaceFolderPath: WORKSPACE_ROOT,
+        contentRootPath: contentRootRelative ? `${WORKSPACE_ROOT}/${contentRootRelative}` : WORKSPACE_ROOT,
     });
 }
 
@@ -120,14 +128,32 @@ describe("resolveModuleLocations", () => {
     it("treats source paths as Content-relative when the workspace is the Content folder", () => {
         const nodes = [moduleNode("Inventory", "Inventory", "Systems/Main.verse")];
 
-        expect(resolve("Inventory", nodes, true)).toEqual([{ location: "/Systems", sourceFile: "Systems/Main.verse" }]);
-        expect(resolve("Inventory", nodes, false)).toEqual([]);
+        expect(resolve("Inventory", nodes, "")).toEqual([{ location: "/Systems", sourceFile: "Systems/Main.verse" }]);
+        expect(resolve("Inventory", nodes, "Content")).toEqual([]);
     });
 
     it("resolves files directly at the workspace root when the workspace is Content", () => {
         const nodes = [moduleNode("Inventory", "Inventory", "Main.verse")];
 
-        expect(resolve("Inventory", nodes, true)).toEqual([{ location: "", sourceFile: "Main.verse" }]);
+        expect(resolve("Inventory", nodes, "")).toEqual([{ location: "", sourceFile: "Main.verse" }]);
+    });
+
+    // UEFN nests a project's Verse under <project>/Plugins/<Name>/Content, so a
+    // workspace opened at the project root reaches the root three levels down.
+    // While the boundary was read at one fixed depth, every cached declaration
+    // in such a project was dropped here as sitting outside Content.
+    it("resolves a declaration under a Content root nested below the workspace folder", () => {
+        const nodes = [moduleNode("Inventory", "Inventory", "Plugins/MyGame/Content/Systems/Main.verse")];
+
+        expect(resolve("Inventory", nodes, "Plugins/MyGame/Content")).toEqual([{ location: "/Systems", sourceFile: "Plugins/MyGame/Content/Systems/Main.verse" }]);
+    });
+
+    it("excludes a declaration under a Content root the project does not answer for", () => {
+        // A second plugin's Content carries a Verse path of its own, so a
+        // declaration in it is not at some location under this project's.
+        const nodes = [moduleNode("Inventory", "Inventory", "Plugins/Extra/Content/Systems/Main.verse")];
+
+        expect(resolve("Inventory", nodes, "Plugins/MyGame/Content")).toEqual([]);
     });
 
     it("deduplicates candidates that resolve to the same location", () => {

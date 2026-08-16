@@ -119,8 +119,17 @@ const givenPerFolderDefinitionsName = (byRoot: Record<string, string>): void => 
     });
 };
 
-const writer = (): ModuleVisibilityWriter => {
-    const handler = { getProjectVersePath: jest.fn().mockResolvedValue(PROJECT) } as unknown as ProjectPathHandler;
+/**
+ * @param rootPluginName what the project file declares as its root plugin, which
+ *   is what admits a Content root nested under `Plugins/<name>`. Left unset, the
+ *   project declares none and only a Content directly under a workspace folder
+ *   is found.
+ */
+const writer = (rootPluginName: string | null = null): ModuleVisibilityWriter => {
+    const handler = {
+        getProjectVersePath: jest.fn().mockResolvedValue(PROJECT),
+        getRootPluginName: jest.fn().mockResolvedValue(rootPluginName),
+    } as unknown as ProjectPathHandler;
     return new ModuleVisibilityWriter({} as vscode.OutputChannel, handler);
 };
 
@@ -399,7 +408,10 @@ describe("ModuleVisibilityWriter", () => {
 
     it("refuses when no project file resolves the module paths", async () => {
         givenProject({ "Content/Scripts/main.verse": "" });
-        const handler = { getProjectVersePath: jest.fn().mockResolvedValue(null) } as unknown as ProjectPathHandler;
+        const handler = {
+            getProjectVersePath: jest.fn().mockResolvedValue(null),
+            getRootPluginName: jest.fn().mockResolvedValue(null),
+        } as unknown as ProjectPathHandler;
 
         await new ModuleVisibilityWriter({} as vscode.OutputChannel, handler).makeModulePublic(REQUEST);
 
@@ -586,8 +598,10 @@ describe("ModuleVisibilityWriter", () => {
 
             await writer().makeModulePublic(REQUEST, source);
 
+            // The scan is rooted at the Content root the write goes to, so the
+            // folder written and the folder read cannot come apart.
             const [pattern] = (vscode.workspace.findFiles as jest.Mock).mock.calls[0];
-            expect(forwardSlashed(pattern.base.uri)).toBe(OTHER_ROOT);
+            expect(forwardSlashed(pattern.base)).toBe(`${OTHER_ROOT}/Content`);
         });
 
         it("falls back to the first folder when the caller names no document", async () => {
@@ -620,5 +634,84 @@ describe("ModuleVisibilityWriter", () => {
 
             expect(forwardSlashed(appliedOperations()[0].uri)).toBe(`${ROOT}/Content/_definitions.verse`);
         });
+    });
+});
+
+// UEFN nests a project's Verse under <project>/Plugins/<Name>/Content, so a
+// workspace opened at the project root holds no Content at its own top level.
+// While the root was read at one fixed depth, the quick fix refused every such
+// project with "no 'Content' folder was found in the workspace" - the one layout
+// import conversion had already been taught to handle.
+describe("ModuleVisibilityWriter under a nested plugin Content root", () => {
+    const ROOT_PLUGIN = "MyGame";
+    const CONTENT_ROOT = `${ROOT}/Plugins/${ROOT_PLUGIN}/Content`;
+
+    /**
+     * Stands the project up under the nested Content root, from one map of
+     * root-relative path to file text. Nothing but that root stats as a
+     * directory, so a writer still reading the boundary at depth zero finds no
+     * Content folder here rather than passing by coincidence.
+     */
+    const givenNestedProject = (files: Record<string, string>): void => {
+        (vscode.workspace as any).workspaceFolders = [{ uri: vscode.Uri.file(ROOT), name: "repo", index: 0 }];
+
+        const byUri = new Map(Object.entries(files).map(([relative, text]) => [vscode.Uri.file(`${CONTENT_ROOT}/${relative}`).toString(), text]));
+
+        (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([...byUri.keys()].map((key) => vscode.Uri.file(key.replace(/^file:\/\//, ""))));
+        (vscode.workspace.fs.stat as jest.Mock).mockImplementation((uri: vscode.Uri) => {
+            if (forwardSlashed(uri) === CONTENT_ROOT) return Promise.resolve({ type: vscode.FileType.Directory });
+            return byUri.has(uri.toString()) ? Promise.resolve({ type: vscode.FileType.File }) : Promise.reject(new Error("ENOENT"));
+        });
+        (vscode.workspace.openTextDocument as jest.Mock).mockImplementation((uri: vscode.Uri) => {
+            const text = byUri.get(uri.toString());
+            return text === undefined ? Promise.reject(new Error("ENOENT")) : Promise.resolve({ getText: () => text, version: 1 });
+        });
+    };
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        (vscode.workspace.applyEdit as jest.Mock).mockResolvedValue(true);
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+            get: jest.fn().mockImplementation((_key: string, fallback?: unknown) => fallback),
+            update: jest.fn(),
+        });
+    });
+
+    afterEach(() => {
+        (vscode.workspace as any).workspaceFolders = undefined;
+        (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([]);
+        (vscode.workspace.fs.stat as jest.Mock).mockRejectedValue(new Error("ENOENT"));
+    });
+
+    it("writes the definitions file at the nested Content root", async () => {
+        givenNestedProject({ "Scripts/main.verse": "using { Gadgets.Tools }\n" });
+
+        await writer(ROOT_PLUGIN).makeModulePublic(REQUEST);
+
+        const operations = appliedOperations();
+        expect(forwardSlashed(operations[0].uri)).toBe(`${CONTENT_ROOT}/_definitions.verse`);
+        expect(operations[1]).toMatchObject({ kind: "insert", text: "Gadgets := module:\n    Tools<public> := module {}\n" });
+    });
+
+    // The scan has to sweep the same root the write goes to: a declaration it
+    // never reached becomes a second, conflicting part in the definitions file.
+    it("rewrites a declaration the scan finds under the nested root, rather than repeating it", async () => {
+        givenNestedProject({ "Gadgets/tools.verse": "Tools := module {}\n" });
+
+        await writer(ROOT_PLUGIN).makeModulePublic(REQUEST);
+
+        const operations = appliedOperations();
+        expect(operations).toHaveLength(1);
+        expect(operations[0]).toMatchObject({ kind: "insert", text: "<public>" });
+        expect(forwardSlashed(operations[0].uri)).toBe(`${CONTENT_ROOT}/Gadgets/tools.verse`);
+    });
+
+    it("refuses when the project declares no root plugin, so no nested root is addressable", async () => {
+        givenNestedProject({ "Scripts/main.verse": "using { Gadgets.Tools }\n" });
+
+        await writer(null).makeModulePublic(REQUEST);
+
+        expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("no 'Content' folder"));
     });
 });

@@ -245,8 +245,23 @@ function setWorkspaceFolders(folders: unknown): void {
  * them would hide the very drift under test.
  */
 function stubFolderTree(workspaceRoot: string, folders: string[]): void {
+    stubTreeUnder(`${workspaceRoot}/Content`, folders);
+}
+
+/**
+ * Answers `fs.stat` as a directory for a Content root and for the folders named
+ * relative to it.
+ *
+ * The root itself is always there, whatever the tree holds: a project-wide scan
+ * resolves the root before it globs, so a tree that omits it leaves the scan
+ * with nowhere to look and no phase past the first can run.
+ */
+function stubTreeUnder(contentRoot: string, folders: string[]): void {
     (vscode.workspace.fs.stat as jest.Mock).mockImplementation(async (uri: { fsPath: string }) => {
-        const contentRelative = uri.fsPath.replace(/\\/g, "/").replace(`${workspaceRoot}/Content/`, "");
+        const fsPath = uri.fsPath.replace(/\\/g, "/");
+        if (fsPath === contentRoot) return { type: vscode.FileType.Directory };
+
+        const contentRelative = fsPath.replace(`${contentRoot}/`, "");
         if (!folders.includes(contentRelative)) throw new Error("ENOENT");
         return { type: vscode.FileType.Directory };
     });
@@ -552,11 +567,7 @@ describe("ImportPathConverter.convertFromFullPath under a nested plugin Content 
 
     /** Answers `fs.stat` from directories named relative to the nested Content root. */
     function stubNestedFolderTree(folders: string[]): void {
-        (vscode.workspace.fs.stat as jest.Mock).mockImplementation(async (uri: { fsPath: string }) => {
-            const contentRelative = uri.fsPath.replace(/\\/g, "/").replace(`${contentRoot}/`, "");
-            if (!folders.includes(contentRelative)) throw new Error("ENOENT");
-            return { type: vscode.FileType.Directory };
-        });
+        stubTreeUnder(contentRoot, folders);
     }
 
     const fileAt = (contentRelativeDir: string): vscode.Uri => vscode.Uri.file(`${contentRoot}/${contentRelativeDir}/Feature.verse`);
@@ -691,6 +702,85 @@ describe("ImportPathConverter.convertFromFullPath under a nested plugin Content 
         const fileUri = vscode.Uri.file(`${workspaceRoot}/Content/Plugins/Extra/Content/Feature.verse`);
 
         expect(await relativeFormOf(`${projectVersePath}/Plugins/Extra/Content/Gadgets`, fileUri)).toBe("using. Gadgets");
+    });
+});
+
+// Neither project-wide phase has a document to walk out from, so each resolved
+// the Content root off the workspace folder at one fixed depth. In the layout
+// above that glob matched nothing, and a module only these phases could reach
+// was reported missing however plainly it was declared.
+describe("ImportPathConverter.findModuleLocations project-wide phases under a nested plugin Content root", () => {
+    const projectVersePath = "/mygame@fortnite.com/mygame";
+    const workspaceRoot = "C:/Project";
+    const rootPluginName = "MyGame";
+    const contentRoot = `${workspaceRoot}/Plugins/${rootPluginName}/Content`;
+
+    /** The project's `.verse` files, named relative to the nested Content root. */
+    const givenVerseFiles = (contentRelativePaths: string[], source: string): void => {
+        (vscode.workspace.findFiles as jest.Mock).mockResolvedValue(contentRelativePaths.map((file) => vscode.Uri.file(`${contentRoot}/${file}`)));
+        (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(Buffer.from(source, "utf8"));
+    };
+
+    const locationsFor = async (modulePath: string, declaredRootPlugin: string | null = rootPluginName): Promise<string[]> =>
+        (await converterWithProjectPath(projectVersePath, declaredRootPlugin).findModuleLocations(modulePath)).locations;
+
+    beforeEach(() => {
+        setWorkspaceFolders([{ uri: { fsPath: workspaceRoot }, name: "Project", index: 0 }]);
+        stubTreeUnder(contentRoot, []);
+    });
+
+    afterEach(() => {
+        setWorkspaceFolders(undefined);
+        (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([]);
+        (vscode.workspace.fs.readFile as jest.Mock).mockRejectedValue(new Error("ENOENT"));
+        (vscode.workspace.fs.stat as jest.Mock).mockRejectedValue(new Error("ENOENT"));
+    });
+
+    it("reports the directory of a declaration the declaration scan reaches", async () => {
+        givenVerseFiles(["Systems/Inventory.verse"], "Inventory := module:\n    Count<public>:int = 0\n");
+
+        expect(await locationsFor("Inventory")).toEqual(["/Systems"]);
+    });
+
+    // A folder module has no declaration anywhere to read, so the phase before
+    // this one cannot see it and only the project-wide folder search places it.
+    it("reports the directory of a folder chain the folder search reaches", async () => {
+        givenVerseFiles(["Zone/Deep/Target/Thing.verse"], "Helper := class:\n");
+
+        expect(await locationsFor("Deep/Target")).toEqual(["/Zone"]);
+    });
+
+    it("roots the scan at the plugin's Content rather than at the workspace folder", async () => {
+        givenVerseFiles(["Systems/Inventory.verse"], "Inventory := module:\n");
+
+        await locationsFor("Inventory");
+
+        const [pattern] = (vscode.workspace.findFiles as jest.Mock).mock.calls[0];
+        expect(pattern.base.fsPath.replace(/\\/g, "/")).toBe(contentRoot);
+        expect(pattern.pattern).toBe("**/*.verse");
+    });
+
+    // Only the root plugin's Content answers to bindings.projectVersePath, so
+    // without a declared root plugin there is no evidence for a nested root and
+    // the scan has nowhere to look. Failing closed here is what it did before.
+    it("finds nothing when the project declares no root plugin", async () => {
+        givenVerseFiles(["Systems/Inventory.verse"], "Inventory := module:\n");
+
+        expect(await locationsFor("Inventory", null)).toEqual([]);
+    });
+
+    // FileStat.type is a bitmask, so the disk provider reports a linked
+    // directory as Directory|SymbolicLink. These phases globbed without stating
+    // at all before, and findFiles follows links by default, so reading the
+    // type as a value would drop a root reached through a junction.
+    it("takes a Content root reached through a symlink or a junction", async () => {
+        givenVerseFiles(["Systems/Inventory.verse"], "Inventory := module:\n");
+        (vscode.workspace.fs.stat as jest.Mock).mockImplementation(async (uri: { fsPath: string }) => {
+            if (uri.fsPath.replace(/\\/g, "/") !== contentRoot) throw new Error("ENOENT");
+            return { type: vscode.FileType.Directory | vscode.FileType.SymbolicLink };
+        });
+
+        expect(await locationsFor("Inventory")).toEqual(["/Systems"]);
     });
 });
 
@@ -854,12 +944,14 @@ describe("ImportPathConverter.findModuleLocations explicit declaration scan", ()
 
     beforeEach(() => {
         setWorkspaceFolders([{ uri: { fsPath: workspaceRoot }, name: "Project", index: 0 }]);
+        stubTreeUnder(`${workspaceRoot}/Content`, []);
     });
 
     afterEach(() => {
         setWorkspaceFolders(undefined);
         (vscode.workspace.findFiles as jest.Mock).mockResolvedValue([]);
         (vscode.workspace.fs.readFile as jest.Mock).mockRejectedValue(new Error("ENOENT"));
+        (vscode.workspace.fs.stat as jest.Mock).mockRejectedValue(new Error("ENOENT"));
     });
 
     it("reports the directory of a live declaration", async () => {
@@ -967,6 +1059,7 @@ describe("ImportPathConverter declaration scan file cap", () => {
 
     beforeEach(() => {
         setWorkspaceFolders([{ uri: { fsPath: workspaceRoot }, name: "Project", index: 0 }]);
+        stubTreeUnder(`${workspaceRoot}/Content`, []);
     });
 
     afterEach(() => {
@@ -1106,11 +1199,7 @@ describe("ImportPathConverter.convertToFullPath project-wide folder module searc
     beforeEach(() => {
         setWorkspaceFolders([{ uri: { fsPath: workspaceRoot }, name: "Project", index: 0 }]);
         (vscode.workspace.findFiles as jest.Mock).mockResolvedValue(verseFiles.map((file) => vscode.Uri.file(`${workspaceRoot}/${file}`)));
-        (vscode.workspace.fs.stat as jest.Mock).mockImplementation(async (uri: { fsPath: string }) => {
-            const contentRelative = uri.fsPath.replace(/\\/g, "/").replace(`${workspaceRoot}/Content/`, "");
-            if (!folders.includes(contentRelative)) throw new Error("ENOENT");
-            return { type: vscode.FileType.Directory };
-        });
+        stubTreeUnder(`${workspaceRoot}/Content`, folders);
     });
 
     afterEach(() => {

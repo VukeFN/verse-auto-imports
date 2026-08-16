@@ -3,7 +3,7 @@ import { logger, settingsFor } from "../utils";
 import { ProjectPathHandler } from "../project";
 import { findContentRoot } from "../services/contentRoot";
 import { toContentRelativeDir } from "../services/moduleLocationLookup";
-import { appendDeclarationBlock, buildDeclarationBlock } from "./definitionsContent";
+import { appendDeclarationBlock, buildDeclarationBlock, nestDeclarationEdit } from "./definitionsContent";
 import { findExplicitModuleDeclarations } from "./moduleDeclarations";
 import { ModuleVisibilityRequest } from "./ModuleVisibilityMessage";
 import { planVisibility, toContentSegments } from "./ModuleVisibilityPlanner";
@@ -72,8 +72,9 @@ export class ModuleVisibilityWriter {
      * would have changed goes with it. A module declared anything but
      * `<public>` or `<internal>` is left alone, whether it is the one to
      * publicize or one a new declaration would sit inside; so is one the chain
-     * would have to declare a second time, since the block is appended whole
-     * and cannot join a declaration the project already carries. That governs
+     * would have to declare a second time in a user file. A declaration the
+     * definitions file itself carries is extended instead of restated: the new
+     * declarations nest inside its existing block. That governs
      * what is offered, not what lands - the preview lets the user apply a
      * subset, so what is reported afterwards is intent rather than outcome.
      *
@@ -192,7 +193,7 @@ export class ModuleVisibilityWriter {
         }
 
         const { declarations, scanned } = scan;
-        const resolved = resolveVisibility(prefix, segments, declarations);
+        const resolved = resolveVisibility(prefix, segments, declarations, definitionsKey);
 
         if (resolved.conflicts.length > 0) {
             return { reason: refusalForConflicts(request.moduleName, resolved.conflicts) };
@@ -239,13 +240,24 @@ export class ModuleVisibilityWriter {
             }
 
             const existing = definitions.text;
-            const withEdits = applySpecifierEdits(existing, inDefinitions);
-            const content = appendDeclarationBlock(withEdits, buildDeclarationBlock(resolved.chain));
+            let content: string;
+            if (resolved.anchor) {
+                const nested = nestDeclarationEdit(existing, resolved.anchor.declaration, resolved.chain);
+                if (!nested) {
+                    return { reason: `the definitions file declares '${resolved.anchor.path}' in a form the extension cannot extend. Declare '${request.moduleName}' inside it by hand.` };
+                }
+                // One pass together with the specifier rewrites: every span
+                // addresses the text as scanned, so applying either half first
+                // would shift the other's offsets.
+                content = applySpecifierEdits(existing, [...inDefinitions, { file: definitionsKey, path: resolved.anchor.path, span: nested.span, text: nested.text }]);
+            } else {
+                content = appendDeclarationBlock(applySpecifierEdits(existing, inDefinitions), buildDeclarationBlock(resolved.chain));
+            }
 
             // The module path, as the specifier entries carry, rather than the
             // file name: the preview groups by file by default, so the name is
             // already on the node above and the description would say nothing.
-            const metadata = confirm(resolved.chain.map((segment) => segment.name).join("/"));
+            const metadata = confirm([...(resolved.anchor ? [resolved.anchor.path] : []), ...resolved.chain.map((segment) => segment.name)].join("/"));
             if (existing.length === 0 && !scannedDefinitions) {
                 edit.createFile(definitionsUri, { ignoreIfExists: true }, metadata);
                 edit.insert(definitionsUri, new vscode.Position(0, 0), content, metadata);

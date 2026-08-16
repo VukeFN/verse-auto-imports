@@ -78,6 +78,12 @@ export interface ModuleDeclaration {
     /** Where a specifier is inserted when the declaration carries none. */
     insertionPoint: number;
 
+    /** The character the declaration head ends at, naming its body style. */
+    bodyStyle: ":" | "{" | "." | ">";
+
+    /** Offset just past that character, where the body's own text begins. */
+    bodyStart: number;
+
     /**
      * The access specifier's span, and its keyword as written, absent when the
      * declaration carries none. A named access level puts a user-chosen
@@ -173,6 +179,8 @@ export function findExplicitModuleDeclarations(content: string): ModuleDeclarati
             chain,
             line,
             insertionPoint: nameEnd,
+            bodyStyle: match[0][match[0].length - 1] as ModuleDeclaration["bodyStyle"],
+            bodyStart: nameStart + match[0].length,
         };
 
         // The specifier block starts exactly at the name's end, so an offset

@@ -1269,14 +1269,19 @@ describe("ImportPathConverter folder scan file cap", () => {
     // sample's, however many files the project holds.
     it("leaves an answer found near the file untouched by the cap", async () => {
         folderProjectOf(5001);
+        // The Content root stays stubbed so the project-wide phases are
+        // reachable; the glob staying uncalled is then proximity outranking
+        // them, not a scan that could not start.
         (vscode.workspace.fs.stat as jest.Mock).mockImplementation(async (uri: { fsPath: string }) => {
-            if (uri.fsPath.replace(/\\/g, "/") === `${workspaceRoot}/Content/Scripts/Target`) return { type: vscode.FileType.Directory };
+            const relative = uri.fsPath.replace(/\\/g, "/");
+            if ([`${workspaceRoot}/Content`, `${workspaceRoot}/Content/Scripts/Target`].includes(relative)) return { type: vscode.FileType.Directory };
             throw new Error("ENOENT");
         });
 
         const search = await converterWithProjectPath(projectVersePath).findModuleLocations("Target", vscode.Uri.file(`${workspaceRoot}/Content/Scripts/Main.verse`));
 
         expect(search).toEqual({ locations: ["/Scripts"], truncated: false });
+        expect(vscode.workspace.findFiles as jest.Mock).not.toHaveBeenCalled();
     });
 
     // The condition belongs to the project, not to any one import, so a
@@ -1291,6 +1296,9 @@ describe("ImportPathConverter folder scan file cap", () => {
 
         expect(results).toEqual([]);
         expect(warn).toHaveBeenCalledTimes(1);
+        // The wording must stay true for whichever cap fired, so it names the
+        // project-wide search rather than a phase or a number.
+        expect(warn.mock.calls[0][0]).toMatch(/more \.verse files than the project-wide module search/);
     });
 
     // A phase that threw enumerated an unknown amount of the project, which

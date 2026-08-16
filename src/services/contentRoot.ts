@@ -30,18 +30,34 @@ const PLUGINS_FOLDER = "Plugins";
  * joined: `Uri.joinPath` would resolve it, and a `..` in the project file would
  * put the root outside the workspace folder, where the visibility writer would
  * then create its definitions file.
+ * @param projectFileDirectory the directory holding the `.uefnproject`, which
+ * anchors `Plugins/<root>/Content` where the workspace folder is opened above
+ * or below the project root. A composition that escapes the workspace folder
+ * is dropped rather than offered: no glob rooted in the folder would reach it,
+ * and the visibility writer must not create files outside the workspace.
  */
-export function contentRootCandidates(workspaceFolderPath: string, rootPluginName: string | null): string[] {
+export function contentRootCandidates(workspaceFolderPath: string, rootPluginName: string | null, projectFileDirectory: string | null = null): string[] {
     if (path.basename(workspaceFolderPath) === CONTENT_FOLDER) {
         return [""];
     }
 
     const candidates = [CONTENT_FOLDER];
     if (rootPluginName && /^[^\\/:*?"<>|]+$/.test(rootPluginName) && rootPluginName !== "." && rootPluginName !== "..") {
+        if (projectFileDirectory) {
+            const composed = path
+                .relative(workspaceFolderPath, path.join(projectFileDirectory, PLUGINS_FOLDER, rootPluginName, CONTENT_FOLDER))
+                .split(path.sep)
+                .join("/");
+            if (composed !== "" && composed.split("/")[0] !== ".." && !path.isAbsolute(composed)) {
+                candidates.push(composed);
+            }
+        }
         candidates.push(`${PLUGINS_FOLDER}/${rootPluginName}/${CONTENT_FOLDER}`);
     }
 
-    return candidates;
+    // Shallowest first is the depth rule; the project-file composition can
+    // land at any depth, including on top of a fixed candidate.
+    return [...new Set(candidates)].sort((a, b) => a.split("/").length - b.split("/").length);
 }
 
 /**
@@ -56,8 +72,8 @@ export function contentRootCandidates(workspaceFolderPath: string, rootPluginNam
  * as far as the platform does, which on Windows - where UEFN runs - is as far
  * as the stat that found the root did.
  */
-export async function findContentRoot(workspaceFolder: { uri: vscode.Uri }, rootPluginName: string | null): Promise<vscode.Uri | null> {
-    for (const candidate of contentRootCandidates(workspaceFolder.uri.fsPath, rootPluginName)) {
+export async function findContentRoot(workspaceFolder: { uri: vscode.Uri }, rootPluginName: string | null, projectFileDirectory: string | null = null): Promise<vscode.Uri | null> {
+    for (const candidate of contentRootCandidates(workspaceFolder.uri.fsPath, rootPluginName, projectFileDirectory)) {
         // The workspace folder is the Content folder itself, which is what it
         // is named rather than what is under it - nothing to stat.
         if (candidate === "") {

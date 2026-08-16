@@ -63,6 +63,7 @@ describe("ProjectPathCache.lookupModuleLocations under a nested plugin Content r
             getProjectName: async () => "mygame",
             getProjectVersePath: async () => "/mygame@fortnite.com/mygame",
             getRootPluginName: async () => rootPluginName,
+            getProjectFileDirectory: async () => null,
         };
 
         const cache = new ProjectPathCache(

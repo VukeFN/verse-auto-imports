@@ -123,7 +123,11 @@ export class ProjectPathCache {
             return [];
         }
 
-        const contentRoot = await findContentRoot(workspaceFolder, await this.projectPathHandler.getRootPluginName(workspaceFolder.uri));
+        const contentRoot = await findContentRoot(
+            workspaceFolder,
+            await this.projectPathHandler.getRootPluginName(workspaceFolder.uri),
+            await this.projectPathHandler.getProjectFileDirectory(workspaceFolder.uri),
+        );
         if (!contentRoot) {
             return [];
         }

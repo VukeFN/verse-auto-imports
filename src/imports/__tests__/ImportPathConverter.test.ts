@@ -278,9 +278,14 @@ function stubTreeUnder(contentRoot: string, folders: string[]): void {
  */
 function converterWithProjectPath(projectVersePath: string, rootPluginName: string | null = null): ImportPathConverter {
     const converter = new ImportPathConverter(vscode.window.createOutputChannel("test"));
-    const handler = (converter as unknown as { projectPathHandler: { getProjectVersePath: () => Promise<string>; getRootPluginName: () => Promise<string | null> } }).projectPathHandler;
+    const handler = (
+        converter as unknown as {
+            projectPathHandler: { getProjectVersePath: () => Promise<string>; getRootPluginName: () => Promise<string | null>; getProjectFileDirectory: () => Promise<string | null> };
+        }
+    ).projectPathHandler;
     handler.getProjectVersePath = async () => projectVersePath;
     handler.getRootPluginName = async () => rootPluginName;
+    handler.getProjectFileDirectory = async () => null;
     return converter;
 }
 

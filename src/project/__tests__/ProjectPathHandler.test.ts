@@ -122,6 +122,23 @@ describe("ProjectPathHandler", () => {
         expect(await handler.getProjectVersePath(vscode.Uri.file(`${deepRoot}/main.verse`))).toBe("/mygame@fortnite.com/secondgame");
     });
 
+    // The directory is what anchors Plugins/<root>/Content on disk, so it has
+    // to name where the file was found, the parent-walk case included.
+    it("exposes the directory the project file was read from", async () => {
+        givenWorkspaceFolders(FIRST_ROOT);
+        givenProjectsIn({ [FIRST_ROOT]: FIRST });
+
+        expect(await handler.getProjectFileDirectory(fileIn(FIRST_ROOT))).toBe(FIRST_ROOT);
+    });
+
+    it("exposes the parent directory the walk found the project file in", async () => {
+        const pluginsRoot = `${SECOND_ROOT}/Plugins`;
+        givenWorkspaceFolders(pluginsRoot);
+        givenProjectsIn({ [SECOND_ROOT]: SECOND });
+
+        expect(await handler.getProjectFileDirectory(vscode.Uri.file(`${pluginsRoot}/SecondGame/Content/main.verse`))).toBe(SECOND_ROOT);
+    });
+
     it("searches every folder when nothing names one", async () => {
         givenWorkspaceFolders(NOTES_ROOT, SECOND_ROOT);
         givenProjectsIn({ [SECOND_ROOT]: SECOND });

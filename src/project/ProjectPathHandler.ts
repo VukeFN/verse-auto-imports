@@ -273,7 +273,7 @@ export class ProjectPathHandler {
                 // documented contract is to return nothing.
                 const entries = await vscode.workspace.fs.readDirectory(vscode.Uri.file(parentDir));
                 const names = entries
-                    .filter(([name, type]) => (type & vscode.FileType.File) !== 0 && name.toLowerCase().endsWith(".uefnproject"))
+                    .filter(([name, type]) => (type & vscode.FileType.File) !== 0 && name.endsWith(".uefnproject"))
                     .map(([name]) => name)
                     .sort();
 
@@ -409,7 +409,8 @@ export class ProjectPathHandler {
     /**
      * Starts clearing the cache and firing {@link onDidChangeProject} whenever
      * a `.uefnproject` file is created, changed or deleted. The caller owns
-     * the returned handle and must dispose it.
+     * the returned handle and must dispose it. Meant for one call per handler:
+     * disposing the handle retires {@link onDidChangeProject} with it.
      *
      * Files inside the workspace folders are covered by a string-glob watcher;
      * a project discovered outside them gets a watcher anchored to its own

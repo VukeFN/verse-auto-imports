@@ -23,8 +23,8 @@ export class ProjectPathCache {
     /**
      * Bumped by {@link clear} and at each scan's start, and re-checked before a
      * scan commits, so a scan that was superseded while awaiting - the
-     * .uefnproject watcher clears and rebuilds mid-flight - abandons its result
-     * instead of reverting the cache to it and persisting the regression.
+     * project-changed subscriber clears and rebuilds mid-flight - abandons its
+     * result instead of reverting the cache to it and persisting the regression.
      */
     private generation: number = 0;
 
@@ -219,8 +219,8 @@ export class ProjectPathCache {
      * take effect.
      *
      * Parsing awaits, and `this.data` can be replaced while it does - the
-     * .uefnproject watcher, watcher teardown and the Clear Project Path Cache
-     * command all reach {@link clear}. The commit below therefore runs against
+     * project-changed subscriber, watcher teardown and the Clear Project Path
+     * Cache command all reach {@link clear}. The commit below therefore runs against
      * the snapshot taken here and is abandoned if the field has moved on, so
      * the update can neither dereference a cleared cache nor write nodes into
      * one a rebuild has already repopulated.
@@ -306,11 +306,13 @@ export class ProjectPathCache {
         // watcher of this class's own: the handler is the one place that can
         // observe a .uefnproject outside the workspace folders, and it clears
         // its identity cache before firing, so the rescan reads the new
-        // project. Creation counts as much as change: a workspace opened
-        // before the project file exists builds nothing, and the file
-        // appearing is the signal that a rebuild can finally succeed. On a
-        // delete the scan finds no project and commits nothing, which leaves
-        // the cache cleared rather than serving the deleted project's paths.
+        // project. The event covers creation only where a watcher already
+        // looks - inside the workspace folders, or in a project directory a
+        // past discovery anchored; a project whose directory was never
+        // discovered is picked up lazily by the next identity read instead.
+        // On a delete the scan finds no project and commits nothing, which
+        // leaves the cache cleared rather than serving the deleted project's
+        // paths.
         disposables.push(
             this.projectPathHandler.onDidChangeProject(() => {
                 logger.debug("ProjectPathCache", "Project changed, triggering cache rebuild");

@@ -254,3 +254,80 @@ describe("resolveVisibility", () => {
         expect(resolved.edits.map((edit) => edit.text)).toEqual(["<public>"]);
     });
 });
+
+describe("resolveVisibility with a definitions file", () => {
+    const DEFINITIONS = "file://definitions";
+
+    it("anchors the chain on a declaration the definitions file carries, instead of repeating it", () => {
+        const found = declarationsIn(DEFINITIONS, "", "Gadgets := module:\n    Deep := module {}\n");
+
+        const resolved = resolveVisibility([], segments(["Gadgets", false], ["Tools", true]), found, DEFINITIONS);
+
+        expect(resolved.conflicts).toEqual([]);
+        expect(resolved.anchor?.path).toBe("Gadgets");
+        // Only what the file does not already declare is left to write.
+        expect(resolved.chain).toEqual([{ name: "Tools", specifier: "public" }]);
+    });
+
+    it("anchors at the deepest declaration on the path, editing its specifier in place where needed", () => {
+        const found = declarationsIn(DEFINITIONS, "", "Gadgets := module:\n    Deep := module {}\n");
+
+        const resolved = resolveVisibility([], segments(["Gadgets", false], ["Deep", true], ["Tools", true]), found, DEFINITIONS);
+
+        expect(resolved.conflicts).toEqual([]);
+        expect(resolved.anchor?.path).toBe("Gadgets/Deep");
+        expect(resolved.chain).toEqual([{ name: "Tools", specifier: "public" }]);
+        // Deep still becomes public, by rewriting the declaration that exists.
+        expect(resolved.edits).toEqual([{ file: DEFINITIONS, path: "Gadgets/Deep", span: { start: 27, end: 27 }, text: "<public>" }]);
+    });
+
+    it("still repeats a user-file declaration the written chain restates below the anchor", () => {
+        const found = [...declarationsIn(DEFINITIONS, "", "Gadgets := module:\n    X := module {}\n"), ...declarationsIn("file://user", "Gadgets", "Deep := module:\n    Y:int = 1\n")];
+
+        const resolved = resolveVisibility([], segments(["Gadgets", false], ["Deep", true], ["Tools", true]), found, DEFINITIONS);
+
+        // Deep's declaration lives in a file the chain cannot join, and Tools
+        // has to be written under it, so the restatement stands.
+        expect(resolved.conflicts).toEqual([{ path: "Gadgets/Deep", keyword: undefined, reason: "repeat" }]);
+    });
+
+    it("does not anchor on a narrowed declaration, even in the definitions file", () => {
+        const found = declarationsIn(DEFINITIONS, "", "Gadgets<scoped{Scripts}> := module:\n    X:int = 1\n");
+
+        const resolved = resolveVisibility([], segments(["Gadgets", false], ["Tools", true]), found, DEFINITIONS);
+
+        // The narrowing is deliberate wherever it is written; extending the
+        // block would declare a new module inside a boundary somebody drew.
+        expect(resolved.conflicts).toEqual([{ path: "Gadgets", keyword: "scoped", reason: "nest" }]);
+        expect(resolved.anchor).toBeUndefined();
+    });
+
+    it("reports the repeat exactly as before when no definitions file is named", () => {
+        const found = declarationsIn(DEFINITIONS, "", "Gadgets := module:\n    Deep := module {}\n");
+
+        const resolved = resolveVisibility([], segments(["Gadgets", false], ["Tools", true]), found);
+
+        expect(resolved.conflicts).toEqual([{ path: "Gadgets", keyword: undefined, reason: "repeat" }]);
+        expect(resolved.anchor).toBeUndefined();
+    });
+
+    it("extends the last block where the file declares the same module twice", () => {
+        // Two explicit parts in one file do not compile, so this only fixes
+        // which block a broken file grows: the one appended most recently.
+        const found = declarationsIn(DEFINITIONS, "", "Gadgets := module:\n    X:int = 1\nGadgets := module:\n    Y:int = 1\n");
+
+        const resolved = resolveVisibility([], segments(["Gadgets", false], ["Tools", true]), found, DEFINITIONS);
+
+        expect(resolved.anchor?.declaration.line).toBe(3);
+    });
+
+    it("carries no anchor when nothing is left to write", () => {
+        const found = declarationsIn(DEFINITIONS, "", "Gadgets := module:\n    Tools := module {}\n");
+
+        const resolved = resolveVisibility([], segments(["Gadgets", false], ["Tools", true]), found, DEFINITIONS);
+
+        expect(resolved.chain).toEqual([]);
+        expect(resolved.anchor).toBeUndefined();
+        expect(resolved.edits.map((edit) => edit.path)).toEqual(["Gadgets/Tools"]);
+    });
+});

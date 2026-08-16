@@ -208,10 +208,10 @@ describe("ModuleVisibilityWriter", () => {
         expect(replace.text).toBe("Other<public> := module {}\n\nGadgets := module:\n    Tools<public> := module {}\n");
     });
 
-    it("refuses to append a second definition of a module the definitions file already declares", async () => {
+    it("nests into the block the definitions file already carries, instead of appending a second one", async () => {
         // The file the fix wrote on an earlier run. Appending a block through
         // Gadgets and Deep would leave that one file defining each of them
-        // twice, which the second run has no way to make compile.
+        // twice, so the new declaration joins the existing block instead.
         givenProject({ "Content/_definitions.verse": "Gadgets := module:\n    Deep := module {}\n" });
 
         await writer().makeModulePublic({
@@ -220,15 +220,51 @@ describe("ModuleVisibilityWriter", () => {
             moduleName: "Tools",
         });
 
+        const replace = appliedOperations().find((operation) => operation.kind === "replace");
+        expect(replace.text).toBe("Gadgets := module:\n    Deep<public> := module:\n        Tools<public> := module {}\n");
+        expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
+    });
+
+    it("publicizes a second module by extending the block the first run wrote", async () => {
+        givenProject({ "Content/Scripts/main.verse": "using { Gadgets.Tools }\n" });
+        await writer().makeModulePublic(REQUEST);
+        const firstRun = appliedOperations()[1].text;
+        expect(firstRun).toBe("Gadgets := module:\n    Tools<public> := module {}\n");
+
+        givenProject({
+            "Content/_definitions.verse": firstRun,
+            "Content/Scripts/main.verse": "using { Gadgets.Other }\n",
+        });
+        await writer().makeModulePublic({
+            targetPath: `${PROJECT}/Gadgets/Other`,
+            importerPath: `${PROJECT}/Scripts`,
+            moduleName: "Other",
+        });
+
+        const replace = appliedOperations().find((operation) => operation.kind === "replace");
+        expect(replace.text).toBe("Gadgets := module:\n    Other<public> := module {}\n    Tools<public> := module {}\n");
+        // The whole point of the merge: each module declared exactly once.
+        expect(replace.text.match(/Gadgets/g)).toHaveLength(1);
+        expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
+    });
+
+    it("refuses a definitions-file block written in a form it cannot extend", async () => {
+        // A hand-edited layout: the dotted body has no line of its own to
+        // insert into, so extending it risks rewriting what its author meant.
+        givenProject({ "Content/_definitions.verse": "Gadgets := module. X:int = 1\n" });
+
+        await writer().makeModulePublic(REQUEST);
+
         expect(vscode.workspace.applyEdit).not.toHaveBeenCalled();
-        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("re-declaring Gadgets and Gadgets/Deep"));
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("declares 'Gadgets' in a form the extension cannot extend"));
     });
 
     it("punctuates a list of repeats so a path carrying a keyword cannot be read as two", async () => {
         // One conflict per declared ancestor, so three is ordinary rather than
         // exotic. Joined with bare "and" throughout, the keyword clause fuses
-        // with the path after it and the reader cannot tell them apart.
-        givenProject({ "Content/_definitions.verse": "Gadgets := module:\n    Deep := module:\n        Tools<internal> := module {}\n" });
+        // with the path after it and the reader cannot tell them apart. The
+        // chain lives in a user file, which nesting cannot resolve.
+        givenProject({ "Content/nested.verse": "Gadgets := module:\n    Deep := module:\n        Tools<internal> := module {}\n" });
 
         await writer().makeModulePublic({
             targetPath: `${PROJECT}/Gadgets/Deep/Tools/More`,

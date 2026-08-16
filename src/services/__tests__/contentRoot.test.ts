@@ -1,4 +1,5 @@
-import { contentRootCandidates } from "../contentRoot";
+import * as vscode from "vscode";
+import { contentRootCandidates, findContentRoot } from "../contentRoot";
 
 /**
  * The candidate list is the whole of the depth rule, so it is pinned here
@@ -31,5 +32,54 @@ describe("contentRootCandidates", () => {
     // the visibility writer would go on to create its definitions file.
     it.each(["../../Elsewhere", "..", ".", "Nested/Plugin", "Nested\\Plugin", "C:/Elsewhere"])("offers no nested root for the plugin name %p", (rootPluginName) => {
         expect(contentRootCandidates(WORKSPACE_ROOT, rootPluginName)).toEqual(["Content"]);
+    });
+
+    // The project file's own directory anchors Plugins/<root>/Content, so a
+    // workspace opened above the project root - at Plugins - still reaches it.
+    it("composes the nested root from the project file's directory", () => {
+        expect(contentRootCandidates(`${WORKSPACE_ROOT}/Plugins`, "MyGame", WORKSPACE_ROOT)).toEqual(["Content", "MyGame/Content", "Plugins/MyGame/Content"]);
+    });
+
+    it("offers the composed root once when the project sits at the workspace folder", () => {
+        expect(contentRootCandidates(WORKSPACE_ROOT, "MyGame", WORKSPACE_ROOT)).toEqual(["Content", "Plugins/MyGame/Content"]);
+    });
+
+    // The parent-walk case: the project file sits above the workspace folder
+    // and its Content root outside it, where no glob rooted in the folder
+    // would reach and the visibility writer must not create files.
+    it("drops a composed root that escapes the workspace folder", () => {
+        expect(contentRootCandidates(`${WORKSPACE_ROOT}/Plugins/MyGame/Verse`, "MyGame", WORKSPACE_ROOT)).toEqual(["Content", "Plugins/MyGame/Content"]);
+    });
+});
+
+/**
+ * Issue's entry point: with the workspace opened at `<project>/Plugins`, the
+ * document-relative placement accepted `<ws>/<Root>/Content` while this
+ * returned null, so the scan phases and the visibility writer never globbed.
+ */
+describe("findContentRoot", () => {
+    const statAcceptingDirectory = (fsPath: string) => async (uri: { fsPath: string }) => {
+        if (uri.fsPath.replace(/\\/g, "/") === fsPath) {
+            return { type: vscode.FileType.Directory };
+        }
+        throw new Error("ENOENT");
+    };
+
+    afterEach(() => {
+        (vscode.workspace.fs.stat as jest.Mock).mockReset().mockRejectedValue(new Error("ENOENT"));
+    });
+
+    it("finds the root plugin's Content from a workspace opened at Plugins", async () => {
+        (vscode.workspace.fs.stat as jest.Mock).mockImplementation(statAcceptingDirectory("C:/Project/Plugins/MyGame/Content"));
+
+        const root = await findContentRoot({ uri: vscode.Uri.file("C:/Project/Plugins") }, "MyGame", "C:/Project");
+
+        expect(root?.fsPath.replace(/\\/g, "/")).toBe("C:/Project/Plugins/MyGame/Content");
+    });
+
+    it("still answers null when the composed root does not exist on disk", async () => {
+        const root = await findContentRoot({ uri: vscode.Uri.file("C:/Project/Plugins") }, "MyGame", "C:/Project");
+
+        expect(root).toBeNull();
     });
 });

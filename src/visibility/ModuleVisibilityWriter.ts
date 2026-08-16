@@ -348,7 +348,7 @@ export class ModuleVisibilityWriter {
             return null;
         }
 
-        const contentRoot = await findContentRoot(folder, await this.projectPathHandler.getRootPluginName(folder.uri));
+        const contentRoot = await findContentRoot(folder, await this.projectPathHandler.getRootPluginName(folder.uri), await this.projectPathHandler.getProjectFileDirectory(folder.uri));
         return contentRoot ? { workspaceFolder: folder, contentRoot } : null;
     }
 

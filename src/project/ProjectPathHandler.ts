@@ -26,6 +26,19 @@ interface UEFNProjectFile {
 }
 
 /**
+ * A parsed project file together with the directory it was read from.
+ *
+ * The directory is what anchors the project's on-disk layout - the Content
+ * root sits at `<directory>/Plugins/<root plugin>/Content` - so it has to
+ * survive the parse: the parsed JSON alone says where modules are addressed,
+ * not where they live.
+ */
+interface LocatedProjectFile {
+    file: UEFNProjectFile;
+    directory: string;
+}
+
+/**
  * The cache key for a lookup that named no workspace folder. A folder's URI
  * never stringifies to empty, so this cannot collide with one.
  */
@@ -54,7 +67,7 @@ export class ProjectPathHandler {
      * file. Two folders under one project therefore hold equal entries, which
      * costs a second parse and never a wrong answer.
      */
-    private readonly projectFilesByScope = new Map<string, UEFNProjectFile>();
+    private readonly projectFilesByScope = new Map<string, LocatedProjectFile>();
 
     constructor(private outputChannel: vscode.OutputChannel) {}
 
@@ -70,6 +83,24 @@ export class ProjectPathHandler {
      * rather than answering nothing.
      */
     async findAndParseProjectFile(resource?: vscode.Uri): Promise<UEFNProjectFile | null> {
+        return (await this.findAndLocateProjectFile(resource))?.file ?? null;
+    }
+
+    /**
+     * The directory holding the `.uefnproject` that owns `resource`, or null
+     * when no project file was found. This is the project root the on-disk
+     * layout hangs off, which is not necessarily inside any workspace folder -
+     * the parent walk can find the file above them all.
+     *
+     * @param resource a file in the project being asked about. A resource
+     * outside every workspace folder falls back to the whole-workspace search
+     * rather than answering nothing.
+     */
+    async getProjectFileDirectory(resource?: vscode.Uri): Promise<string | null> {
+        return (await this.findAndLocateProjectFile(resource))?.directory ?? null;
+    }
+
+    private async findAndLocateProjectFile(resource?: vscode.Uri): Promise<LocatedProjectFile | null> {
         const scope = resource ? vscode.workspace.getWorkspaceFolder(resource) : undefined;
         const key = scope ? scope.uri.toString() : WORKSPACE_SCOPE;
 
@@ -93,7 +124,7 @@ export class ProjectPathHandler {
      * reachable; the fallback is what keeps a workspace whose first folder
      * holds no project working, since the project can sit in any folder.
      */
-    private async searchForProjectFile(scope: vscode.WorkspaceFolder | undefined): Promise<UEFNProjectFile | null> {
+    private async searchForProjectFile(scope: vscode.WorkspaceFolder | undefined): Promise<LocatedProjectFile | null> {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders || workspaceFolders.length === 0) {
             logger.debug("ProjectPathHandler", "No workspace folders found");
@@ -142,7 +173,7 @@ export class ProjectPathHandler {
      * walking on would answer from some parent project's paths, which is worse
      * than answering nothing.
      */
-    private async readProjectFileIn(folder: vscode.WorkspaceFolder): Promise<UEFNProjectFile | null | undefined> {
+    private async readProjectFileIn(folder: vscode.WorkspaceFolder): Promise<LocatedProjectFile | null | undefined> {
         const files = await vscode.workspace.findFiles(new vscode.RelativePattern(folder, "*.uefnproject"), null, 1);
 
         if (files.length === 0) {
@@ -173,7 +204,7 @@ export class ProjectPathHandler {
      * has the better claim to answer, so an unreadable one there is decisive,
      * while one found part-way up should not hide a project above it.
      */
-    private async walkUpFrom(start: vscode.Uri): Promise<UEFNProjectFile | null> {
+    private async walkUpFrom(start: vscode.Uri): Promise<LocatedProjectFile | null> {
         let currentDir = start.fsPath;
 
         for (let level = 0; level < MAX_PARENT_LEVELS; level++) {
@@ -204,8 +235,11 @@ export class ProjectPathHandler {
     }
 
     /** Raises on an unreadable file and on one that is not JSON alike. */
-    private static parseProjectFile(projectFilePath: string): UEFNProjectFile {
-        return JSON.parse(fs.readFileSync(projectFilePath, "utf8")) as UEFNProjectFile;
+    private static parseProjectFile(projectFilePath: string): LocatedProjectFile {
+        return {
+            file: JSON.parse(fs.readFileSync(projectFilePath, "utf8")) as UEFNProjectFile,
+            directory: path.dirname(projectFilePath),
+        };
     }
 
     /**

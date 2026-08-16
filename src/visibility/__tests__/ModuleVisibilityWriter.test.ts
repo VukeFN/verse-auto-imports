@@ -129,6 +129,7 @@ const writer = (rootPluginName: string | null = null): ModuleVisibilityWriter =>
     const handler = {
         getProjectVersePath: jest.fn().mockResolvedValue(PROJECT),
         getRootPluginName: jest.fn().mockResolvedValue(rootPluginName),
+        getProjectFileDirectory: jest.fn().mockResolvedValue(null),
     } as unknown as ProjectPathHandler;
     return new ModuleVisibilityWriter({} as vscode.OutputChannel, handler);
 };
@@ -411,6 +412,7 @@ describe("ModuleVisibilityWriter", () => {
         const handler = {
             getProjectVersePath: jest.fn().mockResolvedValue(null),
             getRootPluginName: jest.fn().mockResolvedValue(null),
+            getProjectFileDirectory: jest.fn().mockResolvedValue(null),
         } as unknown as ProjectPathHandler;
 
         await new ModuleVisibilityWriter({} as vscode.OutputChannel, handler).makeModulePublic(REQUEST);

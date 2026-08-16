@@ -429,7 +429,7 @@ export class ImportPathConverter {
      * would resolve the same project differently.
      */
     private async scanContentRoot(workspaceFolder: { uri: vscode.Uri }): Promise<vscode.Uri | null> {
-        return findContentRoot(workspaceFolder, await this.projectPathHandler.getRootPluginName(workspaceFolder.uri));
+        return findContentRoot(workspaceFolder, await this.projectPathHandler.getRootPluginName(workspaceFolder.uri), await this.projectPathHandler.getProjectFileDirectory(workspaceFolder.uri));
     }
 
     /**

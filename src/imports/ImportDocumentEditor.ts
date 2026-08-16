@@ -473,12 +473,26 @@ export class ImportDocumentEditor {
      * the line, outside a clause written after a `;`, which refuses the
      * override - the same safe direction.
      *
-     * Without `columns` the whole span still counts. That keeps a statement
+     * A multi-line pair carries `spanColumns` instead, and the evidence must
+     * start at or after its opener: from there to the end of the recorded
+     * path on the last line, everything is read as the pair's own text, and a
+     * diagnostic before the opener is about the statement written beside it -
+     * the same shared-line shape one line taller. Lines strictly inside the
+     * span count whole; the pair tolerates a blank or comment line there, and
+     * such a line holds no other statement for the evidence to be about. The
+     * reach is exactly the recorded path's: where the scan deliberately
+     * over-records one (pairPathBelow's classifyContent), `end` reaches past
+     * the clause with it, which only ever widens toward the fallback this
+     * narrows.
+     *
+     * Without either field the whole span still counts. That keeps a statement
      * owning its span exactly as sharp as before, and leaves one shape loose:
-     * a pinned multi-line span - `X := 1; using:` over its indented path -
-     * still takes the override from a diagnostic about the statement beside
-     * its opener. A standing gap rather than one this predicate closes;
-     * narrowing it needs a span the scanner does not measure.
+     * a pinned multi-line braced clause whose closing line carries a statement
+     * after the `}` - `}; X := 1` - still takes the override from a diagnostic
+     * inside that statement. Its span goes unmeasured today. A statement
+     * beside the opener is not the loose case: the scan records no braced
+     * span for a line the clause does not head, so nothing there carries the
+     * override at all.
      *
      * Still kept to a pinned dotted consumer and a new import that can supply a
      * first segment for it, because the override is only worth the risk that
@@ -495,10 +509,20 @@ export class ImportDocumentEditor {
             return false;
         }
         const columns = imp.columns;
-        if (!columns) {
-            return diagnosticPositions.some((position) => position.line >= imp.startLine && position.line <= imp.endLine);
+        if (columns) {
+            return diagnosticPositions.some((position) => position.line === imp.startLine && position.character >= columns.start && position.character < columns.end);
         }
-        return diagnosticPositions.some((position) => position.line === imp.startLine && position.character >= columns.start && position.character < columns.end);
+        const spanColumns = imp.spanColumns;
+        if (spanColumns) {
+            return diagnosticPositions.some((position) =>
+                position.line === imp.startLine
+                    ? position.character >= spanColumns.start
+                    : position.line === imp.endLine
+                      ? position.character < spanColumns.end
+                      : position.line > imp.startLine && position.line < imp.endLine,
+            );
+        }
+        return diagnosticPositions.some((position) => position.line >= imp.startLine && position.line <= imp.endLine);
     }
 
     /**

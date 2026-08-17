@@ -197,6 +197,18 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent(input, ["/A"], curlySorted)).toBe("using { /A }\nusing { /M }\nusing { /Z }\n\ncode()\r\nmore()\nlast()\n");
     });
 
+    it("keeps the final break of a comment-only file the block appends past", () => {
+        const input = "# note\n# more\n";
+        expect(editor.buildOrganizedContent(input, ["/New"], curlySorted)).toBe("# note\n# more\n\nusing { /New }\n");
+    });
+
+    // The last line's own break survives the hoist that removes the line, so
+    // a file that ended on its import ends on a break once the import moves.
+    it("keeps the break a hoisted last line carried into it", () => {
+        const input = "code()\nusing { /A }";
+        expect(editor.buildOrganizedContent(input, [], curlySorted)).toBe("using { /A }\n\ncode()\n");
+    });
+
     it("consolidates existing imports at the top with one blank line before code", () => {
         const input = "using { /A }\nusing { /B }\ncode()";
         expect(editor.buildOrganizedContent(input, [], curlyNoSort)).toBe("using { /A }\nusing { /B }\n\ncode()");

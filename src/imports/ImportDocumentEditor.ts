@@ -120,7 +120,10 @@ export function spliceLines(text: string, splices: LineSplice[], eol: LineEnding
             continue;
         }
         if (splice.start >= lineCount) {
-            out += eol + splice.newLines.join(eol);
+            // A file that ended in a line break still does after the append;
+            // one that did not stays that way, with the run's opening break
+            // the one separator the append adds.
+            out += eol + splice.newLines.join(eol) + (text.endsWith("\n") ? eol : "");
         } else {
             for (const line of splice.newLines) {
                 out += line + eol;
@@ -1372,9 +1375,11 @@ export class ImportDocumentEditor {
      * A line the rebuild does not touch comes back byte for byte, its own
      * line ending included; the rebuilt block takes the text's dominant
      * ending. Rebuilding an already organized document therefore reproduces
-     * it exactly and organizeImports can skip the edit, with one convergence:
-     * the first rebuild of a mixed-ending block normalizes that block, and
-     * only it.
+     * it exactly and organizeImports can skip the edit, with two
+     * convergences that settle after one further pass: the first rebuild of
+     * a mixed-ending block normalizes that block, and a block appended to a
+     * comment-only file with no final break gains one on the next rebuild,
+     * once the appended import gives the file a code line to insert above.
      */
     buildOrganizedContent(text: string, additionalPaths: string[], options: RebuildOptions, diagnosticPositionsByPath: DiagnosticPositionsByPath = NO_DIAGNOSTIC_POSITIONS): string | null {
         const eol = detectEol(text) ?? options.fallbackEol ?? "\n";

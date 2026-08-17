@@ -73,29 +73,57 @@ export interface LineSplice {
 }
 
 /**
- * `lines` with every splice applied, or null where two overlap or one reaches
- * outside the array. No placement branch emits either shape, so a null is a
+ * `text` with every splice applied, or null where two overlap or one reaches
+ * outside its lines. No placement branch emits either shape, so a null is a
  * composition bug - and it has to be answered here rather than by the rewrite
  * guard, which compares paths as a set and so cannot see an import written
  * twice by overlapping splices.
  *
+ * A line no splice touches comes back byte for byte, its own line ending
+ * included - rejoining the whole document with one ending would rewrite lines
+ * the caller never asked about, in a file whose endings are mixed. Only the
+ * spliced-in lines take `eol`, each written with an ending after it; a run
+ * appended past the last line instead opens with one and closes without, the
+ * one way to extend a document that does not end in a line break.
+ *
  * Insertions at one line keep their given order, and an insertion at the start
  * of a replaced range goes first, as VS Code applies a WorkspaceEdit's.
  */
-export function applyLineSplices(lines: string[], splices: LineSplice[]): string[] | null {
+export function spliceLines(text: string, splices: LineSplice[], eol: LineEnding): string | null {
+    const lineStarts = [0];
+    for (let i = 0; i < text.length; i++) {
+        if (text[i] === "\n") {
+            lineStarts.push(i + 1);
+        }
+    }
+    const lineCount = lineStarts.length;
+    const raw = (fromLine: number, toLineExclusive: number): string => {
+        if (fromLine >= lineCount) {
+            return "";
+        }
+        return text.slice(lineStarts[fromLine], toLineExclusive < lineCount ? lineStarts[toLineExclusive] : text.length);
+    };
+
     const ordered = [...splices].sort((a, b) => a.start - b.start || a.endExclusive - b.endExclusive);
 
-    const result: string[] = [];
+    let out = "";
     let cursor = 0;
     for (const splice of ordered) {
-        if (splice.start < cursor || splice.endExclusive < splice.start || splice.endExclusive > lines.length) {
+        if (splice.start < cursor || splice.endExclusive < splice.start || splice.endExclusive > lineCount) {
             return null;
         }
-        result.push(...lines.slice(cursor, splice.start), ...splice.newLines);
+        out += raw(cursor, splice.start);
+        if (splice.start >= lineCount) {
+            out += eol + splice.newLines.join(eol);
+        } else {
+            for (const line of splice.newLines) {
+                out += line + eol;
+            }
+        }
         cursor = splice.endExclusive;
     }
-    result.push(...lines.slice(cursor));
-    return result;
+    out += raw(cursor, lineCount);
+    return out;
 }
 
 /**
@@ -771,14 +799,12 @@ export class ImportDocumentEditor {
     }
 
     /**
-     * A splice rebuilding a block's line range as `newLines`, each written
-     * with a line ending after it - so a block ending the document gains a
-     * trailing break. The join only writes endings between lines, which makes
-     * that break an explicit empty line here.
+     * A splice rebuilding a block's line range as `newLines`. Each spliced
+     * line is written with an ending after it, so a block ending the document
+     * gains a trailing break.
      */
-    private blockSplice(block: ImportBlock, newLines: string[], lineCount: number): LineSplice {
-        const endExclusive = block.end + 1;
-        return { start: block.start, endExclusive, newLines: endExclusive >= lineCount ? [...newLines, ""] : newLines };
+    private blockSplice(block: ImportBlock, newLines: string[]): LineSplice {
+        return { start: block.start, endExclusive: block.end + 1, newLines };
     }
 
     /**
@@ -812,8 +838,8 @@ export class ImportDocumentEditor {
      * declines to re-emit. The cost is declining to hoist a copy written above
      * every pinned import when another copy below one is grounded.
      *
-     * Shared by the two writers that hoist into such a block, which is what
-     * keeps them from holding two rules about what a pinned line stops.
+     * Read by the one rebuild that hoists into such a block, which both entry
+     * points run when consolidating.
      */
     private groundedPaths(pinned: ScannedImport[], movable: ScannedImport[]): Set<string> {
         return new Set(movable.filter((imp) => this.crossesPinnedProvider(pinned, imp)).map((imp) => imp.path));
@@ -1122,7 +1148,7 @@ export class ImportDocumentEditor {
 
             for (const blockIndex of [...takenByBlock.keys()].sort((a, b) => a - b)) {
                 const block = importBlocks[blockIndex];
-                splices.push(this.blockSplice(block, this.blockReplacementLines(block, takenByBlock.get(blockIndex)!, preferDotSyntax, sortAlphabetically), lines.length));
+                splices.push(this.blockSplice(block, this.blockReplacementLines(block, takenByBlock.get(blockIndex)!, preferDotSyntax, sortAlphabetically)));
             }
 
             if (unhandledPaths.length > 0) {
@@ -1159,7 +1185,7 @@ export class ImportDocumentEditor {
                 // over any further block is defensive: this branch sees
                 // only one, as above.
                 const firstBlock = importBlocks[0];
-                splices.push(this.blockSplice(firstBlock, groupedImports, lines.length));
+                splices.push(this.blockSplice(firstBlock, groupedImports));
 
                 for (let i = importBlocks.length - 1; i >= 1; i--) {
                     const block = importBlocks[i];
@@ -1258,12 +1284,12 @@ export class ImportDocumentEditor {
                 //   at or below it ends before that span begins, and
                 //   floor + 1 is past the end of the block.
                 //
-                // applyLineSplices still checks, because this argument
+                // spliceLines still checks, because this argument
                 // holds for these two sites alone and a future site
                 // joins the splice list without re-reading it.
                 for (const index of [...pathsByBlock.keys()].sort((a, b) => a - b)) {
                     const block = importBlocks[index];
-                    splices.push(this.blockSplice(block, this.blockReplacementLines(block, pathsByBlock.get(index)!, preferDotSyntax, true), lines.length));
+                    splices.push(this.blockSplice(block, this.blockReplacementLines(block, pathsByBlock.get(index)!, preferDotSyntax, true)));
                 }
 
                 // headerEnd never decides anything here, and is passed
@@ -1304,8 +1330,7 @@ export class ImportDocumentEditor {
             }
         }
 
-        const spliced = applyLineSplices(lines, splices);
-        return spliced === null ? null : spliced.join(eol);
+        return spliceLines(text, splices, eol);
     }
 
     /**
@@ -1439,8 +1464,11 @@ export class ImportDocumentEditor {
         // whenever the caller has one, and the pinned consumer it names must
         // end up below the path added to resolve it.
         //
-        // Keys name the line the run is written above, clamped to the header's
-        // end so no bound can carry an import into the header.
+        // Keys name the line the run is written above. The header clamp is
+        // unreachable today - every bound derives from a pinned code line, and
+        // the header holds none - and is kept because the failure it insures
+        // against is an extra silently written into the header, which the
+        // guard cannot see.
         const topExtraPaths: string[] = [];
         const groundedExtrasByLine = new Map<number, string[]>();
         for (const path of extraPaths) {

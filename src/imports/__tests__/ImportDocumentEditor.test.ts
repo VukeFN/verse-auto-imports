@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { applyLineSplices, detectEol, ImportDocumentEditor, minimalSplice } from "../ImportDocumentEditor";
+import { detectEol, ImportDocumentEditor, minimalSplice, spliceLines } from "../ImportDocumentEditor";
 import { ImportFormatter } from "../ImportFormatter";
 import * as vscode from "vscode";
 
@@ -27,23 +27,27 @@ describe("detectEol", () => {
     });
 });
 
-describe("applyLineSplices", () => {
-    const lines = ["a", "b", "c", "d"];
+describe("spliceLines", () => {
+    const text = "a\nb\nc\nd";
 
-    it("returns the lines unchanged with no splices", () => {
-        expect(applyLineSplices(lines, [])).toEqual(["a", "b", "c", "d"]);
+    it("returns the text unchanged with no splices", () => {
+        expect(spliceLines(text, [], "\n")).toBe("a\nb\nc\nd");
     });
 
     it("replaces a range", () => {
-        expect(applyLineSplices(lines, [{ start: 1, endExclusive: 3, newLines: ["B"] }])).toEqual(["a", "B", "d"]);
+        expect(spliceLines(text, [{ start: 1, endExclusive: 3, newLines: ["B"] }], "\n")).toBe("a\nB\nd");
     });
 
     it("inserts above the line equal bounds name", () => {
-        expect(applyLineSplices(lines, [{ start: 2, endExclusive: 2, newLines: ["X"] }])).toEqual(["a", "b", "X", "c", "d"]);
+        expect(spliceLines(text, [{ start: 2, endExclusive: 2, newLines: ["X"] }], "\n")).toBe("a\nb\nX\nc\nd");
     });
 
-    it("appends with equal bounds at the array's length", () => {
-        expect(applyLineSplices(lines, [{ start: 4, endExclusive: 4, newLines: ["X"] }])).toEqual(["a", "b", "c", "d", "X"]);
+    it("appends past the last line by opening with a break and closing without one", () => {
+        expect(spliceLines(text, [{ start: 4, endExclusive: 4, newLines: ["X"] }], "\n")).toBe("a\nb\nc\nd\nX");
+    });
+
+    it("replaces a block ending the document with a trailing break after it", () => {
+        expect(spliceLines(text, [{ start: 2, endExclusive: 4, newLines: ["C"] }], "\n")).toBe("a\nb\nC\n");
     });
 
     it("applies splices by position whatever order they arrive in", () => {
@@ -51,7 +55,7 @@ describe("applyLineSplices", () => {
             { start: 3, endExclusive: 4, newLines: ["D"] },
             { start: 0, endExclusive: 1, newLines: ["A"] },
         ];
-        expect(applyLineSplices(lines, splices)).toEqual(["A", "b", "c", "D"]);
+        expect(spliceLines(text, splices, "\n")).toBe("A\nb\nc\nD\n");
     });
 
     it("puts an insertion at the start of a replaced range first", () => {
@@ -59,7 +63,7 @@ describe("applyLineSplices", () => {
             { start: 1, endExclusive: 3, newLines: ["B"] },
             { start: 1, endExclusive: 1, newLines: ["X"] },
         ];
-        expect(applyLineSplices(lines, splices)).toEqual(["a", "X", "B", "d"]);
+        expect(spliceLines(text, splices, "\n")).toBe("a\nX\nB\nd");
     });
 
     it("keeps two insertions at one line in their given order", () => {
@@ -67,7 +71,17 @@ describe("applyLineSplices", () => {
             { start: 2, endExclusive: 2, newLines: ["X"] },
             { start: 2, endExclusive: 2, newLines: ["Y"] },
         ];
-        expect(applyLineSplices(lines, splices)).toEqual(["a", "b", "X", "Y", "c", "d"]);
+        expect(spliceLines(text, splices, "\n")).toBe("a\nb\nX\nY\nc\nd");
+    });
+
+    it("keeps the exact ending of every line it does not touch", () => {
+        const mixed = "a\r\nb\nc\r\nd\n";
+        expect(spliceLines(mixed, [{ start: 1, endExclusive: 2, newLines: ["B"] }], "\n")).toBe("a\r\nB\nc\r\nd\n");
+    });
+
+    it("writes only the spliced-in lines with the given ending", () => {
+        const crlf = "a\r\nb\r\n";
+        expect(spliceLines(crlf, [{ start: 1, endExclusive: 1, newLines: ["X"] }], "\r\n")).toBe("a\r\nX\r\nb\r\n");
     });
 
     it("refuses overlapping splices", () => {
@@ -75,15 +89,15 @@ describe("applyLineSplices", () => {
             { start: 0, endExclusive: 2, newLines: ["A"] },
             { start: 1, endExclusive: 3, newLines: ["B"] },
         ];
-        expect(applyLineSplices(lines, splices)).toBeNull();
+        expect(spliceLines(text, splices, "\n")).toBeNull();
     });
 
-    it("refuses a splice reaching past the array", () => {
-        expect(applyLineSplices(lines, [{ start: 3, endExclusive: 5, newLines: [] }])).toBeNull();
+    it("refuses a splice reaching past the lines", () => {
+        expect(spliceLines(text, [{ start: 3, endExclusive: 5, newLines: [] }], "\n")).toBeNull();
     });
 
     it("refuses inverted bounds", () => {
-        expect(applyLineSplices(lines, [{ start: 2, endExclusive: 1, newLines: [] }])).toBeNull();
+        expect(spliceLines(text, [{ start: 2, endExclusive: 1, newLines: [] }], "\n")).toBeNull();
     });
 });
 
@@ -1417,8 +1431,9 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
     });
 
     // The auto-import path, which users reach without invoking a command. It
-    // rebuilds a block through createBlockReplacementEdit rather than through
-    // buildOrganizedContent, and reads trailing comments off that block alone.
+    // rebuilds a block in place through blockReplacementLines rather than
+    // through buildOrganizedContent, and reads trailing comments off that
+    // block alone.
     it("keeps the comment trailing an existing import when a new one joins its block", async () => {
         const input = ["using { /Zebra } # network only", "", "hello := 1"].join("\n");
 
@@ -1774,6 +1789,18 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
         expect(appliedText(input)).toBe("using { /Fortnite.com/Devices }\r\nusing { /Verse.org/Simulation }\r\n\r\nhello := 1\r\n");
     });
 
+    // Auto-import fires on every compile diagnostic, so a line it was never
+    // asked about must come back byte for byte - a mixed-ending file included,
+    // where rejoining with one dominant ending would rewrite it.
+    it("leaves the stray endings of a mixed-ending document alone", async () => {
+        const input = "using { /M }\nusing { /Z }\n\ncode()\r\nmore()\nlast()\n";
+
+        const success = await editor.addImportsToDocument(fakeDocument(input), ["using { /A }"]);
+
+        expect(success).toBe(true);
+        expect(appliedText(input)).toBe("using { /A }\nusing { /M }\nusing { /Z }\n\ncode()\r\nmore()\nlast()\n");
+    });
+
     it("preserve + digestFirst: inserts at the top when the file has no existing imports", async () => {
         mockConfig({
             "behavior.preserveImportLocations": true,
@@ -1835,8 +1862,7 @@ describe("ImportDocumentEditor.addImportsToDocument", () => {
 
         // Every case above has code below the header. Where the header is an
         // opener that never closes it runs to the last line instead, and the
-        // insert took insertImportLines' end-of-document branch - appending the
-        // import after that line, inside the comment.
+        // import was appended past that line - inside the comment.
         it("writes above an opener that never closes, not past the last line", async () => {
             mockConfig({ "behavior.preserveImportLocations": true });
             const input = ["<# note", "still note"].join("\n");
@@ -2744,7 +2770,8 @@ describe("ImportDocumentEditor rewrite verification", () => {
             ["an annotated import", "# why /A is here\nusing { /A }\n\ncode()"],
             ["an import pinned by a second statement", "X := 1; using { /A }\ncode()"],
             ["a commented-out import", "<#\nusing { /Old }\n#>\nusing { /A }\n\ncode()"],
-            ["an indented using pair", "using{\n    /A\n}\ncode()"],
+            ["a multi-line braced clause", "using{\n    /A\n}\ncode()"],
+            ["an indented using pair", "using:\n    /A\ncode()"],
             ["a using inside a module body", "using { /A }\n\nM := module:\n    using { /B }\n    F():void = {}"],
             ["two gapped blocks", "using { /A }\n\nusing { Local.One }\n\ncode()"],
             ["a relative import under an absolute one", "using { /A }\nusing { Local.One }\n\ncode()"],
@@ -2809,6 +2836,11 @@ describe("ImportDocumentEditor.buildPreservedContent", () => {
     it("leaves every line it does not rewrite untouched", () => {
         const input = "# note\nusing { /A }\n\ncode()\nmore()";
         expect(editor.buildPreservedContent(input, ["/B"], defaults)).toBe("# note\nusing { /A }\nusing { /B }\n\ncode()\nmore()");
+    });
+
+    it("keeps the stray endings of a mixed-ending file outside the rewrite", () => {
+        const input = "using { /M }\nusing { /Z }\n\ncode()\r\nmore()\nlast()\n";
+        expect(editor.buildPreservedContent(input, ["/A"], defaults)).toBe("using { /A }\nusing { /M }\nusing { /Z }\n\ncode()\r\nmore()\nlast()\n");
     });
 });
 

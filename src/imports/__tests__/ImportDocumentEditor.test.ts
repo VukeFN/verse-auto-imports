@@ -192,6 +192,11 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
         expect(editor.buildOrganizedContent("foo := 1\nbar := 2", [], curlyNoSort)).toBeNull();
     });
 
+    it("keeps the stray endings of a mixed-ending file outside the rebuilt block", () => {
+        const input = "using { /M }\nusing { /Z }\n\ncode()\r\nmore()\nlast()\n";
+        expect(editor.buildOrganizedContent(input, ["/A"], curlySorted)).toBe("using { /A }\nusing { /M }\nusing { /Z }\n\ncode()\r\nmore()\nlast()\n");
+    });
+
     it("consolidates existing imports at the top with one blank line before code", () => {
         const input = "using { /A }\nusing { /B }\ncode()";
         expect(editor.buildOrganizedContent(input, [], curlyNoSort)).toBe("using { /A }\nusing { /B }\n\ncode()");
@@ -1037,7 +1042,7 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
     // being open, so neither of these moves.
     it("still writes below a header of entirely closed comment", () => {
         const input = ["<# note #>", "# more"].join("\n");
-        expect(editor.buildOrganizedContent(input, ["/B"], curlySorted)).toBe(["<# note #>", "# more", "using { /B }", ""].join("\n"));
+        expect(editor.buildOrganizedContent(input, ["/B"], curlySorted)).toBe(["<# note #>", "# more", "using { /B }"].join("\n"));
     });
 
     // A `<#>` marker raises no block-comment depth, and a column-0 line ends
@@ -1045,7 +1050,7 @@ describe("ImportDocumentEditor.buildOrganizedContent", () => {
     // code and the import belongs there.
     it("still writes below an indented comment whose body ends the buffer", () => {
         const input = ["<#> note", "    body"].join("\n");
-        expect(editor.buildOrganizedContent(input, ["/B"], curlySorted)).toBe(["<#> note", "    body", "using { /B }", ""].join("\n"));
+        expect(editor.buildOrganizedContent(input, ["/B"], curlySorted)).toBe(["<#> note", "    body", "using { /B }"].join("\n"));
     });
 
     it("writes the preferred dot syntax", () => {

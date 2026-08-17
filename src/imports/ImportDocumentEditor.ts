@@ -113,6 +113,12 @@ export function spliceLines(text: string, splices: LineSplice[], eol: LineEnding
             return null;
         }
         out += raw(cursor, splice.start);
+        if (splice.newLines.length === 0) {
+            // Nothing to write; falling through would open a past-the-end run
+            // with a break it never closes.
+            cursor = splice.endExclusive;
+            continue;
+        }
         if (splice.start >= lineCount) {
             out += eol + splice.newLines.join(eol);
         } else {
@@ -985,8 +991,7 @@ export class ImportDocumentEditor {
      * preserve-locations policy puts them: merged into an existing block,
      * added to the author's own grouping, or written on their own line beside
      * the imports each must sit relative to. Every line the policy does not
-     * rewrite comes back byte for byte, modulo the one line ending the result
-     * is joined with.
+     * rewrite comes back byte for byte, its own line ending included.
      *
      * Returns null when nothing is left to add - every path blank or already
      * imported - and null when the computed splices collide, which is a
@@ -1364,9 +1369,12 @@ export class ImportDocumentEditor {
      * directly below the pinned statement that constrains it. See
      * crossesPinnedProvider, pinnedBounds and placementLine.
      *
-     * The result keeps the text's own line ending, so rebuilding an already
-     * organized document reproduces it byte for byte and organizeImports can
-     * skip the edit.
+     * A line the rebuild does not touch comes back byte for byte, its own
+     * line ending included; the rebuilt block takes the text's dominant
+     * ending. Rebuilding an already organized document therefore reproduces
+     * it exactly and organizeImports can skip the edit, with one convergence:
+     * the first rebuild of a mixed-ending block normalizes that block, and
+     * only it.
      */
     buildOrganizedContent(text: string, additionalPaths: string[], options: RebuildOptions, diagnosticPositionsByPath: DiagnosticPositionsByPath = NO_DIAGNOSTIC_POSITIONS): string | null {
         const eol = detectEol(text) ?? options.fallbackEol ?? "\n";
@@ -1512,33 +1520,6 @@ export class ImportDocumentEditor {
             commentsByPath.set(imp.path, [...(commentsByPath.get(imp.path) ?? []), ...lines.slice(commentStart, imp.startLine)]);
         }
 
-        const header = lines.slice(0, headerEnd);
-        const body: string[] = [];
-        for (let index = headerEnd; index < lines.length; index++) {
-            const groundedExtras = groundedExtrasByLine.get(index);
-            if (groundedExtras) {
-                // Grouping is a property of the block at the top, so a run
-                // written between two body lines is emitted ungrouped: the
-                // separator a strategy puts between its two groups would read
-                // as a gap in the code around it.
-                //
-                // Emitted above the keyed line whether or not that line itself
-                // survives the hoist: a floor's own line is pinned and always
-                // survives, but a placement one past a hoisted import must not
-                // vanish with it.
-                body.push(...this.formatter.groupAndFormatImports(groundedExtras, options.preferDotSyntax, options.sortAlphabetically, "none"));
-            }
-            if (!hoistedLines.has(index)) {
-                body.push(lines[index]);
-            }
-        }
-        // A path floored by a span ending the file is keyed one past the last
-        // line, which the loop never reaches.
-        const trailingExtras = groundedExtrasByLine.get(lines.length);
-        if (trailingExtras) {
-            body.push(...this.formatter.groupAndFormatImports(trailingExtras, options.preferDotSyntax, options.sortAlphabetically, "none"));
-        }
-
         const uniquePaths = Array.from(new Set([...paths, ...topExtraPaths]));
         const formatted = this.formatter.groupAndFormatImports(uniquePaths, options.preferDotSyntax, options.sortAlphabetically, options.importGrouping);
 
@@ -1559,26 +1540,60 @@ export class ImportDocumentEditor {
             return comments ? [...comments, line] : [line];
         });
 
-        // Drop blank lines the removed imports left at the top; the gap after
-        // the block is normalized by ensureEmptyLinesAfterImports afterwards.
-        let firstContent = 0;
-        while (firstContent < body.length && body[firstContent].trim() === "") {
-            firstContent++;
-        }
-        const remainingBody = body.slice(firstContent);
+        // The rest is composed as splices over the original text, so a line
+        // the rebuild does not touch comes back byte for byte - the contract
+        // buildPreservedContent keeps, stated once in spliceLines.
+        const splices: LineSplice[] = [];
 
-        if (remainingBody.length === 0) {
-            return [...header, ...block].join(eol) + eol;
+        // Blank lines the removed imports would leave at the head of the body
+        // are dropped; the gap after the block is normalized by
+        // ensureEmptyLinesAfterImports afterwards. The walk stops where the
+        // body's first content will sit: a grounded run, or the first
+        // surviving non-blank line.
+        const trimmedBlanks = new Set<number>();
+        let firstBodyLine = -1;
+        for (let index = headerEnd; index < lines.length; index++) {
+            if (groundedExtrasByLine.has(index)) {
+                firstBodyLine = index;
+                break;
+            }
+            if (hoistedLines.has(index)) {
+                continue;
+            }
+            if (lines[index].trim() === "") {
+                trimmedBlanks.add(index);
+                continue;
+            }
+            firstBodyLine = index;
+            break;
+        }
+        const bodyRemains = firstBodyLine !== -1 || groundedExtrasByLine.size > 0;
+
+        if (block.length > 0) {
+            // The separator stands between the block and a body that follows;
+            // with nothing below, the block just ends the file. No block, no
+            // separator either - a blank line would stand where the block
+            // would have been.
+            splices.push({ start: headerEnd, endExclusive: headerEnd, newLines: bodyRemains ? [...block, ""] : block });
         }
 
-        // Every path was withheld, so there is no block to separate from the
-        // body. Writing the separator anyway would put a blank line where the
-        // block would have been.
-        if (block.length === 0) {
-            return [...header, ...remainingBody].join(eol);
+        for (const line of [...hoistedLines, ...trimmedBlanks]) {
+            splices.push({ start: line, endExclusive: line + 1, newLines: [] });
         }
 
-        return [...header, ...block, "", ...remainingBody].join(eol);
+        for (const [line, extraPathsAtLine] of groundedExtrasByLine) {
+            // Grouping is a property of the block at the top, so a run written
+            // between two body lines is emitted ungrouped: the separator a
+            // strategy puts between its two groups would read as a gap in the
+            // code around it.
+            //
+            // Written above the keyed line whether or not that line itself
+            // survives the hoist: an insertion at the start of a removed range
+            // lands before the removal.
+            splices.push({ start: line, endExclusive: line, newLines: this.formatter.groupAndFormatImports(extraPathsAtLine, options.preferDotSyntax, options.sortAlphabetically, "none") });
+        }
+
+        return spliceLines(text, splices, eol);
     }
 
     /**

@@ -403,7 +403,7 @@
     "@types/vscode": "1.85.0",
     "@vscode/test-electron": "^3.1.0",
     "jest": "^30.5.1",
-    "mocha": "^11.8.0",
+    "mocha": "^12.0.0",
     "prettier": "^3.9.6",
     "ts-jest": "^29.4.12",
     "ts-node": "^10.9.2",

@@ -402,7 +402,7 @@
     "@types/node": "^26.4.1",
     "@types/vscode": "1.85.0",
     "@vscode/test-electron": "^3.1.0",
-    "jest": "^30.3.0",
+    "jest": "^30.5.1",
     "mocha": "^11.8.0",
     "prettier": "^3.9.6",
     "ts-jest": "^29.4.12",
